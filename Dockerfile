@@ -5,7 +5,7 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg2 \
-    nano \
+    nano \https://reimagined-space-palm-tree-q769jrg4pr96f654g.github.dev/
     postgresql-15 \
     postgresql-client-15 \
     postgresql-contrib \
@@ -50,7 +50,6 @@ WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY init-db.sh /app/init-db.sh
 COPY nginx/default.conf /app/nginx/default.conf
-COPY . . 
 
 # ========== 9) 設定可執行權限 ==========
 RUN chmod +x /app/init-db.sh
