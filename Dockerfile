@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY init-db.sh /app/init-db.sh
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf  # 修正路徑
 
 # ========== 9) 複製應用程式碼 ==========
 COPY express/ ./express/
