@@ -92,22 +92,3 @@ const PORT = 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] Server running on port ${PORT}...`);
 });
-
-對應的 express/package.json：
-
-{
-  "name": "suzukaizokuhunter-express",
-  "version": "1.0.0",
-  "description": "Express server for suzookaizokuhunter.com",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "pg": "^8.10.0",
-    "redis": "^4.6.7",
-    "axios": "^1.3.4"
-  }
-}
