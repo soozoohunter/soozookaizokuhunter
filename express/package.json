@@ -1,7 +1,7 @@
 {
-  "name": "suzukaizokuhunter-express",
+  "name": "soozookaizokuhunter-express",
   "version": "1.0.0",
-  "description": "Express server for suzookaizokuhunter.com",
+  "description": "Express server for soozookaizokuhunter.com",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
