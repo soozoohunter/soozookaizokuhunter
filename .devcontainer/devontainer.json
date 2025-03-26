@@ -1,0 +1,7 @@
+{
+  "name": "My Codespace with Docker",
+  "features": {
+    "docker-in-docker": "latest"
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y netcat"
+}
