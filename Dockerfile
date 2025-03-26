@@ -1,16 +1,7 @@
-# Dockerfile - 單容器整合 PostgreSQL + Redis + Express + FastAPI + Nginx + Supervisor
-# 解法 B: 保留原生 psycopg2，需要安裝 gcc/build-essential 等編譯工具
-
+# Dockerfile - 單容器整合 PostgreSQL + Redis + Express + FastAPI + Nginx + Supervisord
 FROM python:3.10-slim
 
-# ========== (可選) 若預設 apt source 無法安裝 postgresql-15，請取消下列區塊註解 ==========
-# RUN apt-get update && apt-get install -y wget gnupg2 lsb-release
-# RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" \
-#     > /etc/apt/sources.list.d/pgdg.list
-# RUN wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
-# ===============================================================================
-
-# ========== 1) 安裝系統套件 (包含編譯工具, PostgreSQL 15, Redis, Nginx, Supervisor) ==========
+# ========== 1) 安裝系統套件與必要工具 ==========
 RUN apt-get update && apt-get install -y \
     curl \
     gnupg2 \
@@ -21,11 +12,10 @@ RUN apt-get update && apt-get install -y \
     redis-server \
     supervisor \
     nginx \
+    build-essential \
     netcat-openbsd \
     libpq-dev \
     python3-dev \
-    build-essential \
-    gcc \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ========== 2) 安裝 Node.js 18 ==========
@@ -33,46 +23,48 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get update && apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# ========== 3) 建立 PostgreSQL/Redis/Nginx 目錄 & 權限 ==========
+# ========== 3) 建立必要資料夾 & 權限設定 ==========
 RUN mkdir -p /var/lib/postgresql/data /var/lib/redis /var/lib/nginx /var/log/nginx && \
     chown -R postgres:postgres /var/lib/postgresql/data && \
     chown -R www-data:www-data /var/lib/nginx /var/log/nginx
 
-# ========== 4) 宣告 Volume (保留資料) ==========
+# ========== 4) 宣告 Volume (讓資料持久化) ==========
 VOLUME /var/lib/postgresql/data
 VOLUME /var/lib/redis
 
-# ========== 5) 預先複製依賴檔案 (express/package.json, fastapi/requirements.txt) ==========
+# ========== 5) WORKDIR 與預先複製依賴檔案 ==========
 WORKDIR /app
 COPY express/package*.json ./express/
 COPY fastapi/requirements.txt ./fastapi/
 
-# ========== 6) 安裝 Express 依賴 (Node.js) ==========
+# ========== 6) 安裝 Express 依賴 ==========
 WORKDIR /app/express
 RUN npm install --omit=dev
 
-# ========== 7) 安裝 FastAPI 依賴 (python, 含原生 psycopg2) ==========
+# ========== 7) 安裝 FastAPI 依賴 ==========
 WORKDIR /app/fastapi
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ========== 8) 複製其餘檔案 (supervisord.conf, init-db.sh, nginx/default.conf, 整個專案) ==========
+# ========== 8) 複製其他檔案到 /app ==========
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY init-db.sh /app/init-db.sh
 COPY nginx/default.conf /app/nginx/default.conf
-COPY . .  # 複製整個 suzukaizokuhunter/ 包含 express/, fastapi/
+COPY . .   # 會把 express/、fastapi/ 等所有內容一併複製 (受 .dockerignore 約束)
 
-# ========== 9) 設定可執行權限 & 移除預設 Nginx config + Link default.conf ==========
-RUN chmod +x /app/init-db.sh && \
-    rm -f /etc/nginx/sites-enabled/default && \
+# ========== 9) 設定可執行權限 ==========
+RUN chmod +x /app/init-db.sh
+
+# ========== 10) 移除 Nginx 預設設定 + 建立連結到 /etc/nginx/conf.d ==========
+RUN rm -f /etc/nginx/sites-enabled/default && \
     ln -sf /app/nginx/default.conf /etc/nginx/conf.d/default.conf
 
-# ========== 10) 對外埠 80 ==========
+# ========== 11) 暴露對外 Port 80 ==========
 EXPOSE 80
 
-# ========== 11) HEALTHCHECK (可選) ==========
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
+# ========== 12) 健康檢查 (可增進穩定性) ==========
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
   CMD nc -z localhost 5432 && nc -z localhost 6379 && curl -f http://localhost/express/ || exit 1
 
-# ========== 12) 以 supervisor 同時啟動 (Postgres, Redis, Express, FastAPI, Nginx) ==========
+# ========== 13) 以 supervisor 控制多服務 ==========
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
