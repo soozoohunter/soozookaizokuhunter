@@ -50,7 +50,7 @@ WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY init-db.sh /app/init-db.sh
 COPY nginx/default.conf /app/nginx/default.conf
-COPY . .   # 會把 express/、fastapi/ 等所有內容一併複製 (受 .dockerignore 約束)
+COPY . . 
 
 # ========== 9) 設定可執行權限 ==========
 RUN chmod +x /app/init-db.sh
