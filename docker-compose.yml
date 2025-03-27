@@ -1,0 +1,97 @@
+version: '3.9'
+
+networks:
+  backend:
+    driver: bridge
+
+services:
+  db:
+    build: ./db
+    container_name: postgres_db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - /mnt/postgres_backup:/backup
+    networks:
+      - backend
+    # 移除 "ports: ... "，不對外暴露5432
+
+  express:
+    build: ./express
+    container_name: express_app
+    depends_on:
+      - db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JWT_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - DMCA_AUTO_NOTIFY=${DMCA_AUTO_NOTIFY}
+    volumes:
+      - ./express/uploads:/app/uploads
+    networks:
+      - backend
+    expose:
+      - "3000"
+
+  fastapi:
+    build: ./fastapi
+    container_name: fastapi_app
+    depends_on:
+      - db
+    environment:
+      - BLOCKCHAIN_RPC=${BLOCKCHAIN_RPC}
+      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASS=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+      - INFURA_IPFS_PROJECT_ID=${INFURA_IPFS_PROJECT_ID}
+      - INFURA_IPFS_PROJECT_SECRET=${INFURA_IPFS_PROJECT_SECRET}
+      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
+      - RAPIDAPI_WEBSITE_SCRAPER=${RAPIDAPI_WEBSITE_SCRAPER}
+      - RAPIDAPI_IG_SCRAPER=${RAPIDAPI_IG_SCRAPER}
+      - RAPIDAPI_IG_SCRAPER_STABLE=${RAPIDAPI_IG_SCRAPER_STABLE}
+      - RAPIDAPI_FB_SCRAPER=${RAPIDAPI_FB_SCRAPER}
+      - RAPIDAPI_IG_REALTIME=${RAPIDAPI_IG_REALTIME}
+      - RAPIDAPI_SHOPEE_SCRAPER=${RAPIDAPI_SHOPEE_SCRAPER}
+      - RAPIDAPI_TIKTOK_SCRAPER=${RAPIDAPI_TIKTOK_SCRAPER}
+      - GDRIVE_API_KEY=${GDRIVE_API_KEY}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
+      - GOOGLE_SERVICE_ACCOUNT=${GOOGLE_SERVICE_ACCOUNT}
+    networks:
+      - backend
+    expose:
+      - "8000"
+    deploy:
+      replicas: 3
+      # 注意: replicas 需 Docker Swarm 或 k8s, docker-compose(非swarm)不支援
+
+  nginx:
+    build: ./nginx
+    container_name: nginx_proxy
+    depends_on:
+      - express
+      - fastapi
+    ports:
+      - "80:80"
+    networks:
+      - backend
+
+volumes:
+  db_data:
