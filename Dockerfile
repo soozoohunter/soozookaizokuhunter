@@ -12,10 +12,10 @@ RUN apt-get update && apt-get install -y \
     redis-server \
     supervisor \
     nginx \
-    build-essential \
+    build-essential \        # 編譯工具 (包含 gcc, make)
     netcat-openbsd \
-    libpq-dev \
-    python3-dev \
+    libpq-dev \               # PostgreSQL 開發庫
+    python3-dev \             # Python 開發頭文件
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ========== 2) 安裝 Node.js 18 ==========
@@ -43,13 +43,14 @@ RUN npm install --omit=dev
 
 # ========== 7) 安裝 FastAPI 依賴 ==========
 WORKDIR /app/fastapi
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools && \
+    pip install --no-cache-dir -r requirements.txt
 
 # ========== 8) 複製其他檔案到 /app ==========
 WORKDIR /app
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY init-db.sh /app/init-db.sh
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf  # 修正路徑
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
 # ========== 9) 複製應用程式碼 ==========
 COPY express/ ./express/
@@ -66,7 +67,7 @@ EXPOSE 80
 
 # ========== 13) 健康檢查 ==========
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
-  CMD nc -z localhost 5432 && nc -z localhost 6379 && curl -f http://localhost/express/ || exit 1
+  CMD nc -z localhost 5432 && nc -z localhost 6379 && curl -f http://localhost/express/healthz || exit 1
 
 # ========== 14) 以 supervisor 控制多服務 ==========
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
