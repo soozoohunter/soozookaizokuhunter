@@ -1,60 +1,60 @@
 import os
 from web3 import Web3
 import ipfshttpclient
-import base64
+import json
+from datetime import datetime
 
 BLOCKCHAIN_RPC = os.getenv('BLOCKCHAIN_RPC')
 BLOCKCHAIN_PRIVATE_KEY = os.getenv('BLOCKCHAIN_PRIVATE_KEY')
 INFURA_IPFS_PROJECT_ID = os.getenv('INFURA_IPFS_PROJECT_ID')
 INFURA_IPFS_PROJECT_SECRET = os.getenv('INFURA_IPFS_PROJECT_SECRET')
 
-# 區塊鏈初始化
 w3 = Web3(Web3.HTTPProvider(BLOCKCHAIN_RPC))
-account = w3.eth.account.from_key(BLOCKCHAIN_PRIVATE_KEY)
+
+try:
+    account = w3.eth.account.from_key(BLOCKCHAIN_PRIVATE_KEY)
+except Exception as e:
+    account = None
+    print("區塊鏈私鑰初始化失敗:", e)
 
 def get_ipfs_client():
-    """
-    連線到 Infura IPFS Gateway
-    https://ipfs.infura.io:5001
-    """
-    project_id = INFURA_IPFS_PROJECT_ID
-    project_secret = INFURA_IPFS_PROJECT_SECRET
-    # Infura的認證
-    auth = (project_id + ":" + project_secret)
+    auth = INFURA_IPFS_PROJECT_ID + ":" + INFURA_IPFS_PROJECT_SECRET
     infura_url = "/dns4/ipfs.infura.io/tcp/5001/https"
     return ipfshttpclient.connect(infura_url, auth=auth)
 
 def upload_to_ipfs(data: bytes) -> str:
-    """
-    將檔案(或資料)上傳到Infura IPFS
-    回傳IPFS CID
-    """
     client = get_ipfs_client()
-    # 可以直接把 bytes 寫入临时檔再上傳，這裡直接 base64
     tmp_file = "temp.bin"
     with open(tmp_file, "wb") as f:
         f.write(data)
     res = client.add(tmp_file)
     cid = res["Hash"]
-    # 刪除暫存檔
     client.close()
     return cid
 
-def upload_to_eth(data: bytes):
+def upload_to_eth(data: bytes, owner_id: int = 0):
     """
-    先上傳IPFS取得CID，然後把 CID 寫進交易 data
+    將檔案上傳IPFS, 取得CID後, 連同owner, timestamp 以JSON寫入tx data
     """
+    if not account:
+        return "私鑰無效, 無法上鏈"
+
     cid = upload_to_ipfs(data)
-    cid_bytes = cid.encode('utf-8')
+    metadata = {
+        "owner": owner_id,
+        "timestamp": datetime.utcnow().isoformat(),
+        "ipfs_cid": cid
+    }
+    tx_data = json.dumps(metadata).encode()
 
     nonce = w3.eth.get_transaction_count(account.address)
     tx = {
         'nonce': nonce,
-        'to': account.address,  # 簡化處理
+        'to': account.address,
         'value': 0,
-        'gas': 210000,          # 上調gas
+        'gas': 300000,
         'gasPrice': w3.toWei('5', 'gwei'),
-        'data': cid_bytes
+        'data': tx_data
     }
     signed_tx = w3.eth.account.sign_transaction(tx, BLOCKCHAIN_PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
