@@ -7,10 +7,9 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { Sequelize, DataTypes } = require('sequelize');
 const cloudinary = require('cloudinary').v2;
-const path = require('path');
 
 /////////////////////////////////
-// 1. 讀取環境變數
+// 1. 環境變數
 /////////////////////////////////
 const {
   POSTGRES_USER,
@@ -34,7 +33,7 @@ const {
 } = process.env;
 
 /////////////////////////////////
-// 2. Cloudinary 初始化
+// 2. Cloudinary
 /////////////////////////////////
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
@@ -43,14 +42,14 @@ cloudinary.config({
 });
 
 /////////////////////////////////
-// 3. PostgreSQL (Sequelize)
+// 3. PostgreSQL
 /////////////////////////////////
 const sequelize = new Sequelize(
   `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,
   { dialect: 'postgres', logging: false }
 );
 
-// User & Work Model
+// Model
 const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, unique: true },
   password: DataTypes.STRING
@@ -64,7 +63,7 @@ const Work = sequelize.define('Work', {
 }, { tableName: 'works' });
 
 /////////////////////////////////
-// 4. Nodemailer (SMTP)
+// 4. Nodemailer
 /////////////////////////////////
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
@@ -77,12 +76,18 @@ const transporter = nodemailer.createTransport({
 });
 
 /////////////////////////////////
-// 5. JWT
+// 5. JWT + Token撤銷
 /////////////////////////////////
+const revokedTokens = new Set();
+
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '2h' });
 }
+
 function verifyToken(token) {
+  if (revokedTokens.has(token)) {
+    return null; // 已被撤銷
+  }
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch(e) {
@@ -91,22 +96,12 @@ function verifyToken(token) {
 }
 
 /////////////////////////////////
-// 6. 檔案上傳設定 (白名單檢查)
+// 6. Multer (白名單檔案)
 /////////////////////////////////
 const allowedMime = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
   'video/mp4', 'video/x-m4v', 'video/*'
 ];
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    // 保留原檔名 or 改random?
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
 
 function fileFilter(req, file, cb) {
   if(!allowedMime.includes(file.mimetype)) {
@@ -115,7 +110,7 @@ function fileFilter(req, file, cb) {
   cb(null, true);
 }
 
-const upload = multer({ storage, fileFilter });
+const upload = multer({ dest: 'uploads/', fileFilter });
 
 /////////////////////////////////
 // 7. Express Init
@@ -124,12 +119,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 7-1) 健康檢查
+// 日誌過濾函數
+function safeLogError(msg, err) {
+  let safeMessage = err.message || err.toString();
+  // 隱藏 Email Pass
+  safeMessage = safeMessage.replace(EMAIL_PASS, '***');
+  console.error(msg, safeMessage);
+}
+
+// 健康檢查
 app.get('/health', (req, res) => {
-  return res.json({ status: 'ok', service: 'Express' });
+  return res.json({ status: 'ok', service: 'Express V4' });
 });
 
-// 7-2) 註冊
+// 註冊
 app.post('/signup', async (req, res) => {
   const { email, password } = req.body;
   if(!email || !password) {
@@ -142,7 +145,6 @@ app.post('/signup', async (req, res) => {
   }
   let newUser = await User.create({ email, password });
 
-  // 寄送歡迎信
   try {
     await transporter.sendMail({
       from: EMAIL_FROM,
@@ -151,13 +153,13 @@ app.post('/signup', async (req, res) => {
       text: '感謝您註冊 KaiKaiShield，本服務已為您開通。'
     });
   } catch(e) {
-    console.error('寄信失敗：', e);
+    safeLogError('寄信失敗：', e);
   }
 
   return res.json({ message: '註冊成功', userId: newUser.id });
 });
 
-// 7-3) 登入
+// 登入
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   let user = await User.findOne({ where: { email, password } });
@@ -168,35 +170,40 @@ app.post('/login', async (req, res) => {
   return res.json({ message: '登入成功', token });
 });
 
-// 7-4) 上傳文件 (DCDV / SCDV)
+// 登出 (撤銷token)
+app.post('/logout', (req, res) => {
+  const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
+  if(!token) {
+    return res.status(400).json({ error: '缺少token' });
+  }
+  revokedTokens.add(token);
+  return res.json({ message: 'Token已被撤銷' });
+});
+
+// 上傳 (DCDV / SCDV)
 app.post('/upload', upload.single('file'), async (req, res) => {
-  // JWT 驗證
   const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
   const decoded = verifyToken(token);
   if(!decoded) {
-    return res.status(401).json({ error: '未授權，請提供有效 JWT' });
+    return res.status(401).json({ error: '未授權或Token已失效' });
   }
-
   if(!req.file) {
     return res.status(400).json({ error: '請選擇檔案' });
   }
 
-  // 產生二次雜湊指紋 (混合 userId & timestamp)
+  // 二次雜湊
   const fileBuffer = fs.readFileSync(req.file.path);
   const salt = `${decoded.userId}_${Date.now()}`;
   const combinedBuffer = Buffer.concat([fileBuffer, Buffer.from(salt)]);
   const fingerprint = crypto.createHash('sha256').update(combinedBuffer).digest('hex');
 
   try {
-    // 上傳到 Cloudinary
     const cloudinaryRes = await cloudinary.uploader.upload(req.file.path, {
       resource_type: 'auto'
     });
-    // 刪除本地檔案
     fs.unlinkSync(req.file.path);
 
-    // 存DB
-    const newWork = await Work.create({
+    let newWork = await Work.create({
       title: req.body.title || 'Untitled',
       fingerprint,
       cloudinaryUrl: cloudinaryRes.secure_url,
@@ -210,12 +217,12 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       workId: newWork.id
     });
   } catch(e) {
-    console.error('上傳失敗：', e);
+    safeLogError('上傳失敗：', e);
     return res.status(500).json({ error: e.toString() });
   }
 });
 
-// 7-5) DMCA / 侵權通報
+// DMCA通報
 app.post('/dmca/report', async (req, res) => {
   const { infringingUrl, originalWorkId } = req.body;
   if(!infringingUrl || !originalWorkId) {
@@ -240,12 +247,12 @@ app.post('/dmca/report', async (req, res) => {
         text: `侵權網址: ${infringingUrl}\n作者: ${user.email}\nFingerprint: ${work.fingerprint}\n請求下架。`
       });
     } catch(e) {
-      console.error('DMCA 寄信失敗：', e);
+      safeLogError('DMCA寄信失敗：', e);
     }
   }
 
   return res.json({
-    message: '已收到 DMCA 侵權通報',
+    message: '已收到DMCA侵權通報',
     autoNotified: (DMCA_AUTO_NOTIFY === 'true'),
   });
 });
