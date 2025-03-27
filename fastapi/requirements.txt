@@ -1,5 +1,9 @@
-fastapi==0.95.0
-uvicorn==0.21.1
-requests==2.28.2
-psycopg2==2.9.6
-redis==4.6.0
+fastapi==0.85.0
+uvicorn==0.18.2
+requests==2.28.1
+beautifulsoup4==4.11.1
+web3==5.31.1
+python-dotenv==0.20.0
+psycopg2-binary==2.9.3
+pydantic==1.10.2
+ipfshttpclient==0.8.0a2  # 新增: 支援連接 IPFS 節點
