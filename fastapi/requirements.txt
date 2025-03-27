@@ -7,3 +7,4 @@ python-dotenv==0.20.0
 psycopg2-binary==2.9.3
 pydantic==1.10.2
 ipfshttpclient==0.8.0a2
+solcx==0.14.0
