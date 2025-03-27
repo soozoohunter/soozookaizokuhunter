@@ -1,3 +1,7 @@
+networks:
+  backend:
+    driver: bridge
+
 services:
   db:
     build: ./db
@@ -11,7 +15,7 @@ services:
       - /mnt/postgres_backup:/backup
     networks:
       - backend
-    # 不對外暴露5432 => 無 "ports:" 或 "expose:"
+    # 移除 "ports: ... "，不對外暴露5432
 
   express:
     build: ./express
@@ -43,7 +47,6 @@ services:
 
   fastapi:
     build: ./fastapi
-    container_name: fastapi_app
     depends_on:
       - db
     environment:
@@ -72,9 +75,9 @@ services:
       - backend
     expose:
       - "8000"
-    # 若想多複本 => 移除 container_name & 打開以下
-    # deploy:
-    #   replicas: 3
+    deploy:
+      replicas: 3
+      # 注意: replicas 需 Docker Swarm 或 k8s, docker-compose(非swarm)不支援
 
   nginx:
     build: ./nginx
@@ -86,10 +89,6 @@ services:
       - "80:80"
     networks:
       - backend
-
-networks:
-  backend:
-    driver: bridge
 
 volumes:
   db_data:
