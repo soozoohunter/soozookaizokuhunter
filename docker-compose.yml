@@ -1,23 +1,28 @@
+version: "3.9"
+
 services:
+  # PostgreSQL 資料庫
   db:
-    image: postgres:13
+    image: postgres:13.12
     container_name: postgres_db
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - /mnt/postgres_backup:/backup
-    networks:
-      - backend
-    # 不暴露5432 => 無 ports/expose
+    # 如需自動備份資料，可在這裡掛載更多 volume 或設定
 
+  # Express API
   express:
     build: ./express
     container_name: express_app
     depends_on:
       - db
+    ports:
+      - "3000:3000"    # 對外映射 port 3000
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -25,27 +30,22 @@ services:
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
       - JWT_SECRET=${JWT_SECRET}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_PORT=${EMAIL_PORT}
-      - EMAIL_USER=${EMAIL_USER}
-      - EMAIL_PASS=${EMAIL_PASS}
-      - EMAIL_FROM=${EMAIL_FROM}
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-      - DMCA_AUTO_NOTIFY=${DMCA_AUTO_NOTIFY}
     volumes:
       - ./express/uploads:/app/uploads
-    networks:
-      - backend
-    expose:
-      - "3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # FastAPI
   fastapi:
     build: ./fastapi
     container_name: fastapi_app
     depends_on:
       - db
+    ports:
+      - "8000:8000"    # 對外映射 port 8000
     environment:
       - BLOCKCHAIN_RPC=${BLOCKCHAIN_RPC}
       - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
@@ -55,27 +55,8 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASS=${POSTGRES_PASSWORD}
       - DB_NAME=${POSTGRES_DB}
-      - INFURA_IPFS_PROJECT_ID=${INFURA_IPFS_PROJECT_ID}
-      - INFURA_IPFS_PROJECT_SECRET=${INFURA_IPFS_PROJECT_SECRET}
-      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
-      - RAPIDAPI_WEBSITE_SCRAPER=${RAPIDAPI_WEBSITE_SCRAPER}
-      - RAPIDAPI_IG_SCRAPER=${RAPIDAPI_IG_SCRAPER}
-      - RAPIDAPI_IG_SCRAPER_STABLE=${RAPIDAPI_IG_SCRAPER_STABLE}
-      - RAPIDAPI_FB_SCRAPER=${RAPIDAPI_FB_SCRAPER}
-      - RAPIDAPI_IG_REALTIME=${RAPIDAPI_IG_REALTIME}
-      - RAPIDAPI_SHOPEE_SCRAPER=${RAPIDAPI_SHOPEE_SCRAPER}
-      - RAPIDAPI_TIKTOK_SCRAPER=${RAPIDAPI_TIKTOK_SCRAPER}
-      - GDRIVE_API_KEY=${GDRIVE_API_KEY}
-      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID}
-      - GOOGLE_SERVICE_ACCOUNT=${GOOGLE_SERVICE_ACCOUNT}
-    networks:
-      - backend
-    expose:
-      - "8000"
-    # 若要多複本 => 移除 container_name, 然後加:
-    # deploy:
-    #   replicas: 3
 
+  # Nginx 反向代理
   nginx:
     build: ./nginx
     container_name: nginx_proxy
@@ -83,13 +64,8 @@ services:
       - express
       - fastapi
     ports:
-      - "80:80"
-    networks:
-      - backend
-
-networks:
-  backend:
-    driver: bridge
+      - "80:80"        # 對外映射 port 80
+    # 若有 SSL，需要再映射 443:443 並調整 nginx 設定
 
 volumes:
   db_data:
