@@ -1,9 +1,3 @@
-version: '3.9'
-
-networks:
-  backend:
-    driver: bridge
-
 services:
   db:
     build: ./db
@@ -17,7 +11,7 @@ services:
       - /mnt/postgres_backup:/backup
     networks:
       - backend
-    # 移除 "ports: ... "，不對外暴露5432
+    # 這裡沒有 "ports:"，所以 Postgres 不對外暴露 5432
 
   express:
     build: ./express
@@ -49,7 +43,7 @@ services:
 
   fastapi:
     build: ./fastapi
-    container_name: fastapi_app
+    # 移除 container_name，才能使用 replicas
     depends_on:
       - db
     environment:
@@ -80,7 +74,8 @@ services:
       - "8000"
     deploy:
       replicas: 3
-      # 注意: replicas 需 Docker Swarm 或 k8s, docker-compose(非swarm)不支援
+      # 注意: 在 "docker compose" (non-swarm) 模式下，replicas 可能只有1個生效
+      #      若要真正多複本 + 負載均衡，建議使用 Docker Swarm/K8s
 
   nginx:
     build: ./nginx
@@ -92,6 +87,10 @@ services:
       - "80:80"
     networks:
       - backend
+
+networks:
+  backend:
+    driver: bridge
 
 volumes:
   db_data:
