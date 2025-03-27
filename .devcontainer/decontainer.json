@@ -1,0 +1,10 @@
+// .devcontainer/devcontainer.json
+{
+  "name": "Docker in Docker",
+  "image": "mcr.microsoft.com/devcontainers/base:jammy",
+  "features": {
+    "docker-in-docker": "latest"
+  },
+  "forwardPorts": [3000, 8000, 80],
+  "postCreateCommand": "docker --version && docker compose version"
+}
