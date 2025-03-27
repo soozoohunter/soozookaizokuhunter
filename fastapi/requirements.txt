@@ -1,4 +1,4 @@
-fastapi==0.85.0
+fastapi==0.95.0
 uvicorn==0.18.2
 requests==2.28.1
 beautifulsoup4==4.11.1
@@ -7,4 +7,4 @@ python-dotenv==0.20.0
 psycopg2-binary==2.9.3
 pydantic==1.10.2
 ipfshttpclient==0.8.0a2
-solcx==0.14.0
+py-solc-x==0.8.0

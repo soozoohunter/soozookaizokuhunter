@@ -2,14 +2,14 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# 新增：安裝必須的系統相依套件
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc libssl-dev libffi-dev
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=10s \
-  CMD curl -f http://localhost:8000/health || exit 1
-
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
