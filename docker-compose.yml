@@ -1,71 +1,109 @@
-version: "3.9"
+version: '3.8'
 
 services:
-  # PostgreSQL 資料庫
   db:
-    image: postgres:13.12
-    container_name: postgres_db
+    image: postgres:15
+    container_name: kai_db
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
-    # 如需自動備份資料，可在這裡掛載更多 volume 或設定
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - kainet
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Express API
+  geth:
+    build: ./geth
+    container_name: kai_geth
+    networks:
+      - kainet
+    ports:
+      - "8545:8545"
+      - "30303:30303"
+      - "30303:30303/udp"
+
+  ipfs:
+    build: ./ipfs
+    container_name: kai_ipfs
+    networks:
+      - kainet
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
+
   express:
     build: ./express
-    container_name: express_app
+    container_name: kai_express
     depends_on:
-      - db
-    ports:
-      - "3000:3000"    # 對外映射 port 3000
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - JWT_SECRET=${JWT_SECRET}
-    volumes:
-      - ./express/uploads:/app/uploads
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
+    env_file:
+      - .env
+    networks:
+      - kainet
 
-  # FastAPI
   fastapi:
     build: ./fastapi
-    container_name: fastapi_app
+    container_name: kai_fastapi
     depends_on:
-      - db
-    ports:
-      - "8000:8000"    # 對外映射 port 8000
-    environment:
-      - BLOCKCHAIN_RPC=${BLOCKCHAIN_RPC}
-      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASS=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
+    env_file:
+      - .env
+    networks:
+      - kainet
 
-  # Nginx 反向代理
-  nginx:
-    build: ./nginx
-    container_name: nginx_proxy
+  crawler:
+    build: ./crawler
+    container_name: kai_crawler
+    env_file:
+      - .env
+    networks:
+      - kainet
+
+  frontend:
+    build: ./frontend
+    container_name: kai_frontend
     depends_on:
       - express
       - fastapi
+    env_file:
+      - .env
+    networks:
+      - kainet
+
+  nginx:
+    build: ./nginx
+    container_name: kai_nginx
+    depends_on:
+      - express
+      - fastapi
+      - frontend
+      - crawler
     ports:
-      - "80:80"        # 對外映射 port 80
-    # 若有 SSL，需要再映射 443:443 並調整 nginx 設定
+      - "80:80"
+    networks:
+      - kainet
 
 volumes:
   db_data:
+
+networks:
+  kainet:
+    driver: bridge
