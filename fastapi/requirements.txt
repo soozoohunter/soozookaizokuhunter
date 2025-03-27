@@ -6,4 +6,4 @@ web3==5.31.1
 python-dotenv==0.20.0
 psycopg2-binary==2.9.3
 pydantic==1.10.2
-ipfshttpclient==0.8.0a2  # 新增: 支援連接 IPFS 節點
+ipfshttpclient==0.8.0a2
