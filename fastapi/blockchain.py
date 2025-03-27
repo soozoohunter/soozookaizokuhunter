@@ -1,61 +1,86 @@
 import os
 from web3 import Web3
-import ipfshttpclient
-import json
-from datetime import datetime
+from solcx import compile_standard
+from dotenv import load_dotenv
 
-BLOCKCHAIN_RPC = os.getenv('BLOCKCHAIN_RPC')
-BLOCKCHAIN_PRIVATE_KEY = os.getenv('BLOCKCHAIN_PRIVATE_KEY')
-INFURA_IPFS_PROJECT_ID = os.getenv('INFURA_IPFS_PROJECT_ID')
-INFURA_IPFS_PROJECT_SECRET = os.getenv('INFURA_IPFS_PROJECT_SECRET')
+load_dotenv()
 
-w3 = Web3(Web3.HTTPProvider(BLOCKCHAIN_RPC))
+RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://geth:8545")
+PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY", "0xABC123")
 
-try:
-    account = w3.eth.account.from_key(BLOCKCHAIN_PRIVATE_KEY)
-except Exception as e:
-    account = None
-    print("區塊鏈私鑰初始化失敗:", e)
+w3 = Web3(Web3.HTTPProvider(RPC_URL))
+account = w3.eth.account.from_key(PRIVATE_KEY)
 
-def get_ipfs_client():
-    auth = INFURA_IPFS_PROJECT_ID + ":" + INFURA_IPFS_PROJECT_SECRET
-    infura_url = "/dns4/ipfs.infura.io/tcp/5001/https"
-    return ipfshttpclient.connect(infura_url, auth=auth)
+CONTRACT_PATH = "/app/contracts/KaiKaiShieldStorage.sol"
 
-def upload_to_ipfs(data: bytes) -> str:
-    client = get_ipfs_client()
-    tmp_file = "temp.bin"
-    with open(tmp_file, "wb") as f:
-        f.write(data)
-    res = client.add(tmp_file)
-    cid = res["Hash"]
-    client.close()
-    return cid
+def compile_contract():
+    with open(CONTRACT_PATH, "r") as f:
+        source = f.read()
+    compiled = compile_standard({
+        "language": "Solidity",
+        "sources": {
+            "KaiKaiShieldStorage.sol": {
+                "content": source
+            }
+        },
+        "settings": {
+            "outputSelection": {
+                "*": {
+                    "*": ["abi", "metadata", "evm.bytecode", "evm.sourceMap"]
+                }
+            }
+        }
+    })
+    return compiled
 
-def upload_to_eth(data: bytes, owner_id: int = 0):
-    """
-    將檔案上傳IPFS, 取得CID後, 連同owner, timestamp 以JSON寫入tx data
-    """
-    if not account:
-        return "私鑰無效, 無法上鏈"
+def deploy_contract():
+    compiled = compile_contract()
+    bytecode = compiled["contracts"]["KaiKaiShieldStorage.sol"]["KaiKaiShieldStorage"]["evm"]["bytecode"]["object"]
+    abi = compiled["contracts"]["KaiKaiShieldStorage.sol"]["KaiKaiShieldStorage"]["abi"]
 
-    cid = upload_to_ipfs(data)
-    metadata = {
-        "owner": owner_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "ipfs_cid": cid
-    }
-    tx_data = json.dumps(metadata).encode()
+    contract = w3.eth.contract(abi=abi, bytecode=bytecode)
+    nonce = w3.eth.get_transaction_count(account.address)
+    tx = contract.constructor().buildTransaction({
+        'from': account.address,
+        'nonce': nonce,
+        'gas': 5000000,
+        'gasPrice': w3.toWei('1', 'gwei')
+    })
+    signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
+    tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    address = receipt.contractAddress
+    print(f"Contract deployed at {address}")
+    return address
 
+def store_record(fingerprint: str, ipfs_hash: str):
+    contract_address = os.getenv("CONTRACT_ADDRESS", "0x...")
+    compiled = compile_contract()
+    abi = compiled["contracts"]["KaiKaiShieldStorage.sol"]["KaiKaiShieldStorage"]["abi"]
+    contract = w3.eth.contract(address=contract_address, abi=abi)
+
+    nonce = w3.eth.get_transaction_count(account.address)
+    tx = contract.functions.storeRecord(fingerprint, ipfs_hash).buildTransaction({
+        'from': account.address,
+        'nonce': nonce,
+        'gas': 500000,
+        'gasPrice': w3.toWei('1', 'gwei')
+    })
+    signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
+    tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    return w3.toHex(receipt.transactionHash)
+
+def upload_to_eth(data: bytes):
     nonce = w3.eth.get_transaction_count(account.address)
     tx = {
         'nonce': nonce,
         'to': account.address,
         'value': 0,
-        'gas': 300000,
-        'gasPrice': w3.toWei('5', 'gwei'),
-        'data': tx_data
+        'gas': 210000,
+        'gasPrice': w3.toWei('1', 'gwei'),
+        'data': data
     }
-    signed_tx = w3.eth.account.sign_transaction(tx, BLOCKCHAIN_PRIVATE_KEY)
+    signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
     return w3.toHex(tx_hash)
