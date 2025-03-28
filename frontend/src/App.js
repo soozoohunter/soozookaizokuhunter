@@ -1,43 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './App.css';
 
 function App() {
-  const [videoUrl, setVideoUrl] = useState('');
-  const [analysis, setAnalysis] = useState(null);
-
-  const handleAnalyze = async () => {
-    try {
-      const res = await fetch('/fastapi/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ video_url: videoUrl })
-      });
-      const data = await res.json();
-      setAnalysis(data);
-    } catch (error) {
-      alert('分析失敗');
-      console.error(error);
-    }
-  };
-
   return (
-    <div className="App">
-      <h1>KaiKaiShield - 短影片價值分析 Demo</h1>
-      <div className="container">
-        <input
-          type="text"
-          placeholder="輸入影片連結"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-        />
-        <button onClick={handleAnalyze}>分析影片</button>
-      </div>
-      {analysis && (
-        <div className="analysis-result">
-          <h3>分析結果</h3>
-          <pre>{JSON.stringify(analysis, null, 2)}</pre>
-        </div>
-      )}
+    <div style={{ textAlign: 'center', paddingTop: '50px' }}>
+      <h1>🔥 Suzookaizokuhunter V2+ 🔥</h1>
+      <p>黑底紅字，正式迎戰盜版侵權！</p>
+      <button className="btn-hunt">立即開始狩獵</button>
     </div>
   );
 }
