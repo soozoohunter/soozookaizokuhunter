@@ -1,124 +1,63 @@
-version: '3.8'
-
+version: '3.9'
 services:
   db:
-    image: postgres:15
-    container_name: kai_db
+    image: postgres:13
+    container_name: postgres_db
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - kainet
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  geth:
-    build: ./geth
-    container_name: kai_geth
-    networks:
-      - kainet
-    ports:
-      - "8545:8545"
-      - "30303:30303"
-      - "30303:30303/udp"
-    restart: unless-stopped
-
-  ipfs:
-    build: ./ipfs
-    container_name: kai_ipfs
-    networks:
-      - kainet
-    ports:
-      - "4001:4001"
-      - "5001:5001"
-      - "8080:8080"
-    restart: unless-stopped
 
   express:
     build: ./express
-    container_name: kai_express
+    container_name: express_app
+    ports:
+      - "3000:3000"
     depends_on:
-      db:
-        condition: service_healthy
-      geth:
-        condition: service_started
-      ipfs:
-        condition: service_started
-    env_file:
-      - .env
-    networks:
-      - kainet
-    restart: unless-stopped
+      - db
+    environment:
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JWT_SECRET}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - BLOCKCHAIN_RPC=${BLOCKCHAIN_RPC}
+      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
+    volumes:
+      - ./express/uploads:/app/uploads
 
   fastapi:
     build: ./fastapi
-    container_name: kai_fastapi
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy  # 等待資料庫健康檢查通過
-      geth:
-        condition: service_started
-      ipfs:
-        condition: service_started
-    env_file:
-      - .env
-    networks:
-      - kainet
-    restart: unless-stopped
-
-  crawler:
-    build: ./crawler
-    container_name: kai_crawler
-    env_file:
-      - .env
-    networks:
-      - kainet
-    restart: unless-stopped
-
-  frontend:
-    build: ./frontend
-    container_name: kai_frontend
-    depends_on:
-      - express
-      - fastapi
-    env_file:
-      - .env
-    networks:
-      - kainet
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html  # 明確掛載靜態文件
-    expose:
-      - "3001"  # 暴露端口給 Nginx 使用
-    restart: unless-stopped
+      - db
+    environment:
+      - BLOCKCHAIN_RPC=${BLOCKCHAIN_RPC}
+      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
 
   nginx:
     build: ./nginx
-    container_name: kai_nginx
-    depends_on:
-      - frontend
-      - fastapi
-      - express
-      - crawler
+    container_name: nginx_proxy
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./frontend/dist:/usr/share/nginx/html  # 與前端掛載路徑一致
-    networks:
-      - kainet
-    restart: unless-stopped
+    depends_on:
+      - express
+      - fastapi
 
 volumes:
   db_data:
-    driver: local
-
-networks:
-  kainet:
-    driver: bridge
