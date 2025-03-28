@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS fingerprints (
   id SERIAL PRIMARY KEY,
-  hash VARCHAR(64) UNIQUE NOT NULL,
+  hash VARCHAR(66) UNIQUE NOT NULL,
+  ipfs_cid VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -8,5 +9,14 @@ CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(50) DEFAULT 'creator',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS infringements (
+  id SERIAL PRIMARY KEY,
+  fingerprint_hash VARCHAR(66),
+  infringing_url TEXT,
+  evidence TEXT,
+  reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
