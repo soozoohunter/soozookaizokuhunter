@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const puppeteer = require('puppeteer');
+const axios = require('axios');
 
 const app = express();
 app.use(bodyParser.json());
@@ -10,36 +11,35 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/detect', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'Missing url' });
+  const { url, fingerprint } = req.body;
+  if (!url || !fingerprint) return res.status(400).json({ error: 'Missing url or fingerprint' });
+
   try {
     const browser = await puppeteer.launch({
       headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-      ],
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2' });
-    const content = await page.content();
+    // ...檢測相似度 or 內容 (省略)...
+
     await browser.close();
 
-    const randomSimilarity = Math.random();
-    const isInfringing = (randomSimilarity > 0.95);
-
-    res.json({
-      url,
-      similarity: randomSimilarity.toFixed(2),
-      isInfringing
+    // 若判定侵權
+    const infringingUrl = url;
+    // call fastapi
+    await axios.post('http://fastapi:8000/recordInfringement', {
+      fingerprint,
+      infringing_url: infringingUrl
     });
-  } catch (error) {
-    console.error('Crawler detect error:', error);
-    res.status(500).json({ error: 'Crawler error' });
+
+    res.json({ message: 'Scan done, possibly infringement recorded' });
+  } catch (err) {
+    console.error('Crawler error:', err);
+    res.status(500).json({ error: err.toString() });
   }
 });
 
 app.listen(8081, () => {
-  console.log('Kai Crawler listening on port 8081');
+  console.log('Kai Crawler on port 8081');
 });
