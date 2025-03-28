@@ -1,18 +1,13 @@
-import requests
-from bs4 import BeautifulSoup
+FROM node:18
 
-def crawl_social(platform, keyword):
-    if platform == 'youtube':
-        url = f"https://www.youtube.com/results?search_query={keyword}"
-    elif platform == 'tiktok':
-        url = f"https://www.tiktok.com/search?q={keyword}"
-    elif platform == 'facebook':
-        url = f"https://www.facebook.com/search/videos/?q={keyword}"
-    elif platform == 'instagram':
-        url = f"https://www.instagram.com/explore/tags/{keyword}/"
-    else:
-        return {"error": "Invalid platform"}
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
 
-    resp = requests.get(url)
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    return {"raw_data": soup.get_text()[:300]}
+COPY index.js ./
+
+# 安裝 Chrome/puppeteer dependencies
+RUN apt-get update && apt-get install -y wget gnupg ca-certificates chromium
+
+EXPOSE 8081
+CMD ["node", "index.js"]
