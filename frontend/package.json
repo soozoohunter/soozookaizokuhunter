@@ -1,20 +1,22 @@
-{
+ {
   "name": "kaikai-frontend",
   "version": "1.0.0",
   "private": true,
-
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"
   },
-
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1"
   },
-
-  // [修改處] homepage: "http://suzookaizoku.com" 或 "https://suzookaizoku.com"
-  // 若您之後有 SSL，請改成 https://
-  "homepage": "http://suzookaizoku.com"
-}
+  "homepage": "http://suzookaizoku.com",
+  "metadata": {
+    "comment": "若您之後有 SSL，請把 http:// 改成 https:// ，以便 suzookaizoku.com 使用 HTTPS。",
+    "github_user": "soozoohunter",
+    "repo_name": "soozookaizokuhunter",
+    "server_ip": "143.244.146.105",
+    "domain": "suzookaizokuhunter.com"
+  }
+ }
