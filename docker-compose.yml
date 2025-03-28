@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -12,7 +14,7 @@ services:
     networks:
       - kainet
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,6 +28,7 @@ services:
       - "8545:8545"
       - "30303:30303"
       - "30303:30303/udp"
+    restart: unless-stopped
 
   ipfs:
     build: ./ipfs
@@ -36,6 +39,7 @@ services:
       - "4001:4001"
       - "5001:5001"
       - "8080:8080"
+    restart: unless-stopped
 
   express:
     build: ./express
@@ -51,13 +55,14 @@ services:
       - .env
     networks:
       - kainet
+    restart: unless-stopped
 
   fastapi:
     build: ./fastapi
     container_name: kai_fastapi
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy  # 等待資料庫健康檢查通過
       geth:
         condition: service_started
       ipfs:
@@ -66,6 +71,7 @@ services:
       - .env
     networks:
       - kainet
+    restart: unless-stopped
 
   crawler:
     build: ./crawler
@@ -74,6 +80,7 @@ services:
       - .env
     networks:
       - kainet
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
@@ -85,22 +92,32 @@ services:
       - .env
     networks:
       - kainet
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html  # 明確掛載靜態文件
+    expose:
+      - "3001"  # 暴露端口給 Nginx 使用
+    restart: unless-stopped
 
   nginx:
     build: ./nginx
     container_name: kai_nginx
     depends_on:
-      - express
-      - fastapi
       - frontend
+      - fastapi
+      - express
       - crawler
     ports:
       - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./frontend/dist:/usr/share/nginx/html  # 與前端掛載路徑一致
     networks:
       - kainet
+    restart: unless-stopped
 
 volumes:
   db_data:
+    driver: local
 
 networks:
   kainet:
