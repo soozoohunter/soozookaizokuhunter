@@ -1,45 +1,27 @@
-import uvicorn
-from fastapi import FastAPI, UploadFile, File
-from typing import Optional, List
-from blockchain import upload_to_eth
-from crawler import crawl_social
-from analytics import calculate_cpi, suggest_cma
-from dmca import bulk_infringement_check, initiate_lawsuit
+import os
+import requests
+from fastapi import FastAPI
+from web3 import Web3
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "FastAPI V4"}
+    return {"status": "FastAPI is healthy"}
 
-@app.post("/blockchain/upload")
-async def blockchain_upload(file: UploadFile = File(...), owner_id: int = 0):
-    content = await file.read()
-    tx_hash = upload_to_eth(content, owner_id)
-    return {"tx_hash": tx_hash}
+# 連到私有鏈
+RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL")
+PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+w3 = Web3(Web3.HTTPProvider(RPC_URL))
 
-@app.get("/crawl/{platform}")
-def crawl(platform: str, keyword: Optional[str] = None):
-    if not keyword:
-        return {"error": "keyword is required"}
-    data = crawl_social(platform, keyword)
-    return data
-
-@app.post("/analysis/cpi")
-def analysis_cpi(video_url: str):
-    return {"video_url": video_url, "CPI": calculate_cpi(video_url)}
-
-@app.post("/analysis/cma")
-def analysis_cma(video_url: str):
-    return suggest_cma(video_url)
-
-@app.post("/enterprise/bulkCheck")
-def enterprise_bulk_check(fingerprints: List[str]):
-    return {"results": bulk_infringement_check(fingerprints)}
-
-@app.post("/lawsuit/initiate")
-def lawsuit_init(work_id: int):
-    return {"lawsuit_status": initiate_lawsuit(work_id)}
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+@app.post("/recordInfringement")
+def record_infringement(fingerprint: str, infringing_url: str):
+    """
+    假設已經有合約地址 & abi
+    這裡只示範將"侵權資訊"寫進DB或上鏈
+    """
+    # 寫DB or call contract ...
+    # 省略
+    return {"message": "Infringement recorded", "fingerprint": fingerprint, "url": infringing_url}
