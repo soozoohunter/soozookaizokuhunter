@@ -1,37 +1,21 @@
-.App {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 2rem;
-  text-align: center;
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;    /* 黑底 */
+  color: #ff1c1c;            /* 紅字 */
+  font-family: 'Montserrat', sans-serif;
 }
-
-.container {
-  margin: 1rem auto;
+h1, h2 {
+  color: #ff3b3b;
 }
-
-input {
-  padding: 0.5rem;
-  width: 300px;
-  margin-right: 1rem;
-}
-
-button {
-  padding: 0.6rem 1rem;
-  cursor: pointer;
-  background-color: #3477eb;
+.btn-hunt {
+  background-color: #910f0f;
   color: #fff;
   border: none;
-  border-radius: 5px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: bold;
 }
-
-button:hover {
-  background-color: #1c56c7;
-}
-
-.analysis-result {
-  margin-top: 2rem;
-  text-align: left;
-  display: inline-block;
-  background-color: #f6f6f6;
-  padding: 1rem;
-  border-radius: 8px;
+.btn-hunt:hover {
+  background-color: #ff1c1c;
 }
