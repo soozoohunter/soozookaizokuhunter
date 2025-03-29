@@ -1,5 +1,4 @@
-version: '3.8'
-
+# 已移除 version 聲明 (新版本不再需要)
 services:
   db:
     image: postgres:15
@@ -13,6 +12,11 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - suzoo_net
+    healthcheck:  # 添加健康檢查
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   geth:
     build: ./geth
@@ -20,11 +24,11 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "8545:8545"
-      - "30303:30303"
-      - "30303:30303/udp"
+      - "8545:8545"  # 只保留必要 RPC 端口
     volumes:
       - geth_data:/root/.ethereum
+    # 移除多餘端口 (30303 用於 P2P，容器間不需要映射)
+    # 確保 geth/Dockerfile 的 CMD 沒有重複 "geth" 前綴
 
   ipfs:
     build: ./ipfs
@@ -32,9 +36,8 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "4001:4001"
-      - "5001:5001"
-      - "8080:8080"
+      - "5001:5001"  # 只暴露必要 API 端口
+      - "8080:8080"  # 閘道器端口
     volumes:
       - ipfs_data:/data/ipfs
 
@@ -42,27 +45,38 @@ services:
     build: ./express
     container_name: suzoo_express
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy  # 嚴格依賴檢查
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
     env_file:
       - .env
     networks:
       - suzoo_net
-    ports:
-      - "3000:3000"
+    # 移除 ports:3000 (統一由 Nginx 代理)
 
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
     env_file:
       - .env
     networks:
       - suzoo_net
+    # 添加健康檢查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   crawler:
     build: ./crawler
@@ -71,39 +85,37 @@ services:
       - .env
     networks:
       - suzoo_net
-    ports:
-      - "8081:8081"
+    # 移除 ports:8081 (內部服務不需暴露)
 
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
-    env_file:
-      - .env
     networks:
       - suzoo_net
-    ports:
-      - "3001:3001"
+    # 移除 ports:3001 (由 Nginx 代理)
 
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
     depends_on:
-      - frontend
-      - express
-      - fastapi
-      - crawler
+      frontend:
+        condition: service_started
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_healthy  # 嚴格依賴檢查
+      crawler:
+        condition: service_started
     networks:
       - suzoo_net
     ports:
-      - "80:80"
-      # HTTPS先拿掉，以免在Codespaces或本機測試時出錯:
-      # - "443:443"
+      - "80:80"  # 正式環境再啟用 443
+    # 正式環境取消註解以下內容
     # volumes:
     #   - /etc/letsencrypt:/etc/letsencrypt:ro
-    # 如上為正式掛載SSL時使用
-    # 先註解掉以免No such file /etc/letsencrypt
-    # env_file:
-    #   - .env
+    # ports:
+    #   - "80:80"
+    #   - "443:443"
 
 volumes:
   db_data:
