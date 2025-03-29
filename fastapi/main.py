@@ -9,9 +9,15 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
+@app.on_event("startup")
+def on_start():
+    if os.getenv("DEPLOY_CONTRACT_ON_START","false") == "true":
+        addr = blockchain.deploy_contract()
+        blockchain.contract_address = addr  # 全域保存
+
 @app.get("/health")
 def health():
-    return {"status": "FastAPI V6 is healthy"}
+    return {"status": "FastAPI V6.0 is healthy"}
 
 @app.post("/analyze")
 def analyze(video_url: str):
