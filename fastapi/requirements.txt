@@ -6,3 +6,4 @@ psycopg2-binary==2.9.6
 python-dotenv==0.21.1
 py-solc-x==1.1.1  # 修正包名并指定最新版本
 web3==6.0.0        # 升级到兼容版本
+python-multipart
