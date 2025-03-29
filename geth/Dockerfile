@@ -6,5 +6,5 @@ COPY genesis.json .
 
 RUN mkdir -p /root/.ethereum && \
     geth init --datadir /root/.ethereum genesis.json
-
-CMD ["geth", "--datadir", "/root/.ethereum", "--networkid", "12345", "--http", "--http.addr", "0.0.0.0", "--http.port", "8545", "--http.api", "eth,net,web3,personal", "--allow-insecure-unlock", "--dev"]
+# 正確 CMD 寫法 (不要重複 geth)
+CMD ["--datadir", "/root/.ethereum", "--networkid", "12345", "--http", "--http.addr", "0.0.0.0", "--http.port", "8545", "--http.api", "eth,net,web3,personal", "--allow-insecure-unlock", "--dev"]
