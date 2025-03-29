@@ -1,13 +1,13 @@
-FROM node:18
+import requests
+from bs4 import BeautifulSoup
 
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-
-COPY index.js ./
-
-# 安裝 Chrome/puppeteer dependencies
-RUN apt-get update && apt-get install -y wget gnupg ca-certificates chromium
-
-EXPOSE 8081
-CMD ["node", "index.js"]
+def crawl_social(platform, keyword):
+    if platform == 'youtube':
+        url = f"https://www.youtube.com/results?search_query={keyword}"
+    elif platform == 'tiktok':
+        url = f"https://www.tiktok.com/search?q={keyword}"
+    else:
+        return {"error": "unsupported platform"}
+    resp = requests.get(url)
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    return {"snippet": soup.get_text()[:300]}
