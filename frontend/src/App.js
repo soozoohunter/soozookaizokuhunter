@@ -3,10 +3,11 @@ import './App.css';
 
 function App() {
   return (
-    <div style={{ textAlign: 'center', paddingTop: '50px' }}>
-      <h1>🔥 Suzookaizokuhunter V2+ 🔥</h1>
-      <p>黑底紅字，正式迎戰盜版侵權！</p>
-      <button className="btn-hunt">立即開始狩獵</button>
+    <div style={{ textAlign: 'center', paddingTop: '10vh' }}>
+      <h1>Suzookaizokuhunter - V6</h1>
+      <h2>🔥 獵人出動，狩獵盜版無所遁形 🔥</h2>
+      <p>準備好與我們一起獵殺侵權者了嗎？</p>
+      <button className="btn-hunt">開始狩獵!</button>
     </div>
   );
 }
