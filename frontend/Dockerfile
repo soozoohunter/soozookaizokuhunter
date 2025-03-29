@@ -1,14 +1,10 @@
-# builder
-FROM node:18 AS builder
+FROM node:18
 WORKDIR /app
-COPY package*.json ./
+COPY package.json ./
 RUN npm install
 COPY . .
 RUN npm run build
 
-# production
-FROM nginx:alpine
-COPY --from=builder /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# 用serve或任何 http-server
+RUN npm install -g serve
+CMD ["serve", "-s", "build", "-l", "3001"]
