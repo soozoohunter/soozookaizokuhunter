@@ -7,10 +7,11 @@ COPY genesis.json /root/genesis.json
 RUN mkdir -p /root/.ethereum
 RUN geth --datadir /root/.ethereum init /root/genesis.json
 
-# 只暴露RPC (如要外部連接P2P，須再加 30303)
+# 只暴露RPC。若需要P2P連線到外部，也可 EXPOSE 30303 30303/udp
 EXPOSE 8545
+# EXPOSE 30303 30303/udp
 
-# 這裡只保留參數，不要再出現 "geth"
+# 保留一次 geth，不會再出現 'geth geth'。
 CMD [
   "--datadir", "/root/.ethereum",
   "--networkid", "12345",
