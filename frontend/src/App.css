@@ -1,20 +1,23 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #000;    /* 黑底 */
-  color: #ff1c1c;            /* 紅字 */
-  font-family: 'Montserrat', sans-serif;
+  background-color: #000; /* 黑底 */
+  color: #ff1c1c;         /* 紅字 */
+  font-family: 'VT323', monospace; /* 遊戲感 */
 }
 h1, h2 {
   color: #ff3b3b;
+  text-shadow: 2px 2px 0 #fff;
 }
 .btn-hunt {
-  background-color: #910f0f;
+  background-color: #b30000;
   color: #fff;
-  border: none;
+  border: 2px solid #ff3b3b;
   padding: 10px 20px;
-  cursor: pointer;
   font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: background-color 0.3s;
 }
 .btn-hunt:hover {
   background-color: #ff1c1c;
