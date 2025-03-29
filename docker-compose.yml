@@ -49,6 +49,8 @@ services:
       - .env
     networks:
       - suzoo_net
+    ports:
+      - "3000:3000"
 
   fastapi:
     build: ./fastapi
@@ -69,6 +71,8 @@ services:
       - .env
     networks:
       - suzoo_net
+    ports:
+      - "8081:8081"
 
   frontend:
     build: ./frontend
@@ -77,6 +81,8 @@ services:
       - .env
     networks:
       - suzoo_net
+    ports:
+      - "3001:3001"
 
   nginx:
     build: ./nginx
@@ -86,13 +92,18 @@ services:
       - express
       - fastapi
       - crawler
-    ports:
-      - "80:80"
-      - "443:443"
     networks:
       - suzoo_net
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      # HTTPS先拿掉，以免在Codespaces或本機測試時出錯:
+      # - "443:443"
+    # volumes:
+    #   - /etc/letsencrypt:/etc/letsencrypt:ro
+    # 如上為正式掛載SSL時使用
+    # 先註解掉以免No such file /etc/letsencrypt
+    # env_file:
+    #   - .env
 
 volumes:
   db_data:
