@@ -11,14 +11,16 @@
     "istanbulBlock": 0,
     "berlinBlock": 0,
     "londonBlock": 0,
-    "terminalTotalDifficulty": 0,
-    "mergeNetsplitBlock": 0
+    "clique": {
+      "period": 15,
+      "epoch": 30000
+    }
   },
   "nonce": "0x0",
-  "timestamp": "0x00",
-  "extraData": "",
-  "gasLimit": "0x8000000",
-  "difficulty": "0x400",
+  "timestamp": "0x5c51d4c3",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "gasLimit": "0x9999B1A",
+  "difficulty": "0x1",
   "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "coinbase": "0x0000000000000000000000000000000000000000",
   "alloc": {}
