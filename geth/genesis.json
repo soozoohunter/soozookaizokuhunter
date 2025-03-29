@@ -1,11 +1,7 @@
 {
   "config": {
     "chainId": 12345,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0
+    "homesteadBlock": 0
   },
   "nonce": "0x0",
   "timestamp": "0x00",
