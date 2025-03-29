@@ -2,27 +2,54 @@ services:
   db:
     image: postgres:15
     container_name: suzoo_db
-    # ... 保持原有配置不變 ...
-  
-  geth:  # 注意：此處縮進必須與 db 同級！
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - suzoo_net
+    healthcheck:
+      # 讓 service_healthy 有依據
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  geth:
     build: ./geth
     container_name: suzoo_geth
     networks:
       - suzoo_net
     ports:
       - "8545:8545"
+      # 若需要 P2P:
+      # - "30303:30303"
+      # - "30303:30303/udp"
     volumes:
+      # 把Geth資料存到 geth_data 卷內；一併把 genesis.json 以 read-only掛載 (若需)
       - geth_data:/data
-      - ./geth/genesis.json:/genesis.json
-    entrypoint: sh -c '
+      - ./geth/genesis.json:/genesis.json:ro
+    # 自訂entrypoint：若/data還沒init，就 init /genesis.json；接著執行 geth
+    entrypoint: >
+      sh -c '
       if [ ! -f "/data/geth/chaindata/CURRENT" ]; then
         echo "Initializing Genesis Block...";
         geth --datadir /data init /genesis.json;
       fi;
-      exec geth --datadir /data --networkid 12345 "$@"
-    '
+      exec geth --datadir /data --networkid 12345 --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,personal --allow-insecure-unlock --unlock 0xYOURADDRESS --password /dev/null
+      '
+    # (可选) environment 參數
     environment:
       - ETHEREUM_NETWORK_ID=12345
+    # (可选) healthcheck, 若要 depends_on.service_healthy:
+    # healthcheck:
+    #   test: ["CMD", "geth attach http://localhost:8545 --exec eth.blockNumber"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
 
   ipfs:
     build: ./ipfs
@@ -30,10 +57,11 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "5001:5001"   # IPFS API
-      - "8080:8080"   # IPFS Gateway
+      - "5001:5001"  # IPFS API
+      - "8080:8080"  # IPFS Gateway
     volumes:
       - ipfs_data:/data/ipfs
+    # (可選) healthcheck: ipfs swarm peers?
 
   express:
     build: ./express
@@ -49,7 +77,7 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 前端統一由 Nginx 代理 => 不需要暴露 3000:3000
+    # 透過 Nginx 代理 => 不需要對外暴露 3000:3000
 
   fastapi:
     build: ./fastapi
@@ -70,7 +98,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    # 同理，FastAPI 由 Nginx 代理 => 無需對外開放 port
+    # 同理，透過 Nginx代理 => 無需對外暴露 port
 
   crawler:
     build: ./crawler
@@ -79,14 +107,14 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 若爬蟲只在內部呼叫 => 不需要對外暴露 8081:8081
+    # 若爬蟲只在內部呼叫 => 不需要對外暴露 8081
 
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
     networks:
       - suzoo_net
-    # React前端 => Nginx 代理 => 無需 ports
+    # React前端 => Nginx代理 => 無需 ports
 
   nginx:
     build: ./nginx
@@ -104,7 +132,7 @@ services:
       - suzoo_net
     ports:
       - "80:80"
-    # 正式環境 SSL => 取消註解以下內容
+    # 正式環境可加 SSL 443
     # volumes:
     #   - /etc/letsencrypt:/etc/letsencrypt:ro
     # ports:
