@@ -1,11 +1,24 @@
-# 使用官方 Geth 鏡像
 FROM ethereum/client-go:latest
 
-# 將創世文件複製到容器中
-COPY genesis.json /genesis.json
+WORKDIR /root
+COPY genesis.json /root/genesis.json
 
-# 指定默認數據目錄 (與 docker-compose 的 volume 掛載路徑一致)
-VOLUME /data
+# 初始化私有鏈
+RUN mkdir -p /root/.ethereum
+RUN geth --datadir /root/.ethereum init /root/genesis.json
 
-# 直接使用默認啟動命令 (具體參數在 docker-compose.yml 的 entrypoint 中動態組合)
-CMD ["--http", "--http.addr", "0.0.0.0", "--http.api", "eth,net,web3,personal", "--allow-insecure-unlock", "--dev"]
+# 只暴露RPC (如要外部連接P2P，須再加 30303)
+EXPOSE 8545
+
+# 這裡只保留參數，不要再出現 "geth"
+CMD [
+  "--datadir", "/root/.ethereum",
+  "--networkid", "12345",
+  "--http",
+  "--http.addr", "0.0.0.0",
+  "--http.port", "8545",
+  "--http.api", "eth,net,web3,personal",
+  "--allow-insecure-unlock",
+  "--unlock", "0xYOURADDRESS",
+  "--password", "/dev/null"
+]
