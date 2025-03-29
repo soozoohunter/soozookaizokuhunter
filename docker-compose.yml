@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:15
-    container_name: postgres_db
+    container_name: suzoo_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -12,35 +12,25 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - suzoo_net
 
   geth:
     build: ./geth
-    container_name: geth_node
+    container_name: suzoo_geth
     networks:
-      - backend
+      - suzoo_net
     ports:
       - "8545:8545"
       - "30303:30303"
       - "30303:30303/udp"
     volumes:
       - geth_data:/root/.ethereum
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:8545 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
 
   ipfs:
     build: ./ipfs
-    container_name: ipfs_node
+    container_name: suzoo_ipfs
     networks:
-      - backend
+      - suzoo_net
     ports:
       - "4001:4001"
       - "5001:5001"
@@ -50,84 +40,59 @@ services:
 
   express:
     build: ./express
-    container_name: express_app
+    container_name: suzoo_express
     depends_on:
-      db:
-        condition: service_healthy
-      geth:
-        condition: service_healthy
-      ipfs:
-        condition: service_started
+      - db
+      - geth
+      - ipfs
     env_file:
       - .env
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - suzoo_net
 
   fastapi:
     build: ./fastapi
-    container_name: fastapi_app
+    container_name: suzoo_fastapi
     depends_on:
-      db:
-        condition: service_healthy
-      geth:
-        condition: service_healthy
+      - db
+      - geth
+      - ipfs
     env_file:
       - .env
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - suzoo_net
 
   crawler:
     build: ./crawler
-    container_name: crawler_app
+    container_name: suzoo_crawler
     env_file:
       - .env
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - suzoo_net
 
   frontend:
     build: ./frontend
-    container_name: frontend_app
-    depends_on:
-      - express
-      - fastapi
+    container_name: suzoo_frontend
     env_file:
       - .env
     networks:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - suzoo_net
 
   nginx:
     build: ./nginx
-    container_name: nginx_proxy
+    container_name: suzoo_nginx
     depends_on:
+      - frontend
       - express
       - fastapi
-      - frontend
       - crawler
     ports:
       - "80:80"
       - "443:443"
     networks:
-      - backend
+      - suzoo_net
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   db_data:
@@ -135,5 +100,5 @@ volumes:
   ipfs_data:
 
 networks:
-  backend:
+  suzoo_net:
     driver: bridge
