@@ -20,6 +20,7 @@ function App() {
         <Link to="/upload">上傳</Link>
         <Link to="/infringements">侵權清單</Link>
       </nav>
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={<Signup />} />
