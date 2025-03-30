@@ -1,33 +1,29 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Home from './pages/Home';
-import Signup from './pages/Signup';
-import Login from './pages/Login';
-import RoleSelect from './pages/RoleSelect';
-import Upload from './pages/Upload';
-import InfringementList from './pages/InfringementList';
-
-function App() {
-  return (
-    <Router>
-      <nav className="top-nav">
-        <Link to="/">首頁</Link>
-        <Link to="/signup">註冊</Link>
-        <Link to="/login">登入</Link>
-        <Link to="/roleSelect">選擇角色</Link>
-        <Link to="/upload">上傳作品</Link>
-        <Link to="/infringements">侵權清單</Link>
-      </nav>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/roleSelect" element={<RoleSelect />} />
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/infringements" element={<InfringementList />} />
-      </Routes>
-    </Router>
-  );
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  color: #ff1c1c;
+  font-family: 'Press Start 2P', cursive;
 }
 
-export default App;
+.top-nav {
+  background-color: #111;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.top-nav a {
+  color: #ff1c1c;
+  text-decoration: none;
+}
+
+.top-nav a:hover {
+  color: #fff;
+}
+
+button, input[type="button"], input[type="submit"] {
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
