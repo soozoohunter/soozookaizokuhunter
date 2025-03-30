@@ -1,17 +1,17 @@
+# fastapi/Dockerfile
 FROM python:3.10-slim
 
-# 安装系统依赖（包含编译工具）
+# 安装系统依赖（确保每行以 \ 结尾且无注释）
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
-    g++ \          # 确保 Solidity 编译器依赖
-    make \         # 确保 Make 工具
+    g++ \
+    make \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt ./
 
-# 升级 pip 并安装依赖
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
