@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL","http://geth:8545")
-PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY","0xabc123")
-DEPLOY_FLAG = os.getenv("DEPLOY_CONTRACT_ON_START","false")
+RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://geth:8545")
+PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY", "0xabc123")
+DEPLOY_FLAG = os.getenv("DEPLOY_CONTRACT_ON_START", "false")
 
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
 account = w3.eth.account.from_key(PRIVATE_KEY)
@@ -30,6 +30,7 @@ def deploy_contract():
             }
         }
     })
+
     bytecode = compiled['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['evm']['bytecode']['object']
     abi = compiled['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['abi']
 
@@ -38,7 +39,6 @@ def deploy_contract():
     if chain_id != 12345:
         raise ValueError(f"鏈ID不匹配: {chain_id}")
 
-    print("Deploying KaiKaiShieldStorage contract...")
     tx = Contract.constructor().buildTransaction({
         "from": account.address,
         "nonce": w3.eth.get_transaction_count(account.address),
@@ -46,14 +46,14 @@ def deploy_contract():
         "gasPrice": w3.toWei('1', 'gwei'),
         "chainId": chain_id
     })
-    signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
+    signed_tx = account.sign_transaction(tx)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-    print("Contract deployed at:", receipt.contractAddress)
+    print("KaiKaiShieldStorage 合約已部署:", receipt.contractAddress)
     return receipt.contractAddress
 
 def upload_to_chain(data: bytes):
-    if not w3.is_connected():
+    if not w3.isConnected():
         raise Exception("無法連線到 Geth")
 
     chain_id = w3.eth.chain_id
