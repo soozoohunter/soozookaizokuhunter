@@ -8,6 +8,6 @@ def crawl_social(platform, keyword):
         url = f"https://www.tiktok.com/search?q={keyword}"
     else:
         return {"error": "unsupported platform"}
-    resp = requests.get(url)
-    soup = BeautifulSoup(resp.text, 'html.parser')
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
     return {"snippet": soup.get_text()[:300]}
