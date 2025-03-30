@@ -11,15 +11,13 @@ DEPLOY_FLAG = os.getenv("DEPLOY_CONTRACT_ON_START","false")
 
 w3 = Web3(Web3.HTTPProvider(RPC_URL))
 account = w3.eth.account.from_key(PRIVATE_KEY)
-contract_address = None  # 後續自動賦值
+contract_address = None
 
 def deploy_contract():
     with open('/app/contracts/KaiKaiShieldStorage.sol','r') as f:
         source_code = f.read()
 
-    print("Compiling contract...")
-
-    compiled_sol = compile_standard({
+    compiled = compile_standard({
         "language": "Solidity",
         "sources": {
             "KaiKaiShieldStorage.sol": {"content": source_code}
@@ -32,9 +30,8 @@ def deploy_contract():
             }
         }
     })
-
-    bytecode = compiled_sol['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['evm']['bytecode']['object']
-    abi = compiled_sol['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['abi']
+    bytecode = compiled['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['evm']['bytecode']['object']
+    abi = compiled['contracts']['KaiKaiShieldStorage.sol']['KaiKaiShieldStorage']['abi']
 
     Contract = w3.eth.contract(abi=abi, bytecode=bytecode)
     chain_id = w3.eth.chain_id
@@ -49,7 +46,7 @@ def deploy_contract():
         "gasPrice": w3.toWei('1', 'gwei'),
         "chainId": chain_id
     })
-    signed_tx = account.sign_transaction(tx)
+    signed_tx = w3.eth.account.sign_transaction(tx, PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     print("Contract deployed at:", receipt.contractAddress)
@@ -57,22 +54,21 @@ def deploy_contract():
 
 def upload_to_chain(data: bytes):
     if not w3.is_connected():
-        raise Exception("無法連線到以太坊節點")
+        raise Exception("無法連線到 Geth")
 
     chain_id = w3.eth.chain_id
-    expected_chain_id = 12345
-    if chain_id != expected_chain_id:
-        raise ValueError(f"鏈 ID 不匹配: 期望 {expected_chain_id}, 實際 {chain_id}")
+    if chain_id != 12345:
+        raise ValueError(f"鏈ID 不匹配: {chain_id}")
 
     tx = {
-      'nonce': w3.eth.get_transaction_count(account.address),
-      'to': account.address,
-      'value': 0,
-      'gas': 210000,
-      'gasPrice': w3.toWei('1', 'gwei'),
-      'data': data,
-      'chainId': expected_chain_id
+        'nonce': w3.eth.get_transaction_count(account.address),
+        'to': account.address,
+        'value': 0,
+        'gas': 210000,
+        'gasPrice': w3.toWei('1','gwei'),
+        'data': data,
+        'chainId': chain_id
     }
-    signed = account.sign_transaction(tx)
-    tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+    signed_tx = account.sign_transaction(tx)
+    tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
     return w3.toHex(tx_hash)
