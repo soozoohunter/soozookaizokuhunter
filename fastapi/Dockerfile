@@ -1,26 +1,20 @@
-# 使用 python:3.10-slim 作為基底
 FROM python:3.10-slim
 
-# 1) 安裝系統層依賴 (包含libpq-dev, gcc等)
+# 安装系统依赖（包含编译工具）
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
+    g++ \          # 确保 Solidity 编译器依赖
+    make \         # 确保 Make 工具
   && rm -rf /var/lib/apt/lists/*
 
-# 2) 設定工作目錄
 WORKDIR /app
-
-# 3) 複製 requirements.txt 進容器
 COPY requirements.txt ./
 
-# 4) 安裝 Python 套件
-RUN pip install --no-cache-dir -r requirements.txt
+# 升级 pip 并安装依赖
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# 5) 複製所有原始碼
 COPY . /app
-
-# 6) 對外開放 FastAPI 端口 (例如 8000)
 EXPOSE 8000
-
-# 7) 容器啟動時執行 uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
