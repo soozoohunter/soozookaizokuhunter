@@ -1,5 +1,5 @@
 {
-  "name": "kai-crawler-v6",
+  "name": "kai-crawler-v7",
   "version": "1.0.0",
   "scripts": {
     "start": "node index.js"
