@@ -7,7 +7,7 @@ const app = express();
 app.use(bodyParser.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'Crawler is healthy (V6)' });
+  res.json({ status: 'Crawler V7 is healthy' });
 });
 
 app.post('/detect', async (req, res) => {
@@ -26,7 +26,8 @@ app.post('/detect', async (req, res) => {
     const content = await page.content();
     await browser.close();
 
-    // 若偵測到相似 => Call fastapi
+    // ... 這裡可以比對fingerprint or call fastapi dmca ...
+    // 例如:
     await axios.post('http://fastapi:8000/dmca/lawsuit', {
       work_id: 999,
       infringing_url: url
@@ -40,5 +41,5 @@ app.post('/detect', async (req, res) => {
 });
 
 app.listen(8081, () => {
-  console.log('Kai Crawler (V6) on port 8081');
+  console.log('Kai Crawler (V7) on port 8081');
 });
