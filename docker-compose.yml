@@ -1,9 +1,7 @@
 version: '3.8'
 
 services:
-  # ===============================
   # 1. PostgreSQL
-  # ===============================
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -22,9 +20,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ===============================
   # 2. 以太坊私有鏈 (Geth)
-  # ===============================
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -37,9 +33,7 @@ services:
     volumes:
       - geth_data:/root/.ethereum
 
-  # ===============================
   # 3. IPFS
-  # ===============================
   ipfs:
     build: ./ipfs
     container_name: suzoo_ipfs
@@ -52,9 +46,7 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
 
-  # ===============================
   # 4. Express
-  # ===============================
   express:
     build: ./express
     container_name: suzoo_express
@@ -70,9 +62,7 @@ services:
     networks:
       - suzoo_net
 
-  # ===============================
   # 5. FastAPI
-  # ===============================
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -93,9 +83,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # ===============================
   # 6. Crawler (Puppeteer)
-  # ===============================
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
@@ -104,9 +92,7 @@ services:
     networks:
       - suzoo_net
 
-  # ===============================
   # 7. Frontend (React)
-  # ===============================
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
@@ -115,9 +101,7 @@ services:
     networks:
       - suzoo_net
 
-  # ===============================
-  # 8. NGINX
-  # ===============================
+  # 8. NGINX (reverse-proxy)
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
