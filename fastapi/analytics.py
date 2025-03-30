@@ -1,6 +1,7 @@
 import random
 
 def video_analysis(video_url: str):
+    # 模擬分析返回
     return {
         "video_url": video_url,
         "views": random.randint(100, 99999),
