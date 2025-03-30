@@ -20,7 +20,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. 以太坊私有鏈 (Geth)
+  # 2. 以太坊私有鏈 (Geth) - 修正路徑與健康檢查
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -31,11 +31,17 @@ services:
       - "30303:30303"
       - "30303:30303/udp"
     volumes:
-      - geth_data:/root/.ethereum
+      - geth_data:/home/ethereum/data  # 路徑修正
+    healthcheck:  # 新增健康檢查
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
-  # 3. IPFS
+  # 3. IPFS - 改用正確鏡像名稱
   ipfs:
-    build: ./ipfs
+    image: ipfs/kubo:latest  # 直接使用官方鏡像，無需 build
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
@@ -45,8 +51,9 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    command: daemon --migrate=true --enable-pubsub-experiment  # 必要參數
 
-  # 4. Express
+  # 4. Express - 依賴於健康狀態
   express:
     build: ./express
     container_name: suzoo_express
@@ -54,7 +61,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_started
+        condition: service_healthy  # 改為依賴健康狀態
       ipfs:
         condition: service_started
     env_file:
@@ -62,7 +69,7 @@ services:
     networks:
       - suzoo_net
 
-  # 5. FastAPI
+  # 5. FastAPI - 依賴於健康狀態
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -70,7 +77,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_started
+        condition: service_healthy  # 改為依賴健康狀態
       ipfs:
         condition: service_started
     env_file:
@@ -83,27 +90,31 @@ services:
       timeout: 10s
       retries: 3
 
-  # 6. Crawler (Puppeteer)
+  # 6. Crawler (Puppeteer) - 明確指定 Node 版本
   crawler:
-    build: ./crawler
+    build: 
+      context: ./crawler
+      dockerfile: Dockerfile  # 確保內有 FROM node:18
     container_name: suzoo_crawler
     env_file:
       - .env
     networks:
       - suzoo_net
 
-  # 7. Frontend (React)
+  # 7. Frontend (React) - 修正構建設定
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile  # 確保基礎鏡像正確
     container_name: suzoo_frontend
     env_file:
       - .env
     networks:
       - suzoo_net
 
-  # 8. NGINX (reverse-proxy)
+  # 8. NGINX - 使用 Alpine 版本並修正配置
   nginx:
-    build: ./nginx
+    image: nginx:alpine  # 直接使用官方鏡像
     container_name: suzoo_nginx
     depends_on:
       - frontend
@@ -116,11 +127,12 @@ services:
     networks:
       - suzoo_net
     volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro  # 掛載自訂配置
       - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   db_data:
-  geth_data:
+  geth_data:  # 自動映射到 /home/ethereum/data
   ipfs_data:
 
 networks:
