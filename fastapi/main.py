@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 import os
 import analytics
 import blockchain
@@ -13,20 +13,20 @@ app = FastAPI()
 def on_start():
     if os.getenv("DEPLOY_CONTRACT_ON_START","false") == "true":
         addr = blockchain.deploy_contract()
-        blockchain.contract_address = addr  # 全域保存
+        blockchain.contract_address = addr
 
 @app.get("/health")
 def health():
-    return {"status": "FastAPI V6.0 is healthy"}
+    return {"status": "FastAPI V7 is healthy"}
 
 @app.post("/analyze")
 def analyze(video_url: str):
     return analytics.video_analysis(video_url)
 
 @app.post("/blockchain/upload")
-async def bc_upload(file: UploadFile = File(...)):
-    content = await file.read()
-    tx_hash = blockchain.upload_to_chain(content)
+def bc_upload(data: str):
+    # 模擬將 data(可視為 bytes)上鏈
+    tx_hash = blockchain.upload_to_chain(data.encode())
     return {"tx_hash": tx_hash}
 
 @app.get("/crawl/{platform}")
