@@ -7,7 +7,7 @@ const app = express();
 app.use(bodyParser.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'Crawler V7 is healthy' });
+  res.json({ status: 'Crawler V8 is healthy' });
 });
 
 app.post('/detect', async (req, res) => {
@@ -26,14 +26,13 @@ app.post('/detect', async (req, res) => {
     const content = await page.content();
     await browser.close();
 
-    // ... 這裡可以比對fingerprint or call fastapi dmca ...
-    // 例如:
+    // 模擬檢測 → 例如呼叫 FastAPI 的 DMCA
     await axios.post('http://fastapi:8000/dmca/lawsuit', {
-      work_id: 999,
+      work_id: 123,
       infringing_url: url
     });
 
-    res.json({ message: '爬蟲完成, DMCA已通報', url, fingerprint });
+    res.json({ message: 'Puppeteer detect done.', url, fingerprint, partialContent: content.slice(0,100) });
   } catch(e) {
     console.error(e);
     res.status(500).json({ error: e.toString() });
@@ -41,5 +40,5 @@ app.post('/detect', async (req, res) => {
 });
 
 app.listen(8081, () => {
-  console.log('Kai Crawler (V7) on port 8081');
+  console.log('Kai Crawler (V8) on port 8081');
 });
