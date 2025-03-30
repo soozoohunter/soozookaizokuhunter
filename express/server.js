@@ -8,13 +8,16 @@ const jwt = require('jsonwebtoken');
 const { Sequelize, DataTypes } = require('sequelize');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
-
-// 區塊鏈相關
 const Web3 = require('web3');
-const web3 = new Web3(process.env.BLOCKCHAIN_RPC_URL || 'http://geth:8545');
 
-// Demo: contract address & ABI
-// 請替換成您實際編譯出的 ABI 與合約地址
+// Web3 / 以太坊 & 合約
+const web3 = new Web3(process.env.BLOCKCHAIN_RPC_URL || 'http://geth:8545');
+const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
+const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+web3.eth.accounts.wallet.add(account);
+web3.eth.defaultAccount = account.address;
+
+// 若你已經有部署好的合約地址 & ABI (也可以由 FastAPI 進行自動部署後，再用 .env 指定)
 const contractABI = [
   {
     "inputs": [],
@@ -22,7 +25,9 @@ const contractABI = [
     "type": "constructor"
   },
   {
-    "inputs": [ { "internalType": "bytes32", "name": "hash", "type": "bytes32" } ],
+    "inputs": [
+      { "internalType": "bytes32", "name": "hash", "type": "bytes32" }
+    ],
     "name": "storeFingerprint",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -31,13 +36,7 @@ const contractABI = [
 ];
 const contractAddress = process.env.CONTRACT_ADDRESS || '0xYourDeployedAddress';
 
-// 以太坊私鑰
-const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '0x1111222233334444...';
-const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-web3.eth.accounts.wallet.add(account);
-web3.eth.defaultAccount = account.address;
-
-// 讀取 .env
+// .env
 const {
   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
   JWT_SECRET,
@@ -53,7 +52,7 @@ cloudinary.config({
   api_secret: CLOUDINARY_API_SECRET
 });
 
-// Sequelize
+// Sequelize (Postgres)
 const sequelize = new Sequelize(
   `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,
   { dialect: 'postgres', logging: false }
@@ -96,7 +95,7 @@ function verifyToken(token) {
   }
 }
 
-// Multer
+// Multer - 限制檔案類型
 const allowedMime = [
   'image/jpeg','image/png','image/gif','image/webp',
   'video/mp4','video/x-m4v','video/*'
@@ -114,17 +113,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Express V7' });
+  res.json({ status: 'ok', service: 'Express V8' });
 });
 
 // 註冊
 app.post('/signup', async (req, res) => {
   const { email, password } = req.body;
-  if(!email || !password) return res.status(400).json({ error: '缺少 email 或 password' });
+  if (!email || !password) {
+    return res.status(400).json({ error: '缺少 email 或 password' });
+  }
 
   const bcrypt = require('bcrypt');
   let exist = await User.findOne({ where: { email } });
-  if(exist) return res.status(400).json({ error: 'Email 已被註冊' });
+  if (exist) return res.status(400).json({ error: 'Email 已被註冊' });
 
   let hashed = await bcrypt.hash(password, 10);
   let newUser = await User.create({ email, password_hash: hashed });
@@ -149,10 +150,10 @@ app.post('/login', async (req, res) => {
   const bcrypt = require('bcrypt');
 
   let user = await User.findOne({ where: { email } });
-  if(!user) return res.status(401).json({ error: 'User not found' });
+  if (!user) return res.status(401).json({ error: 'User not found' });
 
   let match = await bcrypt.compare(password, user.password_hash);
-  if(!match) return res.status(401).json({ error: '密碼錯誤' });
+  if (!match) return res.status(401).json({ error: '密碼錯誤' });
 
   let token = signToken({ userId: user.id, email });
   res.json({ message: '登入成功', token });
@@ -161,12 +162,12 @@ app.post('/login', async (req, res) => {
 // 登出
 app.post('/logout', (req, res) => {
   const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-  if(!token) return res.status(400).json({ error: '缺少token' });
+  if (!token) return res.status(400).json({ error: '缺少token' });
   revokedTokens.add(token);
-  res.json({ message: '已登出, Token已被撤銷' });
+  res.json({ message: '已登出，Token已被撤銷' });
 });
 
-// 上傳 + storeFingerprint
+// 上傳檔案 + 指紋上鏈
 app.post('/upload', upload.single('file'), async (req, res) => {
   const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
   const decoded = verifyToken(token);
@@ -175,7 +176,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   if(!req.file) return res.status(400).json({ error: '請選擇檔案' });
   const fileBuffer = fs.readFileSync(req.file.path);
 
-  // 用 uuidv4 + sha3-256 產生指紋
+  // 用 uuidv4 + SHA3-256 產生指紋
   const salt = uuidv4();
   const combined = Buffer.concat([fileBuffer, Buffer.from(salt)]);
   const fingerprint = crypto.createHash('sha3-256').update(combined).digest('hex');
@@ -185,7 +186,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     let cloudRes = await cloudinary.uploader.upload(req.file.path, {
       resource_type: 'auto'
     });
-    fs.unlinkSync(req.file.path);
+    fs.unlinkSync(req.file.path); // 刪除本地暫存
 
     // 寫DB
     let newWork = await Work.create({
@@ -195,9 +196,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       userId: decoded.userId
     });
 
-    // storeFingerprint
-    // 若 .env 裡有 CONTRACT_ADDRESS => 調用
-    if(contractAddress !== '0xYourDeployedAddress') {
+    // storeFingerprint 上鏈 (如果 .env 有指定有效的合約地址)
+    if (contractAddress !== '0xYourDeployedAddress') {
       try {
         const contract = new web3.eth.Contract(contractABI, contractAddress);
         let txReceipt = await contract.methods.storeFingerprint("0x" + fingerprint).send({
@@ -256,7 +256,7 @@ app.post('/dmca/report', async (req, res) => {
   res.json({ message: 'DMCA通報已接收', autoNotified: DMCA_AUTO_NOTIFY });
 });
 
-// DB初始化 & 啟動
+// DB初始化 & 啟動服務
 (async ()=>{
   try {
     await sequelize.authenticate();
@@ -267,6 +267,6 @@ app.post('/dmca/report', async (req, res) => {
   }
 
   app.listen(3000, ()=>{
-    console.log('Express (V7) on port 3000');
+    console.log('Express (V8) on port 3000');
   });
 })();
