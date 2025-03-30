@@ -1,3 +1,6 @@
+# docker-compose.yml
+# 已去除 version: "3.8" 以避免 Docker Compose v2 警告
+
 services:
   # 1) db
   db:
@@ -17,6 +20,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   # 2) geth (私有鏈)
   geth:
@@ -26,7 +30,7 @@ services:
       - suzoo_net
     ports:
       - "8545:8545"        # RPC
-      - "30303:30303"      # Peer
+      - "30303:30303"      # Peer (TCP)
       - "30303:30303/udp"  # Peer (UDP)
     volumes:
       - geth_data:/data
@@ -43,6 +47,12 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5001/api/v0/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # 4) express (Node.js API)
   express:
@@ -59,6 +69,12 @@ services:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # 5) fastapi (Python)
   fastapi:
@@ -76,10 +92,11 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   # 6) crawler (Puppeteer)
   crawler:
@@ -89,6 +106,12 @@ services:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # 7) frontend (React)
   frontend:
@@ -98,6 +121,12 @@ services:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:3001 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # 8) nginx (HTTP + HTTPS)
   nginx:
@@ -116,6 +145,12 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro  # 掛載宿主機的 Let's Encrypt 憑證
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   db_data:
