@@ -1,24 +1,32 @@
 import React from 'react';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Home from './pages/Home';
+import Signup from './pages/Signup';
+import Login from './pages/Login';
+import RoleSelect from './pages/RoleSelect';
+import Upload from './pages/Upload';
+import InfringementList from './pages/InfringementList';
 
 function App() {
   return (
-    <div className="cyberpunk-container">
-      <h1 className="glitch-text">SUZOO KAIZOKU HUNTER - V8</h1>
-      <p style={{ color: '#0ff' }}>
-        這裡整合了 Docker + Nginx + SSL + Express + FastAPI + Geth + IPFS + 爬蟲 + PostgreSQL
-      </p>
-
-      <div className="neon-box">
-        <button className="hunt-button">🚀 啟動盜版狩獵模式</button>
-        <button className="upload-button">📤 上傳作品到區塊鏈</button>
-      </div>
-
-      <div className="stats-panel">
-        <h3>🛡️ 已保護作品: 1,234 件</h3>
-        <h3>⚔️ 已處理侵權案件: 567 件</h3>
-      </div>
-    </div>
+    <Router>
+      <nav className="top-nav">
+        <Link to="/">首頁</Link>
+        <Link to="/signup">註冊</Link>
+        <Link to="/login">登入</Link>
+        <Link to="/roleSelect">選擇角色</Link>
+        <Link to="/upload">上傳作品</Link>
+        <Link to="/infringements">侵權清單</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/roleSelect" element={<RoleSelect />} />
+        <Route path="/upload" element={<Upload />} />
+        <Route path="/infringements" element={<InfringementList />} />
+      </Routes>
+    </Router>
   );
 }
 
