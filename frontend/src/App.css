@@ -1,22 +1,52 @@
 body {
-  background-color: #000;
-  color: #ff1c1c;
-  font-family: 'Press Start 2P', cursive;
   margin: 0;
   padding: 0;
+  background-color: #000;
+  font-family: 'Press Start 2P', cursive, sans-serif;
+  color: #ff1c1c;
 }
 
-.btn-hunt {
-  background-color: #b30000;
-  color: #fff;
-  border: 2px solid #ff3b3b;
-  padding: 10px 20px;
-  font-weight: bold;
+.cyberpunk-container {
+  text-align: center;
+  margin-top: 5rem;
+}
+
+.glitch-text {
+  font-size: 2rem;
+  animation: glitch 1s infinite;
+}
+
+@keyframes glitch {
+  0% { text-shadow: 2px 2px #0ff; }
+  50% { text-shadow: -2px -2px #f0f; }
+  100% { text-shadow: 2px 2px #0ff; }
+}
+
+.neon-box {
+  border: 3px solid #0ff;
+  box-shadow: 0 0 10px #0ff;
+  padding: 2rem;
+  margin: 2rem auto;
+  width: 60%;
+}
+
+.hunt-button, .upload-button {
+  background: #000;
+  color: #0ff;
+  border: 2px solid #0ff;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  margin: 1rem;
   cursor: pointer;
-  text-transform: uppercase;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
 }
 
-.btn-hunt:hover {
-  background-color: #ff1c1c;
+.hunt-button:hover, .upload-button:hover {
+  background: #0ff;
+  color: #000;
+}
+
+.stats-panel {
+  margin: 2rem auto;
+  color: #ff3b3b;
 }
