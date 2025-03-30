@@ -1,9 +1,4 @@
-version: '3.8'
-
 services:
-  ##############################################################################
-  # 1) PostgreSQL
-  ##############################################################################
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -21,26 +16,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
-  ##############################################################################
-  # 2) 以太坊私有鏈 (Geth)
-  ##############################################################################
   geth:
     build: ./geth
     container_name: suzoo_geth
     networks:
       - suzoo_net
     ports:
-      - "8545:8545"        # RPC
-      - "30303:30303"      # Peer (TCP)
-      - "30303:30303/udp"  # Peer (UDP)
+      - "8545:8545"
+      - "30303:30303"
+      - "30303:30303/udp"
     volumes:
-      - geth_data:/data
+      - geth_data:/root/.ethereum
 
-  ##############################################################################
-  # 3) IPFS
-  ##############################################################################
   ipfs:
     build: ./ipfs
     container_name: suzoo_ipfs
@@ -52,16 +40,7 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:5001/api/v0/version || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-  ##############################################################################
-  # 4) Express (Node.js 後端)
-  ##############################################################################
   express:
     build: ./express
     container_name: suzoo_express
@@ -76,16 +55,7 @@ services:
       - .env
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-  ##############################################################################
-  # 5) FastAPI
-  ##############################################################################
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -100,17 +70,7 @@ services:
       - .env
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
-  ##############################################################################
-  # 6) Crawler (Puppeteer)
-  ##############################################################################
-  # 關鍵：services 的 key 一定是 "crawler"
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
@@ -118,19 +78,8 @@ services:
       - .env
     networks:
       - suzoo_net
-    depends_on:
-      - fastapi
-      - express
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:8081/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # 請確認 Dockerfile EXPOSE 8081
 
-  ##############################################################################
-  # 7) Frontend (React)
-  ##############################################################################
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
@@ -138,16 +87,11 @@ services:
       - .env
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:3001 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # 若 multi-stage build: 
+    #   builder => node:18 -> npm run build
+    #   runtime => FROM nginx:alpine => serve /build at port 80
+    # => 最後 container 內部會 list on port 80 (or 3001, 視 Dockerfile)
 
-  ##############################################################################
-  # 8) Nginx (HTTP + HTTPS)
-  ##############################################################################
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
@@ -162,14 +106,10 @@ services:
     networks:
       - suzoo_net
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # 挂载宿主機 Let's Encrypt 憑證
+      # 放 Let's Encrypt SSL 憑證
+      - /etc/letsencrypt:/etc/letsencrypt:ro  
+      # 直接掛載我們下方給的 nginx.conf
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 volumes:
   db_data:
