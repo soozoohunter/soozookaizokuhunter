@@ -1,8 +1,9 @@
-# docker-compose.yml
-# 已去除 version: "3.8" 以避免 Docker Compose v2 警告
+version: '3.8'
 
 services:
-  # 1) db
+  ##############################################################################
+  # 1) PostgreSQL
+  ##############################################################################
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -22,7 +23,9 @@ services:
       retries: 5
       start_period: 10s
 
-  # 2) geth (私有鏈)
+  ##############################################################################
+  # 2) 以太坊私有鏈 (Geth)
+  ##############################################################################
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -35,7 +38,9 @@ services:
     volumes:
       - geth_data:/data
 
-  # 3) ipfs
+  ##############################################################################
+  # 3) IPFS
+  ##############################################################################
   ipfs:
     build: ./ipfs
     container_name: suzoo_ipfs
@@ -54,7 +59,9 @@ services:
       retries: 3
       start_period: 30s
 
-  # 4) express (Node.js API)
+  ##############################################################################
+  # 4) Express (Node.js 後端)
+  ##############################################################################
   express:
     build: ./express
     container_name: suzoo_express
@@ -76,7 +83,9 @@ services:
       retries: 3
       start_period: 30s
 
-  # 5) fastapi (Python)
+  ##############################################################################
+  # 5) FastAPI
+  ##############################################################################
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -98,7 +107,10 @@ services:
       retries: 3
       start_period: 30s
 
-  # 6) crawler (Puppeteer)
+  ##############################################################################
+  # 6) Crawler (Puppeteer)
+  ##############################################################################
+  # 關鍵：services 的 key 一定是 "crawler"
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
@@ -106,6 +118,9 @@ services:
       - .env
     networks:
       - suzoo_net
+    depends_on:
+      - fastapi
+      - express
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:8081/health || exit 1"]
       interval: 30s
@@ -113,7 +128,9 @@ services:
       retries: 3
       start_period: 30s
 
-  # 7) frontend (React)
+  ##############################################################################
+  # 7) Frontend (React)
+  ##############################################################################
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
@@ -128,7 +145,9 @@ services:
       retries: 3
       start_period: 30s
 
-  # 8) nginx (HTTP + HTTPS)
+  ##############################################################################
+  # 8) Nginx (HTTP + HTTPS)
+  ##############################################################################
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
@@ -143,7 +162,7 @@ services:
     networks:
       - suzoo_net
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # 掛載宿主機的 Let's Encrypt 憑證
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # 挂载宿主機 Let's Encrypt 憑證
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost || exit 1"]
