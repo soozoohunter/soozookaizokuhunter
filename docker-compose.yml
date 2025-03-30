@@ -1,7 +1,9 @@
+# soozookaizokuhunter/docker-compose.yml
+
 version: '3.8'
 
 services:
-  # 1. PostgreSQL
+  # 1) db
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -20,28 +22,22 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. 以太坊私有鏈 (Geth) - 修正路徑與健康檢查
+  # 2) geth (私有鏈)
   geth:
     build: ./geth
     container_name: suzoo_geth
     networks:
       - suzoo_net
     ports:
-      - "8545:8545"
-      - "30303:30303"
-      - "30303:30303/udp"
+      - "8545:8545"        # RPC
+      - "30303:30303"      # Peer
+      - "30303:30303/udp"  # Peer (UDP)
     volumes:
-      - geth_data:/home/ethereum/data  # 路徑修正
-    healthcheck:  # 新增健康檢查
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
+      - geth_data:/data
 
-  # 3. IPFS - 改用正確鏡像名稱
+  # 3) ipfs
   ipfs:
-    image: ipfs/kubo:latest  # 直接使用官方鏡像，無需 build
+    build: ./ipfs
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
@@ -51,9 +47,8 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    command: daemon --migrate=true --enable-pubsub-experiment  # 必要參數
 
-  # 4. Express - 依賴於健康狀態
+  # 4) express (Node.js API)
   express:
     build: ./express
     container_name: suzoo_express
@@ -61,7 +56,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_healthy  # 改為依賴健康狀態
+        condition: service_started
       ipfs:
         condition: service_started
     env_file:
@@ -69,7 +64,7 @@ services:
     networks:
       - suzoo_net
 
-  # 5. FastAPI - 依賴於健康狀態
+  # 5) fastapi (Python)
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -77,7 +72,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_healthy  # 改為依賴健康狀態
+        condition: service_started
       ipfs:
         condition: service_started
     env_file:
@@ -90,31 +85,27 @@ services:
       timeout: 10s
       retries: 3
 
-  # 6. Crawler (Puppeteer) - 明確指定 Node 版本
+  # 6) crawler (Puppeteer)
   crawler:
-    build: 
-      context: ./crawler
-      dockerfile: Dockerfile  # 確保內有 FROM node:18
+    build: ./crawler
     container_name: suzoo_crawler
     env_file:
       - .env
     networks:
       - suzoo_net
 
-  # 7. Frontend (React) - 修正構建設定
+  # 7) frontend (React)
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile  # 確保基礎鏡像正確
+    build: ./frontend
     container_name: suzoo_frontend
     env_file:
       - .env
     networks:
       - suzoo_net
 
-  # 8. NGINX - 使用 Alpine 版本並修正配置
+  # 8) nginx (HTTP + HTTPS)
   nginx:
-    image: nginx:alpine  # 直接使用官方鏡像
+    build: ./nginx
     container_name: suzoo_nginx
     depends_on:
       - frontend
@@ -127,12 +118,12 @@ services:
     networks:
       - suzoo_net
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro  # 掛載自訂配置
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # 掛載宿主機的 Let's Encrypt 憑證
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
 
 volumes:
   db_data:
-  geth_data:  # 自動映射到 /home/ethereum/data
+  geth_data:
   ipfs_data:
 
 networks:
