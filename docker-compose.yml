@@ -1,4 +1,9 @@
+version: '3.8'
+
 services:
+  # ===============================
+  # 1. PostgreSQL
+  # ===============================
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -12,12 +17,14 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      # 讓 service_healthy 有依據
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ===============================
+  # 2. 以太坊私有鏈 (Geth)
+  # ===============================
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -25,44 +32,29 @@ services:
       - suzoo_net
     ports:
       - "8545:8545"
-      # 若需要 P2P:
-      # - "30303:30303"
-      # - "30303:30303/udp"
+      - "30303:30303"
+      - "30303:30303/udp"
     volumes:
-      # 把Geth資料存到 geth_data 卷內；一併把 genesis.json 以 read-only掛載 (若需)
-      - geth_data:/data
-      - ./geth/genesis.json:/genesis.json:ro
-    # 自訂entrypoint：若/data還沒init，就 init /genesis.json；接著執行 geth
-    entrypoint: >
-      sh -c '
-      if [ ! -f "/data/geth/chaindata/CURRENT" ]; then
-        echo "Initializing Genesis Block...";
-        geth --datadir /data init /genesis.json;
-      fi;
-      exec geth --datadir /data --networkid 12345 --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,personal --allow-insecure-unlock --unlock 0xYOURADDRESS --password /dev/null
-      '
-    # (可选) environment 參數
-    environment:
-      - ETHEREUM_NETWORK_ID=12345
-    # (可选) healthcheck, 若要 depends_on.service_healthy:
-    # healthcheck:
-    #   test: ["CMD", "geth attach http://localhost:8545 --exec eth.blockNumber"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
+      - geth_data:/root/.ethereum
 
+  # ===============================
+  # 3. IPFS
+  # ===============================
   ipfs:
     build: ./ipfs
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
     ports:
-      - "5001:5001"  # IPFS API
-      - "8080:8080"  # IPFS Gateway
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    # (可選) healthcheck: ipfs swarm peers?
 
+  # ===============================
+  # 4. Express
+  # ===============================
   express:
     build: ./express
     container_name: suzoo_express
@@ -77,8 +69,10 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 透過 Nginx 代理 => 不需要對外暴露 3000:3000
 
+  # ===============================
+  # 5. FastAPI
+  # ===============================
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
@@ -98,8 +92,10 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    # 同理，透過 Nginx代理 => 無需對外暴露 port
 
+  # ===============================
+  # 6. Crawler (Puppeteer)
+  # ===============================
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
@@ -107,36 +103,36 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 若爬蟲只在內部呼叫 => 不需要對外暴露 8081
 
+  # ===============================
+  # 7. Frontend (React)
+  # ===============================
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
+    env_file:
+      - .env
     networks:
       - suzoo_net
-    # React前端 => Nginx代理 => 無需 ports
 
+  # ===============================
+  # 8. NGINX
+  # ===============================
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
     depends_on:
-      frontend:
-        condition: service_started
-      express:
-        condition: service_started
-      fastapi:
-        condition: service_healthy
-      crawler:
-        condition: service_started
-    networks:
-      - suzoo_net
+      - frontend
+      - express
+      - fastapi
+      - crawler
     ports:
       - "80:80"
-    # 正式環境可加 SSL 443
-    # volumes:
-    #   - /etc/letsencrypt:/etc/letsencrypt:ro
-    # ports:
-    #   - "443:443"
+      - "443:443"
+    networks:
+      - suzoo_net
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   db_data:
