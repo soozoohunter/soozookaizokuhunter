@@ -1,26 +1,13 @@
 {
   "config": {
     "chainId": 12345,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "berlinBlock": 0,
-    "londonBlock": 0,
-    "clique": {
-      "period": 15,
-      "epoch": 30000
-    }
+    "homesteadBlock": 0
   },
   "nonce": "0x0",
-  "timestamp": "0x5c51d4c3",
-  "extraData": "0x000000000000000000000000110cb167ea55c3467cd82fdef9dd570b7d3f30b80000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-  "gasLimit": "0x9999B1A",
-  "difficulty": "0x1",
+  "timestamp": "0x00",
+  "extraData": "",
+  "gasLimit": "0x8000000",
+  "difficulty": "0x400",
   "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "coinbase": "0x0000000000000000000000000000000000000000",
   "alloc": {}
