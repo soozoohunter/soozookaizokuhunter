@@ -3,23 +3,25 @@ FROM ethereum/client-go:latest
 WORKDIR /root
 COPY genesis.json /root/genesis.json
 
-# 初始化私有鏈
 RUN mkdir -p /root/.ethereum
-RUN geth --datadir /root/.ethereum init /root/genesis.json
+RUN geth init /root/genesis.json --datadir /root/.ethereum
 
-# 只暴露RPC。若需要P2P連線到外部，也可 EXPOSE 30303 30303/udp
-EXPOSE 8545
-# EXPOSE 30303 30303/udp
+# 這裡示範將 "私鑰" 轉 keystore JSON => 硬碼
+# address => 0x110cb167ea55c3467cd82fdef9dd570b7d3f30b8
+RUN echo '{"version":3,"id":"some-uuid","address":"110cb167ea55c3467cd82fdef9dd570b7d3f30b8","crypto":{"cipher":"aes-128-ctr","cipherparams":{"iv":"799bbcce16e7e43972b0ea87c9adf76e"},"ciphertext":"b930...","kdf":"scrypt","kdfparams":{"dklen":32,"salt":"...","n":8192,"r":8,"p":1},"mac":"..."},"meta":"DEMO"}' \
+     > /root/.ethereum/keystore/UTC--2025-03-29T00-00-00.000000000Z--110cb167ea55c3467cd82fdef9dd570b7d3f30b8
 
-# 保留一次 geth，不會再出現 'geth geth'。
-CMD [
-  "--datadir", "/root/.ethereum",
-  "--networkid", "12345",
-  "--http",
-  "--http.addr", "0.0.0.0",
-  "--http.port", "8545",
-  "--http.api", "eth,net,web3,personal",
-  "--allow-insecure-unlock",
-  "--unlock", "0xYOURADDRESS",
-  "--password", "/dev/null"
-]
+RUN echo -e "123456\n123456\n" | geth account new --password /dev/stdin --datadir /root/.ethereum
+
+EXPOSE 30303 30303/udp 8545
+CMD ["geth",
+     "--datadir", "/root/.ethereum",
+     "--networkid", "12345",
+     "--http",
+     "--http.addr", "0.0.0.0",
+     "--http.port", "8545",
+     "--http.api", "eth,net,web3,personal",
+     "--allow-insecure-unlock",
+     "--dev",
+     "--unlock", "0x110cb167ea55c3467cd82fdef9dd570b7d3f30b8",
+     "--password", "/dev/null"]
