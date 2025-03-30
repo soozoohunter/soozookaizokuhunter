@@ -1,3 +1,5 @@
+# docker-compose.yml
+
 services:
   db:
     image: postgres:15
@@ -78,7 +80,6 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 請確認 Dockerfile EXPOSE 8081
 
   frontend:
     build: ./frontend
@@ -87,10 +88,6 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 若 multi-stage build: 
-    #   builder => node:18 -> npm run build
-    #   runtime => FROM nginx:alpine => serve /build at port 80
-    # => 最後 container 內部會 list on port 80 (or 3001, 視 Dockerfile)
 
   nginx:
     build: ./nginx
@@ -106,9 +103,7 @@ services:
     networks:
       - suzoo_net
     volumes:
-      # 放 Let's Encrypt SSL 憑證
-      - /etc/letsencrypt:/etc/letsencrypt:ro  
-      # 直接掛載我們下方給的 nginx.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # SSL
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
 
 volumes:
