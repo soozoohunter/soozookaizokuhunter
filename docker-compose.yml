@@ -1,4 +1,5 @@
-# docker-compose.yml (移除 version: '3.8' 以免 Warn，或留著也行；官方說可忽略)
+# docker-compose.yml
+# 若你原本有 version: '3.8' 可以保留，官方也說可以忽略 warning
 services:
   db:
     image: postgres:15
@@ -89,7 +90,7 @@ services:
 
   crawler:
     build: ./crawler
-    # 注意：不要再加 `container_name: suzoo_crawler`，以免打破 Docker DNS
+    # 特別注意：不要再加 container_name，讓 Docker 自動分配
     networks:
       - suzoo_net
     env_file:
