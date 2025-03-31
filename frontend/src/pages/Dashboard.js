@@ -1,18 +1,30 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
-function Dashboard() {
-  const navigate = useNavigate();
-  const role = localStorage.getItem('role') || 'shortVideo';
+export default function Dashboard() {
+  const [role, setRole] = useState(localStorage.getItem('role')||'shortVideo');
+
+  useEffect(()=>{
+    setRole(localStorage.getItem('role')||'shortVideo');
+  },[]);
 
   return (
-    <div style={{ margin:'2rem' }}>
-      <h2>Dashboard - 角色狀態</h2>
-      <p>目前角色: {role}</p>
-      <p>請選擇功能：</p>
-      <button onClick={() => navigate('/upload')}>前往上傳頁面</button>
+    <div style={{ margin:'2rem'}}>
+      <h2 style={{fontSize:'1.8rem'}}>個人主頁 (Dashboard)</h2>
+      <p>您目前的角色： <strong>{ role==='shortVideo'?'短影音網紅':'個人電商賣家' }</strong></p>
+
+      {role==='shortVideo'
+        ? <p>可上傳最多15部短影音 (30秒內)。系統會為您生成「動態指紋DNA」並上鏈存證。</p>
+        : <p>可上傳最多30張商品圖片，生成「靜態指紋DNA」並上鏈。</p>
+      }
+
+      <div style={{marginTop:'1rem'}}>
+        <Link to="/upload">[開始上傳作品]</Link>
+      </div>
+      
+      <div style={{marginTop:'1rem'}}>
+        <Link to="/infringements">[查看侵權紀錄與DMCA/提告]</Link>
+      </div>
     </div>
   );
 }
-
-export default Dashboard;
