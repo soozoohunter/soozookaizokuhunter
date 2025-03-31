@@ -1,61 +1,53 @@
 // express/routes/auth.js
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
+const db = require('../db');
+const { DataTypes } = require('sequelize');
+const UserModel = require('../models/User')(db, DataTypes);
 
-// 注意：連線資訊可改放在 process.env
-const pool = new Pool({
-  user: process.env.POSTGRES_USER,
-  host: process.env.POSTGRES_HOST,
-  database: process.env.POSTGRES_DB,
-  password: process.env.POSTGRES_PASSWORD,
-  port: process.env.POSTGRES_PORT
-});
+router.post('/signup', async(req,res)=>{
+  const { email, password, role } = req.body;
+  if(!email || !password) return res.status(400).json({ error:'缺 email/password' });
 
-// 註冊
-router.post('/register', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    // 簡單示範
-    if(!username || !password) return res.status(400).json({ error: '缺少必填欄位' });
+  try{
+    // bcrypt
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
-    const hashed = await bcrypt.hash(password, 10);
-    const insertQuery = 'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id';
-    const result = await pool.query(insertQuery, [username, hashed]);
-    const userId = result.rows[0].id;
-    res.json({ message: '註冊成功', userId });
-  } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Server error' });
+    let newUser = await UserModel.create({
+      email,
+      passwordHash,
+      role: role || 'shortVideo'
+    });
+    res.status(201).json({ userId:newUser.id, role:newUser.role });
+  } catch(e){
+    console.error('signup fail:', e.message);
+    res.status(400).json({error:e.message||'註冊失敗'});
   }
 });
 
-// 登入
-router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    if(!username || !password) return res.status(400).json({ error: '缺少必填欄位' });
+router.post('/login', async(req,res)=>{
+  const { email, password } = req.body;
+  if(!email || !password) return res.status(400).json({ error:'缺 email/password' });
 
-    const userQuery = 'SELECT id, password_hash FROM users WHERE username=$1';
-    const result = await pool.query(userQuery, [username]);
-    if (result.rowCount === 0) {
-      return res.status(401).json({ error: '用戶不存在' });
-    }
+  try{
+    let user = await UserModel.findOne({ where:{email}});
+    if(!user) return res.status(401).json({error:'無此用戶'});
+    let match = await bcrypt.compare(password, user.passwordHash);
+    if(!match) return res.status(401).json({error:'密碼錯誤'});
 
-    const { id, password_hash } = result.rows[0];
-    const match = await bcrypt.compare(password, password_hash);
-    if (!match) {
-      return res.status(401).json({ error: '密碼錯誤' });
-    }
-
-    // 產生 JWT
-    const token = jwt.sign({ userId: id, username }, process.env.JWT_SECRET, { expiresIn: '2h' });
-    res.json({ message: '登入成功', token });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Server error' });
+    let token = jwt.sign(
+      { userId:user.id, role:user.role },
+      process.env.JWT_SECRET,
+      { expiresIn:'2h' }
+    );
+    res.json({ token, role:user.role });
+  }catch(e){
+    console.error(e.message);
+    res.status(500).json({error:'伺服器錯誤'});
   }
 });
 
