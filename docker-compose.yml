@@ -102,11 +102,15 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: suzoo_nginx
-    # 若要在 Nginx 啟動前等待 crawler:8081，就保留下列 command
-    command: sh -c "/wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"
     depends_on:
       crawler:
         condition: service_healthy
+      frontend:
+        condition: service_started
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
     networks:
       - suzoo_net
     ports:
@@ -114,9 +118,14 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro   # 若您需要 wait-for-it.sh
+      # 若您有 wait-for-it.sh 需等待 crawler, 則可掛載:
+      # - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
       - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
+    # 如需 wait-for-it.sh, command可改:
+    # command: ["/wait-for-it.sh","crawler:8081","--timeout=30","--strict","--","nginx","-g","daemon off;"]
+    # 否則直接:
+    command: ["nginx","-g","daemon off;"]
     restart: unless-stopped
 
 volumes:
