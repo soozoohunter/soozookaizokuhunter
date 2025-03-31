@@ -8,12 +8,24 @@ const jwt = require('jsonwebtoken');
 const { Sequelize, DataTypes } = require('sequelize');
 const cloudinary = require('cloudinary').v2;
 const { v4: uuidv4 } = require('uuid');
-const axios = require('axios'); // 呼叫 Crawler 容器
-
-// Web3 + 合約
+const axios = require('axios');
 const Web3 = require('web3');
-const web3 = new Web3(process.env.BLOCKCHAIN_RPC_URL || 'http://geth:8545');
+const ffmpeg = require('fluent-ffmpeg');
+const path = require('path');
 
+// 1) 讀取 .env
+const {
+  POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
+  JWT_SECRET,
+  EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM,
+  CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
+  DMCA_AUTO_NOTIFY,
+  BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS,
+  EXPRESS_PORT
+} = process.env;
+
+// 2) 區塊鏈初始化
+const web3 = new Web3(BLOCKCHAIN_RPC_URL || 'http://geth:8545');
 const contractABI = [
   {
     "inputs": [],
@@ -21,82 +33,63 @@ const contractABI = [
     "type": "constructor"
   },
   {
-    "inputs": [ { "internalType": "bytes32", "name": "hash", "type": "bytes32" } ],
+    "inputs": [{ "internalType": "bytes32", "name": "hash", "type": "bytes32" }],
     "name": "storeFingerprint",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
-const contractAddress = process.env.CONTRACT_ADDRESS || '0xYourDeployedAddress';
-
-const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '0x1111222233334444...';
-const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+const account = web3.eth.accounts.privateKeyToAccount(BLOCKCHAIN_PRIVATE_KEY || '0x1111');
 web3.eth.accounts.wallet.add(account);
 web3.eth.defaultAccount = account.address;
 
-// 從環境變數讀取
-const {
-  POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST, POSTGRES_PORT,
-  JWT_SECRET,
-  EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM,
-  CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
-  DMCA_AUTO_NOTIFY,
-  EXPRESS_PORT
-} = process.env;
-
-// Cloudinary 設定
-cloudinary.config({
-  cloud_name: CLOUDINARY_CLOUD_NAME,
-  api_key: CLOUDINARY_API_KEY,
-  api_secret: CLOUDINARY_API_SECRET
-});
-
-// Sequelize (PostgreSQL) 初始化
+// 3) Sequelize 初始化
 const sequelize = new Sequelize(
   `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`,
   { dialect: 'postgres', logging: false }
 );
 
-// 定義資料表 Models
+// 4) 定義 Models
 const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, unique: true },
   password_hash: DataTypes.STRING,
-  role: DataTypes.STRING
+  role: DataTypes.STRING // 'shortVideo' or 'ecommerce'
 }, { tableName: 'users' });
 
 const Work = sequelize.define('Work', {
   title: DataTypes.STRING,
   fingerprint: DataTypes.STRING,
   cloudinaryUrl: DataTypes.STRING,
-  userId: DataTypes.INTEGER
+  userId: DataTypes.INTEGER,
+  fileType: DataTypes.STRING  // 'image' or 'video'
 }, { tableName: 'works' });
 
 const Infringement = sequelize.define('Infringement', {
   workId: DataTypes.INTEGER,
   infringingUrl: DataTypes.STRING,
-  status: { type: DataTypes.STRING, defaultValue: 'pending' }
+  status: { type: DataTypes.STRING, defaultValue: 'pending' },
+  infringerEmail: DataTypes.STRING  // 若可取得侵權者之Email
 }, { tableName: 'infringements' });
 
-// Nodemailer 設定
+// 5) Nodemailer
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: false, // 若使用 465 才通常是 true
+  secure: false, // 使用587通常為false
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS
   }
 });
 
-// JWT
+// 6) JWT
 const revokedTokens = new Set();
-
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '2h' });
 }
 function verifyToken(token) {
-  if (revokedTokens.has(token)) return null;
+  if(revokedTokens.has(token)) return null;
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch(e) {
@@ -104,7 +97,14 @@ function verifyToken(token) {
   }
 }
 
-// Multer (上傳)
+// 7) Cloudinary
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD_NAME,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET
+});
+
+// 8) Multer - 檔案過濾
 const allowedMime = [
   'image/jpeg','image/png','image/gif','image/webp',
   'video/mp4','video/x-m4v','video/*'
@@ -117,177 +117,204 @@ function fileFilter(req, file, cb) {
 }
 const upload = multer({ dest: 'uploads/', fileFilter });
 
-// 建立 Express App
+// 9) 建立 Express App
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 健康檢查 (Health Check)
+// 健康檢查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'KaikaiShield Express' });
 });
 
 /**
- * [ 使用者註冊 ]
- *  - email / password / role
- *  - role 必須是 ecommerce 或 shortVideo
+ * =========================================
+ *   A) 用戶註冊 / 登入 / 登出
+ * =========================================
  */
-app.post('/signup', async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-    if(!email || !password) {
-      return res.status(400).json({ error: '缺少 email 或 password' });
-    }
-    // 角色限制
-    if(!['ecommerce','shortVideo'].includes(role)) {
-      return res.status(400).json({ error: '角色必須是 ecommerce 或 shortVideo' });
-    }
+// 註冊
+app.post('/signup', async (req, res)=>{
+  const { email, password, role } = req.body;
+  if(!email || !password || !role) {
+    return res.status(400).json({ error: '缺少 email / password / role' });
+  }
+  if(!['shortVideo','ecommerce'].includes(role)) {
+    return res.status(400).json({ error: 'role 必須是 shortVideo 或 ecommerce' });
+  }
 
-    const bcrypt = require('bcrypt');
-    const exist = await User.findOne({ where: { email } });
+  const bcrypt = require('bcrypt');
+  try {
+    let exist = await User.findOne({ where: { email } });
     if(exist) {
       return res.status(400).json({ error: 'Email 已被註冊' });
     }
+    let hashed = await bcrypt.hash(password, 10);
+    let newUser = await User.create({ email, password_hash: hashed, role });
 
-    const hashed = await bcrypt.hash(password, 10);
-    const newUser = await User.create({ email, password_hash: hashed, role });
-
-    // 寄歡迎信 (非強制)
+    // 寄歡迎信
     try {
       await transporter.sendMail({
         from: EMAIL_FROM,
         to: email,
         subject: 'KaiKaiShield 歡迎信',
-        text: '感謝您註冊 KaiKaiShield，本服務已為您開通。\n(系統自動寄送)'
+        text: '感謝您註冊 KaiKaiShield，本服務已為您開通。'
       });
     } catch(e) {
       console.error('寄歡迎信失敗：', e.message);
     }
 
     res.json({ message: '註冊成功', userId: newUser.id });
-  } catch (err) {
-    console.error('signup error:', err.message);
+  } catch(e) {
+    console.error('signup error:', e.message);
     res.status(500).json({ error: 'server error' });
   }
 });
 
-/**
- * [ 使用者登入 ]
- *  - email / password
- *  - 回傳 token (JWT) 與 role
- */
-app.post('/login', async (req, res) => {
+// 登入
+app.post('/login', async (req, res)=>{
+  const { email, password } = req.body;
+  if(!email || !password) {
+    return res.status(400).json({ error: '缺少 email 或 password' });
+  }
+
+  const bcrypt = require('bcrypt');
   try {
-    const { email, password } = req.body;
-    const bcrypt = require('bcrypt');
-
-    const user = await User.findOne({ where: { email } });
+    let user = await User.findOne({ where: { email } });
     if(!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(401).json({ error: '用戶不存在' });
     }
-
-    const match = await bcrypt.compare(password, user.password_hash);
+    let match = await bcrypt.compare(password, user.password_hash);
     if(!match) {
       return res.status(401).json({ error: '密碼錯誤' });
     }
-
-    const token = signToken({ userId: user.id, email, role: user.role });
+    let token = signToken({ userId: user.id, email, role: user.role });
     res.json({ message: '登入成功', token, role: user.role });
-  } catch (err) {
-    console.error('login error:', err.message);
+  } catch(e) {
+    console.error('login error:', e.message);
     res.status(500).json({ error: 'server error' });
   }
 });
 
-/**
- * [ 使用者登出 ]
- *  - 前端需攜帶 Bearer Token
- *  - Token 加入 revokedTokens，失效
- */
-app.post('/logout', (req, res) => {
+// 登出
+app.post('/logout', (req, res)=>{
   const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-  if(!token) {
-    return res.status(400).json({ error: '缺少 token' });
-  }
+  if(!token) return res.status(400).json({ error: '缺少 token' });
   revokedTokens.add(token);
   res.json({ message: '已登出, Token已被撤銷' });
 });
 
+
 /**
- * [ 上傳檔案 + storeFingerprint ]
- *  - 角色=ecommerce: 最多 30 張
- *  - 角色=shortVideo: 最多 5 部
- *  - 上傳至 Cloudinary 後，fingerprint 上鏈 (若已設定合約位址)
- *  - 呼叫 Crawler 容器做偵測
+ * =========================================
+ *   B) 上傳檔案(指紋存證 + 上鏈 + Crawler)
+ * =========================================
  */
-app.post('/upload', upload.single('file'), async (req, res) => {
-  try {
-    const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-    const decoded = verifyToken(token);
-    if(!decoded) {
-      return res.status(401).json({ error: '未授權或Token已失效' });
-    }
-    if(!req.file) {
-      return res.status(400).json({ error: '請選擇檔案' });
-    }
+app.post('/upload', upload.single('file'), async (req, res)=>{
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) {
+    return res.status(401).json({ error: '未授權或Token已失效' });
+  }
+  if(!req.file) {
+    return res.status(400).json({ error: '請選擇檔案' });
+  }
+  // 找用戶
+  let user = await User.findByPk(decoded.userId);
+  if(!user) {
+    return res.status(404).json({ error: '找不到使用者' });
+  }
 
-    // 查找該用戶
-    const user = await User.findByPk(decoded.userId);
-    if(!user) {
-      return res.status(404).json({ error: '找不到使用者' });
-    }
+  // 檔案類型判斷 (以 mime startsWith("image/") or "video/")
+  let fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
 
-    // 上傳數量限制
-    const worksCount = await Work.count({ where: { userId: user.id }});
-    if(user.role === 'ecommerce' && worksCount >= 30) {
-      return res.status(400).json({ error: '已達商品照上傳30張上限' });
+  // 1) 先檢查「數量限制」
+  let userWorks = await Work.findAll({ where: { userId: user.id }});
+  let imageCount = userWorks.filter(w=>w.fileType==='image').length;
+  let videoCount = userWorks.filter(w=>w.fileType==='video').length;
+
+  if(user.role==='shortVideo') {
+    // 只可上傳 5 支「短影音」(30秒內)
+    if(fileType==='image') {
+      // 理論上網紅只需要影片，也可允許上傳圖片，但此處題意未嚴格禁止 → 視需求
+      // 這裡直接回拒 或 放行都行
+      return res.status(400).json({ error: '網紅帳號僅支援短影音' });
     }
-    if(user.role === 'shortVideo' && worksCount >= 5) {
+    if(videoCount >= 5) {
       return res.status(400).json({ error: '已達短影音上傳5部上限' });
     }
+    // 檢查 30 秒長度
+    let durationSec = await probeVideoDuration(req.file.path);
+    if(durationSec > 30) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: '影片超過30秒限制' });
+    }
+  }
+  else if(user.role==='ecommerce') {
+    // 可上傳 30 張商品圖 + 2 支短影音
+    if(fileType==='image') {
+      if(imageCount >= 30) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: '已達商品照上傳30張上限' });
+      }
+    } else {
+      // video
+      if(videoCount >= 2) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: '已達短影音上傳2部上限' });
+      }
+      // 30 秒限制
+      let durationSec = await probeVideoDuration(req.file.path);
+      if(durationSec > 30) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: '商品影片超過30秒限制' });
+      }
+    }
+  }
 
-    // 讀檔 + 產生 fingerprint
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const salt = uuidv4();
-    const combined = Buffer.concat([fileBuffer, Buffer.from(salt)]);
-    const fingerprint = crypto.createHash('sha3-256').update(combined).digest('hex');
+  // 2) 產生指紋
+  const fileBuffer = fs.readFileSync(req.file.path);
+  const salt = uuidv4();
+  const combined = Buffer.concat([fileBuffer, Buffer.from(salt)]);
+  const fingerprint = crypto.createHash('sha3-256').update(combined).digest('hex');
 
-    // 上傳到 Cloudinary
+  try {
+    // 3) 上傳至 Cloudinary
     let cloudRes = await cloudinary.uploader.upload(req.file.path, {
-      resource_type: 'auto' // 可自動判斷圖片或影片
+      resource_type: 'auto'
     });
-    fs.unlinkSync(req.file.path); // 刪除本地暫存
+    fs.unlinkSync(req.file.path);
 
-    // 建立資料庫紀錄
-    const newWork = await Work.create({
-      title: req.body.title || (user.role === 'shortVideo' ? '短影音' : '商品照片'),
+    // 4) 寫入 DB
+    let newWork = await Work.create({
+      title: req.body.title || (user.role==='shortVideo' ? '短影音' : '商品照片'),
       fingerprint,
       cloudinaryUrl: cloudRes.secure_url,
-      userId: user.id
+      userId: user.id,
+      fileType
     });
 
-    // 若已有合約位址，執行 storeFingerprint (上鏈)
-    if(contractAddress !== '0xYourDeployedAddress') {
+    // 5) 指紋上鏈 (若合約已準備好)
+    if(CONTRACT_ADDRESS && CONTRACT_ADDRESS!=='0xYourDeployedContractAddress') {
+      const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
       try {
-        const contract = new web3.eth.Contract(contractABI, contractAddress);
-        let txReceipt = await contract.methods.storeFingerprint("0x" + fingerprint).send({
+        let txReceipt = await contract.methods.storeFingerprint("0x"+fingerprint).send({
           from: account.address,
           gas: 500000
         });
-        console.log('指紋上鏈成功, txHash=', txReceipt.transactionHash);
-      } catch(err) {
-        console.error('指紋上鏈失敗:', err.message);
+        console.log('指紋上鏈成功:', txReceipt.transactionHash);
+      } catch(e) {
+        console.error('指紋上鏈失敗:', e.message);
       }
     }
 
-    // 呼叫爬蟲容器 (crawler) 進行侵權偵測 (範例)
+    // 6) 呼叫爬蟲容器 (crawler) => 同步或非同步
     try {
       await axios.post('http://crawler:8081/detect', {
-        url: 'https://example.com',  // 真實場景可放 IG/FB/蝦皮 連結
+        url: 'https://example.com', // 真實場景可針對TikTok/IG/FB/YT/Shopee/...
         fingerprint
       });
     } catch(e) {
-      console.error('無法啟動 Crawler 偵測：', e.message);
+      console.error('呼叫爬蟲失敗:', e.message);
     }
 
     res.json({
@@ -296,173 +323,269 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       cloudinaryUrl: cloudRes.secure_url,
       workId: newWork.id
     });
-  } catch (err) {
-    console.error('上傳失敗：', err.message);
-    res.status(500).json({ error: err.message });
+  } catch(e) {
+    console.error('upload error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
 /**
- * [ 取得當前用戶的侵權列表 ]
+ * =========================================
+ *   C) 侵權管理
+ * =========================================
+ *   1) 偵測到侵權 => Infringement 記錄
+ *   2) DMCA 申訴
+ *   3) 合法授權 (Mark as legal)
+ *   4) 要求付費購買授權
+ *   5) 發起法律訴訟
  */
-app.get('/infringements', async (req, res) => {
-  try {
-    const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-    const decoded = verifyToken(token);
-    if(!decoded) {
-      return res.status(401).json({ error: '未授權或Token已失效' });
-    }
-    const user = await User.findByPk(decoded.userId);
-    if(!user) {
-      return res.status(404).json({ error: '找不到使用者' });
-    }
 
-    const works = await Work.findAll({ where: { userId: user.id }});
-    const workIds = works.map(w => w.id);
-    const infs = await Infringement.findAll({ where: { workId: workIds } });
+// 查詢侵權列表 (只顯示目前用戶名下)
+app.get('/infringements', async (req, res)=>{
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) return res.status(401).json({ error: '未授權' });
+
+  try {
+    let user = await User.findByPk(decoded.userId);
+    if(!user) return res.status(404).json({ error: '找不到使用者' });
+
+    let works = await Work.findAll({ where: { userId: user.id }});
+    let workIds = works.map(w=>w.id);
+    let infs = await Infringement.findAll({ where: { workId: workIds } });
     res.json({ works, infringements: infs });
-  } catch (err) {
-    console.error('/infringements error:', err.message);
+  } catch(e) {
+    console.error('infringements error:', e.message);
     res.status(500).json({ error: 'server error' });
   }
 });
 
-/**
- * [ DMCA 通報 ]
- */
-app.post('/dmca/report', async (req, res) => {
+// DMCA 申訴
+app.post('/dmca/report', async (req, res)=>{
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) return res.status(401).json({ error: '未授權' });
+
+  const { workId, infringingUrl } = req.body;
+  if(!workId || !infringingUrl) {
+    return res.status(400).json({ error: '缺少 workId 或 infringingUrl' });
+  }
   try {
-    const { infringingUrl, workId } = req.body;
-    if(!infringingUrl || !workId) {
-      return res.status(400).json({ error: '缺少 infringingUrl 或 workId' });
+    let w = await Work.findByPk(workId);
+    if(!w) return res.status(404).json({ error: 'workId 不存在' });
+    if(w.userId!==decoded.userId) {
+      return res.status(403).json({ error: '無權申訴他人作品' });
     }
 
-    const found = await Work.findByPk(workId);
-    if(!found) {
-      return res.status(404).json({ error: '無此作品id' });
-    }
-
-    // 找作者
-    const user = await User.findByPk(found.userId);
-    if(!user) {
-      return res.status(404).json({ error: '作者不存在' });
-    }
-
-    const inf = await Infringement.create({
-      workId,
+    let inf = await Infringement.create({
+      workId: w.id,
       infringingUrl,
       status: 'pending'
     });
 
-    // 自動寄信 (選擇性)
-    if(DMCA_AUTO_NOTIFY === 'true') {
+    // 自動寄信給平台 (示範)
+    if(DMCA_AUTO_NOTIFY==='true') {
       try {
         await transporter.sendMail({
           from: EMAIL_FROM,
           to: 'dmca@some-platform.com',
-          subject: `DMCA Takedown - WorkID ${workId}`,
-          text: `侵權網址: ${infringingUrl}\n作者: ${user.email}\nFingerprint: ${found.fingerprint}`
+          subject: `DMCA Takedown - WorkID ${w.id}`,
+          text: `侵權網址: ${infringingUrl}\n作者: ${decoded.email}\nFingerprint: ${w.fingerprint}`
         });
       } catch(e) {
-        console.error('DMCA寄信失敗：', e.message);
+        console.error('DMCA寄信失敗:', e.message);
       }
     }
 
-    res.json({ message: 'DMCA通報已接收', autoNotified: DMCA_AUTO_NOTIFY, infId: inf.id });
-  } catch (err) {
-    console.error('dmca/report error:', err.message);
+    res.json({ message: 'DMCA通報成功', infId: inf.id });
+  } catch(e) {
+    console.error('dmca/report error:', e.message);
     res.status(500).json({ error: 'server error' });
   }
 });
 
-/**
- * [ 合法授權 - 將某筆侵權紀錄標記為 legalized ]
- */
+// 標記為「合法授權」
 app.post('/infringement/legalize', async (req, res)=>{
-  try {
-    const { infId } = req.body;
-    const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-    const decoded = verifyToken(token);
-    if(!decoded) {
-      return res.status(401).json({ error: '未授權或Token已失效' });
-    }
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) return res.status(401).json({ error: '未授權' });
 
+  const { infId } = req.body;
+  if(!infId) return res.status(400).json({ error: '缺少 infId' });
+
+  try {
     let inf = await Infringement.findByPk(infId);
-    if(!inf) {
-      return res.status(404).json({ error: '找不到此侵權記錄' });
-    }
+    if(!inf) return res.status(404).json({ error: '找不到侵權記錄' });
 
     let w = await Work.findByPk(inf.workId);
-    if(!w || w.userId !== decoded.userId) {
-      return res.status(403).json({ error: '無權操作此侵權記錄' });
+    if(!w || w.userId!==decoded.userId) {
+      return res.status(403).json({ error: '無權操作此侵權紀錄' });
     }
 
     inf.status = 'legalized';
     await inf.save();
-    res.json({ message: '已標記為合法侵權(授權)', infId });
-  } catch (err) {
-    console.error('legalize error:', err.message);
+
+    // 寫進區塊鏈(若有需要)
+    if(CONTRACT_ADDRESS && CONTRACT_ADDRESS!=='0xYourDeployedContractAddress') {
+      try {
+        let hx = crypto.createHash('sha256').update(`LEGALIZE:${infId}`).digest('hex');
+        // 直接 storeFingerprint "0x + hx"
+        const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+        await contract.methods.storeFingerprint("0x"+hx).send({ from: account.address, gas: 500000 });
+      } catch(e) {
+        console.error('上鏈失敗(legalize):', e.message);
+      }
+    }
+
+    res.json({ message: '已標記為合法授權，不再偵測', infId });
+  } catch(e) {
+    console.error('legalize error:', e.message);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+// 要求付費購買授權
+app.post('/infringement/requestLicensingFee', async (req, res)=>{
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) return res.status(401).json({ error: '未授權' });
+
+  const { infId, licensingFee } = req.body; 
+  // licensingFee: 請求費用(例如 100 USD)
+  if(!infId || !licensingFee) {
+    return res.status(400).json({ error: '缺少 infId 或 licensingFee' });
+  }
+  try {
+    let inf = await Infringement.findByPk(infId);
+    if(!inf) return res.status(404).json({ error: '找不到侵權記錄' });
+
+    let w = await Work.findByPk(inf.workId);
+    if(!w || w.userId!==decoded.userId) {
+      return res.status(403).json({ error: '無權操作此侵權紀錄' });
+    }
+
+    // 假設能取得對方 Email (infr.infringerEmail)
+    let infrEmail = inf.infringerEmail || 'unknown@user.com';
+
+    // 寄信通知對方
+    try {
+      await transporter.sendMail({
+        from: EMAIL_FROM,
+        to: infrEmail,
+        subject: '通知：未授權使用作品，請付費購買授權',
+        text: `您好：\n您使用了 ${w.title} (Fingerprint=${w.fingerprint})，未經授權。\n如需繼續使用，請付款 ${licensingFee} 元取得合法授權。`
+      });
+    } catch(e) {
+      console.error('寄信通知侵權者失敗:', e.message);
+    }
+
+    // 更新 DB (示例: 把狀態改為 "licensingFeeRequested")
+    inf.status = 'licensingFeeRequested';
+    await inf.save();
+
+    // 記錄到區塊鏈
+    if(CONTRACT_ADDRESS && CONTRACT_ADDRESS!=='0xYourDeployedContractAddress') {
+      try {
+        let hx = crypto.createHash('sha256').update(`LICENSEFEE:${infId}`).digest('hex');
+        const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+        await contract.methods.storeFingerprint("0x"+hx).send({ from: account.address, gas: 500000 });
+      } catch(e) {
+        console.error('上鏈失敗(requestLicensingFee):', e.message);
+      }
+    }
+
+    res.json({ message: '已通知侵權者付費購買授權', infId, licensingFee });
+  } catch(e) {
+    console.error('requestLicensingFee error:', e.message);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+
+// 提交法律訴訟
+app.post('/infringement/lawsuit', async (req, res)=>{
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const decoded = verifyToken(token);
+  if(!decoded) return res.status(401).json({ error: '未授權' });
+
+  const { infId, demandedPrice } = req.body;
+  // demandedPrice = 用戶希望的和解金 or 索賠額
+  if(!infId || !demandedPrice) {
+    return res.status(400).json({ error: '缺少 infId 或 demandedPrice' });
+  }
+
+  try {
+    let inf = await Infringement.findByPk(infId);
+    if(!inf) return res.status(404).json({ error: '找不到侵權記錄' });
+
+    let w = await Work.findByPk(inf.workId);
+    if(!w || w.userId!==decoded.userId) {
+      return res.status(403).json({ error: '無權操作此侵權紀錄' });
+    }
+
+    // 律師通知 => 可能需付費 (示範)
+    inf.status = 'lawsuit';
+    await inf.save();
+
+    try {
+      await transporter.sendMail({
+        from: EMAIL_FROM,
+        to: 'lawyer@kai.com',
+        subject: `智慧財產權侵權訴訟啟動 - InfId ${infId}`,
+        text: `用戶ID ${decoded.userId} 發起告訴\nWork: ${w.title}\nFingerprint: ${w.fingerprint}\n侵權網址: ${inf.infringingUrl}\n索賠金額: ${demandedPrice}`
+      });
+    } catch(e) {
+      console.error('通知律師失敗:', e.message);
+    }
+
+    // 上鏈紀錄
+    if(CONTRACT_ADDRESS && CONTRACT_ADDRESS!=='0xYourDeployedContractAddress') {
+      try {
+        let hx = crypto.createHash('sha256').update(`LAWSUIT:${infId}`).digest('hex');
+        const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+        await contract.methods.storeFingerprint("0x"+hx).send({
+          from: account.address, gas: 500000
+        });
+      } catch(e) {
+        console.error('上鏈失敗(lawsuit):', e.message);
+      }
+    }
+
+    res.json({ message: '法律訴訟已啟動，需收取額外費用', infId, status: 'lawsuit' });
+  } catch(e) {
+    console.error('lawsuit error:', e.message);
     res.status(500).json({ error: 'server error' });
   }
 });
 
 /**
- * [ 提交法律訴訟 ]
- *  - 只是示範 => 可能寄信通知律師
+ * =========================================
+ *   D) 啟動服務 (Sequelize & Express)
+ * =========================================
  */
-app.post('/infringement/lawsuit', async (req, res)=>{
-  try {
-    const { infId } = req.body;
-    const token = req.headers.authorization && req.headers.authorization.replace('Bearer ', '');
-    const decoded = verifyToken(token);
-    if(!decoded) {
-      return res.status(401).json({ error: '未授權或Token已失效' });
-    }
-
-    let inf = await Infringement.findByPk(infId);
-    if(!inf) {
-      return res.status(404).json({ error: '找不到此侵權記錄' });
-    }
-
-    let w = await Work.findByPk(inf.workId);
-    if(!w || w.userId !== decoded.userId) {
-      return res.status(403).json({ error: '無權操作此侵權記錄' });
-    }
-
-    inf.status = 'lawsuit';
-    await inf.save();
-
-    // Demo: email 給律師
-    try {
-      await transporter.sendMail({
-        from: EMAIL_FROM,
-        to: 'lawyer@kai.com',
-        subject: `法律訴訟啟動 - InfId ${infId}`,
-        text: `用戶ID:${decoded.userId} 對 ${inf.infringingUrl} 發起告訴, workId=${inf.workId}`
-      });
-    } catch(e) {
-      console.error('通知律師失敗：', e.message);
-    }
-
-    res.json({ message: '法律訴訟已啟動', infId, status: 'lawsuit' });
-  } catch (err) {
-    console.error('lawsuit error:', err.message);
-    res.status(500).json({ error: 'server error' });
-  }
-});
-
-// 啟動 Sequelize & Express
 (async ()=>{
   try {
     await sequelize.authenticate();
     console.log('PostgreSQL 連線成功');
-    await sequelize.sync(); // 同步資料表結構
+    await sequelize.sync();
   } catch(e) {
     console.error('PostgreSQL 連線失敗：', e.message);
   }
 
-  const PORT = EXPRESS_PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Express server on port ${PORT}`);
+  const port = EXPRESS_PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Express server on port ${port}`);
   });
 })();
+
+// ----------------------------------------------------
+// 工具函式：檢測影片時長(秒)
+// ----------------------------------------------------
+function probeVideoDuration(filePath) {
+  return new Promise((resolve, reject)=>{
+    ffmpeg.ffprobe(filePath, (err, metadata)=>{
+      if(err) return reject(err);
+      const durationSec = metadata?.format?.duration || 0;
+      resolve(durationSec);
+    });
+  });
+}
