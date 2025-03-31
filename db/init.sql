@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS works (
   fingerprint VARCHAR(255),
   cloudinaryUrl TEXT,
   userId INT,
-  fileType VARCHAR(20),
+  fileType VARCHAR(20),  
   created_at TIMESTAMP DEFAULT NOW()
 );
 
