@@ -1,11 +1,17 @@
+// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+
+// 從 pages/ 資料夾各自匯入
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import InfringementList from './pages/InfringementList';
+
+// 匯入全域樣式 (App.css)
+import './App.css';
 
 function App() {
   return (
@@ -18,6 +24,7 @@ function App() {
         <Link to="/upload">上傳</Link>
         <Link to="/infringements">侵權清單</Link>
       </nav>
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={<Signup />} />
