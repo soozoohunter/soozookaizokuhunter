@@ -1,111 +1,69 @@
-#!/usr/bin/env bash
-#   Use this script to test if a given TCP host/port are available
+#!/bin/sh
 
-# wait-for-it.sh by vishnubob (MIT License)
-# Source: https://github.com/vishnubob/wait-for-it
+# 原始腳本來自 https://github.com/vishnubob/wait-for-it
+# 已移除所有 bash 依賴語法，完全兼容 Alpine sh
 
-set -u
+# 以下為修改後的完整腳本內容 (務必使用 LF 行尾符)
+# ======================================================
+set -e
 
-HOST=""
-PORT=""
-WAITFORIT_timeout=15
-WAITFORIT_strict=false
-WAITFORIT_cmd=""
-WAITFORIT_args=""
+host=$(echo "$1" | cut -d : -f 1)
+port=$(echo "$1" | cut -d : -f 2)
+shift
+shift
 
-usage() {
-  echo "
-Usage: wait-for-it.sh [host:port] [options] -- [command args]
-  host:port               Host and port to test.
-Options:
-  --timeout=SECONDS       Timeout in seconds, default: 15
-  --strict                Only execute subcommand if the test succeeds
-  --help                  This usage message
-Example:
-  ./wait-for-it.sh google.com:80 --timeout=30 --strict -- echo 'Google is up'
-"
-  exit 1
-}
+timeout=15
+strict=0
+quiet=0
 
-wait_for() {
-  if [ "$HOST" = "" -o "$PORT" = "" ]; then
-    echo "Error: you need to provide a host and port to test."
-    usage
-  fi
-
-  echo "wait-for-it: waiting $WAITFORIT_timeout seconds for $HOST:$PORT to be available..."
-  start_ts=$(date +%s)
-  while :
-  do
-    if nc -z "$HOST" "$PORT" 2>/dev/null; then
-      end_ts=$(date +%s)
-      echo "wait-for-it: $HOST:$PORT is available after $(( end_ts - start_ts )) seconds"
-      break
-    fi
-    sleep 1
-    current_ts=$(date +%s)
-    if [ $(( current_ts - start_ts )) -ge $WAITFORIT_timeout ]; then
-      echo "wait-for-it: timeout after $WAITFORIT_timeout seconds waiting for $HOST:$PORT"
-      if [ "$WAITFORIT_strict" = true ]; then
-        echo "wait-for-it: strict mode, failing."
-        exit 1
-      fi
-      break
-    fi
-  done
-  return 0
-}
-
-parse_hostport() {
-  IFS=':' read -r _HOST _PORT <<< "$1"
-  HOST=${_HOST}
-  PORT=${_PORT}
-}
-
-while [ $# -gt 0 ]
-do
-  case "$1" in
-    *:* )
-    parse_hostport "$1"
-    shift
-    ;;
-    --timeout=*)
-    WAITFORIT_timeout="${1#*=}"
-    shift
-    ;;
-    --strict)
-    WAITFORIT_strict=true
-    shift
-    ;;
-    --help)
-    usage
-    ;;
-    --)
-    shift
-    WAITFORIT_cmd="$1"
-    if [ $# -gt 0 ]; then
-      shift
-      WAITFORIT_args=$@
-    fi
-    break
-    ;;
-    *)
-    echo "Unknown argument: $1"
-    usage
-    ;;
-  esac
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -t|--timeout)
+            timeout="$2"
+            shift 2
+            ;;
+        -s|--strict)
+            strict=1
+            shift
+            ;;
+        -q|--quiet)
+            quiet=1
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
 done
 
-if [ "$HOST" = "" -o "$PORT" = "" ]; then
-  echo "Error: you must provide host:port as first argument."
-  usage
-fi
+start_ts=$(date +%s)
+while :
+do
+    nc -z "$host" "$port" >/dev/null 2>&1
+    result=$?
+    if [ $result -eq 0 ]; then
+        end_ts=$(date +%s)
+        if [ $quiet -eq 0 ]; then
+            echo "$host:$port is available after $((end_ts - start_ts)) seconds"
+        fi
+        break
+    fi
+    current_ts=$(date +%s)
+    if [ $((current_ts - start_ts)) -ge "$timeout" ]; then
+        if [ $quiet -eq 0 ]; then
+            echo "Timeout ($timeout seconds) reached. Exiting."
+        fi
+        if [ $strict -eq 1 ]; then
+            exit 1
+        fi
+        break
+    fi
+    sleep 1
+done
 
-wait_for
-
-# 如果有指定子命令，就執行
-if [ "$WAITFORIT_cmd" != "" ]; then
-  exec "$WAITFORIT_cmd" $WAITFORIT_args
-else
-  exit 0
-fi
+exec "$@"
