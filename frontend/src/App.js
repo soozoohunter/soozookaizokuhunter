@@ -1,15 +1,21 @@
-import React from 'react';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <h1>KaiKaiShield - v9</h1>
-      <p>歡迎使用整合式短影音 & 商品圖著作權保護系統</p>
-      <hr/>
-      <p>您可嘗試前往 /signup /login /upload /dmca/report (前端路由可自行擴充)</p>
-    </div>
-  );
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  color: #ff1c1c;
+  font-family: sans-serif;
 }
 
-export default App;
+.top-nav {
+  padding: 1rem;
+  background: #111;
+}
+.top-nav a {
+  margin-right: 1rem;
+  color: #ff1c1c;
+  text-decoration: none;
+}
+
+.top-nav a:hover {
+  text-decoration: underline;
+}
