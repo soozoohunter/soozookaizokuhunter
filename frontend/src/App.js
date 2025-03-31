@@ -1,8 +1,6 @@
 // src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-
-// 從 pages/ 資料夾各自匯入
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -10,7 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import InfringementList from './pages/InfringementList';
 
-// 匯入全域樣式 (App.css)
+// 匯入全域樣式
 import './App.css';
 
 function App() {
