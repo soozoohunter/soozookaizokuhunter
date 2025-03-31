@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -11,6 +13,11 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   geth:
     build: ./geth
@@ -35,40 +42,68 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:5001/api/v0/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   express:
     build: ./express
     container_name: suzoo_express
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
     env_file:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
     env_file:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
-    # depends_on:  # 可視情況，不一定要
-    #   - express
     env_file:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
 
   frontend:
     build: ./frontend
@@ -77,15 +112,25 @@ services:
       - .env
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:80 || exit 1"] 
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
     depends_on:
-      - frontend
-      - express
-      - fastapi
-      - crawler
+      crawler:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
@@ -94,6 +139,12 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   db_data:
