@@ -1,36 +1,78 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Home from './pages/Home';
-import Signup from './pages/Signup';
-import Login from './pages/Login';
-import RoleSelect from './pages/RoleSelect';
-import Upload from './pages/Upload';
-import InfringementList from './pages/InfringementList';
-import './App.css';
+import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import UploadPage from './pages/UploadPage';
+import InfringementPage from './pages/InfringementPage';
 
-function App() {
+function PrivateRoute({ children, ...rest }) {
+  // 簡易判斷 token
+  const token = localStorage.getItem('token');
+  return (
+    <Route
+      {...rest}
+      render={() => token ? (children) : (<Redirect to="/login" />)}
+    />
+  );
+}
+
+export default function App() {
   return (
     <Router>
-      {/* 頂部導覽列 */}
-      <nav className="top-nav">
-        <Link to="/">首頁</Link>
-        <Link to="/signup">註冊</Link>
-        <Link to="/login">登入</Link>
-        <Link to="/roleSelect">選擇角色</Link>
-        <Link to="/upload">上傳</Link>
-        <Link to="/infringements">侵權清單</Link>
-      </nav>
+      <Switch>
+        <Route exact path="/login" component={LoginPage}/>
+        <Route exact path="/register" component={RegisterPage}/>
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/roleSelect" element={<RoleSelect />} />
-        <Route path="/upload" element={<Upload />} />
-        <Route path="/infringements" element={<InfringementList />} />
-      </Routes>
+        <PrivateRoute exact path="/upload">
+          <UploadPage />
+        </PrivateRoute>
+
+        <PrivateRoute exact path="/infringements">
+          <InfringementPage />
+        </PrivateRoute>
+
+        <Route path="/">
+          <Home />
+        </Route>
+      </Switch>
     </Router>
   );
 }
 
-export default App;
+function Home() {
+  return (
+    <div style={styles.homeContainer}>
+      <h1>KaiKaiShield 首頁</h1>
+      <p>選擇您要的功能：</p>
+      <div style={styles.linkBox}>
+        <a href="/login" style={styles.link}>登入</a>
+      </div>
+      <div style={styles.linkBox}>
+        <a href="/register" style={styles.link}>註冊</a>
+      </div>
+      <div style={styles.linkBox}>
+        <a href="/upload" style={styles.link}>上傳作品</a>
+      </div>
+      <div style={styles.linkBox}>
+        <a href="/infringements" style={styles.link}>侵權管理</a>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  homeContainer: {
+    textAlign: 'center',
+    marginTop: '50px'
+  },
+  linkBox: {
+    border: '1px solid #ccc',
+    padding: '10px',
+    width: '200px',
+    margin: '10px auto'
+  },
+  link: {
+    textDecoration: 'none',
+    color: '#007bff'
+  }
+};
