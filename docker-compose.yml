@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:15
@@ -96,27 +98,29 @@ services:
       - suzoo_net
     expose:
       - "80"
-  
+
   nginx:
-  build:
-    context: ./nginx
-    dockerfile: Dockerfile
-  container_name: suzoo_nginx
-  depends_on:
-    crawler:
-      condition: service_healthy
-    # 其他 depends_on
-  networks:
-    - suzoo_net
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro
-    - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
-    - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
-  restart: unless-stopped
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: suzoo_nginx
+    depends_on:
+      crawler:
+        condition: service_healthy
+      # 您若還需依賴 fastapi, express, frontend, etc. 也可加
+    networks:
+      - suzoo_net
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
+      - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
+    # 若 Dockerfile 中已指定 CMD, 可省略 command
+    # or command: ["nginx","-g","daemon off;"]
+    restart: unless-stopped
 
 volumes:
   db_data:
