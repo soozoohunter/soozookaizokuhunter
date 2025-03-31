@@ -1,3 +1,4 @@
+// crawler/index.js
 require('dotenv').config();
 
 const express = require('express');
@@ -7,12 +8,12 @@ const puppeteer = require('puppeteer');
 const app = express();
 app.use(bodyParser.json());
 
-// 健康檢查
+// 健康檢查 Endpoint
 app.get('/health', (req, res)=>{
   res.json({ status: 'Crawler is healthy' });
 });
 
-// 示範檢測
+// 偵測範例
 app.post('/detect', async (req, res)=>{
   const { url, fingerprint } = req.body;
   if(!url || !fingerprint) {
@@ -27,10 +28,14 @@ app.post('/detect', async (req, res)=>{
     });
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2' });
-    // ...實際比對...
+    // 這裡可以比對 fingerprint 或進行其他爬蟲邏輯
     await browser.close();
 
-    res.json({ message: '偵測完成(範例)', url, fingerprint });
+    res.json({
+      message: '偵測完成(範例)',
+      url,
+      fingerprint
+    });
   } catch(e) {
     console.error('Crawler detect error:', e.message);
     res.status(500).json({ error: e.toString() });
