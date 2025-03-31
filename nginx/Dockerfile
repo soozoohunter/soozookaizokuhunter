@@ -1,14 +1,17 @@
-FROM nginx:1.25-alpine
+FROM nginx:alpine
 
-# 安装必要工具
-RUN apk add --no-cache curl netcat-openbsd
+# 1) 安裝 bash
+RUN apk add --no-cache bash
 
-# 复制并修正脚本行尾符
+# 2) 複製 wait-for-it.sh + chmod
 COPY wait-for-it.sh /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh
+
+# 3) 複製 Nginx 配置
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# 设置权限和行尾符
-RUN chmod +x /wait-for-it.sh && \
-    sed -i 's/\r$//' /wait-for-it.sh
+EXPOSE 80
+EXPOSE 443
 
-CMD ["sh", "-c", "/wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"]
+# 4) 執行 wait-for-it.sh -> crawler:8081 -> nginx
+CMD ["/wait-for-it.sh","crawler:8081","--timeout=30","--strict","--","nginx","-g","daemon off;"]
