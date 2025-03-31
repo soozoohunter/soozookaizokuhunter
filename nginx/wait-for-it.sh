@@ -1,5 +1,7 @@
-#!/bin/sh
-
+#!/usr/bin/env bash
+# wait-for-it.sh
+# ...
+# (省略具體內容)
 # 原始腳本來自 https://github.com/vishnubob/wait-for-it
 # 已移除所有 bash 依賴語法，完全兼容 Alpine sh
 
