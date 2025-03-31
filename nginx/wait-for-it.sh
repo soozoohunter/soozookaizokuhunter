@@ -1,12 +1,9 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # wait-for-it.sh
-# ...
-# (省略具體內容)
-# 原始腳本來自 https://github.com/vishnubob/wait-for-it
-# 已移除所有 bash 依賴語法，完全兼容 Alpine sh
+# 針對 Alpine /bin/sh 改寫
+# 來源: https://github.com/vishnubob/wait-for-it (MIT)
+# 此版本移除所有 bash-only 語法，完全兼容 sh
 
-# 以下為修改後的完整腳本內容 (務必使用 LF 行尾符)
-# ======================================================
 set -e
 
 host=$(echo "$1" | cut -d : -f 1)
@@ -46,6 +43,7 @@ done
 start_ts=$(date +%s)
 while :
 do
+    # 檢查 TCP
     nc -z "$host" "$port" >/dev/null 2>&1
     result=$?
     if [ $result -eq 0 ]; then
@@ -68,4 +66,5 @@ do
     sleep 1
 done
 
+# 執行後續參數
 exec "$@"
