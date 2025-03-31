@@ -1,8 +1,9 @@
-# frontend/Dockerfile
-FROM node:18 as builder
+FROM node:18 AS builder
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm ci --production  # 嚴格根據 package-lock.json 安裝，更穩定
+RUN npm install
+
 COPY . .
 RUN npm run build
 
