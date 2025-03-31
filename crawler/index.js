@@ -1,4 +1,4 @@
-require('dotenv').config(); // ← 確保能載入 .env (若 crawler 需要用到環境變數)
+require('dotenv').config();
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -13,40 +13,39 @@ app.get('/health', (req, res) => {
   res.json({ status: 'Crawler is healthy' });
 });
 
-// 偵測 API
+// 偵測 API：假設您想對 url / fingerprint 進行檢查
 app.post('/detect', async (req, res) => {
   const { url, fingerprint } = req.body;
-  if(!url || !fingerprint) {
+  if (!url || !fingerprint) {
     return res.status(400).json({ error: 'Missing url/fingerprint' });
   }
 
   try {
-    // 這裡示範 puppeteer 去爬該 url
+    // 使用 Dockerfile 中指定的執行檔
     const browser = await puppeteer.launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, 
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox','--disable-setuid-sandbox']
     });
+    
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle2' });
-    // ... 做一些指紋比對檢測 ...
+
+    // (範例) 任何爬蟲 / 偵測邏輯...
     await browser.close();
 
-    // 如果真的檢測到侵權 → 回報 express /dmca/report
-    // Demo:
-    // const infringingUrl = "https://shopee.tw/infringingItem";
-    // await axios.post("http://express:3000/dmca/report", { infringingUrl, workId: 99 });
-
     res.json({
-      message: '偵測完成(示範)，尚未發現侵權', 
-      url, 
+      message: '成功偵測(示範): 暫無侵權',
+      url,
       fingerprint
     });
-  } catch(e) {
-    console.error('Crawler detect error:', e.message);
-    res.status(500).json({ error: e.toString() });
+  } catch (err) {
+    console.error('Crawler detect error:', err.message);
+    res.status(500).json({ error: err.toString() });
   }
 });
 
-app.listen(8081, () => {
+// 監聽 0.0.0.0 使外部容器能連線
+app.listen(8081, '0.0.0.0', () => {
   console.log('Kai Crawler listening on port 8081');
 });
