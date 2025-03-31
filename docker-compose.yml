@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 1) PostgreSQL
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -14,13 +13,7 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # 2) 以太坊私有鏈 (Geth)
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -33,7 +26,6 @@ services:
     volumes:
       - geth_data:/root/.ethereum
 
-  # 3) IPFS
   ipfs:
     build: ./ipfs
     container_name: suzoo_ipfs
@@ -46,48 +38,34 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
 
-  # 4) Express
   express:
     build: ./express
     container_name: suzoo_express
-    depends_on:
-      db:
-        condition: service_healthy
-      geth:
-        condition: service_started
-      ipfs:
-        condition: service_started
     env_file:
       - .env
+    depends_on:
+      - db
+      - geth
+      - ipfs
     networks:
       - suzoo_net
     ports:
       - "3000:3000"
 
-  # 5) FastAPI
   fastapi:
     build: ./fastapi
     container_name: suzoo_fastapi
-    depends_on:
-      db:
-        condition: service_healthy
-      geth:
-        condition: service_started
-      ipfs:
-        condition: service_started
     env_file:
       - .env
+    depends_on:
+      - db
+      - geth
+      - ipfs
     networks:
       - suzoo_net
     ports:
       - "8000:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # 6) Crawler
   crawler:
     build: ./crawler
     container_name: suzoo_crawler
@@ -98,7 +76,6 @@ services:
     ports:
       - "8081:8081"
 
-  # 7) Frontend
   frontend:
     build: ./frontend
     container_name: suzoo_frontend
@@ -106,10 +83,10 @@ services:
       - .env
     networks:
       - suzoo_net
-    # React Dev Server 沒特別需求可關port
-    # 若要預覽可用: "3001:80"
+    # 如果要對外顯示 React dev server:
+    # ports:
+    #   - "3001:80"
 
-  # 8) Nginx (reverse-proxy + SSL)
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
@@ -124,7 +101,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # SSL 憑證掛載(若需要SSL)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   db_data:
