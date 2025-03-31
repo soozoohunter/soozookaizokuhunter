@@ -1,16 +1,17 @@
 /* src/App.css */
 
+/* 全域黑背景 + 紅字風格 */
 body {
   margin: 0;
   padding: 0;
-  background-color: #000;
-  color: #ff1c1c;
+  background-color: #000; /* 黑色背景 */
+  color: #ff1c1c;         /* 紅字 */
   font-family: sans-serif;
 }
 
 .top-nav {
   padding: 1rem;
-  background: #111;
+  background: #111;  /* 深黑色導覽列 */
 }
 
 .top-nav a {
@@ -23,6 +24,7 @@ body {
   text-decoration: underline;
 }
 
+/* 首頁 Home.js */
 .home-container {
   text-align: center;
   margin-top: 5rem;
@@ -38,7 +40,7 @@ body {
 .sub-description {
   margin-top: 1.5rem;
   font-size: 0.9rem;
-  color: #fff;
+  color: #fff;       
   opacity: 0.9;
   line-height: 1.4;
 }
