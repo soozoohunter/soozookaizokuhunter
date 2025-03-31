@@ -121,8 +121,6 @@ services:
       - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
       - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
-    # 1) 確保對 wait-for-it.sh chmod +x
-    # 2) 再執行 wait-for-it.sh crawler:8081 => --timeout=30 => ...
     command: sh -c "chmod +x /wait-for-it.sh && /wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"
     restart: unless-stopped
 
