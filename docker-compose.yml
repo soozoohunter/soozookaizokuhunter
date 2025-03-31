@@ -1,5 +1,4 @@
-version: '3.8'
-
+# docker-compose.yml (移除 version: '3.8' 以免 Warn，或留著也行；官方說可忽略)
 services:
   db:
     image: postgres:15
@@ -21,7 +20,6 @@ services:
 
   geth:
     build: ./geth
-    container_name: suzoo_geth
     networks:
       - suzoo_net
     ports:
@@ -33,7 +31,6 @@ services:
 
   ipfs:
     build: ./ipfs
-    container_name: suzoo_ipfs
     networks:
       - suzoo_net
     ports:
@@ -43,15 +40,17 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:5001/api/v0/version || exit 1"]
+      test: ["CMD-SHELL","curl -sf http://localhost:5001/api/v0/version || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
 
   express:
     build: ./express
-    container_name: suzoo_express
+    networks:
+      - suzoo_net
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -59,20 +58,20 @@ services:
         condition: service_started
       ipfs:
         condition: service_started
-    env_file:
-      - .env
-    networks:
-      - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL","curl -sf http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+    ports:
+      - "3000:3000"
 
   fastapi:
     build: ./fastapi
-    container_name: suzoo_fastapi
+    networks:
+      - suzoo_net
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -80,71 +79,58 @@ services:
         condition: service_started
       ipfs:
         condition: service_started
-    env_file:
-      - .env
-    networks:
-      - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL","curl -sf http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+    ports:
+      - "8000:8000"
 
   crawler:
     build: ./crawler
-    container_name: suzoo_crawler
-    env_file:
-      - .env
+    # 注意：不要再加 `container_name: suzoo_crawler`，以免打破 Docker DNS
     networks:
       - suzoo_net
+    env_file:
+      - .env
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL","curl -sf http://localhost:8081/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+    ports:
+      - "8081:8081"
 
   frontend:
     build: ./frontend
-    container_name: suzoo_frontend
-    env_file:
-      - .env
     networks:
       - suzoo_net
+    env_file:
+      - .env
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:80 || exit 1"] 
+      test: ["CMD-SHELL","curl -sf http://localhost || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+    ports:
+      - "3001:80"
 
   nginx:
     build: ./nginx
-    container_name: suzoo_nginx
+    networks:
+      - suzoo_net
     depends_on:
-      crawler:
-        condition: service_healthy
-      frontend:
-        condition: service_started
-      express:
-        condition: service_started
-      fastapi:
-        condition: service_started
+      - frontend
+      - express
+      - fastapi
+      - crawler
     ports:
       - "80:80"
       - "443:443"
-    networks:
-      - suzoo_net
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-    healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 volumes:
   db_data:
