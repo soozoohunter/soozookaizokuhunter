@@ -22,10 +22,10 @@ services:
     container_name: suzoo_geth
     networks:
       - suzoo_net
-    ports:
-      - "8545:8545"
-      - "30303:30303"
-      - "30303:30303/udp"
+    expose:  # 僅內部暴露端口
+      - "8545"
+      - "30303"
+      - "30303/udp"
     volumes:
       - geth_data:/root/.ethereum
 
@@ -34,10 +34,10 @@ services:
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
-    ports:
-      - "4001:4001"
-      - "5001:5001"
-      - "8080:8080"
+    expose:  # 僅內部暴露端口
+      - "4001"
+      - "5001"
+      - "8080"
     volumes:
       - ipfs_data:/data/ipfs
 
@@ -49,10 +49,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      geth:
-        condition: service_started
-      ipfs:
-        condition: service_started
     networks:
       - suzoo_net
     expose:
@@ -85,6 +81,11 @@ services:
       - suzoo_net
     expose:
       - "8081"
+    healthcheck:  # 新增健康檢查
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build: ./frontend
@@ -97,13 +98,19 @@ services:
       - "80"
 
   nginx:
-    build: ./nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: suzoo_nginx
     depends_on:
-      - frontend
-      - express
-      - fastapi
-      - crawler
+      crawler:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
     networks:
       - suzoo_net
     ports:
@@ -111,8 +118,10 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/wait-for-it.sh:/wait-for-it.sh  # 掛載等待腳本
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
       - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
+    command: sh -c "/wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"
     restart: unless-stopped
 
 volumes:
