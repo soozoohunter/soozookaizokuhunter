@@ -1,40 +1,35 @@
 from fastapi import FastAPI
 import os
-import analytics
+import requests
+from dotenv import load_dotenv
 import blockchain
 import crawler
-import dmca
-from dotenv import load_dotenv
+import analytics
 
 load_dotenv()
 app = FastAPI()
 
 @app.on_event("startup")
 def on_start():
-    if os.getenv("DEPLOY_CONTRACT_ON_START", "false") == "true":
+    # 若 .env 中 DEPLOY_CONTRACT_ON_START=true，啟動時自動部署
+    if os.getenv("DEPLOY_CONTRACT_ON_START","false") == "true":
         try:
             addr = blockchain.deploy_contract()
             blockchain.contract_address = addr
+            print(f"[FastAPI] 已自動部署合約: {addr}")
         except Exception as e:
-            print(f"合約部署失敗: {str(e)}")
+            print("[FastAPI] 自動部署合約失敗:", e)
 
 @app.get("/health")
 def health():
-    return {"status": "FastAPI V8 is healthy"}
+    return {"status":"FastAPI v9 is healthy"}
+
+@app.get("/crawler-test")
+def crawler_test(url:str):
+    # 測試呼叫 crawler
+    r = requests.post("http://crawler:8081/detect", json={"url":url,"fingerprint":"123abc"})
+    return {"crawler_response":r.json()}
 
 @app.post("/analyze")
-def analyze(video_url: str):
+def analyze_video(video_url:str):
     return analytics.video_analysis(video_url)
-
-@app.post("/blockchain/upload")
-def bc_upload(data: str):
-    tx_hash = blockchain.upload_to_chain(data.encode())
-    return {"tx_hash": tx_hash}
-
-@app.get("/crawl/{platform}")
-def do_crawl(platform: str, keyword: str):
-    return crawler.crawl_social(platform, keyword)
-
-@app.post("/dmca/lawsuit")
-def do_lawsuit(work_id: int, infringing_url: str):
-    return dmca.initiate_lawsuit(work_id, infringing_url)
