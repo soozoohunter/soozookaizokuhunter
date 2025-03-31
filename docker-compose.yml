@@ -22,7 +22,7 @@ services:
     container_name: suzoo_geth
     networks:
       - suzoo_net
-    expose:  # 僅內部暴露端口
+    expose:
       - "8545"
       - "30303"
       - "30303/udp"
@@ -34,7 +34,7 @@ services:
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
-    expose:  # 僅內部暴露端口
+    expose:
       - "4001"
       - "5001"
       - "8080"
@@ -81,7 +81,7 @@ services:
       - suzoo_net
     expose:
       - "8081"
-    healthcheck:  # 新增健康檢查
+    healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 10s
       timeout: 5s
@@ -117,11 +117,13 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./nginx/wait-for-it.sh:/wait-for-it.sh  # 掛載等待腳本
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/wait-for-it.sh:/wait-for-it.sh:ro
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
       - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
-    command: sh -c "/wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"
+    # 1) 確保對 wait-for-it.sh chmod +x
+    # 2) 再執行 wait-for-it.sh crawler:8081 => --timeout=30 => ...
+    command: sh -c "chmod +x /wait-for-it.sh && /wait-for-it.sh crawler:8081 --timeout=30 --strict -- nginx -g 'daemon off;'"
     restart: unless-stopped
 
 volumes:
