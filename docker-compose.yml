@@ -13,6 +13,11 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   geth:
     build: ./geth
@@ -44,13 +49,16 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy
+      geth:
+        condition: service_started
+      ipfs:
+        condition: service_started
     networks:
       - suzoo_net
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
 
   fastapi:
     build: ./fastapi
@@ -58,13 +66,12 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - geth
-      - ipfs
+      db:
+        condition: service_healthy
     networks:
       - suzoo_net
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
 
   crawler:
     build: ./crawler
@@ -73,8 +80,8 @@ services:
       - .env
     networks:
       - suzoo_net
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
 
   frontend:
     build: ./frontend
@@ -83,25 +90,31 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 如果要對外顯示 React dev server:
-    # ports:
-    #   - "3001:80"
+    expose:
+      - "80"
 
   nginx:
     build: ./nginx
     container_name: suzoo_nginx
     depends_on:
-      - frontend
-      - express
-      - fastapi
-      - crawler
+      frontend:
+        condition: service_started
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
+      crawler:
+        condition: service_started
     networks:
       - suzoo_net
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
+      - /etc/letsencrypt/archive/suzookaizokuhunter.com:/etc/letsencrypt/archive/suzookaizokuhunter.com:ro
+    restart: unless-stopped
 
 volumes:
   db_data:
