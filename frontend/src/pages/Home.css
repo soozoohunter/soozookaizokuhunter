@@ -1,18 +1,25 @@
+/* Home.css */
 .home-container {
   text-align: center;
   margin-top: 5rem;
 }
 
-.btn-home {
-  display: inline-block;
-  margin: 1rem;
-  padding: 1rem 2rem;
-  background-color: #b30000;
-  color: #fff;
-  text-decoration: none;
-  border: 2px solid #ff3b3b;
+.main-title {
+  font-size: 2.2rem;
+  color: #ff1c1c;
+  text-shadow: 2px 2px 2px rgba(0,0,0,0.8);
+  letter-spacing: 1px;
 }
 
-.btn-home:hover {
-  background-color: #ff1c1c;
+.sub-description {
+  margin-top: 1.5rem;
+  font-size: 0.9rem; 
+  color: #fff;       
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.sub-description span {
+  font-weight: bold;
+  color: #fff;
 }
