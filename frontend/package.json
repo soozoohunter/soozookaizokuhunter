@@ -1,5 +1,5 @@
 {
-  "name": "kai-frontend",
+  "name": "kai-frontend-v9",
   "version": "1.0.0",
   "scripts": {
     "start": "react-scripts start",
@@ -8,6 +8,6 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^5.3.4"
+    "react-scripts": "5.0.1"
   }
 }
