@@ -1,5 +1,6 @@
 // Home.js
 import React from 'react';
+// 如果 Home.css 與 Home.js 在同一個資料夾 (src/pages/)，以下寫法正確
 import './Home.css';
 
 function Home() {
