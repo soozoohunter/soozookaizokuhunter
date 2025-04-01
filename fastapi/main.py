@@ -21,8 +21,8 @@ def on_start():
             print("[FastAPI] 自動部署合約失敗:", e)
 
 @app.get("/health")
-def health():
-    return {"status":"FastAPI v9 is healthy"}
+def health_check():
+    return {"status": "ok", "service": "fastapi VVS"}
 
 @app.get("/crawler-test")
 def crawler_test(url:str):
