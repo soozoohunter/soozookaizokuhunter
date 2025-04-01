@@ -1,37 +1,51 @@
-// src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
-import Upload from './pages/Upload';
+import UploadPage from './pages/UploadPage';
 import InfringementList from './pages/InfringementList';
-
-// 匯入全域樣式
+import PlatformAccounts from './pages/PlatformAccounts';
+import Pricing from './pages/Pricing';
 import './App.css';
 
 function App() {
+  const { i18n } = useTranslation();
+
+  const changeLang = (lang) => {
+    i18n.changeLanguage(lang);
+  };
+
   return (
-    <Router>
-      <nav className="top-nav">
-        <Link to="/">首頁</Link>
-        <Link to="/signup">註冊</Link>
-        <Link to="/login">登入</Link>
-        <Link to="/dashboard">角色切換</Link>
-        <Link to="/upload">上傳</Link>
-        <Link to="/infringements">侵權清單</Link>
+    <BrowserRouter>
+      <nav style={{ display:'flex', gap:'1rem', background:'#ddd', padding:'0.5rem' }}>
+        <Link to="/">Home</Link>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/upload">Upload</Link>
+        <Link to="/infringements">My Infringements</Link>
+        <Link to="/profile/accounts">My Platforms</Link>
+        <Link to="/pricing">Pricing</Link>
+
+        <div style={{ marginLeft:'auto' }}>
+          <button onClick={()=>changeLang('zh')}>中</button>
+          <button onClick={()=>changeLang('en')}>EN</button>
+          <button onClick={()=>changeLang('ja')}>日</button>
+        </div>
       </nav>
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/upload" element={<Upload />} />
+        <Route path="/upload" element={<UploadPage />} />
         <Route path="/infringements" element={<InfringementList />} />
+        <Route path="/profile/accounts" element={<PlatformAccounts />} />
+        <Route path="/pricing" element={<Pricing />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 
