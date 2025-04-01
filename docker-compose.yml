@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -31,7 +33,7 @@ services:
       - geth_data:/root/.ethereum
 
   ipfs:
-    image: ipfs/kubo:latest   # 或指定版本 e.g. ipfs/kubo:v0.19.1
+    image: ipfs/kubo:latest
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
@@ -41,16 +43,9 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    # 關閉 Healthcheck => 不需要 curl
+    # 關閉 Healthcheck
     healthcheck:
       disable: true
-
-volumes:
-  ipfs_data:
-
-networks:
-  suzoo_net:
-    driver: bridge
 
   express:
     build: ./express
@@ -88,7 +83,7 @@ networks:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD","curl","-sf","http://localhost:8000/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -104,7 +99,7 @@ networks:
     expose:
       - "8081"
     healthcheck:
-      test: ["CMD","curl","-sf","http://localhost:8081/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
       interval: 10s
       timeout: 10s
       retries: 10
