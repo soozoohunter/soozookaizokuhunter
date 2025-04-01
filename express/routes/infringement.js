@@ -1,29 +1,15 @@
-// express/routes/infringement.js
 require('dotenv').config();
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const { DataTypes } = require('sequelize');
+const db = require('../db');
+const nodemailer = require('nodemailer');
 
-const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM, DMCA_AUTO_NOTIFY } = process.env;
-
-const User = db.define('User',{
-  email: DataTypes.STRING
-},{ tableName:'users'});
-
-const Work = db.define('Work',{
-  userId: DataTypes.INTEGER,
-  fingerprint: DataTypes.STRING
-},{ tableName:'works'});
-
-const Infringement = db.define('Infringement',{
-  workId: DataTypes.INTEGER,
-  infringingUrl: DataTypes.TEXT,
-  status: { type:DataTypes.STRING, defaultValue:'pending' },
-  demandedPrice: DataTypes.DECIMAL
-},{ tableName:'infringements'});
+const {
+  EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM,
+  DMCA_AUTO_NOTIFY, JWT_SECRET
+} = process.env;
 
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
@@ -32,138 +18,152 @@ const transporter = nodemailer.createTransport({
   auth:{ user:EMAIL_USER, pass:EMAIL_PASS }
 });
 
+const User = db.define('User',{
+  email:DataTypes.STRING,
+},{tableName:'users'});
+
+const Work=db.define('Work',{
+  userId:DataTypes.INTEGER,
+  fingerprint:DataTypes.STRING
+},{tableName:'works'});
+
+const Infringement=db.define('Infringement',{
+  workId:DataTypes.INTEGER,
+  infringingUrl:DataTypes.TEXT,
+  status:{type:DataTypes.STRING,defaultValue:'pending'},
+  demandedPrice:DataTypes.DECIMAL
+},{tableName:'infringements'});
+
 function verifyToken(tk){
-  try{ return jwt.verify(tk, process.env.JWT_SECRET);} catch(e){return null;}
+  try{
+    return jwt.verify(tk, JWT_SECRET||'KaiKaiShieldSecret');
+  } catch(e){
+    return null;
+  }
 }
 
+// 列出侵權
 router.get('/list', async(req,res)=>{
-  const tk = req.headers.authorization?.replace('Bearer ','');
+  let tk=req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({error:'未登入'});
-  let dec = verifyToken(tk);
+  let dec=verifyToken(tk);
   if(!dec) return res.status(401).json({error:'token無效'});
 
-  let works = await Work.findAll({ where:{ userId: dec.userId }});
-  let wids = works.map(w=> w.id);
-  let infs = await Infringement.findAll({ where:{ workId:wids }});
+  let works= await Work.findAll({ where:{ userId:dec.userId }});
+  let wids= works.map(w=> w.id);
+  let infs= await Infringement.findAll({ where:{ workId:wids }});
   res.json(infs);
 });
 
 // DMCA
 router.post('/dmca', async(req,res)=>{
-  const tk = req.headers.authorization?.replace('Bearer ','');
+  let tk=req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({error:'未登入'});
-  let dec = verifyToken(tk);
+  let dec=verifyToken(tk);
   if(!dec) return res.status(401).json({error:'token無效'});
 
-  const { workId, infringingUrl } = req.body;
-  if(!workId || !infringingUrl) return res.status(400).json({error:'缺 workId / infringingUrl'});
+  let { workId, infringingUrl } = req.body;
+  if(!workId||!infringingUrl){
+    return res.status(400).json({error:'缺參數'});
+  }
+  let w=await Work.findByPk(workId);
+  if(!w) return res.status(404).json({error:'無此作品'});
+  if(w.userId!==dec.userId) return res.status(403).json({error:'無權操作此作品'});
 
-  let w = await Work.findByPk(workId);
-  if(!w) return res.status(404).json({error:'作品不存在'});
-  if(w.userId!==dec.userId) return res.status(403).json({error:'無權'});
-
-  // create or update
-  let inf = await Infringement.findOne({ where:{ workId, infringingUrl }});
+  let inf=await Infringement.findOne({ where:{ workId, infringingUrl }});
   if(!inf){
-    inf = await Infringement.create({ workId, infringingUrl, status:'dmca'});
+    inf=await Infringement.create({ workId, infringingUrl, status:'dmca'});
   } else {
     inf.status='dmca';
     await inf.save();
   }
 
   if(DMCA_AUTO_NOTIFY==='true'){
-    let us = await User.findByPk(w.userId);
-    // email
+    // email -> dmca@some-platform.com
     try{
+      let user=await User.findByPk(w.userId);
       await transporter.sendMail({
         from: EMAIL_FROM,
         to: 'dmca@some-platform.com',
-        subject:`DMCA Takedown - WorkID ${workId}`,
-        text:`侵權網址: ${infringingUrl}\n作者:${us.email}\nFingerprint:${w.fingerprint}`
+        subject: `DMCA - WorkID=${workId}`,
+        text: `侵權網址:${infringingUrl}\n作者:${user.email}\nFingerprint:${w.fingerprint}`
       });
     }catch(e){
-      console.error('dmca mail fail:', e.message);
+      console.error('DMCA email fail:', e.message);
     }
   }
-
-  res.json({message:'DMCA已提交', infId:inf.id});
+  res.json({message:'DMCA完成', infId:inf.id});
 });
 
 // 標記合法
 router.post('/legalize', async(req,res)=>{
-  const tk = req.headers.authorization?.replace('Bearer ','');
+  let tk=req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({error:'未登入'});
-  let dec = verifyToken(tk);
+  let dec=verifyToken(tk);
   if(!dec) return res.status(401).json({error:'token無效'});
 
-  const { infId } = req.body;
+  let { infId }=req.body;
   if(!infId) return res.status(400).json({error:'缺 infId'});
-
-  let inf = await Infringement.findByPk(infId);
-  if(!inf) return res.status(404).json({error:'找不到此侵權紀錄'});
-
-  let w = await Work.findByPk(inf.workId);
+  let inf=await Infringement.findByPk(infId);
+  if(!inf) return res.status(404).json({error:'找不到紀錄'});
+  let w=await Work.findByPk(inf.workId);
   if(!w || w.userId!==dec.userId) return res.status(403).json({error:'無權操作'});
-  
   inf.status='legalized';
   await inf.save();
-  res.json({message:'已標記為合法授權', infId});
+  res.json({message:'已標記為合法', infId});
 });
 
-// 要求授權金
+// 要求授權費
 router.post('/licenseFee', async(req,res)=>{
-  const tk = req.headers.authorization?.replace('Bearer ','');
+  let tk=req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({error:'未登入'});
-  let dec = verifyToken(tk);
+  let dec=verifyToken(tk);
   if(!dec) return res.status(401).json({error:'token無效'});
 
-  const { infId, demandedPrice } = req.body;
-  if(!infId || !demandedPrice) return res.status(400).json({error:'缺 infId/demandedPrice'});
+  let { infId, demandedPrice } = req.body;
+  if(!infId||!demandedPrice) return res.status(400).json({error:'缺 infId/demandedPrice'});
 
-  let inf = await Infringement.findByPk(infId);
-  if(!inf) return res.status(404).json({error:'侵權記錄不存在'});
-
-  let w = await Work.findByPk(inf.workId);
-  if(!w || w.userId!==dec.userId) return res.status(403).json({error:'無權操作'});
+  let inf=await Infringement.findByPk(infId);
+  if(!inf) return res.status(404).json({error:'不存在'});
+  let w=await Work.findByPk(inf.workId);
+  if(!w||w.userId!==dec.userId) return res.status(403).json({error:'無權操作'});
 
   inf.status='licensingFeeRequested';
-  inf.demandedPrice = demandedPrice;
+  inf.demandedPrice=demandedPrice;
   await inf.save();
   res.json({message:'已要求授權費', infId});
 });
 
 // 提告
 router.post('/lawsuit', async(req,res)=>{
-  const tk = req.headers.authorization?.replace('Bearer ','');
+  let tk=req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({error:'未登入'});
-  let dec = verifyToken(tk);
+  let dec=verifyToken(tk);
   if(!dec) return res.status(401).json({error:'token無效'});
 
-  const { infId } = req.body;
+  let { infId }=req.body;
   if(!infId) return res.status(400).json({error:'缺 infId'});
 
-  let inf = await Infringement.findByPk(infId);
-  if(!inf) return res.status(404).json({error:'侵權記錄不存在'});
-
-  let w = await Work.findByPk(inf.workId);
-  if(!w || w.userId!==dec.userId) return res.status(403).json({error:'無權操作'});
+  let inf=await Infringement.findByPk(infId);
+  if(!inf) return res.status(404).json({error:'無此侵權紀錄'});
+  let w=await Work.findByPk(inf.workId);
+  if(!w||w.userId!==dec.userId) return res.status(403).json({error:'無權操作'});
 
   inf.status='lawsuit';
   await inf.save();
 
-  // email to lawyer
+  // email -> lawyer
   try{
     await transporter.sendMail({
-      from: EMAIL_FROM,
-      to: 'lawyer@kai.com',
-      subject: '侵權提告 - InfID '+infId,
-      text: `用戶 ${dec.userId} 要對該侵權發起法律訴訟, Url=${inf.infringingUrl}`
+      from:EMAIL_FROM,
+      to:'lawyer@kai.com',
+      subject:'提告 - infId='+infId,
+      text:`用戶 ${dec.userId} 對侵權:${inf.infringingUrl} 提告`
     });
-  } catch(e){
-    console.error('律師信件寄送失敗:', e.message);
+  }catch(e){
+    console.error('寄給律師失敗:', e.message);
   }
-
   res.json({message:'已提交訴訟', infId});
 });
 
-module.exports = router;
+module.exports=router;
