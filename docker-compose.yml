@@ -43,7 +43,7 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    # 關閉 Healthcheck
+    # 關閉 healthcheck
     healthcheck:
       disable: true
 
@@ -52,19 +52,18 @@ services:
     container_name: suzoo_express
     env_file:
       - .env
+    # 不再等 IPFS healthy
     depends_on:
       db:
         condition: service_healthy
       geth:
         condition: service_started
-      ipfs:
-        condition: service_healthy
     networks:
       - suzoo_net
     expose:
       - "3000"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3000/health"]
+      test: ["CMD","curl","-sf","http://localhost:3000/health"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -83,7 +82,7 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      test: ["CMD","curl","-sf","http://localhost:8000/health"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -99,7 +98,7 @@ services:
     expose:
       - "8081"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8081/health"]
+      test: ["CMD","curl","-sf","http://localhost:8081/health"]
       interval: 10s
       timeout: 10s
       retries: 10
@@ -114,7 +113,6 @@ services:
       - suzoo_net
     expose:
       - "80"
-      - "3001"
 
   nginx:
     build:
@@ -122,6 +120,8 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_nginx
     depends_on:
+      # 不用等待 IPFS
+      # 前後端保持
       frontend:
         condition: service_started
       express:
