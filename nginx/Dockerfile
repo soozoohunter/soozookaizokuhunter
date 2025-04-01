@@ -18,4 +18,5 @@ EXPOSE 80
 EXPOSE 443
 
 # CMD 裡面用 wait-for-it.sh
-CMD ["/wait-for-it.sh", "crawler:8081", "-t", "30", "-s", "--", "nginx", "-g", "daemon off;"]
+# 改用 --timeout, --strict，避免 "-t" 與 "30" 產生 "Unknown option: 30"。
+CMD ["/wait-for-it.sh", "crawler:8081", "--timeout", "30", "--strict", "--", "nginx", "-g", "daemon off;"]
