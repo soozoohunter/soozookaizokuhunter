@@ -1,19 +1,18 @@
-#!/usr/bin/env sh
-# wait-for-it.sh
-# 針對 Alpine /bin/sh 改寫
-# 來源: https://github.com/vishnubob/wait-for-it (MIT)
-# 此版本移除所有 bash-only 語法，完全兼容 sh
+#!/usr/bin/env bash
+# wait-for-it.sh: 依據指定 host:port，等待服務可用後再執行後續指令。
+# ...
+# (這是常見的 wait-for-it.sh 內容)
 
 set -e
 
-host=$(echo "$1" | cut -d : -f 1)
-port=$(echo "$1" | cut -d : -f 2)
+HOST="$1"
 shift
+PORT="$1"
 shift
 
-timeout=15
-strict=0
-quiet=0
+TIMEOUT=15
+STRICT=false
+WAITFORIT_CMD=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
