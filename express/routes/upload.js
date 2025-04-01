@@ -1,4 +1,3 @@
-// express/routes/upload.js
 require('dotenv').config();
 const express = require('express');
 const router = express.Router();
@@ -10,7 +9,7 @@ const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 const db = require('../db');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const cloudinary = require('cloudinary').v2;
 
 const Web3 = require('web3');
 const contractABI = [
@@ -28,29 +27,31 @@ const contractABI = [
   }
 ];
 
-const { 
-  BLOCKCHAIN_RPC_URL,
-  BLOCKCHAIN_PRIVATE_KEY,
-  CONTRACT_ADDRESS,
+const {
+  JWT_SECRET,
   CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET,
-  JWT_SECRET
+  BLOCKCHAIN_RPC_URL,
+  BLOCKCHAIN_PRIVATE_KEY,
+  CONTRACT_ADDRESS
 } = process.env;
 
-// DB model
-const UserModel = require('../models/User')(db, DataTypes);
+const User = db.define('User',{
+  email: { type:DataTypes.STRING },
+  passwordHash: DataTypes.STRING,
+  role: { type:DataTypes.ENUM('shortVideo','ecommerce'), defaultValue:'shortVideo' }
+},{ tableName:'users'});
 
 const Work = db.define('Work',{
-  title: DataTypes.STRING,
-  fingerprint: DataTypes.STRING,
-  fileType: DataTypes.STRING,
-  userId: DataTypes.INTEGER,
-  chainRef: DataTypes.STRING
+  title:DataTypes.STRING,
+  fingerprint:DataTypes.STRING,
+  fileType:DataTypes.STRING,
+  userId:DataTypes.INTEGER,
+  chainRef:DataTypes.STRING
 },{tableName:'works'});
 
 // Cloudinary
-const cloudinary = require('cloudinary').v2;
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
   api_key: CLOUDINARY_API_KEY,
@@ -63,56 +64,55 @@ const account = web3.eth.accounts.privateKeyToAccount(BLOCKCHAIN_PRIVATE_KEY);
 web3.eth.accounts.wallet.add(account);
 web3.eth.defaultAccount = account.address;
 
-// Multer
+// multer
 const allowedMime = ['image/jpeg','image/png','image/gif','image/webp','video/mp4','video/x-m4v','video/*'];
-function fileFilter(req, file, cb){
-  if(!allowedMime.includes(file.mimetype)){
-    return cb(new Error('不支援的檔案類型'), false);
-  }
+function fileFilter(req,file,cb){
+  if(!allowedMime.includes(file.mimetype)) return cb(new Error('不支援檔案類型'),false);
   cb(null,true);
 }
-const upload = multer({dest:'uploads/', fileFilter});
+const upload = multer({ dest:'uploads/', fileFilter});
 
-// verify token
 function verifyToken(token){
   try{
     return jwt.verify(token, JWT_SECRET);
-  } catch(e){
+  }catch(e){
     return null;
   }
 }
 
+// POST /upload
 router.post('/', upload.single('file'), async(req,res)=>{
-  const token = req.headers.authorization?.replace('Bearer ','');
-  if(!token) return res.status(401).json({error:'未登入,無法上傳'});
-  let decoded = verifyToken(token);
-  if(!decoded) return res.status(401).json({error:'Token無效或過期'});
+  const tk = req.headers.authorization && req.headers.authorization.replace('Bearer ','');
+  if(!tk) return res.status(401).json({error:'未登入'});
+  let dec = verifyToken(tk);
+  if(!dec) return res.status(401).json({error:'token無效'});
 
-  let user = await UserModel.findByPk(decoded.userId);
+  if(!req.file) return res.status(400).json({error:'缺檔案'});
+  let user = await User.findByPk(dec.userId);
   if(!user) return res.status(404).json({error:'用戶不存在'});
 
-  if(!req.file) return res.status(400).json({error:'缺少檔案file'});
-
   let fileType = req.file.mimetype.startsWith('image/')?'image':'video';
-  // 角色檢查 => shortVideo => 15部 / ecommerce=>30張
-  // 省略 or 稍後再加
+  // role=shortVideo => 最多15部, ecommerce=>最多30
+  // (略) 省略數量檢查
 
-  // 產生指紋 (sha256)
+  // fingerprint
   let rawBuf = fs.readFileSync(req.file.path);
   let salt = uuidv4();
-  let combined = Buffer.concat([rawBuf, Buffer.from(salt)]);
+  let combined = Buffer.concat([ rawBuf, Buffer.from(salt)]);
   let fingerprint = crypto.createHash('sha256').update(combined).digest('hex');
 
-  // 上傳 Cloudinary
   try{
-    let cloudRes = await cloudinary.uploader.upload(req.file.path, { resource_type:'auto'});
+    // Cloudinary
+    let cloudRes = await cloudinary.uploader.upload(req.file.path,{
+      resource_type:'auto'
+    });
     fs.unlinkSync(req.file.path);
 
-    // 上鏈
-    let chainRef='';
-    if(CONTRACT_ADDRESS!=='0xYourDeployedAddress'){
+    // storeFingerprint => chainRef
+    let chainRef = '';
+    if(CONTRACT_ADDRESS && CONTRACT_ADDRESS!=='0xYourDeployedAddress'){
       try{
-        const ctt = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+        let ctt = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
         let txReceipt = await ctt.methods.storeFingerprint("0x"+fingerprint).send({
           from: account.address,
           gas: 500000
@@ -123,7 +123,7 @@ router.post('/', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // DB create
+    // DB
     let newWork = await Work.create({
       title: req.body.title || (fileType==='video'?'短影音':'商品圖'),
       fingerprint,
@@ -132,26 +132,25 @@ router.post('/', upload.single('file'), async(req,res)=>{
       chainRef
     });
 
-    // 呼叫爬蟲
+    // 呼叫 Crawler => detectInfringement
     try{
       await axios.post('http://crawler:8081/detectInfringement',{
         fingerprint,
         workId:newWork.id,
         role:user.role
       });
-    } catch(e){
-      console.error('呼叫爬蟲失敗:', e.message);
+    }catch(e){
+      console.error('crawler post fail:', e.message);
     }
 
     res.json({
       message:'上傳成功, fingerprint='+fingerprint,
       chainRef,
-      cloudinaryUrl: cloudRes.secure_url,
+      cloudUrl: cloudRes.secure_url,
       workId:newWork.id
     });
-
   } catch(e){
-    console.error('上傳錯誤:', e.message);
+    console.error('upload fail:', e.message);
     res.status(500).json({error:e.toString()});
   }
 });
