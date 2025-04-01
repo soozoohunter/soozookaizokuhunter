@@ -25,3 +25,12 @@ CREATE TABLE IF NOT EXISTS infringements (
   demandedPrice DECIMAL,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- 新增 platform_accounts 表，排除合法帳號
+CREATE TABLE IF NOT EXISTS platform_accounts (
+  id SERIAL PRIMARY KEY,
+  userId INT NOT NULL,
+  platform VARCHAR(50),
+  accountId VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW()
+);
