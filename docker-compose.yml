@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:15
@@ -33,7 +31,7 @@ services:
       - geth_data:/root/.ethereum
 
   ipfs:
-    build: ./ipfs
+    build: ./ipfs     # 會到 ipfs 資料夾讀 Dockerfile (請見下方)
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
