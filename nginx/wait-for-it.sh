@@ -4,25 +4,21 @@
 # 依據指定的 host:port，等待服務可連線後才執行後續指令
 # 支援參數：
 #   -t, --timeout <seconds> : 最長等待秒數 (預設 15)
-#   -s, --strict            : 嚴格模式，逾時即 exit 1
-#   -q, --quiet             : 靜默模式，不顯示額外訊息
-#   --                      : 後面接要執行的指令 (例如 nginx, node等)
+#   -s, --strict            : 逾時就 exit 1
+#   -q, --quiet             : 靜默模式，不顯示多餘訊息
+#   --                      : 後面接要執行的指令
 # -----------------------------------------------------------------------
 set -e
 
-# 1) 取得第一個參數 -> HOST
 HOST="$1"
 shift
-# 2) 取得第二個參數 -> PORT
 PORT="$1"
 shift
 
-# 預設值
 timeout=15
 strict=0
 quiet=0
 
-# 解析其餘參數
 while [ $# -gt 0 ]; do
     case "$1" in
         -t|--timeout)
@@ -49,11 +45,8 @@ while [ $# -gt 0 ]; do
 done
 
 start_ts=$(date +%s)
-
-# 不斷嘗試用 nc -z 檢查 HOST:PORT
 while :
 do
-    # 檢查 TCP 連線是否可用
     nc -z "$HOST" "$PORT" >/dev/null 2>&1
     result=$?
     if [ $result -eq 0 ]; then
@@ -74,9 +67,7 @@ do
         fi
         break
     fi
-
     sleep 1
 done
 
-# 若已等到對方可用，或逾時但 strict=0，執行後續參數
 exec "$@"
