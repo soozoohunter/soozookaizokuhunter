@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------
 # wait-for-it.sh
-# 等待指定的 host:port 可以連線後，再執行後續指令。
+# 等待指定的 host:port 可連線後，再執行後續指令
 # 支援參數：
 #   -t, --timeout <seconds> : 最長等待秒數 (預設 15)
 #   -s, --strict            : 逾時即 exit 1
 #   -q, --quiet             : 靜默模式，不輸出多餘訊息
-#   --                      : 後面接要執行的指令 (e.g. nginx -g 'daemon off;')
+#   --                      : 後面接要執行的指令
 # -----------------------------------------------------------------------
-
-set -e  # 若中途出現任何指令報錯，script 立即退出
+set -e
 
 HOST="$1"
 shift
@@ -20,7 +19,6 @@ timeout=15
 strict=0
 quiet=0
 
-# 解析參數
 while [ $# -gt 0 ]; do
     case "$1" in
         -t|--timeout)
@@ -48,8 +46,7 @@ done
 
 start_ts=$(date +%s)
 
-# 不斷嘗試用 nc -z 檢查 TCP 連線
-while :  # 無限迴圈
+while :  # 迴圈不斷嘗試
 do
     nc -z "$HOST" "$PORT" >/dev/null 2>&1
     result=$?
@@ -71,9 +68,7 @@ do
         fi
         break
     fi
-
     sleep 1
 done
 
-# 完成檢查後，執行後面參數對應的指令
 exec "$@"
