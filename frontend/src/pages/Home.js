@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import shieldLogo from '../assets/unicorn_shield1.png'; // 其中一張獨角獸盾牌
 import { Link } from 'react-router-dom';
 
 function Home() {
