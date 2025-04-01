@@ -31,7 +31,7 @@ services:
       - geth_data:/root/.ethereum
 
   ipfs:
-    build: ./ipfs
+    image: ipfs/kubo:latest   # 或指定版本 e.g. ipfs/kubo:v0.19.1
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
@@ -41,13 +41,16 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    # 關閉 Healthcheck => 不需要 curl
     healthcheck:
-      # 確認容器內能執行 curl，對 localhost:5001/api/v0/version 檢查
-      test: ["CMD-SHELL", "curl -sf http://localhost:5001/api/v0/version || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-      start_period: 60s
+      disable: true
+
+volumes:
+  ipfs_data:
+
+networks:
+  suzoo_net:
+    driver: bridge
 
   express:
     build: ./express
