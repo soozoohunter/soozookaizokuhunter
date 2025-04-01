@@ -77,19 +77,22 @@ async function detectYouTube(keyword){
   }
   return null;
 }
-async function detectTikTok(keyword){...}
-async function detectIG(keyword){...}
-async function detectFB(keyword){...}
-async function detectShopee(keyword){...}
+async function detectTikTok(keyword){ /* ... */ return null; }
+async function detectIG(keyword){ /* ... */ return null; }
+async function detectFB(keyword){ /* ... */ return null; }
+async function detectShopee(keyword){ /* ... */ return null; }
+
 async function detectRuten(keyword){
   try{
-    const browser=await puppeteer.launch({headless:true,args:['--no-sandbox','--disable-setuid-sandbox']});
+    const browser=await puppeteer.launch({
+      headless:true,
+      args:['--no-sandbox','--disable-setuid-sandbox']
+    });
     const page=await browser.newPage();
     let url=`https://find.ruten.com.tw/s/?q=${keyword}`;
     await page.goto(url,{waitUntil:'networkidle2'});
     let content=await page.content();
     await browser.close();
-    // if content includes '仿冒' or '未授權'
     if(content.includes('仿冒')||content.includes('未授權')){
       return url;
     }
@@ -98,8 +101,8 @@ async function detectRuten(keyword){
   }
   return null;
 }
-async function detectEbay(keyword){...}
-async function detectAmazon(keyword){...}
+async function detectEbay(keyword){ /* ... */ return null; }
+async function detectAmazon(keyword){ /* ... */ return null; }
 
 app.listen(8081,()=>{
   console.log('Crawler VVS on 8081');
