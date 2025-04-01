@@ -1,0 +1,13 @@
+{
+  "title": "速誅侵權獵人",
+  "subtitle": "開始獵殺吧！",
+  "caughtCount": "已獵殺 {{count}} 件侵權",
+  "protectedCreators": "已保護 {{count}} 位創作者",
+  "ctaGoHunt": "進入獵場",
+  "pricingTitle": "收費方案",
+  "freePlan": "免費版",
+  "advancedPlan": "進階版",
+  "proPlan": "專業版",
+  "enterprisePlan": "企業版",
+  "bigCorpPlan": "大型品牌方案"
+}
