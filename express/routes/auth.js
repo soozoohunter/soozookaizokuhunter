@@ -14,8 +14,8 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure:false,
-  auth:{ user:EMAIL_USER, pass:EMAIL_PASS }
+  secure: false,
+  auth: { user: EMAIL_USER, pass: EMAIL_PASS }
 });
 
 router.post('/signup', async(req,res)=>{
