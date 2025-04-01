@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -13,9 +15,10 @@ services:
       - suzoo_net
     healthcheck:
       test: ["CMD-SHELL","pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s  # 給DB更多啟動時間
 
   geth:
     build: ./geth
@@ -41,10 +44,12 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
     healthcheck:
-      test: ["CMD-SHELL","curl -f http://localhost:5001/api/v0/version || exit 1"]
-      interval: 30s
+      # 假設 IPFS v0.34.1 仍支援 /api/v0/version
+      test: ["CMD-SHELL","curl -sf http://localhost:5001/api/v0/version || exit 1"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 60s
 
   express:
     build: ./express
@@ -57,16 +62,17 @@ services:
       geth:
         condition: service_started
       ipfs:
-        condition: service_started
+        condition: service_healthy
     networks:
       - suzoo_net
     expose:
       - "3000"
     healthcheck:
-      test: ["CMD","curl","-f","http://localhost:3000/health"]
-      interval: 30s
+      test: ["CMD","curl","-sf","http://localhost:3000/health"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 60s
 
   fastapi:
     build: ./fastapi
@@ -81,11 +87,11 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD","curl","-f","http://localhost:8000/health"]
-      interval: 30s
+      test: ["CMD","curl","-sf","http://localhost:8000/health"]
+      interval: 10s
       timeout: 10s
-      retries: 5
-      start_period: 40s
+      retries: 10
+      start_period: 60s
 
   crawler:
     build: ./crawler
@@ -97,10 +103,11 @@ services:
     expose:
       - "8081"
     healthcheck:
-      test: ["CMD","curl","-f","http://localhost:8081/health"]
-      interval: 30s
+      test: ["CMD","curl","-sf","http://localhost:8081/health"]
+      interval: 10s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 60s
 
   frontend:
     build: ./frontend
@@ -118,7 +125,7 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: suzoo_nginx
-    # 重點：依賴 express / fastapi / crawler 已 healthy
+    # 依賴 front, express, fastapi, crawler 全部healthy，再啟動 Nginx
     depends_on:
       frontend:
         condition: service_started
