@@ -1,5 +1,5 @@
 {
-  "name": "suzookaizokuhunter-express-vss",
+  "name": "suzookaizokuhunter-express-vvs",
   "version": "1.0.0",
   "scripts": {
     "start": "node server.js"
