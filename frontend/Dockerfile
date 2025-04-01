@@ -5,8 +5,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# 改用 3001 port serve
-RUN npm install -g serve
-
-EXPOSE 3001
-CMD ["serve", "-s", "build", "-l", "3001"]
+FROM nginx:alpine
+COPY --from=builder /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
