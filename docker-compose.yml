@@ -40,6 +40,11 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    healthcheck:
+      test: ["CMD-SHELL","curl -f http://localhost:5001/api/v0/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   express:
     build: ./express
@@ -106,6 +111,7 @@ services:
       - suzoo_net
     expose:
       - "80"
+      - "3001"
 
   nginx:
     build:
