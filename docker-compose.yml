@@ -106,11 +106,6 @@ services:
       - suzoo_net
     expose:
       - "80"
-    healthcheck:
-      test: ["CMD","curl","-f","http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
 
   nginx:
     build:
