@@ -14,7 +14,7 @@ const {
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure:false,
+  secure: false,
   auth:{ user:EMAIL_USER, pass:EMAIL_PASS }
 });
 
@@ -166,4 +166,4 @@ router.post('/lawsuit', async(req,res)=>{
   res.json({message:'已提交訴訟', infId});
 });
 
-module.exports=router;
+module.exports = router;
