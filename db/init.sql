@@ -26,11 +26,17 @@ CREATE TABLE IF NOT EXISTS infringements (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 新增 platform_accounts 表，排除合法帳號
 CREATE TABLE IF NOT EXISTS platform_accounts (
-  id SERIAL PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   userId INT NOT NULL,
-  platform VARCHAR(50),
-  accountId VARCHAR(100),
-  created_at TIMESTAMP DEFAULT NOW()
+  platformName VARCHAR(50) NOT NULL,
+  accountId VARCHAR(100) NOT NULL,
+  isActive BOOLEAN DEFAULT TRUE,
+  accessToken TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- 如果未安裝 pgcrypto 或 gen_random_uuid，可改用其他方式
+-- 例如 id SERIAL primary key
+-- 但此處示範 UUID
