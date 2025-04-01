@@ -31,7 +31,7 @@ services:
       - geth_data:/root/.ethereum
 
   ipfs:
-    build: ./ipfs     # 會到 ipfs 資料夾讀 Dockerfile (請見下方)
+    build: ./ipfs
     container_name: suzoo_ipfs
     networks:
       - suzoo_net
@@ -42,6 +42,7 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
     healthcheck:
+      # 確認容器內能執行 curl，對 localhost:5001/api/v0/version 檢查
       test: ["CMD-SHELL", "curl -sf http://localhost:5001/api/v0/version || exit 1"]
       interval: 10s
       timeout: 10s
