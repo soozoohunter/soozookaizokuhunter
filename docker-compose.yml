@@ -118,11 +118,16 @@ services:
       context: ./nginx
       dockerfile: Dockerfile
     container_name: suzoo_nginx
+    # 重點：依賴 express / fastapi / crawler 已 healthy
     depends_on:
-      - frontend
-      - express
-      - fastapi
-      - crawler
+      frontend:
+        condition: service_started
+      express:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
+      crawler:
+        condition: service_healthy
     networks:
       - suzoo_net
     ports:
