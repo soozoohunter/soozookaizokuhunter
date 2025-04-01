@@ -1,14 +1,11 @@
 FROM ipfs/go-ipfs:latest
 
-# 切換到 root，安裝 curl
+# 官方 ipfs/go-ipfs:latest 多半是 Alpine-based，因此使用 apk
 USER root
-RUN apt-get update && apt-get install -y curl
+RUN apk add --no-cache curl
 
-# 再切回 ipfs 用戶
 USER ipfs
 
-# 對外暴露三個常用埠
+# 預設官方 entrypoint 已執行 ipfs daemon
+# 只需確保我們曝光三個常用埠
 EXPOSE 4001 5001 8080
-
-# 預設會執行 ipfs daemon (官方映像已設定)
-# 無需自行 CMD，保持官方 entrypoint 即可
