@@ -1,1 +1,13 @@
-
+{
+  "title": "海賊ハンター侵害撲滅",
+  "subtitle": "狩りを始めましょう！",
+  "caughtCount": "{{count}}件の侵害を撃破",
+  "protectedCreators": "{{count}}人のクリエイターを保護",
+  "ctaGoHunt": "ダッシュボードへ",
+  "pricingTitle": "プラン一覧",
+  "freePlan": "無料プラン",
+  "advancedPlan": "アドバンスプラン",
+  "proPlan": "プロプラン",
+  "enterprisePlan": "エンタープライズ",
+  "bigCorpPlan": "大型ブランド向け"
+}
