@@ -7,3 +7,4 @@ numpy==1.23.5
 web3==5.31.1
 torch==2.0.0
 transformers==4.27.4
+python-multipart==0.0.5
