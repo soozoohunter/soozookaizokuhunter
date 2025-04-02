@@ -1,39 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import logo from '../assets/logo.png';
+import { io } from 'socket.io-client';
 
 function Home() {
   const { t } = useTranslation();
   const [caughtCount, setCaughtCount] = useState(0);
   const [protectedCount, setProtectedCount] = useState(0);
 
-  useEffect(()=>{
-    // 假設後端 /api/stats 會回傳 { caughtCount: 123, protectedCreators: 45 }
-    fetch('/api/stats')
-      .then(res=>res.json())
-      .then(data=>{
-        setCaughtCount(data.caughtCount);
-        setProtectedCount(data.protectedCreators);
-      })
-      .catch(e=>console.log('stats err:', e));
-  },[]);
+  useEffect(() => {
+    setCaughtCount(1000);
+    setProtectedCount(200);
+
+    const socket = io('/', { 
+      path: '/socket.io',
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000
+    });
+    socket.on('infrCountUpdate', (data) => {
+      if (data?.total !== undefined) {
+        setCaughtCount(data.total);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [t]);
 
   return (
-    <div style={{ textAlign:'center', padding:'2rem' }}>
-      <img src={shieldLogo} alt="Logo" style={{ width:'220px' }}/>
-      <h1 style={{ margin:'1rem 0' }}>{t('title')}</h1>
-      <h2 style={{ color:'#e74c3c' }}>{t('subtitle')}</h2>
-
-      <div style={{ margin:'1rem 0' }}>
-        <p>{t('caughtCount', { count: caughtCount })}</p>
-        <p>{t('protectedCreators', { count: protectedCount })}</p>
-      </div>
-
-      <Link to="/dashboard">
-        <button style={{ fontSize:'1.2rem', padding:'0.5rem 1.5rem' }}>
-          {t('ctaGoHunt')}
+    <div className="home-container">
+      <div className="banner">
+        <img src={logo} alt="HunterX Logo" style={{ width: '200px' }} />
+        <h1 style={{ color: '#f8c12f', fontSize: '3rem', margin: '1rem 0' }}>
+          {t('siteTitle')}
+        </h1>
+        <div className="game-stats">
+          <p>{t('caughtCount', { count: caughtCount })}</p>
+          <p>{t('protectedCreators', { count: protectedCount })}</p>
+        </div>
+        <button
+          className="game-button"
+          onClick={() => {
+            window.location.href = '/dashboard';
+          }}
+        >
+          {t('startHunt')}
         </button>
-      </Link>
+      </div>
     </div>
   );
 }
