@@ -1,51 +1,23 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import Home from './pages/Home';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import Dashboard from './pages/Dashboard';
-import UploadPage from './pages/UploadPage';
-import InfringementList from './pages/InfringementList';
-import PlatformAccounts from './pages/PlatformAccounts';
-import Pricing from './pages/Pricing';
-import './App.css';
+import { Outlet, Link } from 'react-router-dom';
 
 function App() {
-  const { i18n } = useTranslation();
-
-  const changeLang = (lang) => {
-    i18n.changeLanguage(lang);
-  };
-
   return (
-    <BrowserRouter>
-      <nav style={{ display:'flex', gap:'1rem', background:'#ddd', padding:'0.5rem' }}>
-        <Link to="/">Home</Link>
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/upload">Upload</Link>
-        <Link to="/infringements">My Infringements</Link>
-        <Link to="/profile/accounts">My Platforms</Link>
-        <Link to="/pricing">Pricing</Link>
-
-        <div style={{ marginLeft:'auto' }}>
-          <button onClick={()=>changeLang('zh')}>中</button>
-          <button onClick={()=>changeLang('en')}>EN</button>
-          <button onClick={()=>changeLang('ja')}>日</button>
-        </div>
-      </nav>
-
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="/infringements" element={<InfringementList />} />
-        <Route path="/profile/accounts" element={<PlatformAccounts />} />
-        <Route path="/pricing" element={<Pricing />} />
-      </Routes>
-    </BrowserRouter>
+    <div>
+      <header style={{ padding: '1rem', background: '#eee' }}>
+        <Link to="/">Home</Link> | {' '}
+        <Link to="/login">登入</Link> | {' '}
+        <Link to="/register">註冊</Link> | {' '}
+        <Link to="/dashboard">Dashboard</Link> | {' '}
+        <Link to="/upload">上傳檔案</Link> | {' '}
+        <Link to="/platform-accounts">平台帳號</Link> | {' '}
+        <Link to="/infringements">侵權列表</Link> | {' '}
+        <Link to="/chain-test">區塊鏈測試</Link>
+      </header>
+      <main>
+        <Outlet />
+      </main>
+    </div>
   );
 }
 
