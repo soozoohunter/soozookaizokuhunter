@@ -6,7 +6,6 @@ require('dotenv').config();
 const { STRIPE_SECRET } = process.env;
 const stripe = new Stripe(STRIPE_SECRET);
 
-// 建立訂閱
 router.post('/subscribe', async (req, res) => {
   const { priceId, userEmail } = req.body;
   if (!priceId || !userEmail) {
@@ -29,23 +28,6 @@ router.post('/subscribe', async (req, res) => {
     console.error('建立訂閱失敗:', err.message);
     res.status(500).json({ error: err.message });
   }
-});
-
-// Stripe Webhook 驗證
-router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_SECRET);
-  } catch (err) {
-    console.error('Webhook 驗證錯誤:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-  // 根據事件類型處理業務邏輯
-  if (event.type === 'invoice.payment_succeeded') {
-    // 更新 DB 訂閱狀態，發送通知等
-  }
-  res.json({ received: true });
 });
 
 module.exports = router;
