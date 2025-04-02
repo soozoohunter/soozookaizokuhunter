@@ -1,35 +1,29 @@
-from fastapi import FastAPI
 import os
-import requests
+from fastapi import FastAPI
 from dotenv import load_dotenv
-import blockchain
-import crawler
-import analytics
+import requests
 
 load_dotenv()
+
 app = FastAPI()
 
-@app.on_event("startup")
-def on_start():
-    # 若 .env 中 DEPLOY_CONTRACT_ON_START=true，啟動時自動部署
-    if os.getenv("DEPLOY_CONTRACT_ON_START","false") == "true":
-        try:
-            addr = blockchain.deploy_contract()
-            blockchain.contract_address = addr
-            print(f"[FastAPI] 已自動部署合約: {addr}")
-        except Exception as e:
-            print("[FastAPI] 自動部署合約失敗:", e)
-
 @app.get("/health")
-def health_check():
-    return {"status": "ok", "service": "fastapi VVS"}
+def health():
+    return {"status": "ok", "service": "FastAPI Kaikaishield X"}
 
-@app.get("/crawler-test")
-def crawler_test(url:str):
-    # 測試呼叫 crawler
-    r = requests.post("http://crawler:8081/detect", json={"url":url,"fingerprint":"123abc"})
-    return {"crawler_response":r.json()}
-
-@app.post("/analyze")
-def analyze_video(video_url:str):
-    return analytics.video_analysis(video_url)
+# 可在此撰寫區塊鏈 or 爬蟲 or AI 分析端點
+@app.get("/chain/info")
+def chain_info():
+    # 範例：呼叫 Geth RPC 取當前區塊數
+    rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://geth:8545")
+    try:
+        data = {
+            "jsonrpc":"2.0",
+            "method":"eth_blockNumber",
+            "params":[],
+            "id":1
+        }
+        r = requests.post(rpc_url, json=data)
+        return r.json()
+    except Exception as e:
+        return {"error": str(e)}
