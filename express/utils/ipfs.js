@@ -1,10 +1,22 @@
-const { create } = require('ipfs-http-client');
+const { exec } = require('child_process');
+const fs = require('fs');
 
-const ipfs = create({ url: 'http://ipfs:5001/api/v0' });
-
-async function uploadToIPFS(fileBuffer) {
-  const result = await ipfs.add(fileBuffer);
-  return result.cid.toString();
+async function uploadToIPFS(filePath) {
+  return new Promise((resolve, reject) => {
+    exec(`ipfs add ${filePath}`, (error, stdout, stderr) => {
+      if (error) {
+        return reject(error);
+      }
+      const match = stdout.match(/added\s+(\S+)\s+/);
+      if (match) {
+        // 刪除暫存檔
+        fs.unlinkSync(filePath);
+        resolve(match[1]);
+      } else {
+        reject(new Error('無法解析 IPFS hash'));
+      }
+    });
+  });
 }
 
 module.exports = { uploadToIPFS };
