@@ -1,0 +1,23 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+.home-container {
+  text-align: center;
+  padding: 2rem;
+}
+
+.banner {
+  background: url('../assets/hunter-bg.jpg') no-repeat center center;
+  background-size: cover;
+  padding: 2rem;
+  color: white;
+}
+
+.game-button {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  margin-top: 1rem;
+  cursor: pointer;
+}
