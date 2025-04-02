@@ -2,10 +2,12 @@ FROM ethereum/client-go:stable
 
 COPY genesis.json /genesis.json
 
-# 若有需要初始化可加:
-# RUN geth init /genesis.json
+# 若要初始化私有鏈
+# docker build 時可做 geth init
+RUN geth init /genesis.json
 
-# 露出埠口
-EXPOSE 8545 30303 30303/udp
+EXPOSE 8545
+EXPOSE 30303
+EXPOSE 30303/udp
 
-CMD ["geth", "--http", "--http.addr", "0.0.0.0", "--http.port", "8545", "--http.api", "eth,web3,personal,net", "--networkid", "9999", "--allow-insecure-unlock"]
+CMD ["geth", "--networkid", "9955", "--http", "--http.addr", "0.0.0.0", "--http.api", "eth,net,web3,personal", "--syncmode=full", "--allow-insecure-unlock", "--mine", "--miner.threads=1", "--http.corsdomain", "*", "--verbosity=3"]
