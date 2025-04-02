@@ -1,26 +1,17 @@
 require('dotenv').config();
-const express = require('express');
 const axios = require('axios');
-const app = express();
 
-app.use(express.json());
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'Crawler ok' });
-});
-
-// 假設這裡做一些侵權爬蟲邏輯
-app.post('/detectInfringement', async (req, res) => {
-  const { fingerprint, workId } = req.body;
-  if (!fingerprint || !workId) {
-    return res.status(400).json({ error: '缺 fingerprint / workId' });
+async function detectInfringement() {
+  try {
+    const response = await axios.get('https://example-rapidapi.com/infringements', {
+      headers: {
+        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY
+      }
+    });
+    console.log('爬蟲抓取結果:', response.data);
+  } catch (err) {
+    console.error('爬蟲錯誤:', err.message);
   }
+}
 
-  // 這裡可以呼叫第三方API 或 內部Express API
-  // e.g., axios.post('http://suzoo_express:3000/api/infr/report', {...})
-  res.json({ message: '已接收爬蟲請求，開始偵測' });
-});
-
-app.listen(8081, () => {
-  console.log('Crawler服務已啟動，port=8081');
-});
+detectInfringement();
