@@ -2,24 +2,17 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 const Work = sequelize.define('Work', {
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false
   },
-  title: DataTypes.STRING,
-  fingerprint: DataTypes.STRING,
-  cloudinaryUrl: DataTypes.TEXT,
-  userId: DataTypes.INTEGER,
-  fileType: DataTypes.STRING,
-  chainRef: DataTypes.STRING,   // 用來記錄區塊鏈上的交易/合約位置
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
-  tableName: 'works',
-  timestamps: false
+  tableName: 'Works',
+  timestamps: true
 });
 
 module.exports = Work;
