@@ -16,6 +16,9 @@ services:
       timeout: 5s
       retries: 5
 
+  # ==============================
+  # 移除/放寬 geth 容器的 healthcheck
+  # ==============================
   geth:
     build: ./geth
     container_name: suzoo_geth
@@ -34,11 +37,12 @@ services:
       - "--nodiscover"
       - "--networkid"
       - "15"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8545"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # 方法B：直接移除healthcheck(下方這段註解掉或刪掉):
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8545"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
 
   ipfs:
     build: ./ipfs
@@ -60,7 +64,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_healthy
+        condition: service_started
     environment:
       - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
     healthcheck:
@@ -78,7 +82,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_healthy
+        condition: service_started
       fastapi:
         condition: service_healthy
     environment:
