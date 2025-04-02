@@ -1,5 +1,3 @@
-// express/routes/auth.js
-
 require('dotenv').config();
 const express = require('express');
 const router = express.Router();
@@ -17,57 +15,48 @@ const {
   EMAIL_FROM
 } = process.env;
 
-/**
- * Nodemailer 初始化
- */
 const transporter = nodemailer.createTransport({
   host: EMAIL_HOST,
   port: EMAIL_PORT,
-  secure: false,
+  secure: false, 
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS
   }
 });
 
-/**
- * [POST] /api/auth/signup
- * 用戶註冊
- */
+// 註冊
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, role } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: '缺少 email 或 password' });
+      return res.status(400).json({ error: '缺 email/password' });
     }
 
-    // 檢查是否已註冊
     let exist = await User.findOne({ where: { email } });
     if (exist) {
-      return res.status(400).json({ error: 'Email已被註冊' });
+      return res.status(400).json({ error: 'Email已存在' });
     }
 
-    // 密碼雜湊
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 建立 User
     let newUser = await User.create({
       email,
-      password_hash: passwordHash,  // 注意：這裡對應 user model 的欄位「password_hash」
+      password_hash: passwordHash,
       role: role || 'shortVideo'
     });
 
-    // 寄送歡迎信（可選）
+    // 寄送歡迎信
     try {
       await transporter.sendMail({
         from: EMAIL_FROM,
         to: email,
-        subject: '歡迎加入速誅侵權獵人',
-        text: '感謝您註冊，立即開始「獵殺」侵權吧！'
+        subject: '歡迎加入 速誅侵權獵人 X',
+        text: '感謝您註冊，開始保護版權吧！'
       });
     } catch (mailErr) {
-      console.error('寄送歡迎信失敗:', mailErr.message);
+      console.error('寄信失敗:', mailErr);
     }
 
     res.json({ message: '註冊成功', userId: newUser.id });
@@ -77,36 +66,22 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-/**
- * [POST] /api/auth/login
- * 用戶登入
- */
+// 登入
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: '缺少 email 或 password' });
-    }
 
-    // 查找用戶
     let user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ error: '用戶不存在' });
     }
 
-    // 比對密碼
     let match = await bcrypt.compare(password, user.password_hash);
     if (!match) {
       return res.status(401).json({ error: '密碼錯誤' });
     }
 
-    // 產生 JWT
-    let token = jwt.sign(
-      { userId: user.id, role: user.role },
-      JWT_SECRET || 'KaiKaiShieldSecret',
-      { expiresIn: '2h' }
-    );
-
+    let token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
     res.json({ message: '登入成功', token, role: user.role });
   } catch (e) {
     console.error(e);
