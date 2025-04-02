@@ -34,13 +34,6 @@ services:
       - "--nodiscover"
       - "--networkid"
       - "15"
-      - "--syncmode"
-      - "full"
-      - "--mine"
-      - "--miner.threads"
-      - "1"
-      - "--miner.etherbase"
-      - "0x0000000000000000000000000000000000000000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8545"]
       interval: 10s
@@ -91,15 +84,10 @@ services:
     environment:
       - PORT=3000
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   crawler:
     build: ./crawler
