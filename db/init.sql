@@ -1,11 +1,10 @@
 -- db/init.sql
--- 建立初始資料庫結構
-
 CREATE TABLE IF NOT EXISTS "Users" (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
+  user_type VARCHAR(20),  -- 'short-video' or 'seller'
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -35,6 +34,3 @@ CREATE TABLE IF NOT EXISTS "Infringements" (
   chainRef VARCHAR(255),
   created_at TIMESTAMP DEFAULT NOW()
 );
-
--- 新增索引以優化根據 workId 的查詢
-CREATE INDEX IF NOT EXISTS idx_infringements_workid ON "Infringements"(workId);
