@@ -2,19 +2,12 @@
 pragma solidity ^0.8.0;
 
 contract KaiKaiShieldStorage {
-    address public owner;
-    mapping(bytes32 => bool) public storedFingerprint;
+    string public data;
+    
+    event DataStored(string data);
 
-    constructor(){
-        owner = msg.sender;
-    }
-    modifier onlyOwner(){
-        require(msg.sender == owner, "Not authorized");
-        _;
-    }
-
-    function storeFingerprint(bytes32 hash) public onlyOwner {
-        require(!storedFingerprint[hash], "Already stored!");
-        storedFingerprint[hash] = true;
+    function storeData(string memory _data) public {
+        data = _data;
+        emit DataStored(_data);
     }
 }
