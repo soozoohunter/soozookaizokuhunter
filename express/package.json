@@ -21,6 +21,6 @@
     "web3": "^1.8.2",
     "stripe": "^11.18.0",
     "socket.io": "^4.5.4",
-    "ipfs-http-client": "^60.0.0"
+    "crypto-js": "^4.1.1"
   }
 }
