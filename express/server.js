@@ -4,20 +4,28 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
-// Models
+// models
 const User = require('./models/User');
 const PlatformAccount = require('./models/PlatformAccount');
-// 其他 models (Works, Infringement) 可依需要import
+const Work = require('./models/Work');
+const Infringement = require('./models/Infringement');
 
-// 建立關聯 (一對多: 1位User可擁有多個PlatformAccount)
+// 建立關聯
 User.hasMany(PlatformAccount, { foreignKey: 'userId' });
 PlatformAccount.belongsTo(User, { foreignKey: 'userId' });
 
-// 路由
+User.hasMany(Work, { foreignKey: 'userId' });
+Work.belongsTo(User, { foreignKey: 'userId' });
+
+Work.hasMany(Infringement, { foreignKey: 'workId' });
+Infringement.belongsTo(Work, { foreignKey: 'workId' });
+
+// routes
 const authRouter = require('./routes/auth');
 const uploadRouter = require('./routes/upload');
 const infrRouter = require('./routes/infringement');
 const platformRouter = require('./routes/platform');
+const blockchainRouter = require('./routes/blockchain');
 
 const app = express();
 app.use(express.json());
@@ -27,35 +35,34 @@ app.use(cors({ origin: '*' }));
 // rate-limit
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: '請求次數過多，請稍後再試'
+  max: 200,
+  message: '請求過多，稍後再試'
 });
 app.use(limiter);
 
-// 路由掛載
+// 掛載路由
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/infr', infrRouter);
 app.use('/api/platform', platformRouter);
+app.use('/api/chain', blockchainRouter);
 
-// 健康檢查
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Express VSS final+Platform' });
+  res.json({ status: 'ok', service: 'Express Kaikaishield X' });
 });
 
-// 啟動
 (async () => {
   try {
     await db.authenticate();
     console.log('PostgreSQL 連線成功');
-    // 同步資料表 (若 init.sql 已建表，也可改成 db.sync({ alter:true }) or force:false)
-    await db.sync();
-
-  } catch (e) {
-    console.error('DB connect fail:', e.message);
+    // 若 init.sql 已建立表，也可以酌情使用 sync
+    // await db.sync({ alter: true });
+  } catch (err) {
+    console.error('DB connect fail:', err.message);
   }
+
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`Express listening on port ${PORT}`);
+    console.log(`Express API 服務已啟動，port=${PORT}`);
   });
 })();
