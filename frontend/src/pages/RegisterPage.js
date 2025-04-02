@@ -1,93 +1,50 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-export default function RegisterPage({ history }) {
+function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('shortVideo');
+  const navigate = useNavigate();
 
-  const handleRegister = async(e) => {
-    e.preventDefault();
+  const handleRegister = async () => {
     try {
-      const res = await fetch('/api/signup', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email, password, role })
-      });
-      const data = await res.json();
-      if(res.ok) {
-        alert('註冊成功，請登入');
-        history.push('/login');
-      } else {
-        alert(`註冊失敗: ${data.error || '未知錯誤'}`);
-      }
-    } catch(err) {
-      alert(`發生錯誤: ${err.message}`);
+      let res = await axios.post('/api/auth/signup', { email, password, role });
+      alert('註冊成功');
+      navigate('/login');
+    } catch (err) {
+      alert(err.response?.data?.error || '註冊失敗');
     }
   };
 
   return (
-    <div style={styles.container}>
-      <h2>註冊</h2>
-      <form onSubmit={handleRegister} style={styles.form}>
-        <div style={styles.formGroup}>
-          <label>信箱：</label>
-          <input 
-            type="email" 
-            value={email}
-            onChange={e=>setEmail(e.target.value)}
-            required
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.formGroup}>
-          <label>密碼：</label>
-          <input 
-            type="password" 
-            value={password}
-            onChange={e=>setPassword(e.target.value)}
-            required
-            style={styles.input}
-          />
-        </div>
-        <div style={styles.formGroup}>
-          <label>身分：</label>
-          <select 
-            value={role}
-            onChange={e=>setRole(e.target.value)}
-            style={styles.input}
-          >
-            <option value="shortVideo">網紅(短影音)</option>
-            <option value="ecommerce">電商(商品圖+短影音)</option>
-          </select>
-        </div>
-        <button type="submit" style={styles.button}>註冊</button>
-      </form>
-      <div style={{marginTop:10}}>
-        <a href="/login" style={styles.link}>已有帳號？前往登入</a>
+    <div style={{ padding: '2rem' }}>
+      <h2>用戶註冊</h2>
+      <div>
+        <input
+          placeholder="輸入Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+        />
       </div>
+      <div>
+        <input
+          placeholder="輸入密碼"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+        />
+      </div>
+      <div>
+        <select value={role} onChange={e => setRole(e.target.value)}>
+          <option value="shortVideo">shortVideo</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <button onClick={handleRegister}>註冊</button>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    maxWidth: '400px', margin:'80px auto', padding:'20px',
-    border:'1px solid #ccc', borderRadius:'8px',
-    textAlign:'center'
-  },
-  form: {
-    display:'flex', flexDirection:'column'
-  },
-  formGroup: {
-    marginBottom:'10px', textAlign:'left'
-  },
-  input: {
-    width:'100%', padding:'8px', marginTop:'5px'
-  },
-  button: {
-    padding:'10px 20px', cursor:'pointer'
-  },
-  link:{
-    textDecoration:'none', color:'#007bff'
-  }
-};
+export default RegisterPage;
