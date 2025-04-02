@@ -11,6 +11,7 @@ const PlatformAccount = require('./models/PlatformAccount');
 const Work = require('./models/Work');
 const Infringement = require('./models/Infringement');
 
+// 建立關聯
 User.hasMany(PlatformAccount, { foreignKey: 'userId' });
 PlatformAccount.belongsTo(User, { foreignKey: 'userId' });
 User.hasMany(Work, { foreignKey: 'userId' });
@@ -37,6 +38,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
+// 掛載路由
 app.use('/api/auth', authRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/infr', infrRouter);
@@ -51,7 +53,7 @@ app.get('/health', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-// 定期推送「侵權案件數」
+// 定期推送「已抓到多少侵權」資訊
 setInterval(async () => {
   try {
     const count = await Infringement.count();
@@ -68,6 +70,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// 啟動
 (async () => {
   try {
     await db.authenticate();
