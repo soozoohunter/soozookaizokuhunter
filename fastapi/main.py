@@ -30,9 +30,8 @@ def health():
     return {"status": "ok", "service": "FastAPI - Hunter X", "AI_model": "transformers"}
 
 MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
-# 模型緩存到 /app/models 目錄（請確保該目錄存在且有寫入權限）
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir="/app/models")
-model = AutoModel.from_pretrained(MODEL_NAME, cache_dir="/app/models")
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModel.from_pretrained(MODEL_NAME)
 model.eval()
 
 def encode_text(text: str):
