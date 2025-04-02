@@ -15,6 +15,10 @@ const User = sequelize.define('User', {
   password: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  user_type: {
+    type: DataTypes.STRING,
+    allowNull: true  // 'short-video' or 'seller'
   }
 }, {
   tableName: 'Users',
