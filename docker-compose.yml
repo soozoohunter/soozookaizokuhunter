@@ -37,12 +37,7 @@ services:
       - "--nodiscover"
       - "--networkid"
       - "15"
-    # 方法B：直接移除healthcheck(下方這段註解掉或刪掉):
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8545"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
+    # 已移除 healthcheck
 
   ipfs:
     build: ./ipfs
@@ -106,7 +101,7 @@ services:
     build: ./frontend
     container_name: suzoo_frontend
     ports:
-      - "3001:3000"
+      - "3002:3000"
     environment:
       - NODE_ENV=production
 
