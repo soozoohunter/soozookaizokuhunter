@@ -1,59 +1,37 @@
-import os
-from fastapi import FastAPI, UploadFile, File
-from dotenv import load_dotenv
-import requests
-import torch
-from transformers import AutoModel, AutoTokenizer
-import numpy as np
+# fastapi/main.py
+import threading
+import time
 
-load_dotenv()
+from fastapi import FastAPI
+from transformers import AutoTokenizer, AutoModel
 
 app = FastAPI()
 
-@app.get("/chain/info")
-def chain_info():
-    rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://geth:8545")
-    try:
-        data = {
-            "jsonrpc": "2.0",
-            "method": "eth_blockNumber",
-            "params": [],
-            "id": 1
-        }
-        r = requests.post(rpc_url, json=data)
-        return r.json()
-    except Exception as e:
-        return {"error": str(e)}
+MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
+model = None
+tokenizer = None
+models_loaded = False
+
+def load_models():
+    global model, tokenizer, models_loaded
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir="/app/models")
+    model = AutoModel.from_pretrained(MODEL_NAME, cache_dir="/app/models")
+    model.eval()
+    models_loaded = True
+
+@app.on_event("startup")
+def on_startup():
+    # 後台執行載入模型
+    thread = threading.Thread(target=load_models)
+    thread.start()
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "FastAPI - Hunter X", "AI_model": "transformers"}
+    """回傳健康狀態 + 模型狀態"""
+    if not models_loaded:
+        return {"status": "loading", "service": "FastAPI - Hunter X"}
+    return {"status": "ok", "service": "FastAPI - Hunter X"}
 
-MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModel.from_pretrained(MODEL_NAME)
-model.eval()
-
-def encode_text(text: str):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    embeddings = outputs.last_hidden_state.mean(dim=1)
-    return embeddings.numpy()[0]
-
-def cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-@app.post("/ai/compare-texts")
-async def compare_texts(text1: str, text2: str):
-    emb1 = encode_text(text1)
-    emb2 = encode_text(text2)
-    score = cosine_similarity(emb1, emb2)
-    return {"similarity": float(score)}
-
-@app.post("/ai/upload-and-analyze")
-async def upload_and_analyze(file: UploadFile = File(...)):
-    content = await file.read()
-    text_str = content.decode("utf-8", errors="ignore")
-    emb = encode_text(text_str)
-    return {"message": "檔案已接收", "vectorLength": len(emb)}
+@app.get("/test")
+def test_endpoint():
+    return {"message": "FastAPI is running and model might be loaded."}
