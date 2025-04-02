@@ -12,12 +12,7 @@ function Home() {
     setCaughtCount(1000);
     setProtectedCount(200);
 
-    const socket = io('/', { 
-      path: '/socket.io',
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000
-    });
+    const socket = io('/', { path: '/socket.io' });
     socket.on('infrCountUpdate', (data) => {
       if (data?.total !== undefined) {
         setCaughtCount(data.total);
@@ -33,21 +28,34 @@ function Home() {
     <div className="home-container">
       <div className="banner">
         <img src={logo} alt="HunterX Logo" style={{ width: '200px' }} />
-        <h1 style={{ color: '#f8c12f', fontSize: '3rem', margin: '1rem 0' }}>
-          {t('siteTitle')}
-        </h1>
+
+        <h1 className="game-title-big">速誅</h1>
+        <h2 className="game-title-small">侵權獵人 HunterX 系統</h2>
+
         <div className="game-stats">
           <p>{t('caughtCount', { count: caughtCount })}</p>
           <p>{t('protectedCreators', { count: protectedCount })}</p>
         </div>
-        <button
-          className="game-button"
-          onClick={() => {
-            window.location.href = '/dashboard';
-          }}
-        >
-          {t('startHunt')}
-        </button>
+
+        <div style={{ marginTop: '2rem' }}>
+          <button
+            className="game-button"
+            onClick={() => { window.location.href = '/register?type=short-video'; }}
+          >
+            我是短影音著作權人
+          </button>
+          &nbsp;&nbsp;&nbsp;
+          <button
+            className="game-button"
+            onClick={() => { window.location.href = '/register?type=seller'; }}
+          >
+            我是個人商店賣家
+          </button>
+        </div>
+      </div>
+
+      <div className="footer-tribute">
+        為了紀念我最深愛的奶奶曾李素珠 小仙女 所開發的侵權偵測系統
       </div>
     </div>
   );
