@@ -7,10 +7,9 @@ const User = require('../models/User');
 
 const { JWT_SECRET } = process.env;
 
-// 簡單的token驗證
 function verifyToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET || 'KaiKaiShieldSecret');
+    return jwt.verify(token, JWT_SECRET);
   } catch (e) {
     return null;
   }
@@ -28,7 +27,6 @@ router.post('/add', async (req, res) => {
     return res.status(400).json({ error: '缺 platformName / accountId' });
   }
 
-  // 找User
   const user = await User.findByPk(dec.userId);
   if (!user) {
     return res.status(404).json({ error: '找不到用戶' });
@@ -42,7 +40,7 @@ router.post('/add', async (req, res) => {
   res.json({ message: '平台帳號新增成功', platformAccount: newAcc });
 });
 
-// 列出平台帳號
+// 列出
 router.get('/list', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: '未登入' });
