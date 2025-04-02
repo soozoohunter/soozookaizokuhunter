@@ -1,13 +1,6 @@
 {
-  "title": "KaizokuHunter",
-  "subtitle": "Start Hunting!",
-  "caughtCount": "Caught {{count}} infringements",
-  "protectedCreators": "Protected {{count}} creators",
-  "ctaGoHunt": "Go to Dashboard",
-  "pricingTitle": "Pricing Plans",
-  "freePlan": "Free Plan",
-  "advancedPlan": "Advanced Plan",
-  "proPlan": "Pro Plan",
-  "enterprisePlan": "Enterprise",
-  "bigCorpPlan": "Large Brand"
+  "siteTitle": "HunterX",
+  "caughtCount": "Infringements Caught: {{count}}",
+  "protectedCreators": "Protected Creators: {{count}}",
+  "startHunt": "Start Hunting"
 }
