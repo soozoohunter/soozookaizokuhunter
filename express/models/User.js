@@ -12,10 +12,17 @@ const User = sequelize.define('User', {
     unique: true,
     allowNull: false
   },
-  password_hash: DataTypes.STRING,
+  password_hash: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
   role: {
     type: DataTypes.STRING,
     defaultValue: 'shortVideo'
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   }
 }, {
   tableName: 'users',
