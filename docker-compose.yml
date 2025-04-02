@@ -17,14 +17,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # 移除/放寬 geth 容器的 healthcheck
+  # Geth：附帶 init.sh 初始化 & JSON-RPC healthcheck
   geth:
     build:
       context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
-    # Geth 會在 init.sh 中做 init
-    # healthcheck：測試 JSON-RPC
+    # 健康檢查：使用 RPC POST 測試 eth_blockNumber
     healthcheck:
       test:
         [
@@ -46,6 +45,7 @@ services:
     volumes:
       - ./geth/genesis.json:/genesis.json
 
+  # IPFS
   ipfs:
     build:
       context: ./ipfs
@@ -59,6 +59,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # FastAPI：後台載入模型 + Healthcheck grep '"status":"ok"'，加長 start_period
   fastapi:
     build:
       context: ./fastapi
@@ -73,7 +74,6 @@ services:
         condition: service_healthy   # 必須等 geth pass healthcheck
     environment:
       - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
-    # 修改 healthcheck：grep '"status":"ok"'，並加長等待
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:8000/health | grep '\"status\":\"ok\"'"]
       interval: 30s
@@ -81,6 +81,7 @@ services:
       retries: 5
       start_period: 180s  # 前3分鐘不做健康檢查，確保有足夠時間載入模型
 
+  # Express
   express:
     build:
       context: ./express
@@ -103,6 +104,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # 爬蟲 Crawler
   crawler:
     build:
       context: ./crawler
@@ -114,6 +116,7 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
+  # 前端 Frontend
   frontend:
     build:
       context: ./frontend
@@ -124,6 +127,7 @@ services:
     environment:
       - NODE_ENV=production
 
+  # Nginx 反向代理
   nginx:
     build:
       context: ./nginx
@@ -143,7 +147,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/wait-for-it.sh:/wait-for-it.sh
 
-# 可加自訂網路(若需要)
+# 如果需要自訂網路，可在此添加
 # networks:
 #   default:
 #     driver: bridge
