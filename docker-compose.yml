@@ -1,5 +1,5 @@
 services:
-  # PostgreSQL
+  # 1. PostgreSQL
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -17,13 +17,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # Geth：附帶 init.sh 初始化 & JSON-RPC healthcheck
+  # 2. Geth 私有鏈
   geth:
     build:
       context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
-    # 健康檢查：使用 RPC POST 測試 eth_blockNumber
     healthcheck:
       test:
         [
@@ -42,10 +41,9 @@ services:
       retries: 10
     ports:
       - "8545:8545"
-    volumes:
-      - ./geth/genesis.json:/genesis.json
+    # 不再掛載 genesis.json volumes
 
-  # IPFS
+  # 3. IPFS (可選)
   ipfs:
     build:
       context: ./ipfs
@@ -59,7 +57,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # FastAPI：後台載入模型 + Healthcheck grep '"status":"ok"'，加長 start_period
+  # 4. FastAPI
   fastapi:
     build:
       context: ./fastapi
@@ -71,7 +69,7 @@ services:
       db:
         condition: service_healthy
       geth:
-        condition: service_healthy   # 必須等 geth pass healthcheck
+        condition: service_healthy
     environment:
       - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
     healthcheck:
@@ -79,9 +77,9 @@ services:
       interval: 30s
       timeout: 20s
       retries: 5
-      start_period: 180s  # 前3分鐘不做健康檢查，確保有足夠時間載入模型
+      start_period: 180s
 
-  # Express
+  # 5. Express (上傳檔案 + 與私有鏈互動)
   express:
     build:
       context: ./express
@@ -104,7 +102,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # 爬蟲 Crawler
+  # 6. 爬蟲 Crawler (偵測侵權)
   crawler:
     build:
       context: ./crawler
@@ -116,18 +114,18 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
-  # 前端 Frontend
+  # 7. 前端 Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     ports:
-      - "3002:3000"   # host:3002 => container:3000
+      - "3002:3000"
     environment:
       - NODE_ENV=production
 
-  # Nginx 反向代理
+  # 8. Nginx 反向代理
   nginx:
     build:
       context: ./nginx
@@ -147,7 +145,7 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/wait-for-it.sh:/wait-for-it.sh
 
-# 如果需要自訂網路，可在此添加
+# 可加自訂網路(如不需要可忽略)
 # networks:
 #   default:
 #     driver: bridge
