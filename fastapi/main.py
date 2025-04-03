@@ -1,4 +1,3 @@
-# fastapi/main.py
 import threading
 import time
 
