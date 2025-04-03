@@ -1,13 +1,29 @@
 {
   "config": {
-    "chainId": 15,
+    "chainId": 15,               // 可自訂
     "homesteadBlock": 0,
     "eip150Block": 0,
     "eip155Block": 0,
     "eip158Block": 0,
-    "byzantiumBlock": 0
+    "byzantiumBlock": 0,
+    "clique": {
+      "period": 5,              // 每5秒產生一個區塊
+      "epoch": 30000
+    }
   },
-  "difficulty": "0x20000",
-  "gasLimit": "0x2fefd8",
-  "alloc": {}
+  "difficulty": "0x1",          // PoA模式下，difficulty固定寫很小
+  "gasLimit": "0x47E7C4",       // 可自訂區塊gas上限
+  "extradata": "0x0000000000000000000000000000000000000000<SignerAddr去0x的20Bytes>0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "alloc": {
+    // 把出塊者地址(或其他需要預留餘額的) 放到 alloc
+    "<SignerAddr>": {
+      "balance": "0x2000000000000000000000000000000000000"
+    }
+  },
+  "number": "0x0",
+  "gasUsed": "0x0",
+  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "nonce": "0x0",
+  "timestamp": "0x0"
 }
