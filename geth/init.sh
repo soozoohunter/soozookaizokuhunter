@@ -6,9 +6,9 @@ if [ ! -d "/data/geth/chaindata" ]; then
   geth --datadir /data init /genesis.json
 fi
 
-# 2 個簽名者地址
-SIGNER1="0x034f9688dE6Bf5709dA5C258b3825Cb01C5ae475"
-SIGNER2="0xC8f98636EbB10DBCB216026Db3dab527Cf37C2ee"
+# 2 個簽名者地址 (小寫)
+SIGNER1="0x034f9688de6bf5709da5c258b3825cb01c5ae475"
+SIGNER2="0xc8f98636ebb10dbcb216026db3dab527cf37c2ee"
 
 exec geth --datadir /data \
   --networkid 15 \
