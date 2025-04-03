@@ -1,18 +1,18 @@
 {
   "config": {
-    "chainId": 15,
+    "chainId": 15,                // 連線 ID，可自訂 (不衝突即可)
     "homesteadBlock": 0,
     "eip150Block": 0,
     "eip155Block": 0,
     "eip158Block": 0,
     "byzantiumBlock": 0,
     "clique": {
-      "period": 5,
+      "period": 5,                // 出塊間隔(秒)
       "epoch": 30000
     }
   },
-  "difficulty": "0x1",
-  "gasLimit": "0x47E7C4",
+  "difficulty": "0x1",            // PoA 下隨意小值
+  "gasLimit": "0x47E7C4",         // 每塊可用gas上限
   "extradata": "0x000000000000000000000000034f9688de6bf5709da5c258b3825cb01c5ae4750000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
   "alloc": {
     "0x034f9688dE6Bf5709dA5C258b3825Cb01C5ae475": {
