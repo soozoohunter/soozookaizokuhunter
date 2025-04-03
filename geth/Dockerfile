@@ -1,14 +1,15 @@
 FROM ethereum/client-go:v1.12.0
 WORKDIR /data
 
-# 複製 init.sh, genesis.json
+# 复制必要文件
 COPY init.sh /init.sh
 COPY genesis.json /genesis.json
-
-# 複製 keystore資料夾 & password檔
-COPY keystore /data/keystore
+COPY keystore/ /data/keystore/
 COPY password.txt /data/password.txt
 
-RUN chmod +x /init.sh
+# 设置权限
+RUN chmod +x /init.sh && \
+    chmod 644 /data/password.txt && \
+    chmod 600 /data/keystore/*
 
 ENTRYPOINT ["/init.sh"]
