@@ -1,10 +1,9 @@
--- db/init.sql
 CREATE TABLE IF NOT EXISTS "Users" (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  user_type VARCHAR(20),  -- 'short-video' or 'seller'
+  user_type VARCHAR(20),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
