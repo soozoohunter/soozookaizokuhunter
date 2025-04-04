@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# 調試信息
-echo "=== 檢查容器內文件 ==="
+# 調試：檢查文件是否存在
+echo "=== 容器內文件檢查 ==="
 ls -l /data/keystore
 cat /data/password.txt
 
@@ -12,7 +12,7 @@ if [ ! -d "/data/geth/chaindata" ]; then
   geth --datadir /data init /genesis.json
 fi
 
-# 啟動 Geth（修正參數格式）
+# 啟動 Geth（確保參數格式正確）
 exec geth \
   --datadir /data \
   --networkid 15 \
@@ -22,5 +22,5 @@ exec geth \
   --allow-insecure-unlock \
   --unlock "0x034f9688de6bf5709da5c258b3825cb01c5ae475,0xc8f98636ebb10dbcb216026db3dab527cf37c2ee" \
   --keystore /data/keystore \
-  --password /data/password.txt \
+  --password /data/password.txt \  # 必須是 --password 而非 -password
   --mine
