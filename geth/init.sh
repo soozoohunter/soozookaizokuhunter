@@ -1,12 +1,17 @@
 #!/bin/sh
 set -e
 
-# 若 /data/geth/chaindata 不存在 => 第一次初始化
+# 調試：檢查容器內文件是否存在
+echo "=== Checking files in container ==="
+ls -l /data/keystore
+cat /data/password.txt
+
+# 初始化區塊鏈
 if [ ! -d "/data/geth/chaindata" ]; then
   geth --datadir /data init /genesis.json
 fi
 
-# 解鎖 2 個帳戶、Clique 出塊
+# 啟動 Geth
 exec geth --datadir /data \
   --networkid 15 \
   --http --http.addr 0.0.0.0 --http.port 8545 \
