@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   ##################################################################
   # 1. PostgreSQL
@@ -14,7 +16,11 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,15 +30,18 @@ services:
   ##################################################################
   geth:
     build:
-      context: ./geth       # 需含 Dockerfile、init.sh、genesis.json、password.txt
+      context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
-    # 將 ./geth/keystore 與 password.txt 掛載進容器，以便解鎖帳戶
+
+    # 關鍵：將本機 keystore & password.txt 掛載進容器
     volumes:
       - ./geth/keystore:/data/keystore
       - ./geth/password.txt:/data/password.txt
+
     ports:
       - "8545:8545"
+
     healthcheck:
       test:
         [
@@ -51,11 +60,11 @@ services:
       retries: 10
 
   ##################################################################
-  # 3. IPFS
+  # 3. IPFS (如需要)
   ##################################################################
   ipfs:
     build:
-      context: ./ipfs       # 需含 Dockerfile
+      context: ./ipfs
       dockerfile: Dockerfile
     container_name: suzoo_ipfs
     ports:
@@ -71,7 +80,7 @@ services:
   ##################################################################
   fastapi:
     build:
-      context: ./fastapi    # 需含 Dockerfile、requirements.txt、main.py 等
+      context: ./fastapi
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
     ports:
@@ -95,7 +104,7 @@ services:
   ##################################################################
   express:
     build:
-      context: ./express    # 需含 Dockerfile、package.json、server.js 等
+      context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
     ports:
@@ -120,7 +129,7 @@ services:
   ##################################################################
   crawler:
     build:
-      context: ./crawler    # 需含 Dockerfile、package.json、index.js 等
+      context: ./crawler
       dockerfile: Dockerfile
     container_name: suzoo_crawler
     depends_on:
@@ -130,11 +139,11 @@ services:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
   ##################################################################
-  # 7. 前端 (React/Vue/Angular...)
+  # 7. 前端 (Frontend)
   ##################################################################
   frontend:
     build:
-      context: ./frontend   # 需含 Dockerfile、package.json、src/ 等
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     ports:
@@ -147,7 +156,7 @@ services:
   ##################################################################
   nginx:
     build:
-      context: ./nginx      # 需含 Dockerfile、nginx.conf、wait-for-it.sh 等
+      context: ./nginx
       dockerfile: Dockerfile
     container_name: suzoo_nginx
     ports:
