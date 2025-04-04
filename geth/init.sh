@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# 如果尚未初始化，則用 genesis.json 初始化區塊鏈
 if [ ! -d "/data/geth/chaindata" ]; then
   echo "初始化 genesis 區塊..."
   geth --datadir /data init /genesis.json
@@ -13,7 +14,7 @@ exec geth --datadir /data \
   --http.api eth,net,web3,personal \
   --nodiscover \
   --allow-insecure-unlock \
-  --unlock "0x75f4ba6a6ba55817324509bf73256e89a836e815" \
+  --unlock "0x7b74883b039dd129b67c243cf376c816bdd81dde" \
   --keystore /data/keystore \
   --password /data/password.txt \
   --mine
