@@ -1,18 +1,23 @@
 #!/bin/sh
 set -e
 
-# 首次初始化 genesis
+# 調試信息
+echo "=== 檢查容器內文件 ==="
+ls -l /data/keystore
+cat /data/password.txt
+
+# 初始化區塊鏈
 if [ ! -d "/data/geth/chaindata" ]; then
+  echo "初始化創世區塊..."
   geth --datadir /data init /genesis.json
 fi
 
-# 解鎖 2 個帳戶，並自動挖礦 (Clique PoA)
-exec geth --datadir /data \
+# 啟動 Geth（修正參數格式）
+exec geth \
+  --datadir /data \
   --networkid 15 \
-  --http \
-  --http.addr 0.0.0.0 \
-  --http.port 8545 \
-  --http.api "eth,net,web3,personal" \
+  --http --http.addr 0.0.0.0 --http.port 8545 \
+  --http.api eth,net,web3,personal \
   --nodiscover \
   --allow-insecure-unlock \
   --unlock "0x034f9688de6bf5709da5c258b3825cb01c5ae475,0xc8f98636ebb10dbcb216026db3dab527cf37c2ee" \
