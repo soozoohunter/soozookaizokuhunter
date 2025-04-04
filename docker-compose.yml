@@ -14,9 +14,7 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,23 +27,15 @@ services:
       context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
-    # 注意：若要只讀，可加 :ro
     volumes:
       - ./geth/keystore:/data/keystore
       - ./geth/password.txt:/data/password.txt
+      - ./geth/genesis.json:/genesis.json
     ports:
       - "8545:8545"
     healthcheck:
-      test:
-        - CMD
-        - curl
-        - -X
-        - POST
-        - -H
-        - Content-Type: application/json
-        - --data
-        - '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
-        - http://localhost:8545
+      # 注意：healthcheck 的 test 必須是一個完整的字串
+      test: "curl -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545"
       interval: 10s
       timeout: 5s
       retries: 10
@@ -82,12 +72,9 @@ services:
       geth:
         condition: service_healthy
     environment:
-      # 您的 Geth RPC URL，如 http://geth:8545
       - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
     healthcheck:
-      test:
-        - CMD-SHELL
-        - curl -s http://localhost:8000/health | grep '"status":"ok"'
+      test: ["CMD-SHELL", "curl -s http://localhost:8000/health | grep '\"status\":\"ok\"'"]
       interval: 30s
       timeout: 20s
       retries: 5
