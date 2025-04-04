@@ -1,4 +1,5 @@
 services:
+  # 1. PostgreSQL
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -16,11 +17,13 @@ services:
       timeout: 5s
       retries: 5
 
+  # 2. Geth 私有鏈 (PoA Clique)
   geth:
     build:
       context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
+    # Healthcheck：透過RPC測試是否成功回應區塊數
     healthcheck:
       test:
         [
@@ -40,6 +43,7 @@ services:
     ports:
       - "8545:8545"
 
+  # 3. IPFS (可選)
   ipfs:
     build:
       context: ./ipfs
@@ -53,6 +57,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # 4. FastAPI
   fastapi:
     build:
       context: ./fastapi
@@ -74,6 +79,7 @@ services:
       retries: 5
       start_period: 180s
 
+  # 5. Express
   express:
     build:
       context: ./express
@@ -96,6 +102,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # 6. 爬蟲 (Crawler)
   crawler:
     build:
       context: ./crawler
@@ -107,6 +114,7 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
+  # 7. 前端 (Frontend)
   frontend:
     build:
       context: ./frontend
@@ -117,6 +125,7 @@ services:
     environment:
       - NODE_ENV=production
 
+  # 8. Nginx (反向代理)
   nginx:
     build:
       context: ./nginx
