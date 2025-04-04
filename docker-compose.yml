@@ -17,13 +17,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Geth 私有鏈 (PoA Clique)
+  # 2. Geth 私有鏈 (Clique PoA)
   geth:
     build:
       context: ./geth
       dockerfile: Dockerfile
     container_name: suzoo_geth
-    # Healthcheck：透過RPC測試是否成功回應區塊數
+    # 掛載 keystore & password，以便自動解鎖帳戶
+    volumes:
+      - ./geth/keystore:/data/keystore
+      - ./geth/password.txt:/data/password.txt
     healthcheck:
       test:
         [
