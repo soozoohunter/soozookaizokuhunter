@@ -1,11 +1,12 @@
 FROM ethereum/client-go:v1.12.0
+
 WORKDIR /data
 
-# 請確保以下檔案都已放在 geth/ 資料夾內
+# 請確認下方三個檔案在 geth/ 裡都存在
 COPY genesis.json /genesis.json
-COPY keystore /data/keystore
-COPY password.txt /data/password.txt
 COPY init.sh /init.sh
+COPY password.txt /data/password.txt
+
 RUN chmod +x /init.sh
 
 ENTRYPOINT ["/init.sh"]
