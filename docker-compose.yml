@@ -30,12 +30,16 @@ services:
     volumes:
       - ./geth/keystore:/data/keystore
       - ./geth/password.txt:/data/password.txt
-      - ./geth/genesis.json:/genesis.json
     ports:
       - "8545:8545"
     healthcheck:
-      # 注意：healthcheck 的 test 必須是一個完整的字串
-      test: "curl -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545"
+      test:
+        [
+          "CMD",
+          "curl","-X","POST","-H","Content-Type: application/json",
+          "--data","{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}",
+          "http://localhost:8545"
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
