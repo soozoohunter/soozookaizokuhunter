@@ -1,5 +1,3 @@
-version: '3.8'  # 明確指定版本
-
 services:
   ###################################################################
   # 1. PostgreSQL (suzoo_postgres)
@@ -25,7 +23,7 @@ services:
       retries: 5
 
   ###################################################################
-  # 2. Geth 私有鏈 (suzoo_geth) - 唯一正確定義
+  # 2. Geth 私有鏈 (suzoo_geth)
   ###################################################################
   suzoo_geth:
     build:
@@ -39,7 +37,6 @@ services:
       - "30303:30303"   # P2P
     volumes:
       - geth_data:/geth/data
-      - ./geth/genesis.json:/geth/genesis.json:ro
       - ./geth/keystore:/geth/keystore
       - ./geth/password.txt:/geth/password.txt
     healthcheck:
