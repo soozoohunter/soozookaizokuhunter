@@ -1,4 +1,7 @@
 services:
+  ##################################################################
+  # 1. PostgreSQL (若需要存使用者資料、Email驗證等)
+  ##################################################################
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -16,6 +19,9 @@ services:
       timeout: 5s
       retries: 5
 
+  ##################################################################
+  # 2. Geth 私有鏈 (Clique PoA)
+  ##################################################################
   geth:
     build:
       context: ./geth
@@ -26,12 +32,20 @@ services:
       - ./geth/password.txt:/data/password.txt
     ports:
       - "8545:8545"
+    # 若要健康檢查可使用 attach 或 RPC:
     healthcheck:
-      test: ["CMD", "geth", "attach", "--exec", "eth.blockNumber"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl --silent --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"
+        ]
       interval: 10s
       timeout: 5s
       retries: 20
 
+  ##################################################################
+  # 3. IPFS (可選)
+  ##################################################################
   ipfs:
     build:
       context: ./ipfs
@@ -45,6 +59,9 @@ services:
       timeout: 5s
       retries: 5
 
+  ##################################################################
+  # 4. FastAPI (後端 + Web3.py + KaiShield.sol 互動)
+  ##################################################################
   fastapi:
     build:
       context: ./fastapi
@@ -63,10 +80,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
-      - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
-      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
-      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      - NODE_ENV=${NODE_ENV}
+      - BLOCKCHAIN_RPC_URL=http://geth:8545
+      - BLOCKCHAIN_PRIVATE_KEY=0x111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000
+      - CONTRACT_ADDRESS=0x110cb167ea55c3467cd82fdef9dd570b7d3f30b8
+      - NODE_ENV=production
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:8000/health | grep '\"status\":\"ok\"'"]
       interval: 30s
@@ -74,6 +91,9 @@ services:
       retries: 10
       start_period: 300s
 
+  ##################################################################
+  # 5. Express (如前端需要 Node.js API / Socket.io 等)
+  ##################################################################
   express:
     build:
       context: ./express
@@ -88,34 +108,17 @@ services:
         condition: service_healthy
     environment:
       - PORT=3000
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
       - JWT_SECRET=${JWT_SECRET}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_PORT=${EMAIL_PORT}
-      - EMAIL_USER=${EMAIL_USER}
-      - EMAIL_PASS=${EMAIL_PASS}
-      - EMAIL_FROM=${EMAIL_FROM}
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-      - RAPIDAPI_KEY=${RAPIDAPI_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-      - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
-      - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
-      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      - DMCA_AUTO_NOTIFY=${DMCA_AUTO_NOTIFY}
-      - NODE_ENV=${NODE_ENV}
-      - STRIPE_SECRET=${STRIPE_SECRET}
+      # ... 其餘與 FastAPI 共用之環境變數
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  ##################################################################
+  # 6. Crawler (侵權偵測核心, 模擬外部平台爬蟲, 可整合 IPFS / openCV)
+  ##################################################################
   crawler:
     build:
       context: ./crawler
@@ -127,6 +130,9 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
+  ##################################################################
+  # 7. 前端 (React)
+  ##################################################################
   frontend:
     build:
       context: ./frontend
@@ -137,6 +143,9 @@ services:
     environment:
       - NODE_ENV=production
 
+  ##################################################################
+  # 8. Nginx (反向代理)
+  ##################################################################
   nginx:
     build:
       context: ./nginx
