@@ -1,6 +1,4 @@
 import threading
-import time
-
 from fastapi import FastAPI
 from transformers import AutoTokenizer, AutoModel
 
@@ -26,7 +24,7 @@ def on_startup():
 
 @app.get("/health")
 def health():
-    """回傳健康狀態 + 模型狀態"""
+    """回傳健康狀態與模型狀態"""
     if not models_loaded:
         return {"status": "loading", "service": "FastAPI - Hunter X"}
     return {"status": "ok", "service": "FastAPI - Hunter X"}
