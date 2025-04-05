@@ -1,4 +1,4 @@
 FROM nginx:alpine
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY wait-for-it.sh /wait-for-it.sh
-RUN chmod +x /wait-for-it.sh
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80 443
+CMD ["nginx", "-g", "daemon off;"]
