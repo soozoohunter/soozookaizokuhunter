@@ -1,12 +1,9 @@
-FROM python:3.10-slim
-WORKDIR /app
+FROM python:3.9-slim
 
-# 複製需求檔並安裝 Python 套件
-COPY requirements.txt .
+WORKDIR /app
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 複製專案程式碼
-COPY . .
-
+COPY . /app
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
