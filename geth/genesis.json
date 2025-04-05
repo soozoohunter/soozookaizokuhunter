@@ -7,7 +7,7 @@
     "eip158Block": 0,
     "byzantiumBlock": 0,
     "clique": {
-      "period": 5,
+      "period": 15,  // 調整為合理的出塊間隔（秒）
       "epoch": 30000
     }
   },
