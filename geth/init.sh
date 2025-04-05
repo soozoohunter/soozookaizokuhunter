@@ -1,12 +1,12 @@
 #!/bin/sh
 set -e
 
-echo "初始化 genesis 區塊(若尚未) ..."
+echo "初始化 genesis 區塊（若尚未）..."
 if [ ! -d "/data/geth/chaindata" ]; then
   geth --datadir /data init /genesis.json
 fi
 
-echo "啟動 geth 並解鎖單一簽名者 ..."
+echo "啟動 geth 並解鎖單一簽名者..."
 exec geth --datadir /data \
   --networkid 15 \
   --http --http.addr 0.0.0.0 --http.port 8545 \
