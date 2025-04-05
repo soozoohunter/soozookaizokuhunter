@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   ###################################################################
   # 1. PostgreSQL (suzoo_postgres)
@@ -11,13 +13,13 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-suzoo_db}
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - postgres_data:/var/lib/postgresql/data  # 使用命名卷
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
       - suzoo_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]  # 修正變數轉義
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -36,7 +38,7 @@ services:
       - "8545:8545"
       - "30303:30303"
     volumes:
-      - geth_data:/geth/data  # 命名卷
+      - geth_data:/geth/data
       - ./geth/keystore:/geth/keystore
       - ./geth/password.txt:/geth/password.txt
     healthcheck:
@@ -57,7 +59,7 @@ services:
       - "5001:5001"
       - "8080:8080"
     volumes:
-      - ipfs_data:/data/ipfs  # 改用命名卷
+      - ipfs_data:/data/ipfs
 
   ###################################################################
   # 4. FastAPI 後端服務 (suzoo_fastapi)
@@ -69,7 +71,7 @@ services:
     container_name: suzoo_fastapi
     depends_on:
       suzoo_postgres:
-        condition: service_healthy  # 確保依賴服務健康後啟動
+        condition: service_healthy
       suzoo_geth:
         condition: service_healthy
       suzoo_ipfs:
@@ -125,11 +127,11 @@ services:
       retries: 5
 
   ###################################################################
-  # 6. 爬蟲 (suzoo_crawler)
+  # 6. 爬蟲 (suzoo_crawler) - 修正此部分
   ###################################################################
-  suzoo_crawler:
+  suzoo_crawler:  # 注意服務名稱是否拼寫正確
     build:
-      context: ./crawler
+      context: ./crawler  # 確保路徑正確
       dockerfile: Dockerfile
     container_name: suzoo_crawler
     depends_on:
@@ -157,7 +159,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV}
     volumes:
-      - ./frontend/build:/app/build  # 確保構建輸出到指定目錄
+      - ./frontend/build:/app/build
 
   ###################################################################
   # 8. Nginx 反向代理 (suzoo_nginx)
@@ -178,7 +180,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/build:/usr/share/nginx/html:ro  # 掛載前端構建文件
+      - ./frontend/build:/usr/share/nginx/html:ro
     restart: unless-stopped
 
 networks:
@@ -186,6 +188,6 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:  # PostgreSQL 持久化數據
-  geth_data:      # Geth 區塊鏈數據
-  ipfs_data:      # IPFS 存儲數據
+  postgres_data:
+  geth_data:
+  ipfs_data:
