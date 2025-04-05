@@ -1,6 +1,9 @@
-FROM node:18-alpine
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install --production && npm cache clean --force
-COPY . .
-CMD ["node", "index.js"]
+FROM python:3.9-slim
+
+WORKDIR /crawler
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY crawler.py /crawler/
+EXPOSE 9090
+CMD ["python", "crawler.py"]
