@@ -1,35 +1,26 @@
-CREATE TABLE IF NOT EXISTS "Users" (
+CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
-  username VARCHAR(50) UNIQUE NOT NULL,
-  email VARCHAR(100) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  user_type VARCHAR(20),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(30) DEFAULT 'shortVideoCreator',
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS "PlatformAccounts" (
+CREATE TABLE IF NOT EXISTS works (
   id SERIAL PRIMARY KEY,
-  userId INTEGER REFERENCES "Users"(id),
-  platform VARCHAR(50),
-  account_details JSONB,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS "Works" (
-  id SERIAL PRIMARY KEY,
-  userId INTEGER REFERENCES "Users"(id),
   title VARCHAR(255),
-  description TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  fingerprint VARCHAR(255),
+  cloudinary_url TEXT,
+  user_id INT,
+  file_type VARCHAR(20),
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS "Infringements" (
+CREATE TABLE IF NOT EXISTS infringements (
   id SERIAL PRIMARY KEY,
-  workId INTEGER REFERENCES "Works"(id),
-  description TEXT,
-  chainRef VARCHAR(255),
+  work_id INT,
+  infringing_url TEXT,
+  status VARCHAR(50) DEFAULT 'detected',
+  demanded_price DECIMAL,
   created_at TIMESTAMP DEFAULT NOW()
 );
