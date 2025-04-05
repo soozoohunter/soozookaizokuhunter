@@ -1,13 +1,17 @@
-# 1) Build Stage
-FROM node:18-alpine as build
+FROM node:18-alpine
+
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+# 複製 package.json 及 package-lock.json (或 yarn.lock)
+COPY package*.json ./
+
 RUN npm install
+
+# 複製所有專案檔案到容器中
 COPY . .
+
+# 執行建構
 RUN npm run build
 
-# 2) Production Stage (Nginx 只需要build出來的靜態檔)
-FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# 若有需要，可設定啟動命令，例如使用 nginx 來提供靜態檔案
+# CMD ["npx", "serve", "build"]

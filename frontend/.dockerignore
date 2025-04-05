@@ -1,0 +1,16 @@
+# 忽略 node_modules 目錄，因為容器內會重新安裝相依套件
+node_modules
+
+# 忽略本地已建置的輸出目錄
+build
+
+# 忽略 Git 相關檔案
+.git
+.gitignore
+
+# 忽略 MacOS 產生的系統檔
+.DS_Store
+
+# 忽略 npm 與 yarn 產生的錯誤或除錯日誌
+npm-debug.log*
+yarn-debug.log*
