@@ -1,21 +1,16 @@
 #!/bin/sh
 set -e
 
-echo "初始化 genesis 區塊（若尚未）..."
-if [ ! -d "/data/geth/chaindata" ]; then
-  geth --datadir /data init /genesis.json
+# 若尚未初始化，執行創世區塊初始化
+if [ ! -d "/geth/data/geth/chaindata" ]; then
+  geth --datadir /geth/data init /geth/genesis.json
 fi
 
-echo "啟動 geth 並解鎖單一簽名者..."
-exec geth --datadir /data \
-  --networkid 15 \
-  --http --http.addr 0.0.0.0 --http.port 8545 \
-  --http.api eth,net,web3,personal,miner \
-  --nodiscover \
-  --allow-insecure-unlock \
-  --unlock "0x1a65ee6db9d49bb286c17a3f705354601cd1f61b" \
-  --keystore /data/keystore \
-  --password /data/password.txt \
-  --mine \
-  --miner.etherbase "0x1a65ee6db9d49bb286c17a3f705354601cd1f61b" \
-  --miner.gasprice 0
+# 啟動 Geth 私有鏈節點
+exec geth --datadir /geth/data --networkid 20250405 \
+  --http --http.addr "0.0.0.0" --http.port 8545 \
+  --http.api "db,eth,net,web3,personal,miner,clique" \
+  --http.corsdomain "*" --allow-insecure-unlock \
+  --unlock "0x034f9688dE6Bf5709dA5C258b3825Cb01C5ae475" \
+  --password /geth/password.txt --mine --miner.gaslimit 4700000 \
+  --miner.etherbase "0x034f9688dE6Bf5709dA5C258b3825Cb01C5ae475"
