@@ -1,7 +1,4 @@
 services:
-  ##################################################################
-  # 1. PostgreSQL
-  ##################################################################
   db:
     image: postgres:15
     container_name: suzoo_db
@@ -13,24 +10,12 @@ services:
       - "5432:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    # 若要自訂 pg_hba.conf,可加:
-    # volumes:
-    #   - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    #   - ./db/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
-    #   command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
-        ]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  ##################################################################
-  # 2. Geth 私有鏈 (如有需要)
-  ##################################################################
   geth:
     build:
       context: ./geth
@@ -42,22 +27,11 @@ services:
     ports:
       - "8545:8545"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-X", "POST",
-          "-H", "Content-Type: application/json",
-          "--data", "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}",
-          "http://localhost:8545"
-        ]
+      test: ["CMD", "geth", "attach", "--exec", "eth.blockNumber"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 20
 
-  ##################################################################
-  # 3. IPFS (可選)
-  ##################################################################
   ipfs:
     build:
       context: ./ipfs
@@ -71,9 +45,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ##################################################################
-  # 4. FastAPI
-  ##################################################################
   fastapi:
     build:
       context: ./fastapi
@@ -84,6 +55,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      geth:
+        condition: service_healthy
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -93,18 +66,14 @@ services:
       - BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}
       - BLOCKCHAIN_PRIVATE_KEY=${BLOCKCHAIN_PRIVATE_KEY}
       - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
-      # 其餘您需要的環境變量 …
       - NODE_ENV=${NODE_ENV}
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:8000/health | grep '\"status\":\"ok\"'"]
       interval: 30s
-      timeout: 20s
-      retries: 5
-      start_period: 180s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
 
-  ##################################################################
-  # 5. Express (Node.js)
-  ##################################################################
   express:
     build:
       context: ./express
@@ -147,9 +116,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ##################################################################
-  # 6. 爬蟲 Crawler (偵測侵權)
-  ##################################################################
   crawler:
     build:
       context: ./crawler
@@ -161,9 +127,6 @@ services:
     environment:
       - RAPIDAPI_KEY=${RAPIDAPI_KEY}
 
-  ##################################################################
-  # 7. 前端 (Frontend)
-  ##################################################################
   frontend:
     build:
       context: ./frontend
@@ -174,9 +137,6 @@ services:
     environment:
       - NODE_ENV=production
 
-  ##################################################################
-  # 8. Nginx (反向代理)
-  ##################################################################
   nginx:
     build:
       context: ./nginx
@@ -195,9 +155,3 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/wait-for-it.sh:/wait-for-it.sh
-
-# (如需自訂網路，可加下方)
-# networks:
-#   default:
-#     name: soozookaizokuhunter_net
-#     driver: bridge
