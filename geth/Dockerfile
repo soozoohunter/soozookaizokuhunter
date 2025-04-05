@@ -1,12 +1,16 @@
-# geth/Dockerfile
-FROM ethereum/client-go:v1.11.6
-WORKDIR /data
+FROM ethereum/client-go:v1.10.26
 
-# 複製必要檔案
-COPY genesis.json /genesis.json
-COPY init.sh /init.sh
-COPY password.txt /data/password.txt
+# 工作目錄準備
+WORKDIR /geth
 
-RUN chmod +x /init.sh
+# 複製創世區塊配置和帳戶資料
+COPY genesis.json /geth/genesis.json
+COPY keystore/ /geth/keystore/
+COPY password.txt /geth/password.txt
 
-ENTRYPOINT ["/init.sh"]
+# 複製並設定初始化腳本
+COPY init.sh /geth/init.sh
+RUN chmod +x /geth/init.sh
+
+# 進入點執行 Geth 初始化並啟動節點
+ENTRYPOINT ["/geth/init.sh"]
