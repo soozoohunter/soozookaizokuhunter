@@ -1,3 +1,5 @@
+version: '3.8'  # 明確指定版本
+
 services:
   ###################################################################
   # 1. PostgreSQL (suzoo_postgres)
@@ -23,14 +25,7 @@ services:
       retries: 5
 
   ###################################################################
-  # 2. Geth 私有鏈 (suzoo_geth)
-  ###################################################################
-  suzoo_geth:
-   services:
-  # 其他服务保持不变...
-
-  ###################################################################
-  # 2. Geth 私有链 (suzoo_geth)
+  # 2. Geth 私有鏈 (suzoo_geth) - 唯一正確定義
   ###################################################################
   suzoo_geth:
     build:
@@ -44,7 +39,7 @@ services:
       - "30303:30303"   # P2P
     volumes:
       - geth_data:/geth/data
-      - ./geth/genesis.json:/geth/genesis.json:ro  # 新增此行
+      - ./geth/genesis.json:/geth/genesis.json:ro
       - ./geth/keystore:/geth/keystore
       - ./geth/password.txt:/geth/password.txt
     healthcheck:
@@ -52,12 +47,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
   ###################################################################
   # 3. IPFS (suzoo_ipfs)
   ###################################################################
   suzoo_ipfs:
-    # 若您已有 ./ipfs/Dockerfile，可改成 `build: ./ipfs`
-    # 若要使用官方映像，請保持 image: ipfs/go-ipfs
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
     networks:
@@ -67,13 +61,6 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    # 如需 healthcheck，可自行加
-    # healthcheck:
-    #   test: ["CMD-SHELL","curl -sf http://localhost:5001/api/v0/version || exit 1"]
-    #   interval: 10s
-    #   timeout: 10s
-    #   retries: 10
-    #   start_period: 30s
 
   ###################################################################
   # 4. FastAPI 後端服務 (suzoo_fastapi)
@@ -92,7 +79,7 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: "${DATABASE_URL}"
-      ETH_RPC_URL: "${ETH_RPC_URL}"           # 新的RPC地址
+      ETH_RPC_URL: "${ETH_RPC_URL}"
       IPFS_API_URL: "${IPFS_API_URL}"
       NODE_ENV: "${NODE_ENV:-production}"
     networks:
@@ -121,7 +108,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "${DATABASE_URL}"
-      ETH_RPC_URL: "${ETH_RPC_URL}"      # 連接私有鏈
+      ETH_RPC_URL: "${ETH_RPC_URL}"
       IPFS_API_URL: "${IPFS_API_URL}"
       JWT_SECRET: "${JWT_SECRET}"
       CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME}"
@@ -161,11 +148,6 @@ services:
       - suzoo_network
     expose:
       - "8081"
-    # 可加 healthcheck & ports if needed
-    # ports:
-    #   - "8081:8081"
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -s http://localhost:8081/health | grep 'ok'"]
 
   ###################################################################
   # 7. React 前端 (suzoo_frontend)
