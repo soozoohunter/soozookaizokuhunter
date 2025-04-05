@@ -26,6 +26,13 @@ services:
   # 2. Geth 私有鏈 (suzoo_geth)
   ###################################################################
   suzoo_geth:
+   services:
+  # 其他服务保持不变...
+
+  ###################################################################
+  # 2. Geth 私有链 (suzoo_geth)
+  ###################################################################
+  suzoo_geth:
     build:
       context: ./geth
       dockerfile: Dockerfile
@@ -37,6 +44,7 @@ services:
       - "30303:30303"   # P2P
     volumes:
       - geth_data:/geth/data
+      - ./geth/genesis.json:/geth/genesis.json:ro  # 新增此行
       - ./geth/keystore:/geth/keystore
       - ./geth/password.txt:/geth/password.txt
     healthcheck:
@@ -44,7 +52,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
-
   ###################################################################
   # 3. IPFS (suzoo_ipfs)
   ###################################################################
