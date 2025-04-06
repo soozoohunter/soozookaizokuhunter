@@ -1,19 +1,14 @@
-# Use Node.js LTS Alpine for a lightweight image
-FROM node:18-alpine
+FROM node:18-slim
 
-# Create app directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json first for dependency installation
-COPY package*.json ./
-RUN npm install
+COPY package.json ./
+RUN apt-get update && apt-get install -y python3 build-essential && \
+    npm install && \
+    apt-get remove -y python3 build-essential && apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy the rest of the application code
 COPY . .
 
-# Bind to all network interfaces
-ENV HOST=0.0.0.0
 EXPOSE 3000
-
-# Start the Express server
-CMD ["node", "index.js"]
+CMD ["node","server.js"]
