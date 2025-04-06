@@ -1,15 +1,15 @@
 FROM node:18-slim
 
-# 更新 apt-get 並安裝必要的套件
+# 更新 apt-get 並安裝必要的系統套件
 RUN apt-get update && apt-get install -y \
-    build-essential \        # 編譯工具 (包含 gcc, make)
-    netcat-openbsd \           # netcat 工具
-    libpq-dev \                # PostgreSQL 開發庫
-    python3-dev               # Python 開發頭文件
+    build-essential \
+    netcat-openbsd \
+    libpq-dev \
+    python3-dev
 
 WORKDIR /app
 
-# 複製 package.json 與 package-lock.json（如果存在）
+# 複製 package.json 與 package-lock.json (如果有) 並安裝相依套件
 COPY package.json package-lock.json* ./
 RUN npm install
 
@@ -19,7 +19,7 @@ COPY . .
 # 建置 React 專案（產生 production 的 build 資料夾）
 RUN npm run build
 
-# 安裝全域 serve 套件用以啟動 production build
+# 安裝全域的 serve 套件用來啟動 production build
 RUN npm install -g serve
 
 # 對外開放 3000 埠
