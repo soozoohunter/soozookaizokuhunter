@@ -1,6 +1,8 @@
+version: '3.8'
+
 services:
   ###################################################################
-  # 1. PostgreSQL 資料庫
+  # 1. PostgreSQL
   ###################################################################
   postgres:
     image: postgres:15-alpine
@@ -12,28 +14,22 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - db_data:/var/lib/postgresql/data
+    networks:
+      - backend-net
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
       interval: 5s
       retries: 5
-    networks:
-      - backend-net
 
   ###################################################################
-  # 2. Ganache (私有鏈) - 更新健康檢查設定
+  # 2. Ganache (本地區塊鏈)
   ###################################################################
   ganache:
-    build:
-      context: ./ganache
-      dockerfile: Dockerfile
+    image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
-    healthcheck:
-      test: ["CMD-SHELL", "curl --fail --silent -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"net_version\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
     networks:
       - backend-net
 
@@ -44,8 +40,8 @@ services:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
     ports:
-      - "5001:5001"    # API
-      - "8080:8080"    # Gateway
+      - "5001:5001"
+      - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
     command: >
@@ -61,7 +57,7 @@ services:
       - backend-net
 
   ###################################################################
-  # 4. FastAPI 微服務
+  # 4. FastAPI
   ###################################################################
   fastapi:
     build:
@@ -81,7 +77,7 @@ services:
       - backend-net
 
   ###################################################################
-  # 5. Express 後端
+  # 5. Express (後端)
   ###################################################################
   express:
     build:
@@ -105,7 +101,7 @@ services:
       - backend-net
 
   ###################################################################
-  # 6. Crawler (DMCA 爬蟲模組)
+  # 6. Crawler (爬蟲/DMCA)
   ###################################################################
   crawler:
     build:
@@ -129,10 +125,8 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      express:
-        condition: service_started
-      fastapi:
-        condition: service_started
+      - express
+      - fastapi
     expose:
       - "3000"
     networks:
@@ -150,18 +144,16 @@ services:
       - react
       - express
       - fastapi
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
       - backend-net
+    ports:
+      - "80:80"
     restart: unless-stopped
-
-networks:
-  backend-net:
-    driver: bridge
 
 volumes:
   db_data:
   ipfs_data:
+
+networks:
+  backend-net:
+    driver: bridge
