@@ -1,98 +1,52 @@
 services:
+  ###################################################################
+  # 1. PostgreSQL 資料庫
+  ###################################################################
   postgres:
-    image: postgres:13
-    container_name: POSTGRES
-    # 資料庫環境變數設定，從 .env 檔讀取
+    image: postgres:15-alpine
+    container_name: suzoo_postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
-      # 匯入初始 SQL 腳本，建立資料表
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      # 資料卷，用於持久化存儲 PostgreSQL 資料
       - db_data:/var/lib/postgresql/data
-    # 資料庫啟動後才讓其他相依服務啟動
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
       interval: 5s
       retries: 5
+    networks:
+      - backend-net
 
-  express:
-    build: ./express    # 建置 Express Docker 映像
-    container_name: EXPRESS
-    depends_on:
-      - postgres
-      - fastapi
-      - ganache
-      - ipfs
-    environment:
-      # Express 環境變數設定
-      - PORT=3000                  # Express 埠號
-      - DB_HOST=postgres           # PostgreSQL 主機名稱 (對應 service 名稱)
-      - DB_PORT=5432               # PostgreSQL 埠號
-      - DB_USER=${POSTGRES_USER}   # 資料庫使用者
-      - DB_PASS=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - JWT_SECRET=${JWT_SECRET}   # JWT 秘鑰
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-      - GANACHE_HOST=${GANACHE_HOST}
-      - GANACHE_PORT=${GANACHE_PORT}
-      - IPFS_API_URL=${IPFS_API_URL}
-    # Express 對外不直接暴露埠號，由 Nginx 代理
-    expose:
-      - "3000"
-
-  fastapi:
-    build: ./fastapi    # 建置 FastAPI Docker 映像
-    container_name: FASTAPI
-    depends_on:
-      - ipfs
-    environment:
-      - PORT=8000                  # FastAPI 埠號
-    expose:
-      - "8000"
-
-  crawler:
-    build: ./crawler    # 建置 Crawler Docker 映像
-    container_name: CRAWLER
-    depends_on:
-      - postgres
-      - express
-    environment:
-      # 爬蟲模組需要的環境變數，例如資料庫連線和 DMCA 偵測設定
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASS=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - DMCA_BANNED_FINGERPRINTS=${DMCA_BANNED_FINGERPRINTS}
-      # 如需使用 Cloudinary/API 刪除，可在此提供 CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET
-      - IPFS_API_URL=${IPFS_API_URL}
-
+  ###################################################################
+  # 2. Ganache (私有鏈)
+  ###################################################################
   ganache:
     image: trufflesuite/ganache-cli:latest
-    container_name: GANACHE
-    # Ganache 區塊鏈本地節點設定，啟動 RPC 服務在 8545 埠
+    container_name: suzoo_ganache
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
-      - "8545:8545"   # 將 Ganache RPC 埠對映到本地主機，方便開發測試 (可用 truffle 或 Metamask 連接)
-    command: ganache-cli --host 0.0.0.0 --port 8545  # 在所有介面啟動
-    # Ganache 預設會產生 10 個測試帳戶，可在日誌中查看私鑰
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-net
 
+  ###################################################################
+  # 3. IPFS
+  ###################################################################
   ipfs:
     image: ipfs/go-ipfs:latest
-    container_name: IPFS
-    # 開放 IPFS 所需埠：4001 (p2p), 5001 (API), 8080 (Gateway)
+    container_name: suzoo_ipfs
     ports:
-      - "4001:4001"
-      - "4001:4001/udp"
-      - "5001:5001"
-      - "8080:8080"
+      - "5001:5001"    # API
+      - "8080:8080"    # Gateway
     volumes:
-      - ipfs_data:/data/ipfs   # IPFS 資料卷 (包含存儲庫和儲存內容)
-    # 調整 IPFS 設定使 API/Gateway 可從容器外訪問，然後啟動節點
+      - ipfs_data:/data/ipfs
     command: >
       sh -c "
       if [ ! -e /data/ipfs/config ]; then
@@ -102,29 +56,110 @@ services:
       fi;
       ipfs daemon --migrate=true
       "
+    networks:
+      - backend-net
 
-  react:
-    build: ./frontend   # 建置 React 前端 Docker 映像
-    container_name: REACT
+  ###################################################################
+  # 4. FastAPI 微服務
+  ###################################################################
+  fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    container_name: suzoo_fastapi
     depends_on:
-      - express
-      - fastapi
-    environment:
-      - PORT=3000                  # React 應用埠號 (serve 靜態檔案使用)
+      ganache:
+        condition: service_started
+      ipfs:
+        condition: service_started
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    networks:
+      - backend-net
+
+  ###################################################################
+  # 5. Express 後端
+  ###################################################################
+  express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ganache:
+        condition: service_started
+      ipfs:
+        condition: service_started
+      fastapi:
+        condition: service_started
+    env_file:
+      - .env
     expose:
       - "3000"
+    networks:
+      - backend-net
 
+  ###################################################################
+  # 6. Crawler (DMCA 爬蟲模組)
+  ###################################################################
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: suzoo_crawler
+    depends_on:
+      - express
+      - postgres
+    env_file:
+      - .env
+    networks:
+      - backend-net
+
+  ###################################################################
+  # 7. React 前端
+  ###################################################################
+  react:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: suzoo_frontend
+    depends_on:
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
+    expose:
+      - "3000"
+    networks:
+      - backend-net
+
+  ###################################################################
+  # 8. Nginx 反向代理
+  ###################################################################
   nginx:
-    build: ./nginx      # 建置 Nginx Docker 映像
-    container_name: NGINX
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: suzoo_nginx
     depends_on:
       - react
       - express
       - fastapi
     ports:
-      - "80:80"   # 將 Nginx 的 80 埠對映到主機，使網站可經由 http://localhost 瀏覽
+      - "80:80"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro  # Nginx 配置檔案掛載
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - backend-net
+    restart: unless-stopped
+
+networks:
+  backend-net:
+    driver: bridge
 
 volumes:
   db_data:
