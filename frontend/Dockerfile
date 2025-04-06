@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 複製 package.json 與 package-lock.json (如果有) 並安裝相依套件
-COPY package.json package-lock.json* ./
+# 複製 package.json 與 package-lock.json（如果存在）並安裝依賴
+COPY package.json ./
 RUN npm install
 
 # 複製所有專案檔案到容器內
