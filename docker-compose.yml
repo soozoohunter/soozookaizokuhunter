@@ -1,7 +1,4 @@
 services:
-  ###################################################################
-  # 1. PostgreSQL (suzoo_postgres)
-  ###################################################################
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -22,9 +19,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ###################################################################
-  # 2. Geth 私有鏈 (suzoo_geth)
-  ###################################################################
   suzoo_geth:
     build:
       context: ./geth
@@ -36,17 +30,14 @@ services:
       - "8545:8545"
       - "30303:30303"
     volumes:
-      - geth_data:/geth/data  
+      - geth_data:/geth/data
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
-  ###################################################################
-  # 3. IPFS (suzoo_ipfs)
-  ###################################################################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -58,9 +49,6 @@ services:
     volumes:
       - ipfs_data:/data/ipfs
 
-  ###################################################################
-  # 4. FastAPI 後端服務 (suzoo_fastapi)
-  ###################################################################
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -89,9 +77,6 @@ services:
       retries: 10
       start_period: 120s
 
-  ###################################################################
-  # 5. Express 後端服務 (suzoo_express)
-  ###################################################################
   suzoo_express:
     build:
       context: ./express
@@ -123,9 +108,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ###################################################################
-  # 6. 爬蟲 (suzoo_crawler)
-  ###################################################################
   suzoo_crawler:
     build:
       context: ./crawler
@@ -142,12 +124,7 @@ services:
       RAPIDAPI_KEY: "${RAPIDAPI_KEY}"
     networks:
       - suzoo_network
-    expose:
-      - "8081"
 
-  ###################################################################
-  # 7. React 前端 (suzoo_frontend)
-  ###################################################################
   suzoo_frontend:
     build:
       context: ./frontend
@@ -160,9 +137,6 @@ services:
     volumes:
       - ./frontend/build:/app/build
 
-  ###################################################################
-  # 8. Nginx 反向代理 (suzoo_nginx)
-  ###################################################################
   suzoo_nginx:
     build:
       context: ./nginx
