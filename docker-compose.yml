@@ -30,13 +30,13 @@ services:
       - "8545:8545"
       - "30303:30303"
     volumes:
-      - geth_data:/geth/data
+      - geth_data:/geth/data 
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 30s  
 
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
