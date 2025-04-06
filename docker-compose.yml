@@ -5,7 +5,8 @@ services:
     volumes:
       - ./data:/geth/data
       - ./keystore:/geth/keystore
-      - ./password.txt:/geth/password.txt
+      # 移除以下這一行：
+      # - ./password.txt:/geth/password.txt
     ports:
       - "8545:8545"
       - "8546:8546"
@@ -22,83 +23,92 @@ services:
 
   ipfs:
     image: ipfs/go-ipfs:latest
-    container_name: suzoo_ipfs
     volumes:
       - ./data/ipfs:/data/ipfs
-    ports:
-      - "5001:5001"
-      - "8080:8080"
+    expose:
+      - "5001"        # 供內部Express/FastAPI訪問
+      - "8080"        # 供內部（或透過Nginx）訪問IPFS Gateway
     networks:
-      - ethereum-net
+      - backend_net
     healthcheck:
-      test: ["CMD", "ipfs", "id"]
+      test: ["CMD", "ipfs", "id"]   # 試著執行簡單命令，ipfs id 返回節點資訊
       interval: 30s
       timeout: 10s
       retries: 5
 
   express:
-    build: ./express
-    container_name: suzoo_express
+    build: 
+      context: ./express     # 假設 Express 專案Dockerfile 在 express 資料夾
+      dockerfile: Dockerfile
+    image: my-express-api:latest
     depends_on:
       geth:
         condition: service_healthy
       ipfs:
         condition: service_healthy
     networks:
-      - ethereum-net
+      - backend_net
+    expose:
+      - "3000"
     environment:
-      - ETH_RPC_URL=http://suzoo_geth:8545
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-    ports:
-      - "3000:3000"
+      - ETH_RPC_URL=http://geth:8545      # 提供給Express程式使用的環境變數
+      - IPFS_API_URL=http://ipfs:5001     # 如Express需要訪問IPFS HTTP API
+      # 其他需要的環境變數，如 DB_*, SECRET_KEY 等
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      # 檢查Express是否啟動 (需Express提供/health端點返回200 OK)
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
 
   fastapi:
-    build: ./fastapi
-    container_name: suzoo_fastapi
+    build:
+      context: ./fastapi     # 假設 FastAPI Dockerfile 在 fastapi 資料夾
+      dockerfile: Dockerfile
+    image: my-fastapi:latest
     depends_on:
       geth:
         condition: service_healthy
       ipfs:
         condition: service_healthy
     networks:
-      - ethereum-net
+      - backend_net
+    expose:
+      - "8000"
     environment:
-      - ETH_RPC_URL=http://suzoo_geth:8545
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-    ports:
-      - "8000:8000"
+      - ETH_RPC_URL=http://geth:8545
+      - IPFS_API_URL=http://ipfs:5001
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8000/health"]
       interval: 15s
       timeout: 5s
       retries: 5
 
   frontend:
-    build: ./frontend
-    container_name: suzoo_frontend
+    build:
+      context: ./frontend    # React 前端 Dockerfile 路徑
+      dockerfile: Dockerfile
+    image: my-react-app:latest
     depends_on:
       express:
         condition: service_healthy
       fastapi:
         condition: service_healthy
     networks:
-      - ethereum-net
+      - backend_net
     expose:
       - "80"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/"]
       interval: 15s
       timeout: 5s
       retries: 5
 
   nginx:
-    image: nginx:latest
-    container_name: suzoo_nginx
+    build:
+      context: ./nginx       # Nginx Dockerfile (包含 nginx.conf)
+      dockerfile: Dockerfile
+    image: my-nginx-proxy:latest
     depends_on:
       frontend:
         condition: service_healthy
@@ -106,14 +116,12 @@ services:
         condition: service_healthy
       fastapi:
         condition: service_healthy
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "80:80"
+      - "80:80"              # 將Nginx的80映射到主機80 (或您希望的端口)
     networks:
-      - ethereum-net
-    restart: unless-stopped
+      - backend_net
+    # 若使用官方nginx映像 + volume方式，可以用volumes將 nginx.conf 放入容器
 
 networks:
-  ethereum-net:
+  backend_net:
     driver: bridge
