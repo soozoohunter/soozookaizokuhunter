@@ -1,31 +1,36 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import Dashboard from './pages/Dashboard';
-import UploadPage from './pages/UploadPage';
-import InfringementList from './pages/InfringementList';
-import logo from './logo1.png.heic'; // 引入您的 Logo
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+
+// 定義首頁元件
+function Home() {
+  return <h2>這是首頁</h2>;
+}
+
+// 定義關於頁元件
+function About() {
+  return <h2>這是關於頁面</h2>;
+}
 
 function App() {
   return (
     <Router>
-      {/* Header 區域，您可以根據需求調整樣式 */}
-      <header style={{ display: 'flex', alignItems: 'center', padding: '1rem', borderBottom: '1px solid #ddd' }}>
-        <img src={logo} alt="Logo" style={{ width: '100px', marginRight: '1rem' }} />
-        <h1>您的應用程式名稱</h1>
-      </header>
-      
-      {/* 路由區域 */}
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/upload" element={<UploadPage />} />
-        <Route path="/infringements" element={<InfringementList />} />
-      </Routes>
+      <div>
+        <h1>歡迎使用 React 前端應用程式</h1>
+        <nav>
+          <ul>
+            <li>
+              <Link to="/">首頁</Link>
+            </li>
+            <li>
+              <Link to="/about">關於</Link>
+            </li>
+          </ul>
+        </nav>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+        </Routes>
+      </div>
     </Router>
   );
 }
