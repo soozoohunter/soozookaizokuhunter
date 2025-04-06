@@ -2,7 +2,7 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --no-progress
+RUN npm install --no-progress
 COPY . .
 RUN npm run build
 
