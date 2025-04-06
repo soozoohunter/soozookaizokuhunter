@@ -20,24 +20,28 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Geth (Clique PoA) - suzoo_geth
-  geth:
-    build: .  # build image from Dockerfile in current directory
-    container_name: geth
+  # 2. Geth (Clique PoA)
+  suzoo_geth:
+    build:
+      context: ./geth
+      dockerfile: Dockerfile
+    container_name: suzoo_geth
+    networks:
+      - suzoo_network
     volumes:
-      - ./data:/geth/data   # persist blockchain data on host
+      - geth_data:/geth/data
     ports:
-      - "8545:8545"   # HTTP RPC
-      - "8546:8546"   # WebSocket RPC
-      - "30303:30303" # P2P network port (TCP)
-      - "30303:30303/udp" # P2P discovery port (UDP)
+      - "8545:8545"     # RPC
+      - "8546:8546"     # WebSocket
+      - "30303:30303"   # P2P
+      - "30303:30303/udp"
+    # 健康檢查: 用 geth attach 檢查區塊號
     healthcheck:
-      test: ["CMD", "geth", "attach", "ipc:/geth/data/geth.ipc", "--exec", "eth.blockNumber"]
+      test: ["CMD", "geth", "attach", "http://localhost:8545", "--exec", "eth.blockNumber"]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 20s
-    restart: unless-stopped
+      retries: 5
+      start_period: 30s
 
   # 3. IPFS
   suzoo_ipfs:
