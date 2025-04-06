@@ -1,9 +1,9 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
-WORKDIR /crawler
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
 
-COPY crawler.py /crawler/
-EXPOSE 9090
-CMD ["python", "crawler.py"]
+RUN pip install psycopg2-binary requests
+
+COPY crawler.py .
+
+CMD ["python","crawler.py"]
