@@ -1,17 +1,26 @@
-# Use official Ethereum Geth image as base
 FROM ethereum/client-go:stable
 
-# Create directories and copy configuration files
-RUN mkdir -p /geth/keystore
+# 建立非 root 用戶 gethuser 並建立必要目錄
+RUN adduser -D -u 1000 gethuser && mkdir -p /geth/data/keystore
+
+WORKDIR /geth
+
+# 複製 genesis.json、keystore、password.txt 與 init.sh 到容器中
 COPY genesis.json /geth/genesis.json
-COPY keystore/UTC--2025-04-03T08-00-02.051862034Z--034f9688de6bf5709da5c258b3825cb01c5ae475 /geth/keystore/
+COPY keystore/ /geth/keystore/
+COPY password.txt /geth/password.txt
 COPY init.sh /geth/init.sh
 
-# Add the password file for the keystore
-RUN echo "Zack967988" > /geth/password.txt
+# 調整檔案權限與所有權
+RUN chown -R gethuser:gethuser /geth && \
+    chmod 0400 /geth/genesis.json && \
+    chmod 0500 /geth/init.sh && \
+    chmod 0400 /geth/password.txt && \
+    chmod -R 0700 /geth/keystore
 
-# Ensure the init script is executable
-RUN chmod +x /geth/init.sh
+USER gethuser
 
-# Set the entrypoint to the init script
-ENTRYPOINT ["/geth/init.sh"]
+# 暴露必要端口
+EXPOSE 8545 8546 30303
+
+ENTRYPOINT ["/bin/sh", "/geth/init.sh"]
