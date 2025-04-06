@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   password VARCHAR(255) NOT NULL
 );
 
--- 建立 files 表
+-- 建立 files 表 (存 fingerprint, ipfs_hash, cloud_url, dmca_flag, ...
 CREATE TABLE IF NOT EXISTS files (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL,
