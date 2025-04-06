@@ -18,26 +18,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  suzoo_geth:
-    build:
-      context: ./geth
-      dockerfile: Dockerfile
-    container_name: suzoo_geth
-    networks:
-      - suzoo_network
-    ports:
-      - "8545:8545"
-      - "30303:30303"
+ 
+  geth:
+    build: .
+    container_name: geth-node
     volumes:
-      - geth_data:/geth/data 
+      - ./data:/geth/data               # Persist chain data (including keystore) on the host
+    ports:
+      - "8545:8545"                     # HTTP RPC port
+      - "8546:8546"                     # WebSocket RPC port
+      - "30303:30303"                   # P2P network port (TCP)
+      - "30303:30303/udp"              # P2P discovery port (UDP)
+    networks:
+      - ethereum-net
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"]
+      # Check if the geth RPC is responding (attempt to fetch latest block number)
+      test: ["CMD", "geth", "attach", "http://localhost:8545", "--exec", "eth.blockNumber"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s  
-
+      start_period: 5s
+  
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
