@@ -1,9 +1,9 @@
-FROM python:3.10-slim
+FROM node:18-slim
 
 WORKDIR /app
+COPY package.json ./
+RUN npm install
 
-RUN pip install psycopg2-binary requests
-
-COPY crawler.py .
-
-CMD ["python","crawler.py"]
+COPY . .
+EXPOSE 8081
+CMD ["node","index.js"]
