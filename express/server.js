@@ -1,286 +1,210 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 const multer = require('multer');
-const fs = require('fs');
-const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('cloudinary').v2;
 const axios = require('axios');
+const FormData = require('form-data');
+const cloudinary = require('cloudinary').v2;
+const Web3 = require('web3');
+const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-// 讀取環境變數
 const {
-  DATABASE_URL,
+  PORT = 3000,
+  DB_HOST,
+  DB_PORT,
+  DB_USER,
+  DB_PASS,
+  DB_NAME,
   JWT_SECRET,
   CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET,
-  RAPIDAPI_KEY,
-  PORT
+  GANACHE_HOST = 'ganache',
+  GANACHE_PORT = '8545',
+  IPFS_API_URL = 'http://ipfs:5001'
 } = process.env;
 
-const pool = new Pool({ connectionString: DATABASE_URL });
+// 連線 PostgreSQL
+const pool = new Pool({
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASS,
+  database: DB_NAME
+});
 
-// Cloudinary config
+// Cloudinary
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
   api_key: CLOUDINARY_API_KEY,
   api_secret: CLOUDINARY_API_SECRET
 });
 
-// 驗證 token
-function verifyToken(token) {
+// Web3 連到 Ganache
+const web3 = new Web3(`http://${GANACHE_HOST}:${GANACHE_PORT}`);
+
+// JWT 驗證中介
+function authMiddleware(req, res, next) {
+  const auth = req.headers['authorization'];
+  if (!auth) return res.status(401).json({ error: 'No Authorization header' });
+  const token = auth.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
   try {
-    return jwt.verify(token, JWT_SECRET || 'kaishieldsecret');
-  } catch (e) {
-    return null;
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch(e) {
+    return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
-// ----------------------------------------------------
+// Multer 上傳
+const upload = multer({ storage: multer.memoryStorage() });
+
 // 健康檢查
-// ----------------------------------------------------
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Express - SooZooHunter' });
+app.get('/api/health',(req,res)=>{
+  res.json({status:'ok'});
 });
 
-// ----------------------------------------------------
-// 用戶註冊
-// ----------------------------------------------------
-app.post('/api/register', async (req, res) => {
-  const { email, password, role } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Missing email/password' });
-  }
+// 註冊
+app.post('/api/auth/register', async(req,res)=>{
+  const { username, password } = req.body;
+  if(!username||!password) return res.status(400).json({error:'Username/password missing'});
   try {
-    const check = await pool.query('SELECT id FROM users WHERE email=$1', [email]);
-    if (check.rows.length > 0) {
-      return res.status(400).json({ error: 'Email already taken' });
+    const check = await pool.query(`SELECT id FROM users WHERE username=$1`, [username]);
+    if(check.rowCount>0) {
+      return res.status(400).json({error:'User exists'});
     }
-
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    const finalRole = role || 'shortVideoCreator';
-    const ins = await pool.query(`
-      INSERT INTO users (email, password_hash, role)
-      VALUES ($1, $2, $3) RETURNING id
-    `, [email, passwordHash, finalRole]);
-
-    res.json({ message: 'Register success', userId: ins.rows[0].id, role: finalRole });
-  } catch (err) {
-    console.error('Register error:', err.message);
-    res.status(500).json({ error: err.message });
+    const hash = bcrypt.hashSync(password,10);
+    await pool.query(`INSERT INTO users (username, password) VALUES ($1, $2)`, [username, hash]);
+    res.json({message:'註冊成功'});
+  } catch(e){
+    console.error('Register error:', e);
+    res.status(500).json({error:'DB error'});
   }
 });
 
-// ----------------------------------------------------
-// 用戶登入
-// ----------------------------------------------------
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+// 登入
+app.post('/api/auth/login', async(req,res)=>{
+  const { username, password } = req.body;
+  if(!username||!password) return res.status(400).json({error:'Username/password missing'});
   try {
-    const q = await pool.query('SELECT id, password_hash, role FROM users WHERE email=$1', [email]);
-    if (q.rows.length === 0) {
-      return res.status(401).json({ error: 'User not found' });
-    }
-    const user = q.rows[0];
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      return res.status(401).json({ error: 'Password incorrect' });
-    }
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
-    res.json({ message: 'Login success', token, role: user.role });
-  } catch (err) {
-    console.error('Login error:', err.message);
-    res.status(500).json({ error: 'Server error' });
+    const result = await pool.query(`SELECT id, username, password FROM users WHERE username=$1`, [username]);
+    if(result.rowCount===0) return res.status(401).json({error:'User not found'});
+    const user = result.rows[0];
+    const match = bcrypt.compareSync(password, user.password);
+    if(!match) return res.status(401).json({error:'Wrong password'});
+    // 簽發 JWT
+    const token = jwt.sign({id:user.id, username:user.username}, JWT_SECRET, {expiresIn:'1d'});
+    res.json({token, username:user.username});
+  } catch(e){
+    console.error('Login error:', e);
+    res.status(500).json({error:'DB error'});
   }
 });
 
-// ----------------------------------------------------
-// 上傳檔案 + 指紋
-// ----------------------------------------------------
-const allowedMime = [
-  'image/jpeg','image/png','image/gif','image/webp',
-  'video/mp4','video/x-m4v','video/*'
-];
-function fileFilter(req, file, cb){
-  if(!allowedMime.includes(file.mimetype)){
-    return cb(new Error('File type not allowed'), false);
-  }
-  cb(null, true);
-}
-const upload = multer({ dest: 'uploads/', fileFilter });
-
-app.post('/api/upload', upload.single('file'), async(req, res) => {
-  // 驗證 token
-  const authHeader = req.headers.authorization;
-  if(!authHeader) return res.status(401).json({ error: 'No token' });
-  const token = authHeader.replace('Bearer ', '');
-  const dec = verifyToken(token);
-  if(!dec) return res.status(401).json({ error: 'Invalid token' });
-
-  if(!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-
+// 上傳檔案
+app.post('/api/upload', authMiddleware, upload.single('file'), async(req,res)=>{
+  if(!req.file) return res.status(400).json({error:'No file uploaded'});
+  const fileBuffer = req.file.buffer;
+  const originalName = req.file.originalname || 'uploadfile';
   try {
-    // 檢查 user
-    const userRes = await pool.query('SELECT id, role FROM users WHERE id=$1', [dec.userId]);
-    if(userRes.rows.length === 0){
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const user = userRes.rows[0];
-
-    // 產生指紋
-    const rawBuf = fs.readFileSync(req.file.path);
-    const salt = uuidv4();
-    const combined = Buffer.concat([rawBuf, Buffer.from(salt)]);
-    const fingerprint = crypto.createHash('sha256').update(combined).digest('hex');
-
-    // 上傳 Cloudinary
-    const cloudRes = await cloudinary.uploader.upload(req.file.path, {
-      resource_type: 'auto'
+    // 1) Cloudinary 上傳
+    const cloudResult = await new Promise((resolve, reject)=>{
+      cloudinary.uploader.upload_stream({ resource_type:'auto' },(err,result)=>{
+        if(err) reject(err);
+        else resolve(result);
+      }).end(fileBuffer);
     });
-    fs.unlinkSync(req.file.path);
+    const cloudUrl = cloudResult.secure_url;
 
-    // 寫入 DB
-    const fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
-    const title = req.body.title || (fileType === 'video' ? '短影音' : '商品圖片');
-    await pool.query(`
-      INSERT INTO works (title, fingerprint, cloudinary_url, user_id, file_type)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [title, fingerprint, cloudRes.secure_url, user.id, fileType]);
-
-    // 呼叫爬蟲：若您要在上傳後立即進行侵權偵測
-    // Example:
+    // 2) IPFS 上傳
+    let ipfsHash = null;
     try {
-      await axios.post('http://suzoo_crawler:9090/scan', {
-        fingerprint, userId: user.id, fileType
+      const form = new FormData();
+      form.append('file', fileBuffer, { filename: originalName });
+      const ipfsRes = await axios.post(`${IPFS_API_URL}/api/v0/add?pin=true`, form, {
+        headers: form.getHeaders()
       });
+      if(typeof ipfsRes.data === 'string'){
+        // 可能是 multiline JSON
+        const lines = ipfsRes.data.trim().split('\n');
+        const firstLine = JSON.parse(lines[0]);
+        ipfsHash = firstLine.Hash;
+      } else {
+        ipfsHash = ipfsRes.data.Hash;
+      }
+    } catch(e) {
+      console.error('IPFS upload fail:', e.message);
+    }
+
+    // 3) 指紋 (本地 MD5 or call FastAPI)
+    let fingerprint = null;
+    try {
+      const resp = await axios.post(`http://fastapi:8000/fingerprint`, {url: cloudUrl});
+      fingerprint = resp.data.fingerprint;
+    } catch(e) {
+      console.error('Call FastAPI fingerprint fail:', e.message);
+      // 備援：自己計算 MD5
+      fingerprint = crypto.createHash('md5').update(fileBuffer).digest('hex');
+    }
+
+    // 4) 區塊鏈 (Ganache) 寫交易
+    let txHash = null;
+    try {
+      const accounts = await web3.eth.getAccounts();
+      if(accounts.length>0){
+        const dataHex = web3.utils.asciiToHex(fingerprint);
+        const receipt = await web3.eth.sendTransaction({
+          from: accounts[0],
+          to: accounts[0],
+          data: dataHex,
+          value: 0
+        });
+        txHash = receipt.transactionHash;
+      }
     } catch(e){
-      console.error('Crawler call fail:', e.message);
+      console.error('Chain TX fail:', e);
     }
 
-    res.json({
-      message: 'Upload success',
-      fingerprint,
-      cloudUrl: cloudRes.secure_url
-    });
+    // 5) DB 新增記錄
+    const userId = req.user.id;
+    const insert = await pool.query(`
+      INSERT INTO files (user_id, filename, fingerprint, ipfs_hash, cloud_url, tx_hash)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      RETURNING id, filename, fingerprint, ipfs_hash, cloud_url, dmca_flag, uploaded_at, tx_hash
+    `, [userId, originalName, fingerprint, ipfsHash, cloudUrl, txHash]);
+    const newFile = insert.rows[0];
 
-  } catch(err){
-    console.error('Upload error:', err.message);
-    res.status(500).json({ error: err.message });
+    res.json(newFile);
+  } catch(e){
+    console.error('Upload error:', e);
+    res.status(500).json({error:'File upload error'});
   }
 });
 
-// ----------------------------------------------------
-// 侵權 (foundInfringement, DMCA等) - 範例
-// ----------------------------------------------------
-app.post('/api/infr/foundInfringement', async(req, res)=>{
-  const { workId, infringingUrl, status } = req.body;
-  if(!workId || !infringingUrl){
-    return res.status(400).json({error:'Missing workId / infringingUrl'});
-  }
+// 取得使用者上傳的檔案列表
+app.get('/api/files', authMiddleware, async(req,res)=>{
+  const userId = req.user.id;
   try {
-    // 檢查 works
-    const wq = await pool.query('SELECT id,user_id FROM works WHERE id=$1', [workId]);
-    if(wq.rows.length === 0){
-      return res.status(404).json({ error:'Work not found' });
-    }
-    // 建立/更新 infringement
-    const iq = await pool.query('SELECT id FROM infringements WHERE work_id=$1 AND infringing_url=$2', [workId, infringingUrl]);
-    if(iq.rows.length === 0){
-      await pool.query(`
-        INSERT INTO infringements(work_id, infringing_url, status)
-        VALUES ($1, $2, $3)
-      `, [workId, infringingUrl, status || 'detected']);
-    } else {
-      await pool.query(`
-        UPDATE infringements SET status=$1 WHERE id=$2
-      `, [status || 'detected', iq.rows[0].id]);
-    }
-    res.json({message:'foundInfringement recorded'});
-  } catch(err){
-    console.error('foundInfringement error:', err.message);
-    res.status(500).json({error:err.message});
+    const result = await pool.query(`
+      SELECT id, filename, fingerprint, ipfs_hash, cloud_url, dmca_flag, tx_hash, uploaded_at
+      FROM files
+      WHERE user_id=$1
+      ORDER BY uploaded_at DESC
+    `, [userId]);
+    res.json(result.rows);
+  } catch(e){
+    console.error('Get files error:', e);
+    res.status(500).json({error:'DB error'});
   }
 });
 
-app.post('/api/infr/dmca', async(req,res)=>{
-  // 簡易 token 驗證
-  const authHeader = req.headers.authorization;
-  if(!authHeader) return res.status(401).json({ error:'No token' });
-  const dec = verifyToken(authHeader.replace('Bearer ',''));
-  if(!dec) return res.status(401).json({ error:'Invalid token' });
-
-  const { workId, infringingUrl } = req.body;
-  if(!workId || !infringingUrl) return res.status(400).json({error:'Missing params'});
-
-  try {
-    // 檢查該 work 是否屬於此用戶
-    const wq = await pool.query('SELECT id,user_id,fingerprint FROM works WHERE id=$1', [workId]);
-    if(wq.rows.length === 0) return res.status(404).json({error:'Work not found'});
-    const w = wq.rows[0];
-    if(w.user_id !== dec.userId) {
-      return res.status(403).json({error:'No permission'});
-    }
-
-    // 更新 infringement 狀態
-    const iq = await pool.query('SELECT id FROM infringements WHERE work_id=$1 AND infringing_url=$2', [workId, infringingUrl]);
-    if(iq.rows.length === 0){
-      // 若尚未存在, 建立
-      await pool.query(`
-        INSERT INTO infringements (work_id, infringing_url, status)
-        VALUES ($1, $2, 'dmca')
-      `, [workId, infringingUrl]);
-    } else {
-      await pool.query(`
-        UPDATE infringements SET status='dmca' WHERE id=$1
-      `, [iq.rows[0].id]);
-    }
-    // TODO: 可在此寄出郵件 / DMCA 通知
-    res.json({message:'DMCA done'});
-  } catch(err){
-    console.error('DMCA error:', err.message);
-    res.status(500).json({error:err.message});
-  }
-});
-
-app.get('/api/infr/list', async(req,res)=>{
-  const authHeader = req.headers.authorization;
-  if(!authHeader) return res.status(401).json({ error:'No token' });
-  const dec = verifyToken(authHeader.replace('Bearer ',''));
-  if(!dec) return res.status(401).json({ error:'Invalid token' });
-
-  try {
-    // 找到 user 的 works
-    const wq = await pool.query('SELECT id FROM works WHERE user_id=$1', [dec.userId]);
-    const workIds = wq.rows.map(r => r.id);
-    if(workIds.length === 0) {
-      return res.json([]); // 沒有任何作品
-    }
-    const inf = await pool.query(`
-      SELECT * FROM infringements
-      WHERE work_id = ANY($1)
-      ORDER BY created_at DESC
-    `, [workIds]);
-    res.json(inf.rows);
-  } catch(err){
-    console.error('list error:', err.message);
-    res.status(500).json({error:err.message});
-  }
-});
-
-// ----------------------------------------------------
-const port = PORT || 3000;
-app.listen(port, () => {
-  console.log(`[Express] running on port ${port}`);
+app.listen(PORT, ()=>{
+  console.log(`Express listening on port ${PORT}`);
 });
