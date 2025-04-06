@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 複製 package.json 與 package-lock.json（如果存在）並安裝依賴
+# 複製 package.json 並安裝相依套件
 COPY package.json ./
 RUN npm install
 
@@ -19,7 +19,7 @@ COPY . .
 # 建置 React 專案（產生 production 的 build 資料夾）
 RUN npm run build
 
-# 安裝全域的 serve 套件用來啟動 production build
+# 安裝全域 serve 套件用來啟動 production build
 RUN npm install -g serve
 
 # 對外開放 3000 埠
