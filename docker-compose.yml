@@ -1,9 +1,5 @@
-version: '3.8'
-
 services:
-  ###################################################################
   # 1. PostgreSQL
-  ###################################################################
   postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -14,16 +10,14 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - db_data:/var/lib/postgresql/data
-    networks:
-      - backend-net
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
       interval: 5s
       retries: 5
+    networks:
+      - suzoo_net
 
-  ###################################################################
-  # 2. Ganache (本地區塊鏈)
-  ###################################################################
+  # 2. Ganache
   ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -31,14 +25,14 @@ services:
     ports:
       - "8545:8545"
     networks:
-      - backend-net
+      - suzoo_net
 
-  ###################################################################
   # 3. IPFS
-  ###################################################################
   ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
+    networks:
+      - suzoo_net
     ports:
       - "5001:5001"
       - "8080:8080"
@@ -53,12 +47,8 @@ services:
       fi;
       ipfs daemon --migrate=true
       "
-    networks:
-      - backend-net
 
-  ###################################################################
   # 4. FastAPI
-  ###################################################################
   fastapi:
     build:
       context: ./fastapi
@@ -74,11 +64,9 @@ services:
     expose:
       - "8000"
     networks:
-      - backend-net
+      - suzoo_net
 
-  ###################################################################
-  # 5. Express (後端)
-  ###################################################################
+  # 5. Express
   express:
     build:
       context: ./express
@@ -98,11 +86,9 @@ services:
     expose:
       - "3000"
     networks:
-      - backend-net
+      - suzoo_net
 
-  ###################################################################
-  # 6. Crawler (爬蟲/DMCA)
-  ###################################################################
+  # 6. Crawler
   crawler:
     build:
       context: ./crawler
@@ -114,27 +100,25 @@ services:
     env_file:
       - .env
     networks:
-      - backend-net
+      - suzoo_net
 
-  ###################################################################
-  # 7. React 前端
-  ###################################################################
+  # 7. React Frontend
   react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      - express
-      - fastapi
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
     expose:
       - "3000"
     networks:
-      - backend-net
+      - suzoo_net
 
-  ###################################################################
-  # 8. Nginx 反向代理
-  ###################################################################
+  # 8. Nginx
   nginx:
     build:
       context: ./nginx
@@ -145,15 +129,17 @@ services:
       - express
       - fastapi
     networks:
-      - backend-net
+      - suzoo_net
     ports:
       - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
+
+networks:
+  suzoo_net:
+    driver: bridge
 
 volumes:
   db_data:
   ipfs_data:
-
-networks:
-  backend-net:
-    driver: bridge
