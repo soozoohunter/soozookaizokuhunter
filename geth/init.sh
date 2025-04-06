@@ -1,30 +1,27 @@
 #!/bin/sh
-# Data directory for the Ethereum node
+set -e
+
 DATADIR="/geth/data"
 
-# Ensure keystore directory exists, and import the key if not already present
-if [ ! -d "$DATADIR/keystore" ]; then
-  mkdir -p "$DATADIR/keystore"
-fi
+# 建立 keystore 目錄（如果不存在）
+mkdir -p "$DATADIR/keystore"
 
-# If no account key is found in the data volume, copy the provided keyfile
-if [ -z "$(ls -A "$DATADIR/keystore")" ]; then
-  echo "Keystore is empty. Importing account key..."
-  cp /geth/keystore/* "$DATADIR/keystore/"
-fi
-
-# Initialize the geth datadir with the genesis block if not already done
+# 如果資料尚未初始化，則用 genesis.json 初始化創世區塊
 if [ ! -d "$DATADIR/geth/chaindata" ]; then
   echo "Initializing genesis block..."
-  geth init /geth/genesis.json --datadir "$DATADIR"
+  geth --datadir "$DATADIR" init /geth/genesis.json
 fi
 
-# Start the Ethereum node with the specified validator account unlocked and mining enabled
-echo "Starting geth node..."
-exec geth --datadir "$DATADIR" \
-  --networkid 2025 \
-  --unlock "0x034f9688dE6Bf5709dA5C258b3825Cb01C5ae475" --password /geth/password.txt \
-  --mine --allow-insecure-unlock \
-  --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,clique \
-  --ws --ws.addr 0.0.0.0 --ws.port 8546 --ws.api eth,net,web3,clique \
-  --ipcdisable --verbosity 3
+# 如果 datadir 內沒有導入帳戶，則嘗試導入 keystore 文件
+if [ -z "$(geth account list --datadir $DATADIR)" ]; then
+  echo "Importing validator account..."
+  geth --datadir "$DATADIR" account import /geth/keystore/UTC--2025-04-03T08-00-02.051862034Z--034f9688de6bf5709da5c258b3825cb01c5ae475 --password /geth/password.txt
+fi
+
+echo "Starting Geth node..."
+exec geth --datadir "$DATADIR" --networkid 2025 \
+  --http --http.addr "0.0.0.0" --http.port 8545 --http.api "eth,net,web3,clique,personal" \
+  --ws --ws.addr "0.0.0.0" --ws.port 8546 --ws.api "eth,net,web3,clique" \
+  --nodiscover --allow-insecure-unlock \
+  --unlock "0x34f9688de6bf5709da5c258b3825cb01c5ae475" --password /geth/password.txt \
+  --mine --miner.gaslimit 4700000 --miner.etherbase "0x34f9688de6bf5709da5c258b3825cb01c5ae475"
