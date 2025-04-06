@@ -1,122 +1,166 @@
-version: "3.8"
-
 services:
-  geth:
-    build: ./geth
-    container_name: suzoo_geth
+  # 1. PostgreSQL
+  suzoo_postgres:
+    image: postgres:15-alpine
+    container_name: suzoo_postgres
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "suzoo_db"
     volumes:
-      - ./data:/geth/data
-      - ./keystore:/geth/keystore
-      # 如果已在 Dockerfile 中複製了 password.txt，則不需要掛載
-      # - ./password.txt:/geth/password.txt
-    ports:
-      - "8545:8545"
-      - "8546:8546"
-      - "30303:30303"
-      - "30303:30303/udp"
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - ethereum-net
+      - suzoo_network
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "geth", "attach", "http://localhost:8545", "--exec", "eth.blockNumber"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d suzoo_db || exit 1"]
+      interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
 
-  ipfs:
+  # 2. Ganache (取代原本 Geth)
+  suzoo_ganache:
+    image: trufflesuite/ganache:latest
+    container_name: suzoo_ganache
+    networks:
+      - suzoo_network
+    ports:
+      - "8545:8545"
+    command: [
+      "--host", "0.0.0.0",
+      "--port", "8545",
+      "--networkId", "20250405",
+      "--chainId", "20250405",
+      "--defaultBalanceEther", "100000"
+    ]
+    # 若要永久保留鏈資料，可取消註解並建立 ./ganache-data 目錄
+    # volumes:
+    #   - ./ganache-data:/data
+
+  # 3. IPFS
+  suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
-    volumes:
-      - ./data/ipfs:/data/ipfs
+    networks:
+      - suzoo_network
     ports:
       - "5001:5001"
       - "8080:8080"
-    networks:
-      - ethereum-net
-    healthcheck:
-      test: ["CMD", "ipfs", "id"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    volumes:
+      - ipfs_data:/data/ipfs
 
-  express:
-    build: ./express
-    container_name: suzoo_express
-    depends_on:
-      geth:
-        condition: service_healthy
-      ipfs:
-        condition: service_healthy
-    networks:
-      - ethereum-net
-    environment:
-      - ETH_RPC_URL=http://suzoo_geth:8545
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-    ports:
-      - "3000:3000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
-  fastapi:
-    build: ./fastapi
+  # 4. FastAPI
+  suzoo_fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
-      geth:
+      suzoo_postgres:
         condition: service_healthy
-      ipfs:
-        condition: service_healthy
-    networks:
-      - ethereum-net
+      suzoo_ipfs:
+        condition: service_started
+      suzoo_ganache:
+        condition: service_started
     environment:
-      - ETH_RPC_URL=http://suzoo_geth:8545
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-    ports:
-      - "8000:8000"
+      DATABASE_URL: "postgresql://postgres:postgres@suzoo_postgres:5432/suzoo_db"
+      ETH_RPC_URL: "http://suzoo_ganache:8545"
+      IPFS_API_URL: "http://suzoo_ipfs:5001"
+    networks:
+      - suzoo_network
+    expose:
+      - "8000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
+      test: ["CMD-SHELL", "curl -s http://localhost:8000/health | grep '\"status\":\"ok\"'"]
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 120s
+
+  # 5. Express
+  suzoo_express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    depends_on:
+      suzoo_postgres:
+        condition: service_healthy
+      suzoo_ganache:
+        condition: service_started
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@suzoo_postgres:5432/suzoo_db"
+      ETH_RPC_URL: "http://suzoo_ganache:8545"
+      IPFS_API_URL: "http://suzoo_ipfs:5001"
+      NODE_ENV: "production"
+      PORT: "3000"
+    networks:
+      - suzoo_network
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
-  frontend:
-    build: ./frontend
+  # 6. React 前端
+  suzoo_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      express:
+      suzoo_express:
         condition: service_healthy
-      fastapi:
+      suzoo_fastapi:
         condition: service_healthy
     networks:
-      - ethereum-net
+      - suzoo_network
+    environment:
+      NODE_ENV: "production"
     expose:
-      - "80"
+      - "5000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 15s
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 30s
 
-  nginx:
+  # 7. Nginx
+  suzoo_nginx:
     image: nginx:latest
     container_name: suzoo_nginx
     depends_on:
-      frontend:
+      suzoo_express:
         condition: service_healthy
-      express:
+      suzoo_fastapi:
         condition: service_healthy
-      fastapi:
-        condition: service_healthy
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      suzoo_frontend:
+        condition: service_started
+    networks:
+      - suzoo_network
     ports:
       - "80:80"
-    networks:
-      - ethereum-net
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
-  ethereum-net:
+  suzoo_network:
     driver: bridge
+
+volumes:
+  postgres_data:
+  ipfs_data:
+  # 如果要持久化 Ganache:
+  # ganache_data:
