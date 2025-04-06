@@ -4,15 +4,12 @@ from web3 import Web3
 
 app = FastAPI()
 
-@app.on_event("startup")
-def startup_event():
-    eth_rpc_url = os.getenv("ETH_RPC_URL", "http://suzoo_geth:8545")
-    w3 = Web3(Web3.HTTPProvider(eth_rpc_url))
-    if w3.isConnected():
-        print("[FastAPI] Connected to Ethereum node:", eth_rpc_url)
-    else:
-        print("[FastAPI] Failed to connect Ethereum node")
+# 連接到 Ganache (ETH_RPC_URL= http://suzoo_ganache:8545)
+GANACHE_URL = os.environ.get("ETH_RPC_URL", "http://localhost:8545")
+w3 = Web3(Web3.HTTPProvider(GANACHE_URL))
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "FastAPI - SooZooHunter"}
+    # 測試連線：抓一下 Ganache 的最新區塊號
+    block_number = w3.eth.block_number
+    return {"status":"ok","service":"FastAPI","ganache_block": block_number}
