@@ -15,15 +15,14 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 使用 .env 中的 POSTGRES_ 參數建立資料庫連線
+// 使用 .env 中的 POSTGRES_ 參數
 const pool = new Pool({
   host: process.env.POSTGRES_HOST || 'postgres',
   port: process.env.POSTGRES_PORT || 5432,
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
+  database: process.env.POSTGRES_DB,  // 確保此值為 "suzoo_db"
 });
-
 // Cloudinary 設定（若有設定）
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({
