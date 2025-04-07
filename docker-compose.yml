@@ -33,16 +33,20 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    command: daemon
     networks:
       - suzoo_net
-    command: daemon
 
   fastapi:
-    build: ./fastapi
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
-      - ganache
-      - ipfs
+      ganache:
+        condition: service_started
+      ipfs:
+        condition: service_started
     env_file:
       - .env
     expose:
@@ -51,7 +55,9 @@ services:
       - suzoo_net
 
   express:
-    build: ./express
+    build:
+      context: ./express
+      dockerfile: Dockerfile
     container_name: suzoo_express
     depends_on:
       postgres:
@@ -70,11 +76,15 @@ services:
       - suzoo_net
 
   crawler:
-    build: ./crawler
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
     container_name: suzoo_crawler
     depends_on:
-      - express
-      - postgres
+      express:
+        condition: service_started
+      postgres:
+        condition: service_started
     env_file:
       - .env
     networks:
@@ -83,11 +93,15 @@ services:
       - "8081"
 
   react:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      - express
-      - fastapi
+      express:
+        condition: service_started
+      fastapi:
+        condition: service_started
     env_file:
       - .env
     expose:
@@ -96,7 +110,9 @@ services:
       - suzoo_net
 
   nginx:
-    build: ./nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: suzoo_nginx
     depends_on:
       - react
