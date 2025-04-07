@@ -1,5 +1,7 @@
 services:
+  ###################################################################
   # 1. PostgreSQL
+  ###################################################################
   postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -17,7 +19,9 @@ services:
     networks:
       - suzoo_net
 
-  # 2. Ganache
+  ###################################################################
+  # 2. Ganache (本地以太坊)
+  ###################################################################
   ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -27,7 +31,9 @@ services:
     networks:
       - suzoo_net
 
+  ###################################################################
   # 3. IPFS
+  ###################################################################
   ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -38,27 +44,19 @@ services:
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-    command: >
-      sh -c "
-      if [ ! -e /data/ipfs/config ]; then
-        ipfs init && \
-        ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001 && \
-        ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080;
-      fi;
-      ipfs daemon --migrate=true
-      "
+    command: daemon  # <-- 不再用 sh -c
 
+  ###################################################################
   # 4. FastAPI
+  ###################################################################
   fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
-      ganache:
-        condition: service_started
-      ipfs:
-        condition: service_started
+      - ganache
+      - ipfs
     env_file:
       - .env
     expose:
@@ -66,7 +64,9 @@ services:
     networks:
       - suzoo_net
 
+  ###################################################################
   # 5. Express
+  ###################################################################
   express:
     build:
       context: ./express
@@ -88,7 +88,9 @@ services:
     networks:
       - suzoo_net
 
-  # 6. Crawler
+  ###################################################################
+  # 6. Crawler (JS or Python 任擇其一)
+  ###################################################################
   crawler:
     build:
       context: ./crawler
@@ -101,24 +103,28 @@ services:
       - .env
     networks:
       - suzoo_net
+    expose:
+      - "8081"
 
+  ###################################################################
   # 7. React Frontend
+  ###################################################################
   react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      express:
-        condition: service_started
-      fastapi:
-        condition: service_started
+      - express
+      - fastapi
     expose:
       - "3000"
     networks:
       - suzoo_net
 
+  ###################################################################
   # 8. Nginx
+  ###################################################################
   nginx:
     build:
       context: ./nginx
