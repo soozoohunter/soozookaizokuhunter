@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import logo from '../assets/logo.png';  // 請在 assets/ 放置 logo.png
 import './styles.css'; // 若 main App 已 import styles，可省略
 
 export default function Home() {
