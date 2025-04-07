@@ -12,9 +12,12 @@ function App() {
   return (
     <div>
       <header className="navbar">
-        <div className="nav-logo">
-          <Link to="/">{t('siteTitle')}</Link>
-        </div>
+        {/*
+          已移除原本 <div className="nav-logo"> ... </div>
+          若想只刪除名稱「Logo」而保留 <Link>，可直接改成下列示範
+          此處範例直接整塊刪除 .nav-logo 區段
+        */}
+
         <nav className="nav-links">
           <Link to="/">{t('siteTitle')}</Link>
           <Link to="/pricing">{t('pricingTitle')}</Link>
@@ -26,6 +29,7 @@ function App() {
           <Link to="/infringements">{t('navInfringement')}</Link>
           <Link to="/chain-test">{t('navChainTest')}</Link>
         </nav>
+
         <div className="lang-switcher">
           {t('languageSwitcher')}:
           <button onClick={() => handleLangChange('zh')}>中</button>
@@ -33,6 +37,7 @@ function App() {
           <button onClick={() => handleLangChange('ja')}>日</button>
         </div>
       </header>
+
       <main>
         <Outlet />
       </main>
