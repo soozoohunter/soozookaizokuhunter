@@ -28,13 +28,13 @@ services:
   ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
-    networks:
-      - suzoo_net
     ports:
       - "5001:5001"
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+    networks:
+      - suzoo_net
     command: daemon
 
   fastapi:
@@ -88,6 +88,8 @@ services:
     depends_on:
       - express
       - fastapi
+    env_file:
+      - .env
     expose:
       - "3000"
     networks:
@@ -100,13 +102,13 @@ services:
       - react
       - express
       - fastapi
-    networks:
-      - suzoo_net
     ports:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
+    networks:
+      - suzoo_net
 
 networks:
   suzoo_net:
