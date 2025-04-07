@@ -1,6 +1,7 @@
-FROM python:3.9-slim
-WORKDIR /crawler
-COPY crawler-requirements.txt .
-RUN pip install --no-cache-dir -r crawler-requirements.txt
-COPY crawler.py .
-CMD ["python","crawler.py"]
+FROM node:18-slim
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+COPY . .
+EXPOSE 8081
+CMD ["node","index.js"]
