@@ -1,69 +1,57 @@
 require('dotenv').config();
 const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
+const bodyParser = require('body-parser');
 const multer = require('multer');
-const axios = require('axios');
-const FormData = require('form-data');
-const cloudinary = require('cloudinary').v2;
-const Web3 = require('web3');
+const sharp = require('sharp');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
+const axios = require('axios');
+const Web3 = require('web3');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-const {
-  PORT = 3000,
-  DB_HOST,
-  DB_PORT,
-  DB_USER,
-  DB_PASS,
-  DB_NAME,
-  JWT_SECRET,
-  CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET,
-  GANACHE_HOST = 'ganache',
-  GANACHE_PORT = '8545',
-  IPFS_API_URL = 'http://ipfs:5001'
-} = process.env;
-
-// 連線 PostgreSQL
+// 使用 .env 中的 POSTGRES_ 參數建立資料庫連線
 const pool = new Pool({
-  host: DB_HOST,
-  port: DB_PORT,
-  user: DB_USER,
-  password: DB_PASS,
-  database: DB_NAME
+  host: process.env.POSTGRES_HOST || 'postgres',
+  port: process.env.POSTGRES_PORT || 5432,
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB,
 });
 
-// Cloudinary
-cloudinary.config({
-  cloud_name: CLOUDINARY_CLOUD_NAME,
-  api_key: CLOUDINARY_API_KEY,
-  api_secret: CLOUDINARY_API_SECRET
-});
+// Cloudinary 設定（若有設定）
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+}
 
-// Web3 連到 Ganache
-const web3 = new Web3(`http://${GANACHE_HOST}:${GANACHE_PORT}`);
+// 連線 Ganache（區塊鏈）
+const web3 = new Web3(`http://${process.env.GANACHE_HOST || 'ganache'}:${process.env.GANACHE_PORT || 8545}`);
 
-// JWT 驗證中介
-function authMiddleware(req, res, next) {
-  const auth = req.headers['authorization'];
-  if (!auth) return res.status(401).json({ error: 'No Authorization header' });
-  const token = auth.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No token provided' });
+// JWT 驗證中介函式
+function authenticate(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Missing Authorization header' });
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Missing token' });
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
     next();
-  } catch(e) {
-    return res.status(401).json({ error: 'Invalid token' });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-// Multer 上傳
+// Multer 設定：暫存上傳檔案於記憶體
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 健康檢查
