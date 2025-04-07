@@ -1,3 +1,5 @@
+# fastapi/main.py
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
@@ -10,7 +12,7 @@ class FileURL(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status":"ok"}
+    return {"status": "ok"}
 
 @app.post("/fingerprint")
 def fingerprint(data: FileURL):
