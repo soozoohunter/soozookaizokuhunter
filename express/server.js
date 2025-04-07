@@ -1,3 +1,5 @@
+// express/server.js
+
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -10,25 +12,29 @@ const { Pool } = require('pg');
 const axios = require('axios');
 const Web3 = require('web3');
 const cloudinary = require('cloudinary').v2;
-const FormData = require('form-data'); // 引入 FormData
+const FormData = require('form-data');
 
+// 建立 Express 應用程式
 const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 定義埠號，預設 3000
+// 預設埠 (若 .env 未設置 PORT=xxx)
 const PORT = process.env.PORT || 3000;
 
-// 使用 .env 中的 PostgreSQL 參數
+// 連線 PostgreSQL
 const pool = new Pool({
   host: process.env.POSTGRES_HOST || 'postgres',
   port: process.env.POSTGRES_PORT || 5432,
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,  // 請確保此值為 "suzoo_db"
+  database: process.env.POSTGRES_DB  // e.g. "suzoo_db"
 });
 
-// Cloudinary 設定（若有設定）
+// 如您有獨立的 express/db.js 也可改用：
+// const pool = require('./db'); // 同樣匯入設定
+
+// Cloudinary 設定
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -37,10 +43,10 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
   });
 }
 
-// 連線 Ganache（區塊鏈）
+// 連線 Ganache (區塊鏈)
 const web3 = new Web3(`http://${process.env.GANACHE_HOST || 'ganache'}:${process.env.GANACHE_PORT || 8545}`);
 
-// JWT 驗證中介函式，使用名稱 authenticate
+// JWT 驗證中介函式
 function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'Missing Authorization header' });
@@ -55,7 +61,7 @@ function authenticate(req, res, next) {
   }
 }
 
-// Multer 設定：暫存上傳檔案於記憶體
+// Multer: 上傳檔案於記憶體
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 健康檢查
@@ -68,12 +74,12 @@ app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username/password missing' });
   try {
-    const check = await pool.query(`SELECT id FROM users WHERE username=$1`, [username]);
+    const check = await pool.query('SELECT id FROM users WHERE username=$1', [username]);
     if (check.rowCount > 0) {
       return res.status(400).json({ error: 'User exists' });
     }
     const hash = bcrypt.hashSync(password, 10);
-    await pool.query(`INSERT INTO users (username, password) VALUES ($1, $2)`, [username, hash]);
+    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hash]);
     res.json({ message: '註冊成功' });
   } catch (e) {
     console.error('Register error:', e);
@@ -86,12 +92,11 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username/password missing' });
   try {
-    const result = await pool.query(`SELECT id, username, password FROM users WHERE username=$1`, [username]);
+    const result = await pool.query('SELECT id, username, password FROM users WHERE username=$1', [username]);
     if (result.rowCount === 0) return res.status(401).json({ error: 'User not found' });
     const user = result.rows[0];
     const match = bcrypt.compareSync(password, user.password);
     if (!match) return res.status(401).json({ error: 'Wrong password' });
-    // 使用 process.env.JWT_SECRET 簽發 JWT
     const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, username: user.username });
   } catch (e) {
@@ -100,13 +105,14 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 上傳檔案，使用 authenticate 中介函式
+// 上傳檔案
 app.post('/api/upload', authenticate, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const fileBuffer = req.file.buffer;
   const originalName = req.file.originalname || 'uploadfile';
+
   try {
-    // 1) Cloudinary 上傳
+    // 1) Cloudinary
     const cloudResult = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream({ resource_type: 'auto' }, (err, result) => {
         if (err) reject(err);
@@ -115,7 +121,7 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
     });
     const cloudUrl = cloudResult.secure_url;
 
-    // 2) IPFS 上傳
+    // 2) IPFS
     let ipfsHash = null;
     try {
       const form = new FormData();
@@ -124,7 +130,6 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
         headers: form.getHeaders()
       });
       if (typeof ipfsRes.data === 'string') {
-        // 可能是多行 JSON
         const lines = ipfsRes.data.trim().split('\n');
         const firstLine = JSON.parse(lines[0]);
         ipfsHash = firstLine.Hash;
@@ -135,18 +140,18 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
       console.error('IPFS upload fail:', e.message);
     }
 
-    // 3) 指紋 (本地 MD5 或呼叫 FastAPI)
+    // 3) 指紋 => 呼叫 FastAPI
     let fingerprint = null;
     try {
-      const resp = await axios.post(`http://fastapi:8000/fingerprint`, { url: cloudUrl });
+      const resp = await axios.post('http://fastapi:8000/fingerprint', { url: cloudUrl });
       fingerprint = resp.data.fingerprint;
     } catch (e) {
       console.error('Call FastAPI fingerprint fail:', e.message);
-      // 備援：自行計算 MD5
+      // fallback => 自己算MD5
       fingerprint = crypto.createHash('md5').update(fileBuffer).digest('hex');
     }
 
-    // 4) 區塊鏈 (Ganache) 寫交易
+    // 4) 區塊鏈 => Ganache
     let txHash = null;
     try {
       const accounts = await web3.eth.getAccounts();
@@ -164,7 +169,7 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
       console.error('Chain TX fail:', e);
     }
 
-    // 5) DB 新增記錄
+    // 5) 寫入 DB => files 表
     const userId = req.user.id;
     const insert = await pool.query(
       `INSERT INTO files (user_id, filename, fingerprint, ipfs_hash, cloud_url, tx_hash)
@@ -181,7 +186,7 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
   }
 });
 
-// 取得使用者上傳的檔案列表，使用 authenticate 中介函式
+// 列出檔案
 app.get('/api/files', authenticate, async (req, res) => {
   const userId = req.user.id;
   try {
@@ -199,6 +204,7 @@ app.get('/api/files', authenticate, async (req, res) => {
   }
 });
 
+// 啟動
 app.listen(PORT, () => {
   console.log(`Express listening on port ${PORT}`);
 });
