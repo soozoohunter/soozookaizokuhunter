@@ -12,11 +12,11 @@ RUN apt-get update && apt-get install -y \
     redis-server \
     supervisor \
     nginx \
-    build-essential \        # 編譯工具 (包含 gcc, make)
+    build-essential \
     netcat-openbsd \
-    libpq-dev \               # PostgreSQL 開發庫
-    python3-dev \             # Python 開發頭文件
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    libpq-dev \
+    python3-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ========== 2) 安裝 Node.js 18 ==========
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
