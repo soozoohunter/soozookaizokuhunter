@@ -48,8 +48,9 @@ body {
   padding: 3rem 1rem;
 }
 
+/* 原本 .banner 中引用了 hunter-bg.jpg，以下行已刪除 */
 .banner {
-  background: url('./assets/hunter-bg.jpg') center/cover no-repeat;
+  /* 如果需要背景顏色，可自行加入，例如: background: #222; */
   padding: 4rem 1rem;
 }
 
