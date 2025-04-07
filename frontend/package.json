@@ -2,16 +2,16 @@
   "name": "suzoo-frontend",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
-    "react-router-dom": "^6.8.2",
-    "i18next": "^22.1.6",
-    "react-i18next": "^12.1.6"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build"
+    "react-i18next": "^13.5.0",
+    "i18next": "23.2.3",
+    "react-router-dom": "^6.8.0"
   }
 }

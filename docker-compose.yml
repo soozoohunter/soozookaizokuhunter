@@ -1,7 +1,4 @@
 services:
-  ###################################################################
-  # 1. PostgreSQL 資料庫
-  ###################################################################
   postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -19,9 +16,6 @@ services:
     networks:
       - suzoo_net
 
-  ###################################################################
-  # 2. Ganache (私有鏈)
-  ###################################################################
   ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -31,9 +25,6 @@ services:
     networks:
       - suzoo_net
 
-  ###################################################################
-  # 3. IPFS
-  ###################################################################
   ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -46,9 +37,6 @@ services:
     networks:
       - suzoo_net
 
-  ###################################################################
-  # 4. FastAPI
-  ###################################################################
   fastapi:
     build:
       context: ./fastapi
@@ -65,10 +53,12 @@ services:
       - "8000"
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  ###################################################################
-  # 5. Express 後端
-  ###################################################################
   express:
     build:
       context: ./express
@@ -89,10 +79,12 @@ services:
       - "3000"
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  ###################################################################
-  # 6. Crawler (DMCA 爬蟲模組)
-  ###################################################################
   crawler:
     build:
       context: ./crawler
@@ -100,7 +92,7 @@ services:
     container_name: suzoo_crawler
     depends_on:
       express:
-        condition: service_started
+        condition: service_healthy
       postgres:
         condition: service_started
     env_file:
@@ -109,10 +101,8 @@ services:
       - suzoo_net
     expose:
       - "8081"
+    # 由於爬蟲本身不是 HTTP 服務，不設 healthcheck
 
-  ###################################################################
-  # 7. React 前端
-  ###################################################################
   react:
     build:
       context: ./frontend
@@ -120,7 +110,7 @@ services:
     container_name: suzoo_frontend
     depends_on:
       express:
-        condition: service_started
+        condition: service_healthy
       fastapi:
         condition: service_started
     env_file:
@@ -129,10 +119,12 @@ services:
       - "3000"
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  ###################################################################
-  # 8. Nginx 反向代理
-  ###################################################################
   nginx:
     build:
       context: ./nginx
