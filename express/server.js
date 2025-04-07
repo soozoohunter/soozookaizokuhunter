@@ -10,7 +10,7 @@ const { Pool } = require('pg');
 const axios = require('axios');
 const Web3 = require('web3');
 const cloudinary = require('cloudinary').v2;
-const FormData = require('form-data'); // 加入此行以使用 FormData
+const FormData = require('form-data'); // 引入 FormData
 
 const app = express();
 app.use(bodyParser.json());
@@ -40,7 +40,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
 // 連線 Ganache（區塊鏈）
 const web3 = new Web3(`http://${process.env.GANACHE_HOST || 'ganache'}:${process.env.GANACHE_PORT || 8545}`);
 
-// JWT 驗證中介函式，這裡使用名稱 authenticate
+// JWT 驗證中介函式，使用名稱 authenticate
 function authenticate(req, res, next) {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'Missing Authorization header' });
@@ -181,7 +181,7 @@ app.post('/api/upload', authenticate, upload.single('file'), async (req, res) =>
   }
 });
 
-// 取得使用者上傳的檔案列表
+// 取得使用者上傳的檔案列表，使用 authenticate 中介函式
 app.get('/api/files', authenticate, async (req, res) => {
   const userId = req.user.id;
   try {
