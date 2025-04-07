@@ -16,7 +16,6 @@ def health():
 
 @app.post("/fingerprint")
 def fingerprint(data: FileURL):
-    # 從指定 URL 下載檔案 並算 MD5
     try:
         r = requests.get(data.url, timeout=10)
         r.raise_for_status()
