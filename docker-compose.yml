@@ -1,9 +1,10 @@
-version: "3.8"
-
 services:
+  # -------------------
+  # 1) PostgreSQL
+  # -------------------
   postgres:
     image: postgres:15-alpine
-    container_name: suzoo_postgres
+    container_name: suzoo_postgres     # 若想保留可留
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -18,18 +19,24 @@ services:
     networks:
       - suzoo_net
 
+  # -------------------
+  # 2) Ganache
+  # -------------------
   ganache:
     image: trufflesuite/ganache-cli:latest
-    # 不設定 container_name 以避免內部合併錯誤
+    # container_name: suzoo_ganache  # 可以留或刪
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
       - suzoo_net
 
+  # -------------------
+  # 3) IPFS
+  # -------------------
   ipfs:
     image: ipfs/go-ipfs:latest
-    container_name: suzoo_ipfs
+    container_name: suzoo_ipfs       # 可以留或刪
     ports:
       - "5001:5001"
       - "8080:8080"
@@ -39,11 +46,14 @@ services:
     networks:
       - suzoo_net
 
+  # -------------------
+  # 4) FastAPI
+  # -------------------
   fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
-    container_name: suzoo_fastapi
+    # container_name: suzoo_fastapi  # 建議拿掉
     depends_on:
       - ganache
       - ipfs
@@ -59,11 +69,14 @@ services:
       timeout: 5s
       retries: 3
 
+  # -------------------
+  # 5) Express
+  # -------------------
   express:
     build:
       context: ./express
       dockerfile: Dockerfile
-    container_name: suzoo_express
+    # container_name: suzoo_express  # 建議拿掉
     depends_on:
       - postgres
       - ganache
@@ -81,11 +94,14 @@ services:
       timeout: 5s
       retries: 5
 
+  # -------------------
+  # 6) Crawler
+  # -------------------
   crawler:
     build:
       context: ./crawler
       dockerfile: Dockerfile
-    container_name: suzoo_crawler
+    # container_name: suzoo_crawler  # 建議拿掉
     depends_on:
       - express
       - postgres
@@ -96,11 +112,14 @@ services:
     expose:
       - "8081"
 
+  # -------------------
+  # 7) React 前端
+  # -------------------
   react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: suzoo_frontend
+    # container_name: suzoo_frontend # 建議拿掉
     depends_on:
       - express
       - fastapi
@@ -116,20 +135,27 @@ services:
       timeout: 10s
       retries: 3
 
+  # -------------------
+  # 8) Nginx
+  # -------------------
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    container_name: suzooka_nginx
+    # container_name: suzooka_nginx  # 建議拿掉
     depends_on:
       - react
       - express
       - fastapi
+    # 開放 80 + 443 給外部訪問
     ports:
       - "80:80"
       - "443:443"
+    # 挂載 SSL 配置 + default.conf
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # 若您有 Let's Encrypt 憑證在本機，可能要:
+      # - /path/to/certs:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
       - suzoo_net
