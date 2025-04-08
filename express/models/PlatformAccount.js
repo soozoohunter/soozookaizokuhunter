@@ -1,6 +1,6 @@
 // express/models/PlatformAccount.js
 const { Model, DataTypes } = require('sequelize');
-const sequelize = require('../db'); // <-- 您的 db.js
+const sequelize = require('../db'); // 您的 db.js
 
 class PlatformAccount extends Model {}
 
@@ -13,12 +13,12 @@ PlatformAccount.init({
   accountId: {
     type: DataTypes.STRING,
     allowNull: false
-  },
+  }
   // 其他欄位...
 }, {
   sequelize,
   tableName: 'PlatformAccounts',
-  timestamps: true // 依需求
+  timestamps: true
 });
 
 module.exports = PlatformAccount;
