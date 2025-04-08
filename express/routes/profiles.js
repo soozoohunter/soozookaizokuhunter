@@ -1,3 +1,4 @@
+// express/routes/profiles.js
 require('dotenv').config();
 const express = require('express');
 const router = express.Router();
@@ -5,19 +6,19 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { DataTypes } = require('sequelize');
 
+// 假設您有一個 models/PlatformAccount.js => module.exports = (sequelize, DataTypes) => {...}
 const PlatformAccount = require('../models/PlatformAccount')(db, DataTypes);
 
 const { JWT_SECRET } = process.env;
 
 function verifyToken(tk){
-  try{
+  try {
     return jwt.verify(tk, JWT_SECRET || 'KaiKaiShieldSecret');
   } catch(e){
     return null;
   }
 }
 
-// 新增平台帳號
 router.post('/addPlatform', async(req, res)=>{
   const tk = req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({ error: '未登入' });
@@ -37,7 +38,6 @@ router.post('/addPlatform', async(req, res)=>{
   res.json({ message: '平台帳號已新增' });
 });
 
-// 列出所有平台帳號
 router.get('/myPlatforms', async(req, res)=>{
   const tk = req.headers.authorization?.replace('Bearer ','');
   if(!tk) return res.status(401).json({ error: '未登入' });
