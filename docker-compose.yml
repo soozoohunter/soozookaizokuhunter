@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -17,10 +19,9 @@ services:
       - suzoo_net
 
   ganache:
-    build:
-      context: ./ganache
-      dockerfile: Dockerfile
-    container_name: suzoo_ganache
+    image: trufflesuite/ganache-cli:latest
+    # 移除 container_name 以避免內部 KeyError 問題
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
@@ -44,12 +45,8 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
-      ganache:
-        condition: service_started
-      ipfs:
-        condition: service_started
-      postgres:
-        condition: service_healthy
+      - ganache
+      - ipfs
     env_file:
       - .env
     expose:
@@ -68,14 +65,10 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_express
     depends_on:
-      postgres:
-        condition: service_healthy
-      ganache:
-        condition: service_started
-      ipfs:
-        condition: service_started
-      fastapi:
-        condition: service_started
+      - postgres
+      - ganache
+      - ipfs
+      - fastapi
     env_file:
       - .env
     expose:
@@ -94,10 +87,8 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_crawler
     depends_on:
-      express:
-        condition: service_healthy
-      postgres:
-        condition: service_started
+      - express
+      - postgres
     env_file:
       - .env
     networks:
@@ -111,10 +102,8 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_frontend
     depends_on:
-      express:
-        condition: service_healthy
-      fastapi:
-        condition: service_started
+      - express
+      - fastapi
     env_file:
       - .env
     expose:
