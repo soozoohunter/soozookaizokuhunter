@@ -1,3 +1,5 @@
+// express/server.js
+
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -16,10 +18,8 @@ app.get("/health", (req, res) => {
 // 範例：掛載 /api/* 路由
 const authRouter = require('./routes/auth');
 const infringementRouter = require('./routes/infringement');
-const uploadRouter = require('./routes/upload');
-// ... 其它 routes
+const uploadRouter = require('./routes/upload'); // <= 確保檔名為 'upload.js' 置於 routes/
 
-// 在 Express 內部以 /api 開頭
 app.use("/api/auth", authRouter);
 app.use("/api/infr", infringementRouter);
 app.use("/api/upload", uploadRouter);
