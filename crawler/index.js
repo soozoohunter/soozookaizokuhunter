@@ -15,7 +15,8 @@ process.on('unhandledRejection', (reason, promise) => {
 async function loginExpress(retries = 5, delay = 5000) {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await axios.post('http://express:3000/api/auth/login', {
+      // 將原本 "http://express:3000" 改為 "http://suzoo_express:3000"
+      const response = await axios.post('http://suzoo_express:3000/api/auth/login', {
         username: EXPRESS_LOGIN_USER,
         password: EXPRESS_LOGIN_PASS
       });
@@ -41,13 +42,14 @@ async function mainCrawler() {
     const results = resp.data;
     console.log('[Crawler] 取得外部API結果:', results);
     
-    // 遍歷檢測結果並回報給 Express
+    // 遍歷檢測結果並回報給 suzoo_express
     for (const item of results) {
       if (item.workId && item.infringingUrl) {
         console.log(`[Crawler] 發現可疑 => workId=${item.workId}, url=${item.infringingUrl}`);
         try {
+          // 同理, 這裡也要 "http://suzoo_express:3000"
           const reportResp = await axios.post(
-            'http://express:3000/api/infr/foundInfringement',
+            'http://suzoo_express:3000/api/infr/foundInfringement',
             { workId: item.workId, infringingUrl: item.infringingUrl, status: 'detected' },
             { headers: { Authorization: `Bearer ${token}` } }
           );
