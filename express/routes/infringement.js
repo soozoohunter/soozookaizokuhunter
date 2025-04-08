@@ -1,3 +1,4 @@
+// express/routes/infringement.js
 const express = require('express');
 const router = express.Router();
 const Infringement = require('../models/Infringement');
@@ -6,11 +7,8 @@ const { writeInfringementToChain } = require('../utils/chain');
 
 // auth 中介層
 function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: '未授權，缺少Token' });
-  }
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: '未授權，缺少Token' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
@@ -26,11 +24,10 @@ router.post('/report', authMiddleware, async (req, res) => {
   try {
     const infringement = await Infringement.create({ workId, description });
 
-    // 同時寫入私有鏈
+    // 上鏈
     const userEmail = req.user.email;
     const infrInfo = `Infr:${description}`;
     const timestamp = Date.now().toString();
-
     const txHash = await writeInfringementToChain(userEmail, infrInfo, timestamp);
 
     res.json({ message: '侵權記錄已新增', infringement, chainTx: txHash });
