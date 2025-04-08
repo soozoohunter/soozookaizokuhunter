@@ -1,3 +1,5 @@
+// express/routes/upload.js
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -8,16 +10,15 @@ const { writeUserAssetToChain } = require('../utils/chain');
 
 const upload = multer({ dest: 'uploads/' });
 
-// 簡易 auth 中介層
+// 簡易 auth
 function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
     return res.status(401).json({ error: '未授權，缺少Token' });
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { id, email, userType }
+    req.user = decoded; 
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token無效' });
@@ -26,13 +27,13 @@ function authMiddleware(req, res, next) {
 
 router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   try {
-    // 1. 上傳檔案至 IPFS，取得 ipfsHash
+    // 1) 上傳檔案至 IPFS
     const ipfsHash = await uploadToIPFS(req.file.path);
 
-    // 2. 生成簡易「DNA特徵碼」
+    // 2) 生成「DNA特徵碼」(hash)
     const DNAHash = crypto.SHA256(ipfsHash).toString();
 
-    // 3. 透過以太坊私有鏈將 (email, DNAHash, fileType, timestamp) 寫入
+    // 3) 上鏈
     const fileType = req.file.mimetype;
     const userEmail = req.user.email;
     const timestamp = Date.now().toString();
