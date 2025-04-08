@@ -5,12 +5,12 @@ import hashlib
 
 app = FastAPI()
 
-class FileURL(BaseModel):
-    url: str
-
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "fastapi"}
+
+class FileURL(BaseModel):
+    url: str
 
 @app.post("/fingerprint")
 def fingerprint(data: FileURL):
@@ -18,8 +18,6 @@ def fingerprint(data: FileURL):
         r = requests.get(data.url, timeout=10)
         r.raise_for_status()
     except Exception as e:
-        print(f"Download error: {e}")
-        raise HTTPException(status_code=400, detail="無法下載檔案")
-    content = r.content
-    md5 = hashlib.md5(content).hexdigest()
+        raise HTTPException(status_code=400, detail=f"無法下載檔案: {e}")
+    md5 = hashlib.md5(r.content).hexdigest()
     return {"fingerprint": md5}
