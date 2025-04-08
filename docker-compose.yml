@@ -117,24 +117,22 @@ services:
       retries: 3
 
   nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: suzoo_nginx
-    depends_on:
-      - react
-      - express
-      - fastapi
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
-    networks:
-      - suzoo_net
-
-networks:
-  suzoo_net:
+  build:
+    context: ./nginx
+    dockerfile: Dockerfile
+  container_name: suzooka_nginx
+  depends_on:
+    - react
+    - express
+    - fastapi
+  ports:
+    - "80:80"
+    - "443:443"          # 映射 HTTPS 端口
+  volumes:
+    - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+  restart: unless-stopped
+  networks:
+    - suzoo_net
     driver: bridge
 
 volumes:
