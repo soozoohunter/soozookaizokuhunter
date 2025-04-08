@@ -2,16 +2,15 @@ services:
   # -------------------
   # 1) PostgreSQL
   # -------------------
-  postgres:
+  suzoo_postgres:
     image: postgres:15-alpine
-    container_name: suzoo_postgres     # 若想保留可留
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - db_data:/var/lib/postgresql/data
+      - suzoo_db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
@@ -22,9 +21,8 @@ services:
   # -------------------
   # 2) Ganache
   # -------------------
-  ganache:
+  suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
-    # container_name: suzoo_ganache  # 可以留或刪
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
@@ -34,14 +32,13 @@ services:
   # -------------------
   # 3) IPFS
   # -------------------
-  ipfs:
+  suzoo_ipfs:
     image: ipfs/go-ipfs:latest
-    container_name: suzoo_ipfs       # 可以留或刪
     ports:
       - "5001:5001"
       - "8080:8080"
     volumes:
-      - ipfs_data:/data/ipfs
+      - suzoo_ipfs_data:/data/ipfs
     command: daemon
     networks:
       - suzoo_net
@@ -49,14 +46,13 @@ services:
   # -------------------
   # 4) FastAPI
   # -------------------
-  fastapi:
+  suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
-    # container_name: suzoo_fastapi  # 建議拿掉
     depends_on:
-      - ganache
-      - ipfs
+      - suzoo_ganache
+      - suzoo_ipfs
     env_file:
       - .env
     expose:
@@ -72,16 +68,15 @@ services:
   # -------------------
   # 5) Express
   # -------------------
-  express:
+  suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # container_name: suzoo_express  # 建議拿掉
     depends_on:
-      - postgres
-      - ganache
-      - ipfs
-      - fastapi
+      - suzoo_postgres
+      - suzoo_ganache
+      - suzoo_ipfs
+      - suzoo_fastapi
     env_file:
       - .env
     expose:
@@ -97,14 +92,13 @@ services:
   # -------------------
   # 6) Crawler
   # -------------------
-  crawler:
+  suzoo_crawler:
     build:
       context: ./crawler
       dockerfile: Dockerfile
-    # container_name: suzoo_crawler  # 建議拿掉
     depends_on:
-      - express
-      - postgres
+      - suzoo_express
+      - suzoo_postgres
     env_file:
       - .env
     networks:
@@ -115,14 +109,13 @@ services:
   # -------------------
   # 7) React 前端
   # -------------------
-  react:
+  suzoo_react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    # container_name: suzoo_frontend # 建議拿掉
     depends_on:
-      - express
-      - fastapi
+      - suzoo_express
+      - suzoo_fastapi
     env_file:
       - .env
     expose:
@@ -138,32 +131,32 @@ services:
   # -------------------
   # 8) Nginx
   # -------------------
-  nginx:
+  suzoo_nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    # container_name: suzooka_nginx  # 建議拿掉
     depends_on:
-      - react
-      - express
-      - fastapi
-    # 開放 80 + 443 給外部訪問
+      - suzoo_react
+      - suzoo_express
+      - suzoo_fastapi
     ports:
       - "80:80"
       - "443:443"
-    # 挂載 SSL 配置 + default.conf
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # 若您有 Let's Encrypt 憑證在本機，可能要:
+      # 若您有 Let's Encrypt 憑證掛載路徑，可在此加:
       # - /path/to/certs:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
       - suzoo_net
 
+# -------------------
+# Network & Volumes
+# -------------------
 networks:
   suzoo_net:
     driver: bridge
 
 volumes:
-  db_data:
-  ipfs_data:
+  suzoo_db_data:
+  suzoo_ipfs_data:
