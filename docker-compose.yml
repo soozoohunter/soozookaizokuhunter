@@ -10,16 +10,17 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       retries: 5
     networks:
       - suzoo_net
 
   ganache:
-    image: trufflesuite/ganache-cli:latest
+    build:
+      context: ./ganache
+      dockerfile: Dockerfile
     container_name: suzoo_ganache
-    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
@@ -47,6 +48,8 @@ services:
         condition: service_started
       ipfs:
         condition: service_started
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     expose:
@@ -101,7 +104,6 @@ services:
       - suzoo_net
     expose:
       - "8081"
-    # 由於爬蟲本身不是 HTTP 服務，不設 healthcheck
 
   react:
     build:
@@ -120,7 +122,7 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/index.html"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
