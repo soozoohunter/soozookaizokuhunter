@@ -1,12 +1,10 @@
-# crawler/crawler.py
-
 import os
 import time
 import psycopg2
 import requests
 
-# 改為讀取 "POSTGRES_..." 以配合 .env & docker-compose env_file
-DB_HOST = os.getenv('POSTGRES_HOST', 'postgres')
+# 若 .env 中沒有設定 POSTGRES_HOST，就默認使用 suzoo_postgres
+DB_HOST = os.getenv('POSTGRES_HOST', 'suzoo_postgres')
 DB_PORT = os.getenv('POSTGRES_PORT', '5432')
 DB_USER = os.getenv('POSTGRES_USER', 'postgres')
 DB_PASS = os.getenv('POSTGRES_PASSWORD', '')
@@ -29,14 +27,15 @@ def connect_db():
             conn.autocommit = True
             print("Crawler: 資料庫連線成功")
         except Exception as e:
-            print("Crawler: 資料庫尚未就緒，5秒後重試...")
+            print("Crawler: 資料庫尚未就緒，5秒後重試...", e)
             time.sleep(5)
     return conn
 
 def remove_from_ipfs(ipfs_hash):
-    ipfs_url = os.getenv('IPFS_API_URL','http://ipfs:5001')
+    # 若 .env 中沒設 IPFS_API_URL, 就預設 http://suzoo_ipfs:5001
+    ipfs_url = os.getenv('IPFS_API_URL','http://suzoo_ipfs:5001')
     try:
-        r = requests.post(f"{ipfs_url}/api/v0/pin/rm", params={"arg":ipfs_hash}, timeout=5)
+        r = requests.post(f"{ipfs_url}/api/v0/pin/rm", params={"arg": ipfs_hash}, timeout=5)
         if r.ok:
             print(f"Crawler: 已從IPFS移除 {ipfs_hash}")
         else:
