@@ -1,18 +1,24 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../db');
+// express/models/PlatformAccount.js
+const { Model, DataTypes } = require('sequelize');
+const sequelize = require('../db'); // <-- 您的 db.js
 
-const PlatformAccount = sequelize.define('PlatformAccount', {
+class PlatformAccount extends Model {}
+
+PlatformAccount.init({
+  // 欄位定義
   platform: {
     type: DataTypes.STRING,
     allowNull: false
   },
-  account_details: {
-    type: DataTypes.JSONB,
-    allowNull: true
-  }
+  accountId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  // 其他欄位...
 }, {
+  sequelize,
   tableName: 'PlatformAccounts',
-  timestamps: true
+  timestamps: true // 依需求
 });
 
 module.exports = PlatformAccount;
