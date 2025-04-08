@@ -44,7 +44,7 @@ services:
       - suzoo_net
 
   # -------------------
-  # 4) FastAPI
+  # 4) FastAPI (對應 suzoo_fastapi)
   # -------------------
   suzoo_fastapi:
     build:
@@ -66,7 +66,7 @@ services:
       retries: 3
 
   # -------------------
-  # 5) Express
+  # 5) Express (對應 suzoo_express)
   # -------------------
   suzoo_express:
     build:
@@ -107,7 +107,7 @@ services:
       - "8081"
 
   # -------------------
-  # 7) React 前端
+  # 7) React 前端 (對應 suzoo_react)
   # -------------------
   suzoo_react:
     build:
@@ -144,7 +144,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # 若您有 Let's Encrypt 憑證掛載路徑，可在此加:
+      # 如果您有 Let's Encrypt 憑證，請在此掛載:
       # - /path/to/certs:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
