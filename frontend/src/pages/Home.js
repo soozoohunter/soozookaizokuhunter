@@ -1,6 +1,6 @@
 // frontend/src/pages/Home.js
 import React, { useEffect, useState } from 'react';
-import './styles.css'; // or './Home.css'
+import './Home.css'; // ← 修正為 Home.css
 
 export default function Home() {
   const [caughtCount, setCaughtCount] = useState(0);
@@ -15,8 +15,8 @@ export default function Home() {
   return (
     <div className="home-container">
       <div className="banner-hunter">
-        {/* 如果logo、hunter-logo沒定義, 可以先註解或刪除 */}
-        {/* <img src={logo} alt="HunterX Logo" className="hunter-logo" /> */}
+        {/* 如果logo、hunter-logo沒定義, 可以先註解或刪除 
+        <img src={logo} alt="HunterX Logo" className="hunter-logo" /> */}
         <h1 className="hunter-title">速誅侵權獵人 系統</h1>
         <p className="hunter-slogan">守護原創·快速擊殺侵權</p>
         <div className="hunter-stats">
