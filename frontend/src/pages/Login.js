@@ -1,27 +1,33 @@
+// frontend/src/pages/Login.js
 import React, { useState } from 'react';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const doLogin = async() => {
+  const doLogin = async () => {
     try {
-      const resp = await fetch('/api/login', {
+      // 1) 呼叫 /api/auth/login
+      const resp = await fetch('/api/auth/login', {
         method: 'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await resp.json();
-      if(resp.ok){
-        alert('登入成功, token='+data.token);
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('role', data.role || '');
-      } else {
-        alert('登入失敗: '+ data.error);
+
+      if (!resp.ok) {
+        // resp 不 OK => 顯示 data.error
+        alert('登入錯誤: ' + (data.error || 'Unknown'));
+        return;
       }
-    } catch(e){
+      // resp.ok => 登入成功
+      alert('登入成功, token=' + data.token);
+      localStorage.setItem('token', data.token);
+      // 不需要 role => 移除 role
+      // localStorage.setItem('role', data.role || '');
+    } catch (e) {
       console.error(e);
-      alert('登入錯誤');
+      alert('登入錯誤: ' + e.message);
     }
   };
 
@@ -29,9 +35,18 @@ function Login() {
     <div style={{ margin:'2rem'}}>
       <h2>登入</h2>
       <label>Email: </label>
-      <input value={email} onChange={e=>setEmail(e.target.value)} /><br/><br/>
+      <input
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ display:'block', marginBottom:'8px'}}
+      />
       <label>Password: </label>
-      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} /><br/><br/>
+      <input
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ display:'block', marginBottom:'8px'}}
+      />
       <button onClick={doLogin}>登入</button>
     </div>
   );
