@@ -7,7 +7,7 @@ function Login() {
 
   // 簡易 email regex
   function validateEmail(value) {
-    const re = /^\S+@\S+\.\S+$/;
+    const re = /^\S+@\S+\.\S+$/; 
     return re.test(value);
   }
 
@@ -23,6 +23,7 @@ function Login() {
     }
 
     try {
+      // 呼叫後端: POST /api/auth/login
       const resp = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -31,8 +32,8 @@ function Login() {
       const data = await resp.json();
 
       if (!resp.ok) {
-        // e.g. 404 => { error: '使用者不存在' }
-        // e.g. 401 => { error: '密碼錯誤' }
+        // 例如 404 => { error: '使用者不存在' }
+        //      401 => { error: '密碼錯誤' }
         alert('登入錯誤: ' + (data.error || '未知錯誤'));
         return;
       }
@@ -41,7 +42,9 @@ function Login() {
       alert('登入成功, token=' + data.token);
       localStorage.setItem('token', data.token);
 
-      // window.location.href = '/dashboard'; // 如需跳轉
+      // ★ 登入成功後跳轉到 "/dashboard"
+      window.location.href = '/dashboard';
+
     } catch (e) {
       alert('登入發生錯誤: ' + e.message);
     }
@@ -80,7 +83,7 @@ function Login() {
   );
 }
 
-// 簡易美化
+// -- 簡易美化 --
 const styles = {
   container: {
     maxWidth: '400px',
@@ -89,7 +92,7 @@ const styles = {
     background: 'rgba(0,0,0,0.7)',
     borderRadius: '8px',
     textAlign: 'center',
-    color: '#fff',
+    color: '#fff'
   },
   title: {
     marginBottom: '1rem',
