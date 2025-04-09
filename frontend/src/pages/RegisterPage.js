@@ -2,26 +2,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// Email regex 同樣可共用
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  function isEmailFormat(str) {
-    return EMAIL_REGEX.test(str);
-  }
-
-  const handleRegister = async () => {
-    // 1) 前端檢查
+  async function handleRegister() {
+    // 1) 檢查欄位
     if (!email || !password) {
-      alert('請輸入 Email 與 密碼');
-      return;
-    }
-    if (!isEmailFormat(email)) {
-      alert('Email 格式不正確');
+      alert('請輸入 Email 與密碼');
       return;
     }
     if (password !== confirm) {
@@ -30,45 +19,60 @@ function RegisterPage() {
     }
 
     try {
-      // 2) 呼叫後端 /api/auth/register
+      // 2) 呼叫 /api/auth/register (後端已改好)
       const res = await axios.post('/api/auth/register', { email, password });
-      alert('註冊成功：' + (res.data?.message || 'OK'));
-      // TODO: 註冊成功可跳轉 /login
-      window.location.href = '/login';
+      // 3) 成功
+      alert(res.data.message || '註冊成功');
+      // TODO: 您想導回登入，可:
+      // window.location.href = '/login';
+
     } catch (err) {
+      // 4) 若發生錯誤
       alert(err.response?.data?.error || '註冊失敗');
     }
-  };
+  }
 
+  // 置中 + 簡單美化
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>註冊</h2>
 
-      <label style={styles.label}>Email:</label>
-      <input
-        type="text"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        style={styles.input}
-      />
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Email</label>
+        <input
+          type="text"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          style={styles.input}
+          placeholder="請輸入您的 Email"
+        />
+      </div>
 
-      <label style={styles.label}>密碼:</label>
-      <input
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        style={styles.input}
-      />
+      <div style={styles.formGroup}>
+        <label style={styles.label}>密碼</label>
+        <input
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          style={styles.input}
+          placeholder="••••••"
+        />
+      </div>
 
-      <label style={styles.label}>確認密碼:</label>
-      <input
-        type="password"
-        value={confirm}
-        onChange={e => setConfirm(e.target.value)}
-        style={styles.input}
-      />
+      <div style={styles.formGroup}>
+        <label style={styles.label}>確認密碼</label>
+        <input
+          type="password"
+          value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          style={styles.input}
+          placeholder="再輸入一次密碼"
+        />
+      </div>
 
-      <button onClick={handleRegister} style={styles.button}>送出</button>
+      <button onClick={handleRegister} style={styles.button}>
+        送出
+      </button>
     </div>
   );
 }
@@ -78,37 +82,39 @@ const styles = {
     maxWidth: '400px',
     margin: '80px auto',
     padding: '20px',
-    border: '1px solid #ccc',
+    background: 'rgba(0,0,0,0.7)',
     borderRadius: '8px',
     textAlign: 'center',
-    background: '#222'
+    color: '#fff',
   },
   title: {
     marginBottom: '1rem',
-    color: '#fff'
+    fontSize: '1.5rem',
+    color: '#ff1c1c'
+  },
+  formGroup: {
+    marginBottom: '1rem',
+    textAlign: 'left'
   },
   label: {
     display: 'block',
-    textAlign: 'left',
-    marginTop: '1rem',
-    color: '#f88'
+    marginBottom: '4px',
+    color: '#ff1c1c'
   },
   input: {
     width: '100%',
     padding: '8px',
-    marginTop: '5px',
-    background: '#333',
-    color: '#fff',
-    border: '1px solid #555'
+    borderRadius: '4px',
+    border: '1px solid #666'
   },
   button: {
-    marginTop: '1.5rem',
-    padding: '10px 20px',
-    cursor: 'pointer',
-    background: '#f00',
+    backgroundColor: '#ff1c1c',
     color: '#fff',
+    padding: '0.5rem 1rem',
+    fontSize: '1rem',
     border: 'none',
-    borderRadius: '4px'
+    borderRadius: '4px',
+    cursor: 'pointer'
   }
 };
 
