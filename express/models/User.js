@@ -1,35 +1,25 @@
 // express/models/User.js
-
 const { DataTypes } = require('sequelize');
-const sequelize = require('../db');  // 請確保 ../db.js 已正確建立並匯出 Sequelize 實例
+const sequelize = require('../db'); 
+// ↑ 確保此路徑正確，db.js 內已經連到 PostgreSQL
 
 const User = sequelize.define('User', {
-  username: {
-    type: DataTypes.STRING,
-    unique: true,
-    allowNull: false
-  },
   email: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: false,
+    unique: true,            // 不允許重複 Email
     validate: {
-      isEmail: {
-        msg: '請提供正確格式的電子郵件'
-      }
+      isEmail: true          // 若不是有效 Email => SequelizeValidationError
     }
   },
   password: {
     type: DataTypes.STRING,
     allowNull: false
-  },
-  user_type: {
-    type: DataTypes.STRING,
-    allowNull: true  // 可設定為 'short-video' 或 'seller'
   }
+  // 如果您想要 username, user_type 等，可自行加上
 }, {
-  tableName: 'Users',
-  timestamps: true
+  tableName: 'Users', // 可自訂表名，或改為小寫
+  timestamps: true    // 是否需要 createdAt / updatedAt
 });
 
 module.exports = User;
