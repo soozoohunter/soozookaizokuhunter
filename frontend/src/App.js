@@ -274,7 +274,7 @@ export default function App() {
         <div>
           為了紀念我最深愛的奶奶 曾李素珠小仙女 <br/>
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            by KaiKaiShield 凱盾
+           by Ka!KaiShield 凱盾
           </span>
         </div>
       </footer>
