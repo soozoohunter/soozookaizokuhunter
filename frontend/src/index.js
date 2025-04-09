@@ -1,9 +1,15 @@
+// frontend/src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import './index.css';  // optional
-import './App.css';    // optional
-import './styles.css'; // optional
+import './index.css';
+import './App.css';
+import './styles.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
