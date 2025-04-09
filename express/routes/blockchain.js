@@ -1,16 +1,28 @@
-// express/routes/blockchain.js
-const express = require('express');
-const router = express.Router();
-const { writeToBlockchain } = require('../utils/chain');
+// express/utils/chain.js
+const Web3 = require('web3'); 
+// or ethers, or any library you prefer
 
-router.post('/write', async (req, res) => {
-  const { data } = req.body;
+// 假設您有 ganache URL
+const GANACHE_URL = process.env.GANACHE_URL || 'http://ganache:8545';
+const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_URL));
+
+// TODO: 如果需要合約位址 / 私鑰 / abi
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const PRIVATE_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY;
+// ...
+
+async function writeToBlockchain(data) {
   try {
-    const txHash = await writeToBlockchain(data);
-    res.json({ message: '成功寫入區塊鏈', txHash });
+    // 這裡只是示範
+    console.log('[Chain] 準備上鏈 data =', data);
+    // e.g. const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
+    // e.g. do contract.methods.storeData(data).send({ from: account.address })
+    // ...
+    // 回傳交易哈希
+    return '0xFAKE_TX_HASH_123';
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    throw err;
   }
-});
+}
 
-module.exports = router;
+module.exports = { writeToBlockchain };
