@@ -1,4 +1,3 @@
-// express/routes/upload.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -6,69 +5,75 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// 假設您有 chain.js (或 blockchain.js) 的 writeToBlockchain()
+// 載入 chain 工具
 const { writeToBlockchain } = require('../utils/chain');
 
-// 若您有 Auth Middleware 來解析 JWT, 取得 user.email:
+// 載入 JWT 驗證
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-//--- 簡易 auth 中介層 (或您已有)
+/**
+ * 簡易 JWT auth middleware
+ * - 解析 headers.authorization: "Bearer XXX"
+ * - 驗證並把 user 存到 req.user
+ */
 function authMiddleware(req, res, next) {
   try {
-    const header = req.headers.authorization || '';
-    const token = header.replace(/^Bearer\s+/, '');
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/, '');
     if (!token) {
       return res.status(401).json({ error: '缺少 Token' });
     }
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // 例如 {id, email}
+    // e.g. decoded = { id, email, iat, exp }
+    req.user = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token無效' });
   }
 }
 
-//--- 1) 用 multer diskStorage (存 /tmp), 也可 memoryStorage
+// 使用 multer 暫存上傳檔案
 const upload = multer({
-  dest: '/tmp' // 上傳暫存目錄
+  dest: '/tmp'  // 暫存目錄
 });
 
-//--- 2) POST /upload
 router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: '尚未選擇檔案' });
     }
 
-    // (A) 取得該使用者 email
-    const userEmail = req.user.email;  // 來自 authMiddleware
+    // 1) 從 token 解析出的使用者 email
+    const userEmail = req.user.email || 'unknown';
 
-    // (B) 讀取檔案並產生雜湊 (MD5 or SHA256 皆可)
-    const filePath = req.file.path;  // e.g. /tmp/xxxxx
+    // 2) 讀取上傳檔案並計算 MD5 指紋
+    const filePath = req.file.path; // /tmp/xxxx
     const fileBuffer = fs.readFileSync(filePath);
     const fingerprint = crypto
       .createHash('md5')
       .update(fileBuffer)
       .digest('hex');
 
-    // (C) 如需將檔案上傳 IPFS, 或存 DB, 可在這裡做
-    // (D) 寫入區塊鏈
-    await writeToBlockchain({ 
-      userEmail, 
-      fileHash: fingerprint 
-    });
+    // 3) (可選) 將檔案存雲端 / IPFS；這裡僅示範 fingerprint
+    // 4) 上鏈
+    try {
+      const txHash = await writeToBlockchain(`${userEmail}|${fingerprint}`);
+      console.log('[Upload] 檔案 fingerprint 上鏈成功:', txHash);
+    } catch (chainErr) {
+      console.error('[Upload] 上鏈失敗:', chainErr);
+      // 若要 rollback or 記錄，視需求處理
+    }
 
-    // (E) 刪除暫存檔 (可保留看您需求)
+    // 5) 刪除暫存檔
     fs.unlinkSync(filePath);
 
-    // (F) 回傳
+    // 6) 回應成功
     res.json({
       message: '上傳成功',
       fileName: req.file.originalname,
       fingerprint
     });
-
   } catch (err) {
     console.error('[Upload Error]', err);
     return res.status(500).json({ error: err.message });
