@@ -1,3 +1,5 @@
+/* frontend/src/pages/Home.css */
+
 .home-container {
   text-align: center;
   margin-top: 5rem;
@@ -29,3 +31,5 @@
   opacity: 0.8;
   color: #fff;
 }
+
+/* 若您還有想針對 .hunter-title, .hunter-slogan, .hunter-stats, .hunter-button 做CSS，也可在此定義 */
