@@ -28,12 +28,48 @@ export default function App() {
     margin: '0 1rem'
   };
 
-  const mainTitleStyle = { fontSize: '72px', fontWeight: 'bold', margin: '0.5rem 0' };
-  const subTitleStyle = { fontSize: '48px', fontWeight: 'normal', margin: '0.5rem 0' };
-  const mainContentStyle = { flex: 1, padding: '1rem' };
-  const footerStyle = { fontSize: '16px', textAlign: 'center', padding: '1rem', marginTop: 'auto' };
-  const navLinkStyle = { margin: '0 0.5rem', color: '#f00', textDecoration: 'none', fontWeight:'bold' };
-  const actionButtonStyle = { margin:'0 0.5rem', fontSize:'1.2rem', backgroundColor:'#f00', color:'#fff', padding:'0.5rem 1rem', textDecoration:'none', borderRadius:'4px' };
+  // 速誅 (72px)
+  const mainTitleStyle = {
+    fontSize: '72px',
+    fontWeight: 'bold',
+    margin: '0.5rem 0'
+  };
+
+  // 侵權獵人系統 (48px) - 書法體
+  const subTitleStyle = {
+    fontSize: '48px',
+    margin: '0.5rem 0',
+    fontFamily: '"KaiTi", "DFKai-SB", "STKaiti", serif'
+  };
+
+  const mainContentStyle = {
+    flex: 1,
+    padding: '1rem'
+  };
+
+  const footerStyle = {
+    textAlign: 'center',
+    padding: '1rem',
+    marginTop: 'auto',
+    fontSize: '0.85rem' // 縮小字體
+  };
+
+  const navLinkStyle = {
+    margin: '0 0.5rem',
+    color: '#f00',
+    textDecoration: 'none',
+    fontWeight: 'bold'
+  };
+
+  const actionButtonStyle = {
+    margin: '0 0.5rem',
+    fontSize: '1.2rem',
+    backgroundColor: '#f00',
+    color: '#fff',
+    padding: '0.5rem 1rem',
+    textDecoration: 'none',
+    borderRadius: '4px'
+  };
 
   return (
     <div style={containerStyle}>
@@ -66,9 +102,12 @@ export default function App() {
         <Outlet />
       </main>
 
-      {/* 底部紀念文字 */}
+      {/* 底部紀念文字 (縮小 + 新增 by...) */}
       <footer style={footerStyle}>
-        為了紀念我最深愛的奶奶 曾李素珠小仙女 開發
+        <div>
+          為了紀念我最深愛的奶奶 曾李素珠小仙女 所開發<br/>
+          <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>by 下輩子再當您孫子 凱</span>
+        </div>
       </footer>
     </div>
   );
