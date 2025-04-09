@@ -2,10 +2,7 @@
 import React from 'react';
 
 export default function Dashboard() {
-  // 檢查是否有 token
   const token = localStorage.getItem('token');
-
-  // 簡單判斷：若沒 token 就提示
   if (!token) {
     return (
       <div style={{ textAlign: 'center', marginTop: '3rem', color: '#fff' }}>
@@ -15,17 +12,16 @@ export default function Dashboard() {
     );
   }
 
-  // 已登入 => 顯示 dashboard
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>歡迎進入我的獵場</h2>
       <p style={styles.subtitle}>您可以上傳短影音或商品照片，並檢視歷史資料</p>
 
       <div style={styles.splitContainer}>
-        {/* 左欄：短影音上傳 */}
+        {/* 短影音 */}
         <div style={styles.leftPane}>
-          <h3>短影音 (短片) 上傳</h3>
-          <p>您可以上傳 30 秒內的短影音，用於產生指紋哈希並存證</p>
+          <h3>短影音(短片) 上傳</h3>
+          <p>可上傳30秒內短片，產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=shortVideo'; }}
@@ -34,10 +30,10 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* 右欄：商品照片上傳 */}
+        {/* 商品照片 */}
         <div style={styles.rightPane}>
           <h3>商品照片 上傳</h3>
-          <p>您可以上傳商品圖，系統會產生靜態指紋哈希並上鏈</p>
+          <p>可上傳商品圖，系統產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=ecommerce'; }}
@@ -47,10 +43,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 下面再來個「歷史列表 / 訴訟 / DMCA」區塊 */}
+      {/* 歷史 / 訴訟 */}
       <div style={styles.historySection}>
         <h3>我的上傳紀錄 / 訴訟列表</h3>
-        <p>可前往 <a href="/infringements">侵權列表</a> 查看</p>
+        <p>可前往 <a href="/infringements" style={{ color:'#fff' }}>侵權列表</a> 查看</p>
         <p>或查看訴訟進度 …</p>
       </div>
     </div>
