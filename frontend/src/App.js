@@ -45,18 +45,23 @@ export default function App() {
     borderRadius: '8px',
     background: 'rgba(255,28,28,0.06)'
   };
+
+  // ★ 將「速誅 SUZOO!」改為亮紫色
   const mainTitleStyle = {
     fontSize: '64px',
     fontWeight: 'bold',
-    margin: '0.5rem 0'
+    margin: '0.5rem 0',
+    color: 'violet'   // 新增這行，使標題呈現亮紫色
   };
-  // ★ 將「侵權獵人系統」改為亮紫色
+
+  // ★ 將「侵權獵人系統」改為亮紫色（原本就有）
   const subTitleStyle = {
     fontSize: '36px',
     fontFamily: '"KaiTi","DFKai-SB","serif"',
     margin: '0.5rem 0',
-    color: 'violet'  // 亮紫色
+    color: 'violet'
   };
+
   const actionBtnAreaStyle = { marginTop: '1rem' };
   const actionButtonStyle = {
     margin: '0 0.5rem',
@@ -156,6 +161,7 @@ export default function App() {
 
       {/* ====== Banner ====== */}
       <div style={bannerStyle}>
+        {/* 修改後：顯示亮紫色 */}
         <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
         <h2 style={subTitleStyle}>侵權獵人系統 (Copyright Hunter System)</h2>
 
@@ -173,7 +179,6 @@ export default function App() {
 
             {/* ===== 左欄 ===== */}
             <div style={colStyle}>
-              {/* DCDV */}
               <h3 style={featureTitleStyle}>
                 🔥 DCDV（動態著作 DNA / Dynamic Content DNA Verification）
               </h3>
@@ -186,7 +191,6 @@ export default function App() {
                 </li>
               </ul>
 
-              {/* SCDV */}
               <h3 style={featureTitleStyle}>
                 🔥 SCDV（靜態著作 DNA / Static Content DNA Verification）
               </h3>
@@ -202,7 +206,6 @@ export default function App() {
                 </li>
               </ul>
 
-              {/* 侵權通知 */}
               <h3 style={featureTitleStyle}>
                 🔥 侵權通知（智慧警報 / Infringement Alert）
               </h3>
@@ -218,7 +221,6 @@ export default function App() {
 
             {/* ===== 右欄 ===== */}
             <div style={colStyle}>
-              {/* 區塊鏈存證 */}
               <h3 style={featureTitleStyle}>
                 🔥 區塊鏈存證（ETH 私有鏈 / Private Chain）
               </h3>
@@ -231,7 +233,6 @@ export default function App() {
                 </li>
               </ul>
 
-              {/* 企業 API 服務 */}
               <h3 style={featureTitleStyle}>
                 🔥 企業 API 服務 (Enterprise API)
               </h3>
@@ -244,7 +245,6 @@ export default function App() {
                 </li>
               </ul>
 
-              {/* 訴訟機制 */}
               <h3 style={featureTitleStyle}>
                 🔥 ⚖️ 訴訟機制 (Lawsuit Mechanism)
               </h3>
