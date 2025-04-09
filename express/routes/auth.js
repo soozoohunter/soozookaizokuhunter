@@ -2,8 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); 
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
+
+// 假設您有這個檔案:
+const { writeToBlockchain } = require('../utils/chain');
+// 或若是直接從 blockchain.js export，也可用: 
+// const { writeToBlockchain } = require('../routes/blockchain');
 
 const User = require('../models/User');
 
@@ -12,14 +17,7 @@ function generateToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 }
 
-/**
- * [POST] /api/auth/register
- * 用戶註冊：
- * 1) 檢查重複 Email 
- * 2) 雜湊密碼 (bcrypt)
- * 3) 建立 User
- * 4) 回傳成功 / 錯誤
- */
+// [POST] /api/auth/register
 router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -37,41 +35,32 @@ router.post('/register', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
 
     // 3) 建立新用戶
-    const newUser = await User.create({
-      email,
-      password: hashed,
-      // 若你需要其他欄位，如 username, user_type, 都可自行補上
-    });
+    const newUser = await User.create({ email, password: hashed });
 
-    // 4) 回傳成功
-    res.json({ 
-      message: '註冊成功', 
-      userId: newUser.id, 
-      email: newUser.email 
-    });
+    // 4) 同步寫入區塊鏈 (例如: 只上傳 email)
+    try {
+      await writeToBlockchain(email);
+      // 寫入成功後續不一定要回傳，但可印log
+      console.log('已將使用者 email 寫入區塊鏈:', email);
+    } catch (chainErr) {
+      console.error('上鏈失敗:', chainErr);
+      // 如果上鏈失敗，您可選擇繼續回傳註冊成功, 或是 rollback
+      // 這裡先單純記錄錯誤
+    }
 
-    // ※ 如需將 "註冊 email" 上鏈，也可在此呼叫區塊鏈程式
-    //   e.g. writeToBlockchain(newUser.email);
-    
+    // 5) 回傳成功
+    res.json({ message: '註冊成功', userId: newUser.id, email: newUser.email });
   } catch (err) {
     console.error('[Register Error]', err);
-    // 若是 unique constraint triggered, err 可能是 SequelizeUniqueConstraintError
-    // 你可再細分錯誤：err.name === 'SequelizeUniqueConstraintError' ...
     return res.status(500).json({ error: err.message || '系統錯誤' });
   }
 });
 
-/**
- * [POST] /api/auth/login
- * 用戶登入：
- * 1) 依 email 找用戶
- * 2) bcrypt.compare 驗證密碼
- * 3) 產生 JWT Token
- */
+// [POST] /api/auth/login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if(!email || !password) {
+    if (!email || !password) {
       return res.status(400).json({ error: '缺少 email 或 password' });
     }
 
@@ -87,17 +76,9 @@ router.post('/login', async (req, res) => {
     }
 
     // 產生 JWT
-    const token = generateToken({
-      id: user.id,
-      email: user.email
-    });
-    // 也可加 userType: user.user_type etc.
+    const token = generateToken({ id: user.id, email: user.email });
 
-    res.json({
-      message: '登入成功',
-      token
-    });
-    
+    res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
     res.status(500).json({ error: err.message });
