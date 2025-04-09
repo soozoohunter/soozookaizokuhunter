@@ -1,116 +1,130 @@
 // frontend/src/pages/Login.js
 import React, { useState } from 'react';
 
-// 簡易 Email Regex（您也可換更複雜模式）
+// 簡易 Email Regex（可自由增修或乾脆先不檢查）
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function Login() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 檢查 Email 格式
+  // (A) 前端檢查 Email 格式（可選）
   function isEmailFormat(str) {
     return EMAIL_REGEX.test(str);
   }
 
-  const doLogin = async() => {
-    // 基本檢查
+  async function handleSubmit(e) {
+    e.preventDefault(); // 防止表單預設行為
+    // (B) 簡單檢查
     if (!email || !password) {
-      alert('請輸入Email與密碼');
+      alert('請輸入 Email 與 密碼');
       return;
     }
     if (!isEmailFormat(email)) {
+      // 若您想後端檢查，也可略過
       alert('Email 格式不正確');
       return;
     }
 
     try {
-      // 呼叫後端 /api/auth/login
+      // (C) 向後端 /api/auth/login 發送
       const resp = await fetch('/api/auth/login', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await resp.json();
 
       if (!resp.ok) {
-        alert('登入錯誤: ' + (data.error || '未知錯誤'));
+        // 後端若回傳 400/401/404/500 等
+        alert('登入失敗: ' + (data.error || '未知錯誤'));
         return;
       }
 
-      // 登入成功
-      alert('登入成功, token=' + data.token);
+      // (D) 登入成功 -> 記 Token -> 導向 dashboard
+      alert(`登入成功！Token = ${data.token}`);
       localStorage.setItem('token', data.token);
-
-      // 跳轉
-      window.location.href = '/dashboard';
-    } catch(e) {
-      alert('登入發生錯誤: ' + e.message);
+      window.location.href = '/dashboard'; 
+      
+    } catch (err) {
+      alert('登入發生錯誤: ' + err.message);
     }
-  };
+  }
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>登入</h2>
+    <div style={styles.outer}>
+      <form style={styles.form} noValidate onSubmit={handleSubmit}>
+        <h2 style={styles.title}>會員登入</h2>
 
-      <label style={styles.label}>Email:</label>
-      <input
-        type="text"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        style={styles.input}
-      />
+        <label style={styles.label}>Email</label>
+        <input
+          type="text" // 不用 type="email" 避免行動瀏覽器自帶 pattern
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={styles.input}
+        />
 
-      <label style={styles.label}>Password:</label>
-      <input
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        style={styles.input}
-      />
+        <label style={styles.label}>密碼</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={styles.input}
+        />
 
-      <button onClick={doLogin} style={styles.button}>登入</button>
+        <button type="submit" style={styles.button}>登入</button>
+      </form>
     </div>
   );
 }
 
-// 簡單 CSS
+// 一些簡單 CSS in JS
 const styles = {
-  container: {
-    maxWidth: '400px',
-    margin: '80px auto',
-    padding: '20px',
-    border: '1px solid #ccc',
+  outer: {
+    minHeight: 'calc(100vh - 80px)', 
+    // ↑ 若您的 header + banner 佔掉 80px 或更多，這邊可調
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000' // 順應您主題
+  },
+  form: {
+    width: '340px',
+    background: '#222',
+    border: '1px solid #444',
     borderRadius: '8px',
-    textAlign: 'center',
-    background: '#222'
+    padding: '20px',
+    boxShadow: '0 0 8px rgba(0,0,0,0.8)',
   },
   title: {
-    marginBottom: '1rem'
+    color: '#f00',
+    textAlign: 'center',
+    marginBottom: '1rem',
   },
   label: {
     display: 'block',
-    textAlign: 'left',
     marginTop: '1rem',
-    color: '#f88'
+    color: '#fff',
+    fontWeight: 'bold'
   },
   input: {
     width: '100%',
-    padding: '8px',
-    marginTop: '5px',
+    marginTop: '6px',
+    padding: '10px',
     background: '#333',
     color: '#fff',
-    border: '1px solid #555'
+    border: '1px solid #555',
+    borderRadius: '4px'
   },
   button: {
+    width: '100%',
     marginTop: '1.5rem',
-    padding: '10px 20px',
-    cursor: 'pointer',
+    padding: '10px',
     background: '#f00',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px'
+    fontSize: '1rem',
+    borderRadius: '4px',
+    cursor: 'pointer'
   }
 };
-
-export default Login;
