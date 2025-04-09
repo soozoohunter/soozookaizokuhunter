@@ -1,33 +1,29 @@
 // frontend/src/MyRoutes.js
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import App from './App';            // 您目前的 App.js
-import Home from './pages/Home';    // 例：首頁
+import App from './App';            // 這裡改成純 Layout
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
-// ... 其他頁面
+import Pricing from './pages/Pricing';
+import Login from './pages/Login';
+import RegisterPage from './pages/RegisterPage';
+import Upload from './pages/Upload';
+import PlatformAccounts from './pages/PlatformAccounts';
+import InfringementList from './pages/InfringementList';
 
-/**
- * 此檔案的作用：
- * 1. 用 <Routes> 包住各 <Route> 
- * 2. 將 "/" 對應到 <App> (含 <Outlet/>)，
- *    再在 <App> 的 <Outlet/> 之下顯示實際頁面
- */
 export default function MyRoutes() {
   return (
     <Routes>
-      {/* 最外層 route */}
+      {/* 最外層 path="/" → 使用 <App> 作為 Layout */}
       <Route path="/" element={<App />}>
-        {/* <App/> 裏面有 <Outlet/>，所以在此之下再放子路由 */}
-        
-        {/* index 表示 path="/" */}
         <Route index element={<Home />} />
-
-        {/* 例如 /dashboard */}
         <Route path="dashboard" element={<Dashboard />} />
-
-        {/* 這裡您也可以放 
-            /pricing, /login, /register, /upload... */}
-        {/* 例如：<Route path="upload" element={<Upload />} /> */}
+        <Route path="pricing" element={<Pricing />} />
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="upload" element={<Upload />} />
+        <Route path="platform-accounts" element={<PlatformAccounts />} />
+        <Route path="infringements" element={<InfringementList />} />
       </Route>
     </Routes>
   );
