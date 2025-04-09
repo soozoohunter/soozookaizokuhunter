@@ -3,6 +3,11 @@ import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
 
 export default function App() {
+  // 判斷有無 token
+  const token = localStorage.getItem('token'); 
+  const isLoggedIn = !!token;  // 若 token 不為空字串 => true
+
+  // === 您現有的 style ===
   const containerStyle = {
     backgroundColor: '#000', 
     color: '#f00',
@@ -27,17 +32,15 @@ export default function App() {
     margin: '0 1rem'
   };
 
-  // 速誅 (72px)
   const mainTitleStyle = {
     fontSize: '72px',
     fontWeight: 'bold',
     margin: '0.5rem 0'
   };
 
-  // 侵權獵人系統 => 書法體 + 紅字
   const subTitleStyle = {
     fontSize: '48px',
-    fontFamily: '"KaiTi","DFKai-SB","serif"', // 書法/楷體
+    fontFamily: '"KaiTi","DFKai-SB","serif"',
     margin: '0.5rem 0'
   };
 
@@ -51,14 +54,14 @@ export default function App() {
     padding: '1rem',
     marginTop: 'auto',
     fontSize: '0.85rem',
-    color: '#fff'  // 白色文字
+    color: '#fff'
   };
 
   const navLinkStyle = {
     margin: '0 0.5rem',
     color: '#f00',
     textDecoration: 'none',
-    fontWeight:'bold'
+    fontWeight: 'bold'
   };
 
   const actionButtonStyle = {
@@ -67,47 +70,63 @@ export default function App() {
     backgroundColor: '#f00',
     color: '#fff',
     padding: '0.5rem 1rem',
-    textDecoration:'none',
-    borderRadius:'4px'
+    textDecoration: 'none',
+    borderRadius: '4px'
   };
 
   return (
     <div style={containerStyle}>
-      {/* 頂部導覽列 */}
+      {/* 導覽列 */}
       <header style={headerStyle}>
         <nav>
-          <Link to="/" style={navLinkStyle}>速誅侵權獵人SUZOOKaizokuHunter</Link>
+          {/* 1) 通用連結 */}
+          <Link to="/" style={navLinkStyle}>速誅侵權獵人</Link>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
-          <Link to="/login" style={navLinkStyle}>Login</Link>
-          <Link to="/register" style={navLinkStyle}>Register</Link>
-          <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
-          <Link to="/upload" style={navLinkStyle}>Upload</Link>
-          <Link to="/platform-accounts" style={navLinkStyle}>Platforms</Link>
-          <Link to="/infringements" style={navLinkStyle}>Infringement</Link>
+
+          {/* 2) 未登入時 => 顯示 Login / Register */}
+          {!isLoggedIn && (
+            <>
+              <Link to="/login" style={navLinkStyle}>Login</Link>
+              <Link to="/register" style={navLinkStyle}>Register</Link>
+            </>
+          )}
+
+          {/* 3) 已登入時 => 顯示 Dashboard / Upload / Platform / Infringement */}
+          {isLoggedIn && (
+            <>
+              <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
+              <Link to="/upload" style={navLinkStyle}>Upload</Link>
+              <Link to="/platform-accounts" style={navLinkStyle}>Platforms</Link>
+              <Link to="/infringements" style={navLinkStyle}>Infringement</Link>
+            </>
+          )}
         </nav>
       </header>
 
-      {/* Banner 區塊 */}
+      {/* Banner */}
       <div style={bannerStyle}>
         <h1 style={mainTitleStyle}>速誅SUZOO!</h1>
         <h2 style={subTitleStyle}>侵權獵人系統</h2>
-        <div style={{ marginTop:'1rem' }}>
-          <Link to="/register" style={actionButtonStyle}>註冊</Link>
-          <Link to="/login" style={actionButtonStyle}>登入</Link>
-        </div>
+        {/* 如果尚未登入，才顯示[註冊 / 登入]按鈕 */}
+        {!isLoggedIn && (
+          <div style={{ marginTop:'1rem' }}>
+            <Link to="/register" style={actionButtonStyle}>註冊</Link>
+            <Link to="/login" style={actionButtonStyle}>登入</Link>
+          </div>
+        )}
       </div>
 
-      {/* 內容 Outlet */}
+      {/* 內容區域 */}
       <main style={mainContentStyle}>
         <Outlet />
       </main>
 
-      {/* 底部紀念文字 => 白色 */}
+      {/* 底部紀念文字 */}
       <footer style={footerStyle}>
         <div>
           為了紀念我最深愛的奶奶 曾李素珠小仙女 所開發<br/>
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            by 凱
+            by 下輩子再當您孫子 凱
           </span>
         </div>
       </footer>
