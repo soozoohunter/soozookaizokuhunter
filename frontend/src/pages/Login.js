@@ -1,89 +1,116 @@
 // frontend/src/pages/Login.js
 import React, { useState } from 'react';
 
-// 简易 regex：大致符合 x@y.z 格式
-// 您可根据项目需求更改
+// 簡易 Email Regex（您也可換更複雜模式）
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // -------- 1) 简易判定 Email 格式 --------
+  // 檢查 Email 格式
   function isEmailFormat(str) {
     return EMAIL_REGEX.test(str);
   }
 
-  // -------- 2) 提交登录逻辑 --------
-  const doLogin = async () => {
-    // (A) 基本前端检查
+  const doLogin = async() => {
+    // 基本檢查
     if (!email || !password) {
-      alert('請輸入 Email 與 密碼');
+      alert('請輸入Email與密碼');
       return;
     }
-    // (B) Email regex 检查
     if (!isEmailFormat(email)) {
-      alert('Email 格式不正确');
+      alert('Email 格式不正確');
       return;
     }
 
-    // (C) 发起后端请求
     try {
-      // 您后端: POST /api/auth/login
+      // 呼叫後端 /api/auth/login
       const resp = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password })
       });
-
-      // 解析后端回传 JSON
       const data = await resp.json();
 
-      // (D) 若后端返回错误
       if (!resp.ok) {
-        // e.g. 404 => { error:'使用者不存在' }
-        //      401 => { error:'密碼錯誤' }
-        //      500 => ...
         alert('登入錯誤: ' + (data.error || '未知錯誤'));
         return;
       }
 
-      // (E) 若成功
+      // 登入成功
       alert('登入成功, token=' + data.token);
       localStorage.setItem('token', data.token);
-      // TODO: 如需跳转
-      // window.location.href = '/dashboard';
 
-    } catch (e) {
-      // (F) 任何网络异常
+      // 跳轉
+      window.location.href = '/dashboard';
+    } catch(e) {
       alert('登入發生錯誤: ' + e.message);
     }
   };
 
   return (
-    <div style={{ margin: '2rem' }}>
-      <h2>登入</h2>
+    <div style={styles.container}>
+      <h2 style={styles.title}>登入</h2>
 
-      {/* 将 type="email" 改为 type="text" 避免浏览器阻挡 */}
-      <label>Email:</label>
+      <label style={styles.label}>Email:</label>
       <input
         type="text"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ display: 'block', marginBottom: '8px' }}
+        onChange={e => setEmail(e.target.value)}
+        style={styles.input}
       />
 
-      <label>Password:</label>
+      <label style={styles.label}>Password:</label>
       <input
         type="password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ display: 'block', marginBottom: '8px' }}
+        onChange={e => setPassword(e.target.value)}
+        style={styles.input}
       />
 
-      <button onClick={doLogin}>登入</button>
+      <button onClick={doLogin} style={styles.button}>登入</button>
     </div>
   );
 }
+
+// 簡單 CSS
+const styles = {
+  container: {
+    maxWidth: '400px',
+    margin: '80px auto',
+    padding: '20px',
+    border: '1px solid #ccc',
+    borderRadius: '8px',
+    textAlign: 'center',
+    background: '#222'
+  },
+  title: {
+    marginBottom: '1rem'
+  },
+  label: {
+    display: 'block',
+    textAlign: 'left',
+    marginTop: '1rem',
+    color: '#f88'
+  },
+  input: {
+    width: '100%',
+    padding: '8px',
+    marginTop: '5px',
+    background: '#333',
+    color: '#fff',
+    border: '1px solid #555'
+  },
+  button: {
+    marginTop: '1.5rem',
+    padding: '10px 20px',
+    cursor: 'pointer',
+    background: '#f00',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px'
+  }
+};
 
 export default Login;
