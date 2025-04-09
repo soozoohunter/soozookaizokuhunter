@@ -89,8 +89,8 @@ export default function App() {
 
       {/* Banner 區塊 */}
       <div style={bannerStyle}>
-        <h1 style={mainTitleStyle}>速誅</h1>
-        <h2 style={subTitleStyle}>侵權獵人系統</h2>
+        <h1 style={mainTitleStyle}>速誅Suzoo！</h1>
+        <h2 style={subTitleStyle}>kiazokuHunter侵權獵人系統</h2>
         <div style={{ marginTop:'1rem' }}>
           <Link to="/register" style={actionButtonStyle}>註冊</Link>
           <Link to="/login" style={actionButtonStyle}>登入</Link>
@@ -107,7 +107,7 @@ export default function App() {
         <div>
           為了紀念我最深愛的奶奶 曾李素珠小仙女 所開發<br/>
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            by 下輩子再當您孫子 凱
+            by 凱
           </span>
         </div>
       </footer>
