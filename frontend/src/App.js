@@ -76,7 +76,7 @@ export default function App() {
       {/* 頂部導覽列 */}
       <header style={headerStyle}>
         <nav>
-          <Link to="/" style={navLinkStyle}>速誅侵權獵人</Link>
+          <Link to="/" style={navLinkStyle}>速誅侵權獵人SUZOOKaizokuHunter</Link>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/login" style={navLinkStyle}>Login</Link>
           <Link to="/register" style={navLinkStyle}>Register</Link>
@@ -89,8 +89,8 @@ export default function App() {
 
       {/* Banner 區塊 */}
       <div style={bannerStyle}>
-        <h1 style={mainTitleStyle}>速誅Suzoo！</h1>
-        <h2 style={subTitleStyle}>kiazokuHunter侵權獵人系統</h2>
+        <h1 style={mainTitleStyle}>速誅SUZOO!</h1>
+        <h2 style={subTitleStyle}>侵權獵人系統</h2>
         <div style={{ marginTop:'1rem' }}>
           <Link to="/register" style={actionButtonStyle}>註冊</Link>
           <Link to="/login" style={actionButtonStyle}>登入</Link>
