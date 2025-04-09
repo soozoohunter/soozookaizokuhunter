@@ -7,9 +7,9 @@ export default function App() {
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  /* =============================
-     集中 style 設定
-     ============================= */
+  // =============================
+  // 集中 style 設定
+  // =============================
   const containerStyle = {
     backgroundColor: '#000',
     color: '#ff1c1c',
@@ -50,10 +50,12 @@ export default function App() {
     fontWeight: 'bold',
     margin: '0.5rem 0'
   };
+  // ★ 將「侵權獵人系統」改為亮紫色
   const subTitleStyle = {
     fontSize: '36px',
     fontFamily: '"KaiTi","DFKai-SB","serif"',
-    margin: '0.5rem 0'
+    margin: '0.5rem 0',
+    color: 'violet'  // 亮紫色
   };
   const actionBtnAreaStyle = { marginTop: '1rem' };
   const actionButtonStyle = {
@@ -105,7 +107,7 @@ export default function App() {
     minWidth: '280px'
   };
 
-  // 「🔥 DCDV...」標題用亮藍色
+  // 「🔥 DCDV...」標題用亮藍色 / 其它特色標題亦可套用
   const featureTitleStyle = {
     color: 'dodgerblue',
     fontWeight: 'bold',
@@ -121,7 +123,6 @@ export default function App() {
 
   return (
     <div style={containerStyle}>
-
       {/* ====== 導覽列 ====== */}
       <header style={headerStyle}>
         {/* 左側連結 */}
