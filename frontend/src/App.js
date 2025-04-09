@@ -1,8 +1,26 @@
-// src/App.js
+// frontend/src/App.js
 import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Outlet
+} from 'react-router-dom';
 
-function App() {
+// ★ Import 您的各個頁面（若檔名不同，請對應更改）
+//   若有些檔案您沒有，請刪除那條 import 與對應 <Route>
+import Home from './pages/Home'; 
+import Dashboard from './pages/Dashboard';
+import Pricing from './pages/Pricing';
+import Login from './pages/Login';
+import RegisterPage from './pages/RegisterPage';
+import Upload from './pages/Upload';
+import PlatformAccounts from './pages/PlatformAccounts';
+import InfringementList from './pages/InfringementList';
+
+// 這個 BannerLayout 會套用黑底+紅字風格，以及 <Outlet/> 來顯示子頁面
+function BannerLayout() {
   // -- Inline style 變數 --
   const containerStyle = {
     backgroundColor: '#000', // 黑底
@@ -74,18 +92,15 @@ function App() {
       {/* 頂部導覽列 */}
       <header style={headerStyle}>
         <nav className="nav-links">
-          <Link to="/" style={navLinkStyle}>SiteTitle</Link>
+          <Link to="/" style={navLinkStyle}>速誅侵權獵人</Link>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/login" style={navLinkStyle}>Login</Link>
           <Link to="/register" style={navLinkStyle}>Register</Link>
           <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
           <Link to="/upload" style={navLinkStyle}>Upload</Link>
-          <Link to="/platform-accounts" style={navLinkStyle}>Platform</Link>
+          <Link to="/platform-accounts" style={navLinkStyle}>Platforms</Link>
           <Link to="/infringements" style={navLinkStyle}>Infringement</Link>
-          <Link to="/chain-test" style={navLinkStyle}>ChainTest</Link>
         </nav>
-
-        {/* 語系切換功能已移除，不再顯示 i18n */}
       </header>
 
       {/* 大字 Banner 區塊 */}
@@ -100,6 +115,7 @@ function App() {
 
       {/* 中間主要內容 (Outlet) */}
       <main style={mainContentStyle}>
+        {/* ★ 這裡顯示子頁的內容，如 Home, Dashboard, etc */}
         <Outlet />
       </main>
 
@@ -111,4 +127,24 @@ function App() {
   );
 }
 
-export default App;
+// 最外層 App：使用 BrowserRouter + Routes + Route 配置
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* path="/" 使用 BannerLayout，並在 Outlet 放子路由 */}
+        <Route path="/" element={<BannerLayout />}>
+          {/* index -> / */}
+          <Route index element={<Home />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="pricing" element={<Pricing />} />
+          <Route path="login" element={<Login />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="upload" element={<Upload />} />
+          <Route path="platform-accounts" element={<PlatformAccounts />} />
+          <Route path="infringements" element={<InfringementList />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
