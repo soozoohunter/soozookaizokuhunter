@@ -5,7 +5,6 @@ const Infringement = require('../models/Infringement');
 const jwt = require('jsonwebtoken');
 const { writeInfringementToChain } = require('../utils/chain');
 
-// auth 中介層
 function authMiddleware(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: '未授權，缺少Token' });
@@ -23,8 +22,8 @@ router.post('/report', authMiddleware, async (req, res) => {
   const { workId, description } = req.body;
   try {
     const infringement = await Infringement.create({ workId, description });
-
-    // 上鏈
+    
+    // 同時寫入區塊鏈
     const userEmail = req.user.email;
     const infrInfo = `Infr:${description}`;
     const timestamp = Date.now().toString();
@@ -39,8 +38,8 @@ router.post('/report', authMiddleware, async (req, res) => {
 // 獲取所有侵權記錄
 router.get('/', async (req, res) => {
   try {
-    const infringements = await Infringement.findAll();
-    res.json(infringements);
+    const list = await Infringement.findAll();
+    res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
