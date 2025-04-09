@@ -8,7 +8,6 @@ function RegisterPage() {
   const [confirm, setConfirm] = useState('');
 
   const handleRegister = async () => {
-    // 1) 基本欄位檢查
     if (!email || !password) {
       alert('請輸入Email與密碼');
       return;
@@ -19,20 +18,13 @@ function RegisterPage() {
     }
 
     try {
-      // 2) 呼叫後端 /api/auth/register
-      //    => 後端請參考 routes/auth.js 裡的 router.post('/register', ...)
-      const res = await axios.post('/api/auth/register', {
-        email,
-        password
-      });
-
-      // 3) 若成功
+      const res = await axios.post('/api/auth/register', { email, password });
       alert('註冊成功：' + (res.data?.message || 'OK'));
-      // 你也可在這裡導向到 /login 或清空欄位
-      // e.g. window.location.href = '/login';
+
+      // 可直接跳轉頁面:
+      // window.location.href = '/login';
 
     } catch (err) {
-      // 4) 若發生錯誤，顯示後端回傳的 error
       alert(err.response?.data?.error || '註冊失敗');
     }
   };
@@ -40,7 +32,6 @@ function RegisterPage() {
   return (
     <div style={{ padding: '2rem' }}>
       <h2>註冊</h2>
-
       <label>Email: </label>
       <input
         type="email"
