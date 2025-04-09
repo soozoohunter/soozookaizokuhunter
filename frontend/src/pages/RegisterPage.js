@@ -1,62 +1,54 @@
 // frontend/src/pages/RegisterPage.js
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPwd, setConfirmPwd] = useState('');
-  const navigate = useNavigate();
+  const [confirm, setConfirm] = useState('');
 
   const handleRegister = async () => {
-    if (password !== confirmPwd) {
-      alert('兩次密碼輸入不一致！');
+    if (!email || !password) {
+      alert('請輸入Email與密碼');
+      return;
+    }
+    if (password !== confirm) {
+      alert('密碼與確認密碼不符');
       return;
     }
     try {
-      const body = { email, password };
-      const res = await axios.post('/api/auth/register', body);
+      // 呼叫 /api/auth/register
+      const res = await axios.post('/api/auth/register', { email, password });
       alert('註冊成功');
-      navigate('/login');
     } catch (err) {
       alert(err.response?.data?.error || '註冊失敗');
     }
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <div style={{ padding:'2rem' }}>
       <h2>註冊</h2>
-      <div>
-        <label>Email：</label><br/>
-        <input
-          placeholder="example@test.com"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={{ marginBottom:'8px' }}
-        />
-      </div>
-      <div>
-        <label>密碼：</label><br/>
-        <input
-          type="password"
-          placeholder="輸入密碼"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          style={{ marginBottom:'8px' }}
-        />
-      </div>
-      <div>
-        <label>確認密碼：</label><br/>
-        <input
-          type="password"
-          placeholder="再次輸入密碼"
-          value={confirmPwd}
-          onChange={e => setConfirmPwd(e.target.value)}
-          style={{ marginBottom:'8px' }}
-        />
-      </div>
-      <button onClick={handleRegister}>註冊</button>
+      <label>Email: </label>
+      <input
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ display:'block', margin:'0 0 8px' }}
+      />
+      <label>密碼: </label>
+      <input
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ display:'block', margin:'0 0 8px' }}
+      />
+      <label>確認密碼: </label>
+      <input
+        type="password"
+        value={confirm}
+        onChange={e => setConfirm(e.target.value)}
+        style={{ display:'block', margin:'0 0 16px' }}
+      />
+      <button onClick={handleRegister}>送出</button>
     </div>
   );
 }
