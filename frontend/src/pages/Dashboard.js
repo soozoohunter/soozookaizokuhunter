@@ -14,31 +14,31 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>歡迎進入我的獵場</h2>
-      <p style={styles.subtitle}>您可以上傳短影音或商品照片，並檢視歷史資料</p>
+      <h2 style={styles.title}>歡迎進入侵權者獵場</h2>
+      <p style={styles.subtitle}>您可以上傳動態短影音檔或靜態照片圖檔，並檢視歷史資料</p>
 
       <div style={styles.splitContainer}>
-        {/* 短影音 */}
+        {/* 動態短影音 */}
         <div style={styles.leftPane}>
-          <h3>短影音(短片) 上傳</h3>
+          <h3>動態短影音(短片) 上傳</h3>
           <p>可上傳30秒內短片，產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=shortVideo'; }}
           >
-            前往短影音上傳
+            前往動態短影音上傳
           </button>
         </div>
 
-        {/* 商品照片 */}
+        {/* 靜態圖檔 */}
         <div style={styles.rightPane}>
-          <h3>商品照片 上傳</h3>
-          <p>可上傳商品圖，系統產生指紋並上鏈</p>
+          <h3>靜態圖檔 上傳</h3>
+          <p>可上傳靜態圖檔，系統產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=ecommerce'; }}
           >
-            前往商品照片上傳
+            前往靜態圖檔/商品照片上傳
           </button>
         </div>
       </div>
