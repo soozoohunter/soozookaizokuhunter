@@ -1,5 +1,3 @@
-// 文件路徑: express/server.js
-
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -8,6 +6,8 @@ const path = require('path');
 const chain = require('./utils/chain');
 
 const app = express();
+// 確保監聽 0.0.0.0，避免只綁在 127.0.0.1
+const HOST = '0.0.0.0';
 const PORT = process.env.PORT || 3000;
 
 // 解析 JSON
@@ -15,7 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * Health check (提供給 Docker Healthcheck 或監控使用)
+ * Health check (提供給 Docker Healthcheck 或監控)
  */
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
@@ -25,8 +25,7 @@ app.get('/health', (req, res) => {
  * ================================
  * (C) 區塊鏈 => /chain/...
  * ================================
- * 這裡直接定義路由，不帶 "/api" 前綴；
- * 由 Nginx /api/ 代理 => Express /chain。
+ * 由 Nginx /api/ 代理 => Express /chain
  */
 
 // (1) 寫入任意字串 => POST /chain/store
@@ -75,8 +74,8 @@ app.post('/chain/writeInfringement', async (req, res) => {
 });
 
 /**
- * 啟動 Express 服務
+ * 啟動 Express 服務 (使用 0.0.0.0)
  */
-app.listen(PORT, () => {
-  console.log(`Express server is running on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Express server is running on http://${HOST}:${PORT}`);
 });
