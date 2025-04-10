@@ -31,7 +31,7 @@ export default function UploadPage() {
       if(res.ok) {
         alert(`上傳成功！Fingerprint=${data.fingerprint}`);
       } else {
-        alert(`上傳失敗: ${data.error||'未知錯誤'}`);
+        alert(`上傳失敗: ${data.error || '未知錯誤'}`);
       }
     } catch(err) {
       alert(`發生錯誤: ${err.message}`);
@@ -40,7 +40,7 @@ export default function UploadPage() {
 
   return (
     <div style={styles.container}>
-      <h2>上傳作品</h2>
+      <h2>上傳作品 (動態短影音 / 靜態圖檔 )</h2>
       <form onSubmit={handleUpload} style={styles.form}>
         <div style={styles.formGroup}>
           <label>作品標題：</label>
@@ -49,6 +49,7 @@ export default function UploadPage() {
             value={title}
             onChange={e=>setTitle(e.target.value)}
             style={styles.input}
+            placeholder="輸入著作權（作品）標題"
           />
         </div>
         <div style={styles.formGroup}>
@@ -67,19 +68,33 @@ export default function UploadPage() {
 
 const styles = {
   container:{
-    maxWidth:'500px', margin:'40px auto', padding:'20px',
-    border:'1px solid #ccc', borderRadius:'8px'
+    maxWidth:'500px',
+    margin:'40px auto',
+    padding:'20px',
+    border:'1px solid #ccc',
+    borderRadius:'8px',
+    background:'#111',
+    color:'#fff'
   },
   form:{
-    display:'flex', flexDirection:'column'
+    display:'flex',
+    flexDirection:'column'
   },
   formGroup:{
     marginBottom:'10px'
   },
   input:{
-    marginTop:'5px'
+    marginTop:'5px',
+    padding:'6px',
+    borderRadius:'4px',
+    border:'1px solid #666'
   },
   button:{
-    padding:'8px 16px'
+    padding:'8px 16px',
+    backgroundColor: '#ff1c1c',
+    color:'#fff',
+    border:'none',
+    borderRadius:'4px',
+    cursor:'pointer'
   }
 };
