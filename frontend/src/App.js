@@ -9,7 +9,7 @@ export default function App() {
   // 只在「未登入 && 首頁」顯示 Banner
   const showBanner = !isLoggedIn && location.pathname === '/';
 
-  // 登出按鈕
+  // 登出
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = "/";
@@ -21,21 +21,21 @@ export default function App() {
     minHeight: '100vh',
     margin: 0,
     fontFamily: 'sans-serif',
-    display: 'flex',
+    display:'flex', 
     flexDirection:'column'
   };
   const headerStyle = {
-    display:'flex',
-    justifyContent:'space-between',
+    display:'flex', 
+    justifyContent:'space-between', 
     alignItems:'center',
-    padding:'1rem',
-    background:'#111',
+    padding:'1rem', 
+    background:'#111', 
     borderBottom:'1px solid #f00'
   };
   const navLinkStyle = {
-    marginRight:'1rem',
-    color:'#ff1c1c',
-    textDecoration:'none',
+    marginRight:'1rem', 
+    color:'#ff1c1c', 
+    textDecoration:'none', 
     fontWeight:'bold'
   };
 
@@ -90,10 +90,8 @@ export default function App() {
           )}
           {isLoggedIn && (
             <>
-              <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
+              <Link to="/profile" style={navLinkStyle}>會員中心</Link>
               <Link to="/upload" style={navLinkStyle}>Upload</Link>
-              <Link to="/platform-accounts" style={navLinkStyle}>Platforms</Link>
-              <Link to="/infringements" style={navLinkStyle}>Infringement</Link>
               <button 
                 onClick={handleLogout} 
                 style={{
@@ -114,7 +112,6 @@ export default function App() {
         <div style={bannerStyle}>
           <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
           <h2 style={subTitleStyle}>侵權獵人系統</h2>
-          {/* 已移除舊的重複介紹 */}
         </div>
       )}
 
