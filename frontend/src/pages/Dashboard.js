@@ -1,9 +1,7 @@
-// 文件路徑: frontend/src/pages/Dashboard.js
-
+// frontend/src/pages/Dashboard.js
 import React from 'react';
 
 export default function Dashboard() {
-  // 檢查 token
   const token = localStorage.getItem('token');
   if (!token) {
     return (
@@ -14,29 +12,16 @@ export default function Dashboard() {
     );
   }
 
-  // 額外從 localStorage 讀取 userName & userRole
-  const userName = localStorage.getItem('userName') || 'User';
-  const userRole = localStorage.getItem('userRole') || 'COPYRIGHT'; 
-  // 若後端登入成功時有回傳 userName, userRole，請前端存 localStorage.setItem('userName', ...)
-
-  // 點擊「前往商標上傳」(若 userRole = 'TRADEMARK' or 'BOTH')
-  const goTrademarkUpload = () => {
-    window.location.href = '/upload?type=trademark';
-  };
-
   return (
     <div style={styles.container}>
-      {/* 顯示使用者暱稱 / 角色 */}
-      <h2 style={styles.title}>歡迎，{userName}</h2>
-      <p style={styles.subtitle}>
-        您的角色：{userRole} 
-      </p>
+      <h2 style={styles.title}>歡迎進入侵權者獵場</h2>
+      <p style={styles.subtitle}>您可以上傳動態短影音檔或靜態照片圖檔，並檢視歷史資料</p>
 
       <div style={styles.splitContainer}>
         {/* 動態短影音 */}
         <div style={styles.leftPane}>
           <h3>動態短影音(短片) 上傳</h3>
-          <p>可上傳 30 秒內短片，產生指紋並上鏈</p>
+          <p>可上傳30秒內短片，產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=shortVideo'; }}
@@ -48,26 +33,15 @@ export default function Dashboard() {
         {/* 靜態圖檔 */}
         <div style={styles.rightPane}>
           <h3>靜態圖檔 上傳</h3>
-          <p>可上傳靜態圖檔(商品照片)、系統產生指紋並上鏈</p>
+          <p>可上傳靜態圖檔，系統產生指紋並上鏈</p>
           <button
             style={styles.button}
             onClick={() => { window.location.href = '/upload?type=ecommerce'; }}
           >
-            前往靜態圖檔上傳
+            前往靜態圖檔/商品照片上傳
           </button>
         </div>
       </div>
-
-      {/* 如果角色包含商標 (TRADEMARK / BOTH)，顯示商標上傳區塊 */}
-      {(userRole === 'TRADEMARK' || userRole === 'BOTH') && (
-        <div style={styles.trademarkSection}>
-          <h3>商標圖案 上傳</h3>
-          <p>可上傳商標圖案，做侵權偵測 / 或申請前預檢索</p>
-          <button style={styles.button} onClick={goTrademarkUpload}>
-            前往商標圖上傳
-          </button>
-        </div>
-      )}
 
       {/* 歷史 / 訴訟 */}
       <div style={styles.historySection}>
@@ -121,12 +95,6 @@ const styles = {
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer'
-  },
-  trademarkSection: {
-    border: '1px solid #ff1c1c',
-    padding: '1rem',
-    borderRadius: '4px',
-    marginBottom: '2rem'
   },
   historySection: {
     borderTop: '1px solid #666',
