@@ -11,12 +11,12 @@ services:
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - suzoo_db_data:/var/lib/postgresql/data
+    networks:
+      - suzoo_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       retries: 5
-    networks:
-      - suzoo_net
 
   # -------------------
   # 2) Ganache
@@ -24,6 +24,7 @@ services:
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
+    # Ganache 需對外連線時才要使用 ports，如需測試外部連線可保留此行
     ports:
       - "8545:8545"
     networks:
@@ -34,17 +35,18 @@ services:
   # -------------------
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
-    ports:
-      - "5001:5001"
-      - "8080:8080"
     volumes:
       - suzoo_ipfs_data:/data/ipfs
     command: daemon
+    # 若需要外部訪問 IPFS，可保留下列 port；否則也可只 expose
+    ports:
+      - "5001:5001"
+      - "8080:8080"
     networks:
       - suzoo_net
 
   # -------------------
-  # 4) FastAPI (對應 suzoo_fastapi)
+  # 4) FastAPI
   # -------------------
   suzoo_fastapi:
     build:
@@ -66,7 +68,7 @@ services:
       retries: 3
 
   # -------------------
-  # 5) Express (對應 suzoo_express)
+  # 5) Express
   # -------------------
   suzoo_express:
     build:
@@ -101,13 +103,13 @@ services:
       - suzoo_postgres
     env_file:
       - .env
-    networks:
-      - suzoo_net
     expose:
       - "8081"
+    networks:
+      - suzoo_net
 
   # -------------------
-  # 7) React 前端 (對應 suzoo_react)
+  # 7) React 前端
   # -------------------
   suzoo_react:
     build:
@@ -129,7 +131,7 @@ services:
       retries: 3
 
   # -------------------
-  # 8) Nginx
+  # 8) Nginx (唯一對外)
   # -------------------
   suzoo_nginx:
     build:
@@ -144,7 +146,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro  #  ← 宿主機 Let’s Encrypt → 容器
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # Let's Encrypt 憑證
     restart: unless-stopped
     networks:
       - suzoo_net
