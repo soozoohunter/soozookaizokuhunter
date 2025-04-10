@@ -4,8 +4,12 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 
-// 匯入區塊鏈功能函式 (chain.js)
+// 匯入 Sequelize 實例 (假設在 express/db.js)
+const sequelize = require('./db'); 
+
+// 匯入區塊鏈功能函式
 const chain = require('./utils/chain');
+
 // 匯入 auth 路由
 const authRouter = require('./routes/auth');
 
@@ -86,8 +90,17 @@ app.post('/chain/writeInfringement', async (req, res) => {
 });
 
 /**
- * 啟動 Express 服務 (使用 0.0.0.0)
+ * ================================
+ *  (C) 同步資料表 & 啟動伺服器
+ * ================================
  */
-app.listen(PORT, HOST, () => {
-  console.log(`Express server is running on http://${HOST}:${PORT}`);
-});
+sequelize.sync({ alter: false })
+  .then(() => {
+    console.log('All tables synced!');
+    app.listen(PORT, HOST, () => {
+      console.log(`Express server is running on http://${HOST}:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Unable to sync tables:', err);
+  });
