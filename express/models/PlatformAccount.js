@@ -1,11 +1,23 @@
 // express/models/PlatformAccount.js
-const { Model, DataTypes } = require('sequelize');
-const sequelize = require('../db'); // 您的 db.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../db');
 
-class PlatformAccount extends Model {}
-
-PlatformAccount.init({
-  // 欄位定義
+/**
+ * PlatformAccount: 紀錄使用者不同平台的帳號
+ *  userId => Users.id
+ *  platform => e.g. 'instagram','shopee'
+ *  accountId => 該平台上的帳號ID
+ */
+const PlatformAccount = sequelize.define('PlatformAccount', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   platform: {
     type: DataTypes.STRING,
     allowNull: false
@@ -14,9 +26,7 @@ PlatformAccount.init({
     type: DataTypes.STRING,
     allowNull: false
   }
-  // 其他欄位...
 }, {
-  sequelize,
   tableName: 'PlatformAccounts',
   timestamps: true
 });
