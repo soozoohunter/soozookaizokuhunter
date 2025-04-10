@@ -1,17 +1,25 @@
+// 文件路徑: express/utils/chain.js
 const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
 
-// 1) 從 .env 讀取 RPC URL；若沒設，就用 http://suzoo_ganache:8545
+// 1) 從 .env 讀取 RPC URL；若未指定，預設使用 http://suzoo_ganache:8545
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
-const contractAddress = process.env.CONTRACT_ADDRESS;
+
+// ★ 假設您要直接硬編寫地址，可在下行替換為 '0x您的地址'
+const contractAddress = process.env.CONTRACT_ADDRESS || '0xABC123456789abcdef13579abcdef1234567890';
+
+// 私鑰 (帶 0x 前綴)
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 
 // 初始化 Web3
 const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
-// 假設 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
+// ★ 假設 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
+//   若路徑不同，請自行修正
 const contractABI = require(path.join(__dirname, '..', 'contracts', 'KaiKaiShieldStorage.abi.json'));
+
+// 生成合約實例
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 
 /**
@@ -19,7 +27,7 @@ const contract = new web3.eth.Contract(contractABI, contractAddress);
  */
 function getAccount() {
   const account = web3.eth.accounts.privateKeyToAccount(privateKey);
-  web3.eth.accounts.wallet.add(account);
+  web3.eth.accounts.wallet.add(account); // 把帳戶加進 web3 錢包管理
   return account;
 }
 
