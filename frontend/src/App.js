@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -10,6 +11,14 @@ export default function App() {
   const location = useLocation();
   // 判斷是否在首頁路徑、且尚未登入 → 才顯示大區塊 (banner)
   const showBanner = (location.pathname === '/') && !isLoggedIn;
+
+  // ===== Logout 處理 =====
+  const handleLogout = () => {
+    // 清除 Token
+    localStorage.removeItem('token');
+    // 重新導回首頁
+    window.location.href = "/";
+  };
 
   // =============================
   // 集中 style 設定
@@ -50,19 +59,18 @@ export default function App() {
     background: 'rgba(255,28,28,0.06)'
   };
 
-  // ★ 「速誅 SUZOO!」改亮紫色
+  // ★「速誅 SUZOO!」/「侵權獵人系統」改為橘色
   const mainTitleStyle = {
     fontSize: '64px',
     fontWeight: 'bold',
     margin: '0.5rem 0',
-    color: 'violet'
+    color: 'orange'  // ← 改成橘色
   };
-  // ★ 「侵權獵人系統」也用亮紫色
   const subTitleStyle = {
     fontSize: '36px',
     fontFamily: '"KaiTi","DFKai-SB","serif"',
     margin: '0.5rem 0',
-    color: 'violet'
+    color: 'orange'  // ← 改成橘色
   };
 
   const actionBtnAreaStyle = { marginTop: '1rem' };
@@ -102,8 +110,6 @@ export default function App() {
     marginTop: '1rem',
     lineHeight: '1.6'
   };
-
-  // 兩欄排版
   const featuresGridStyle = {
     display: 'flex',
     gap: '2rem',
@@ -114,14 +120,11 @@ export default function App() {
     flex: '1',
     minWidth: '280px'
   };
-
-  // 標題用亮藍色
   const featureTitleStyle = {
     color: 'dodgerblue',
     fontWeight: 'bold',
     margin: '0.8rem 0 0.5rem'
   };
-  // bullet list
   const bulletItemStyle = {
     marginLeft: '1.6rem',
     marginBottom: '0.5rem',
@@ -148,19 +151,32 @@ export default function App() {
               <Link to="/register" style={navLinkStyle}>Register</Link>
             </>
           )}
+
           {isLoggedIn && (
             <>
               <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
               <Link to="/upload" style={navLinkStyle}>Upload</Link>
               <Link to="/platform-accounts" style={navLinkStyle}>Platforms</Link>
               <Link to="/infringements" style={navLinkStyle}>Infringement</Link>
+              {/* 登出按鈕 */}
+              <button onClick={() => {
+                localStorage.removeItem('token');
+                window.location.href = "/";
+              }} style={{
+                ...navLinkStyle,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer'
+              }}>
+                Logout
+              </button>
             </>
           )}
         </nav>
       </header>
 
       {/* ====== Banner (只在首頁 & 未登入時顯示) ====== */}
-      {showBanner && (
+      {(location.pathname === '/' && !isLoggedIn) && (
         <div style={bannerStyle}>
           <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
           <h2 style={subTitleStyle}>侵權獵人系統 (Copyright Hunter)</h2>
@@ -252,12 +268,15 @@ export default function App() {
       )}
 
       {/* 主要內容區 => <Outlet/> */}
-      <main style={mainContentStyle}>
+      <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
         <Outlet />
       </main>
 
       {/* 底部紀念文字 */}
-      <footer style={footerStyle}>
+      <footer style={{
+        textAlign:'center', padding:'1rem', marginTop:'auto',
+        fontSize:'0.85rem', color:'#fff'
+      }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
           <br />
