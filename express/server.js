@@ -4,19 +4,18 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 
-// 這裡匯入剛剛的 chain.js 功能
+// 匯入區塊鏈功能函式
 const chain = require('./utils/chain');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 解析 JSON 請求
+// 解析 JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * (例) Health check
- * 可以提供給 Docker healthcheck 或其他監控使用
+ * Health check (提供給 Docker Healthcheck 或監控使用)
  */
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
@@ -24,18 +23,16 @@ app.get('/health', (req, res) => {
 
 /**
  * ================================
- * (C) 區塊鏈 => /api/chain/...
+ * (C) 區塊鏈 => /chain/...
  * ================================
- * 原本在 server.js 第 44~45 行的 `app.use('/api/chain', blockchainRouter)`
- * 會噴錯是因為 blockchainRouter 實際上是一個「Object」。 
- * 
- * 現在改用「直接定義路由 + 呼叫 chain.js 函式」的方式：
+ * 這裡直接定義路由，不帶 "/api" 前綴；
+ * 由 Nginx /api/ 代理 => Express /chain。
  */
 
-// (1) 寫入任意字串 => POST /api/chain/store
-app.post('/api/chain/store', async (req, res) => {
+// (1) 寫入任意字串 => POST /chain/store
+app.post('/chain/store', async (req, res) => {
   try {
-    const { data } = req.body; 
+    const { data } = req.body;
     if (!data) {
       return res.status(400).json({ success: false, error: 'Missing data field' });
     }
@@ -47,8 +44,8 @@ app.post('/api/chain/store', async (req, res) => {
   }
 });
 
-// (2) 寫入使用者上傳的檔案資訊 => POST /api/chain/writeUserAsset
-app.post('/api/chain/writeUserAsset', async (req, res) => {
+// (2) 寫入使用者上傳的檔案資訊 => POST /chain/writeUserAsset
+app.post('/chain/writeUserAsset', async (req, res) => {
   try {
     const { userEmail, dnaHash, fileType, timestamp } = req.body;
     if (!userEmail || !dnaHash) {
@@ -62,8 +59,8 @@ app.post('/api/chain/writeUserAsset', async (req, res) => {
   }
 });
 
-// (3) 寫入侵權資訊 => POST /api/chain/writeInfringement
-app.post('/api/chain/writeInfringement', async (req, res) => {
+// (3) 寫入侵權資訊 => POST /chain/writeInfringement
+app.post('/chain/writeInfringement', async (req, res) => {
   try {
     const { userEmail, infrInfo, timestamp } = req.body;
     if (!userEmail || !infrInfo) {
@@ -78,7 +75,7 @@ app.post('/api/chain/writeInfringement', async (req, res) => {
 });
 
 /**
- * 啟動伺服器
+ * 啟動 Express 服務
  */
 app.listen(PORT, () => {
   console.log(`Express server is running on port ${PORT}`);
