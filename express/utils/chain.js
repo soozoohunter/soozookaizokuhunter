@@ -1,10 +1,9 @@
-// 文件路徑: express/utils/chain.js
 const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
 
-// 從 .env 讀取 RPC 與合約資訊
-const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://ganache:8545';
+// 1) 從 .env 讀取 RPC URL；若沒設，就用 http://suzoo_ganache:8545
+const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
 const contractAddress = process.env.CONTRACT_ADDRESS;
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 
