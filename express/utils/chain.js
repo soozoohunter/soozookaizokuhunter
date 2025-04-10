@@ -1,25 +1,27 @@
 // 文件路徑: express/utils/chain.js
+
 const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
 
-// 1) 從 .env 讀取 RPC URL；若未指定，預設使用 http://suzoo_ganache:8545
+// 從 .env 讀取 RPC URL
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
 
-// ★ 假設您要直接硬編寫地址，可在下行替換為 '0x您的地址'
-const contractAddress = process.env.CONTRACT_ADDRESS || '0xABC123456789abcdef13579abcdef1234567890';
+// 從 .env 讀取合約地址 (建議必須設置)
+const contractAddress = process.env.CONTRACT_ADDRESS || '';
 
-// 私鑰 (帶 0x 前綴)
+// 從 .env 讀取私鑰 (EOA)
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 
 // 初始化 Web3
 const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
-// ★ 假設 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
-//   若路徑不同，請自行修正
+// 假設 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
+// 若路徑不同，請自行修正
 const contractABI = require(path.join(__dirname, '..', 'contracts', 'KaiKaiShieldStorage.abi.json'));
 
 // 生成合約實例
+// 若 contractAddress 是空值，之後呼叫會失敗；建議一定要在 .env 設定好
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 
 /**
