@@ -1,4 +1,5 @@
-// express/routes/auth.js
+// 文件路徑: express/routes/auth.js
+
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -12,7 +13,7 @@ function generateToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 }
 
-// [POST] /api/auth/register
+// [POST] /auth/register
 router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -30,7 +31,6 @@ router.post('/register', async (req, res) => {
       userId: newUser.id,
       email: newUser.email
     });
-
   } catch (err) {
     // 若是重複 email
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -43,7 +43,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// [POST] /api/auth/login
+// [POST] /auth/login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -69,7 +69,6 @@ router.post('/login', async (req, res) => {
       message: '登入成功',
       token
     });
-
   } catch (err) {
     console.error('[Login Error]', err);
     return res.status(500).json({ error: err.message });
