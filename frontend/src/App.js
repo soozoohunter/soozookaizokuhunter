@@ -9,7 +9,7 @@ export default function App() {
   // 只在「未登入 && 首頁」顯示 Banner
   const showBanner = !isLoggedIn && location.pathname === '/';
 
-  // 登出
+  // 登出按鈕
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = "/";
@@ -22,24 +22,24 @@ export default function App() {
     margin: 0,
     fontFamily: 'sans-serif',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection:'column'
   };
   const headerStyle = {
-    display:'flex', 
-    justifyContent:'space-between', 
+    display:'flex',
+    justifyContent:'space-between',
     alignItems:'center',
-    padding:'1rem', 
-    background:'#111', 
+    padding:'1rem',
+    background:'#111',
     borderBottom:'1px solid #f00'
   };
   const navLinkStyle = {
-    marginRight:'1rem', 
-    color:'#ff1c1c', 
-    textDecoration:'none', 
+    marginRight:'1rem',
+    color:'#ff1c1c',
+    textDecoration:'none',
     fontWeight:'bold'
   };
 
-  // Banner 區塊
+  // Banner
   const bannerStyle = {
     textAlign:'center',
     padding:'2rem',
@@ -48,8 +48,7 @@ export default function App() {
     borderRadius:'8px',
     background:'rgba(255,28,28,0.06)'
   };
-
-  // ★ 將大標題改橘色
+  // 改為橘色
   const mainTitleStyle = {
     fontSize:'64px',
     fontWeight:'bold',
@@ -62,13 +61,11 @@ export default function App() {
     margin:'0.5rem 0',
     color:'orange'
   };
-  // 主內容
   const mainContentStyle = {
     flex:1,
     padding:'1rem',
     margin:'0 1rem'
   };
-  // 底部
   const footerStyle = {
     textAlign:'center',
     padding:'1rem',
@@ -113,17 +110,16 @@ export default function App() {
         </nav>
       </header>
 
-      {/* 只在「未登入 && 首頁」顯示 Banner */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
           <h2 style={subTitleStyle}>侵權獵人系統</h2>
-          {/* 移除舊介紹區塊 */}
+          {/* 已移除舊的重複介紹 */}
         </div>
       )}
 
       <main style={mainContentStyle}>
-        <Outlet/>
+        <Outlet />
       </main>
 
       <footer style={footerStyle}>
