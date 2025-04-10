@@ -4,11 +4,13 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 
-// 匯入區塊鏈功能函式
+// 匯入區塊鏈功能函式 (chain.js)
 const chain = require('./utils/chain');
+// 匯入 auth 路由
+const authRouter = require('./routes/auth');
 
 const app = express();
-// 確保監聽 0.0.0.0，避免只綁在 127.0.0.1
+// 監聽 0.0.0.0，避免只綁在 127.0.0.1
 const HOST = '0.0.0.0';
 const PORT = process.env.PORT || 3000;
 
@@ -17,7 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * Health check (提供給 Docker Healthcheck 或監控)
+ * Health check (供 Docker Healthcheck 或監控)
  */
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
@@ -25,9 +27,17 @@ app.get('/health', (req, res) => {
 
 /**
  * ================================
- * (C) 區塊鏈 => /chain/...
+ * (A) 掛載 auth 路由: /auth
  * ================================
- * 由 Nginx /api/ 代理 => Express /chain
+ * 外部打 /api/auth/... → 內部對應 /auth/...
+ */
+app.use('/auth', authRouter);
+
+/**
+ * ================================
+ * (B) 區塊鏈 => /chain/...
+ * ================================
+ * 外部打 /api/chain/... → 內部對應 /chain/...
  */
 
 // (1) 寫入任意字串 => POST /chain/store
