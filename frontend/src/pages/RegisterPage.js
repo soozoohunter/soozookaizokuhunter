@@ -1,121 +1,159 @@
-// frontend/src/pages/RegisterPage.js
 import React, { useState } from 'react';
-import axios from 'axios';
 
-function RegisterPage() {
+export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('COPYRIGHT'); // 預設 COPYRIGHT
+  const [platforms, setPlatforms] = useState(''); // 讓使用者輸入 IG/FB
+  const [trademarkFile, setTrademarkFile] = useState(null);
 
-  async function handleRegister() {
-    // 1) 檢查欄位
-    if (!email || !password) {
-      alert('請輸入 Email 與密碼');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // 簡單檢查
+    if(!email || !password || !userName || !userRole){
+      alert('缺少必填欄位 (email, password, userName, userRole)');
       return;
     }
-    if (password !== confirm) {
-      alert('密碼與確認密碼不符');
+    if(password !== confirmPwd){
+      alert('兩次密碼輸入不一致');
       return;
     }
 
-    try {
-      // 2) 呼叫 /api/auth/register (後端已改好)
-      const res = await axios.post('/api/auth/register', { email, password });
-      // 3) 成功
-      alert(res.data.message || '註冊成功');
-      // TODO: 您想導回登入，可:
-      // window.location.href = '/login';
+    try{
+      // 用 formData 夾帶檔案 (trademarkLogo) + 其它欄位
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('userName', userName);
+      formData.append('userRole', userRole);
+      formData.append('platforms', platforms);
+      // 若 userRole=TRADEMARK or BOTH → 可上傳檔
+      if(userRole !== 'COPYRIGHT' && trademarkFile){
+        formData.append('trademarkLogo', trademarkFile);
+      }
 
-    } catch (err) {
-      // 4) 若發生錯誤
-      alert(err.response?.data?.error || '註冊失敗');
+      const resp = await fetch('/api/auth/register', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await resp.json();
+      if(resp.ok){
+        alert('註冊成功，請登入！');
+        window.location.href = '/login';
+      } else {
+        alert(data.error || '註冊失敗');
+      }
+    } catch(err){
+      alert('發生錯誤：' + err.message);
     }
-  }
+  };
 
-  // 置中 + 簡單美化
   return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>註冊</h2>
+    <div style={{ maxWidth:'500px', margin:'40px auto', color:'#fff' }}>
+      <h2 style={{ textAlign:'center', marginBottom:'1rem' }}>註冊</h2>
+      <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column' }}>
+        <label style={{ marginBottom:'6px' }}>
+          Email
+          <input 
+            type="text" 
+            value={email} 
+            onChange={e=>setEmail(e.target.value)}
+            placeholder="請輸入 Email"
+            style={inputStyle}
+          />
+        </label>
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Email</label>
-        <input
-          type="text"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={styles.input}
-          placeholder="請輸入您的 Email"
-        />
-      </div>
+        <label style={{ marginBottom:'6px' }}>
+          密碼
+          <input 
+            type="password" 
+            value={password} 
+            onChange={e=>setPassword(e.target.value)}
+            placeholder="請輸入密碼"
+            style={inputStyle}
+          />
+        </label>
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>密碼</label>
-        <input
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          style={styles.input}
-          placeholder="••••••"
-        />
-      </div>
+        <label style={{ marginBottom:'6px' }}>
+          確認密碼
+          <input 
+            type="password" 
+            value={confirmPwd} 
+            onChange={e=>setConfirmPwd(e.target.value)}
+            placeholder="再次輸入密碼"
+            style={inputStyle}
+          />
+        </label>
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>確認密碼</label>
-        <input
-          type="password"
-          value={confirm}
-          onChange={e => setConfirm(e.target.value)}
-          style={styles.input}
-          placeholder="再輸入一次密碼"
-        />
-      </div>
+        <label style={{ marginBottom:'6px' }}>
+          暱稱 (userName)
+          <input 
+            type="text"
+            value={userName}
+            onChange={e=>setUserName(e.target.value)}
+            placeholder="輸入您的暱稱"
+            style={inputStyle}
+          />
+        </label>
 
-      <button onClick={handleRegister} style={styles.button}>
-        送出
-      </button>
+        <label style={{ marginBottom:'6px' }}>
+          角色 (userRole)
+          <select 
+            value={userRole} 
+            onChange={e=>setUserRole(e.target.value)} 
+            style={{ ...inputStyle, background:'#000', color:'#fff' }}
+          >
+            <option value="COPYRIGHT">COPYRIGHT (著作權)</option>
+            <option value="TRADEMARK">TRADEMARK (商標權)</option>
+            <option value="BOTH">BOTH (皆有)</option>
+          </select>
+        </label>
+
+        <label style={{ marginBottom:'6px' }}>
+          Platforms (用逗號隔開)
+          <input 
+            type="text"
+            value={platforms}
+            onChange={e=>setPlatforms(e.target.value)}
+            placeholder="例如: instagram,facebook"
+            style={inputStyle}
+          />
+        </label>
+
+        {/* 若 userRole = TRADEMARK or BOTH → 顯示上傳商標圖欄位 */}
+        {(userRole === 'TRADEMARK' || userRole === 'BOTH') && (
+          <label style={{ marginBottom:'6px' }}>
+            上傳商標圖案 (可選)
+            <input 
+              type="file" 
+              onChange={e=>setTrademarkFile(e.target.files[0])}
+              style={{ marginTop:'4px' }}
+            />
+          </label>
+        )}
+
+        <button type="submit" style={btnStyle}>送出</button>
+      </form>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    maxWidth: '400px',
-    margin: '80px auto',
-    padding: '20px',
-    background: 'rgba(0,0,0,0.7)',
-    borderRadius: '8px',
-    textAlign: 'center',
-    color: '#fff',
-  },
-  title: {
-    marginBottom: '1rem',
-    fontSize: '1.5rem',
-    color: '#ff1c1c'
-  },
-  formGroup: {
-    marginBottom: '1rem',
-    textAlign: 'left'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '4px',
-    color: '#ff1c1c'
-  },
-  input: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '4px',
-    border: '1px solid #666'
-  },
-  button: {
-    backgroundColor: '#ff1c1c',
-    color: '#fff',
-    padding: '0.5rem 1rem',
-    fontSize: '1rem',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
-  }
+const inputStyle = {
+  width:'100%',
+  padding:'8px',
+  marginTop:'4px',
+  borderRadius:'4px',
+  border:'1px solid #666'
 };
 
-export default RegisterPage;
+const btnStyle = {
+  marginTop:'12px',
+  padding:'10px',
+  backgroundColor:'#ff1c1c',
+  border:'none',
+  borderRadius:'4px',
+  color:'#fff',
+  cursor:'pointer'
+};
