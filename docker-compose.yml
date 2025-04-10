@@ -19,12 +19,12 @@ services:
       retries: 5
 
   # -------------------
-  # 2) Ganache
+  # 2) Ganache (Ethereum 私有鏈)
   # -------------------
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
-    # Ganache 需對外連線時才要使用 ports，如需測試外部連線可保留此行
+    # 若需要在主機外部也能連線 Ganache，可保留此對外 port
     ports:
       - "8545:8545"
     networks:
@@ -38,7 +38,7 @@ services:
     volumes:
       - suzoo_ipfs_data:/data/ipfs
     command: daemon
-    # 若需要外部訪問 IPFS，可保留下列 port；否則也可只 expose
+    # 若需要外部連線 IPFS，可保留此 port
     ports:
       - "5001:5001"
       - "8080:8080"
@@ -131,7 +131,7 @@ services:
       retries: 3
 
   # -------------------
-  # 8) Nginx (唯一對外)
+  # 8) Nginx (唯一對外入口)
   # -------------------
   suzoo_nginx:
     build:
