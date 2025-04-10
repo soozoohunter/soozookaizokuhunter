@@ -48,7 +48,7 @@ function Upload() {
 
   return (
     <div style={{ margin:'2rem', maxWidth:'600px', color:'#fff' }}>
-      <h2>上傳檔案(短影音 / 商品照片)</h2>
+      <h2>上傳檔案( 動態短影音/ 靜態圖檔 )</h2>
 
       <div style={{ marginBottom:'1rem' }}>
         <label style={{ marginRight:'8px' }}>標題: </label>
