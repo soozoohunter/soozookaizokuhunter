@@ -38,7 +38,7 @@ services:
     volumes:
       - suzoo_ipfs_data:/data/ipfs
     command: daemon
-    # 若需要外部連線 IPFS，可保留此 port
+    # 若需要外部連線 IPFS，也可保留此 port
     ports:
       - "5001:5001"
       - "8080:8080"
