@@ -1,11 +1,15 @@
-// frontend/src/App.js
 import React from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
 export default function App() {
   // 讀取 localStorage token 判斷是否登入
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
+
+  // 取得目前路由
+  const location = useLocation();
+  // 判斷是否在首頁路徑、且尚未登入 → 才顯示大區塊 (banner)
+  const showBanner = (location.pathname === '/') && !isLoggedIn;
 
   // =============================
   // 集中 style 設定
@@ -46,15 +50,14 @@ export default function App() {
     background: 'rgba(255,28,28,0.06)'
   };
 
-  // ★ 將「速誅 SUZOO!」改為亮紫色
+  // ★ 「速誅 SUZOO!」改亮紫色
   const mainTitleStyle = {
     fontSize: '64px',
     fontWeight: 'bold',
     margin: '0.5rem 0',
-    color: 'violet'   // 新增這行，使標題呈現亮紫色
+    color: 'violet'
   };
-
-  // ★ 將「侵權獵人系統」改為亮紫色（原本就有）
+  // ★ 「侵權獵人系統」也用亮紫色
   const subTitleStyle = {
     fontSize: '36px',
     fontFamily: '"KaiTi","DFKai-SB","serif"',
@@ -100,7 +103,7 @@ export default function App() {
     lineHeight: '1.6'
   };
 
-  // 兩欄排版：左右欄對稱
+  // 兩欄排版
   const featuresGridStyle = {
     display: 'flex',
     gap: '2rem',
@@ -112,13 +115,12 @@ export default function App() {
     minWidth: '280px'
   };
 
-  // 「🔥 DCDV...」標題用亮藍色 / 其它特色標題亦可套用
+  // 標題用亮藍色
   const featureTitleStyle = {
     color: 'dodgerblue',
     fontWeight: 'bold',
     margin: '0.8rem 0 0.5rem'
   };
-
   // bullet list
   const bulletItemStyle = {
     marginLeft: '1.6rem',
@@ -140,14 +142,12 @@ export default function App() {
 
         {/* 右側連結 */}
         <nav>
-          {/* 未登入 => 顯示 Login / Register */}
           {!isLoggedIn && (
             <>
               <Link to="/login" style={navLinkStyle}>Login</Link>
               <Link to="/register" style={navLinkStyle}>Register</Link>
             </>
           )}
-          {/* 已登入 => 顯示 Dashboard / Upload / Platform / Infringement */}
           {isLoggedIn && (
             <>
               <Link to="/dashboard" style={navLinkStyle}>Dashboard</Link>
@@ -159,107 +159,97 @@ export default function App() {
         </nav>
       </header>
 
-      {/* ====== Banner ====== */}
-      <div style={bannerStyle}>
-        {/* 修改後：顯示亮紫色 */}
-        <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
-        <h2 style={subTitleStyle}>侵權獵人系統 (Copyright Hunter System)</h2>
+      {/* ====== Banner (只在首頁 & 未登入時顯示) ====== */}
+      {showBanner && (
+        <div style={bannerStyle}>
+          <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
+          <h2 style={subTitleStyle}>侵權獵人系統 (Copyright Hunter)</h2>
 
-        {/* 未登入才顯示 [註冊 / 登入] 按鈕 */}
-        {!isLoggedIn && (
           <div style={actionBtnAreaStyle}>
             <Link to="/register" style={actionButtonStyle}>註冊</Link>
             <Link to="/login" style={actionButtonStyle}>登入</Link>
           </div>
-        )}
 
-        {/* ====== 介紹功能區塊 (左右兩欄) ====== */}
-        <div style={featuresContainerStyle}>
-          <div style={featuresGridStyle}>
+          <div style={featuresContainerStyle}>
+            <div style={featuresGridStyle}>
+              {/* 左欄 */}
+              <div style={colStyle}>
+                <h3 style={featureTitleStyle}>
+                  🔥 DCDV（動態著作 DNA）
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    你的短影音 = 你的 DNA，每秒畫面皆是智慧財產
+                  </li>
+                  <li style={bulletItemStyle}>
+                    區塊鏈 + AI 指紋辨識，證明原創
+                  </li>
+                </ul>
 
-            {/* ===== 左欄 ===== */}
-            <div style={colStyle}>
-              <h3 style={featureTitleStyle}>
-                🔥 DCDV（動態著作 DNA / Dynamic Content DNA Verification）
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  你的短影音 = 你的 DNA，每一秒畫面都是你的智慧財產
-                </li>
-                <li style={bulletItemStyle}>
-                  區塊鏈 + AI 指紋辨識，即使被裁剪/變速/加字幕，也能證明原創
-                </li>
-              </ul>
+                <h3 style={featureTitleStyle}>
+                  🔥 SCDV（靜態著作 DNA）
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    圖片、插畫、攝影作品，專屬指紋哈希
+                  </li>
+                  <li style={bulletItemStyle}>
+                    AI 圖片比對技術，防止未授權盜用
+                  </li>
+                </ul>
 
-              <h3 style={featureTitleStyle}>
-                🔥 SCDV（靜態著作 DNA / Static Content DNA Verification）
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  圖片、插畫、攝影作品，擁有專屬指紋哈希
-                </li>
-                <li style={bulletItemStyle}>
-                  AI 圖片比對技術，防止未授權盜用
-                </li>
-                <li style={bulletItemStyle}>
-                  企業 API 整合，攝影師/插畫家可一鍵檢測
-                </li>
-              </ul>
+                <h3 style={featureTitleStyle}>
+                  🔥 侵權通知（智慧警報）
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    發現盜用，第一時間通知
+                  </li>
+                  <li style={bulletItemStyle}>
+                    自動 DMCA，24 小時內下架
+                  </li>
+                </ul>
+              </div>
 
-              <h3 style={featureTitleStyle}>
-                🔥 侵權通知（智慧警報 / Infringement Alert）
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  發現盜用，第一時間通知
-                </li>
-                <li style={bulletItemStyle}>
-                  自動 DMCA 申訴，24 小時內下架
-                </li>
-              </ul>
-            </div>
+              {/* 右欄 */}
+              <div style={colStyle}>
+                <h3 style={featureTitleStyle}>
+                  🔥 區塊鏈存證（ETH 私有鏈）
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    不可篡改證據，影片/圖片皆可存證
+                  </li>
+                </ul>
 
-            {/* ===== 右欄 ===== */}
-            <div style={colStyle}>
-              <h3 style={featureTitleStyle}>
-                🔥 區塊鏈存證（ETH 私有鏈 / Private Chain）
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  不可篡改證據，影片/圖片皆可存證
-                </li>
-                <li style={bulletItemStyle}>
-                  讓作品擁有永續的原創證明
-                </li>
-              </ul>
+                <h3 style={featureTitleStyle}>
+                  🔥 企業 API
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    大量監測品牌/攝影作品
+                  </li>
+                  <li style={bulletItemStyle}>
+                    自動 DMCA / 板權維護
+                  </li>
+                </ul>
 
-              <h3 style={featureTitleStyle}>
-                🔥 企業 API 服務 (Enterprise API)
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  大量監測品牌/攝影作品
-                </li>
-                <li style={bulletItemStyle}>
-                  自動 DMCA / 板權維護
-                </li>
-              </ul>
-
-              <h3 style={featureTitleStyle}>
-                🔥 ⚖️ 訴訟機制 (Lawsuit Mechanism)
-              </h3>
-              <ul style={{ margin:'0', padding:'0' }}>
-                <li style={bulletItemStyle}>
-                  發現侵權後，可直接提告
-                </li>
-                <li style={bulletItemStyle}>
-                  提供法律支援，協助用戶訴訟
-                </li>
-              </ul>
+                <h3 style={featureTitleStyle}>
+                  🔥 ⚖️ 訴訟機制
+                </h3>
+                <ul style={{ margin:'0', padding:'0' }}>
+                  <li style={bulletItemStyle}>
+                    發現侵權後，可直接提告
+                  </li>
+                  <li style={bulletItemStyle}>
+                    協助用戶訴訟
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 主要內容區 => <Outlet/> */}
       <main style={mainContentStyle}>
