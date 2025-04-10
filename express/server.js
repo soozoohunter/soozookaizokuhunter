@@ -1,63 +1,85 @@
+// 文件路徑: express/server.js
+
 require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const path = require('path');
 
-// 1) 建立 Express App
+// 這裡匯入剛剛的 chain.js 功能
+const chain = require('./utils/chain');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// 2) 基本中介層（Middleware）
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors());
+// 解析 JSON 請求
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// 3) 健康檢查 (GET /health)
-//   前端可呼叫: fetch('/health') => 檢查服務是否存活
+/**
+ * (例) Health check
+ * 可以提供給 Docker healthcheck 或其他監控使用
+ */
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'express' });
+  res.json({ message: 'Server healthy' });
 });
 
-// -----------------------------------------
-// 4) 匯入各路由（routes/*.js）
-//    **請確認這些檔案都已經存在**，並確保匯入路徑正確。
-// -----------------------------------------
-const authRouter         = require('./routes/auth');            // ★ 重點：加上這行
-const infringementRouter = require('./routes/infringement');
-const blockchainRouter   = require('./routes/blockchain');
-const paymentRouter      = require('./routes/ExpressRootPayment');
-const platformRouter     = require('./routes/platform');
-const profilesRouter     = require('./routes/profiles');
-const uploadRouter       = require('./routes/upload');
+/**
+ * ================================
+ * (C) 區塊鏈 => /api/chain/...
+ * ================================
+ * 原本在 server.js 第 44~45 行的 `app.use('/api/chain', blockchainRouter)`
+ * 會噴錯是因為 blockchainRouter 實際上是一個「Object」。 
+ * 
+ * 現在改用「直接定義路由 + 呼叫 chain.js 函式」的方式：
+ */
 
-// -----------------------------------------
-// 5) 綁定路由前綴 => 對應前端呼叫方式
-// -----------------------------------------
+// (1) 寫入任意字串 => POST /api/chain/store
+app.post('/api/chain/store', async (req, res) => {
+  try {
+    const { data } = req.body; 
+    if (!data) {
+      return res.status(400).json({ success: false, error: 'Missing data field' });
+    }
+    const txHash = await chain.writeToBlockchain(data);
+    return res.json({ success: true, txHash });
+  } catch (error) {
+    console.error('Error writing data to blockchain:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-// (A) 使用者 Auth => 前端路徑: /api/auth/...
-//     - 註冊: POST /api/auth/register
-//     - 登入: POST /api/auth/login
-app.use('/api/auth', authRouter);
+// (2) 寫入使用者上傳的檔案資訊 => POST /api/chain/writeUserAsset
+app.post('/api/chain/writeUserAsset', async (req, res) => {
+  try {
+    const { userEmail, dnaHash, fileType, timestamp } = req.body;
+    if (!userEmail || !dnaHash) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+    const txHash = await chain.writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp);
+    return res.json({ success: true, txHash });
+  } catch (error) {
+    console.error('Error writing user asset to chain:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-// (B) 侵權相關 => /api/infr/...
-app.use('/api/infr', infringementRouter);
+// (3) 寫入侵權資訊 => POST /api/chain/writeInfringement
+app.post('/api/chain/writeInfringement', async (req, res) => {
+  try {
+    const { userEmail, infrInfo, timestamp } = req.body;
+    if (!userEmail || !infrInfo) {
+      return res.status(400).json({ success: false, error: 'Missing userEmail or infrInfo' });
+    }
+    const txHash = await chain.writeInfringementToChain(userEmail, infrInfo, timestamp);
+    return res.json({ success: true, txHash });
+  } catch (error) {
+    console.error('Error writing infringement to chain:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-// (C) 區塊鏈 => /api/chain/...
-app.use('/api/chain', blockchainRouter);
-
-// (D) 付款 => /api/payment/...
-app.use('/api/payment', paymentRouter);
-
-// (E) 平台帳號 => /api/platform/...
-app.use('/api/platform', platformRouter);
-
-// (F) Profiles => /api/profiles/...
-app.use('/api/profiles', profilesRouter);
-
-// (G) 檔案上傳 => /api/upload/...
-app.use('/api/upload', uploadRouter);
-
-// 6) 啟動伺服器
-const PORT = process.env.PORT || 3000;
+/**
+ * 啟動伺服器
+ */
 app.listen(PORT, () => {
-  console.log(`✅ Express listening on port ${PORT}`);
+  console.log(`Express server is running on port ${PORT}`);
 });
