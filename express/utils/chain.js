@@ -1,3 +1,4 @@
+// 文件路徑: express/utils/chain.js
 const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
@@ -10,11 +11,13 @@ const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 // 初始化 Web3
 const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
-// 假設 ABI 放在 express/contracts/KaiKaiShieldStorage.abi.json
+// 假設您的 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
 const contractABI = require(path.join(__dirname, '..', 'contracts', 'KaiKaiShieldStorage.abi.json'));
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 
-// 建立帳戶物件
+/**
+ * 取得帳戶物件 (從 Private Key)
+ */
 function getAccount() {
   const account = web3.eth.accounts.privateKeyToAccount(privateKey);
   web3.eth.accounts.wallet.add(account);
@@ -39,11 +42,17 @@ async function writeToBlockchain(data) {
 }
 
 /**
- * 示例：上傳檔案指紋 (DNA) + userEmail 上鏈
+ * 將使用者資產資訊 (e.g. 圖片/短影音DNA) 上鏈
+ * @param {string} userEmail
+ * @param {string} dnaHash
+ * @param {string} fileType
+ * @param {string} timestamp
+ * @returns {string} txHash
  */
 async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
   const account = getAccount();
   const combined = `USER:${userEmail}|DNA:${dnaHash}|TYPE:${fileType}|TS:${timestamp}`;
+
   const tx = {
     from: account.address,
     to: contractAddress,
@@ -55,11 +64,16 @@ async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
 }
 
 /**
- * 示例：記錄侵權資訊 (infrInfo) 上鏈
+ * 將侵權資訊 (infrInfo) 上鏈
+ * @param {string} userEmail
+ * @param {string} infrInfo
+ * @param {string} timestamp
+ * @returns {string} txHash
  */
 async function writeInfringementToChain(userEmail, infrInfo, timestamp) {
   const account = getAccount();
   const combined = `USER:${userEmail}|INFR:${infrInfo}|TS:${timestamp}`;
+
   const tx = {
     from: account.address,
     to: contractAddress,
