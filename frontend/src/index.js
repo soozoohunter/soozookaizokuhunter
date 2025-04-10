@@ -1,20 +1,24 @@
-// frontend/src/index.js
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import App from './App';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import UploadPage from './pages/UploadPage';
+import DashboardPage from './pages/DashboardPage';
 
-// 匯入您剛剛修正的路由組態
-import MyRoutes from './MyRoutes';
-
-// 全域樣式 (若有)
-import './index.css';
-import './App.css';
-import './styles.css';
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-
-root.render(
-  <BrowserRouter>
-    <MyRoutes />
-  </BrowserRouter>
-);
+export default function AppRoutes(){
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />}>
+          {/* index => Home(在App Banner) */}
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="upload" element={<UploadPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          {/* etc. */}
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
