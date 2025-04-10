@@ -1,3 +1,5 @@
+version: "3.7"
+
 services:
   # -------------------
   # 1) PostgreSQL
@@ -24,7 +26,6 @@ services:
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
-    # 若需要在主機外部也能連線 Ganache，可保留此對外 port
     ports:
       - "8545:8545"
     networks:
@@ -38,7 +39,6 @@ services:
     volumes:
       - suzoo_ipfs_data:/data/ipfs
     command: daemon
-    # 若需要外部連線 IPFS，也可保留此 port
     ports:
       - "5001:5001"
       - "8080:8080"
