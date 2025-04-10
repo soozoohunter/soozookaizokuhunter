@@ -11,7 +11,7 @@ const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 // 初始化 Web3
 const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
-// 假設您的 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
+// 假設 ABI 檔案放在 express/contracts/KaiKaiShieldStorage.abi.json
 const contractABI = require(path.join(__dirname, '..', 'contracts', 'KaiKaiShieldStorage.abi.json'));
 const contract = new web3.eth.Contract(contractABI, contractAddress);
 
@@ -42,7 +42,7 @@ async function writeToBlockchain(data) {
 }
 
 /**
- * 將使用者資產資訊 (e.g. 圖片/短影音DNA) 上鏈
+ * 將使用者資產 (e.g. 圖片/短影音DNA) 上鏈
  * @param {string} userEmail
  * @param {string} dnaHash
  * @param {string} fileType
@@ -52,7 +52,6 @@ async function writeToBlockchain(data) {
 async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
   const account = getAccount();
   const combined = `USER:${userEmail}|DNA:${dnaHash}|TYPE:${fileType}|TS:${timestamp}`;
-
   const tx = {
     from: account.address,
     to: contractAddress,
@@ -73,7 +72,6 @@ async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
 async function writeInfringementToChain(userEmail, infrInfo, timestamp) {
   const account = getAccount();
   const combined = `USER:${userEmail}|INFR:${infrInfo}|TS:${timestamp}`;
-
   const tx = {
     from: account.address,
     to: contractAddress,
