@@ -1,3 +1,4 @@
+// frontend/src/pages/RegisterPage.js
 import React, { useState } from 'react';
 
 export default function RegisterPage() {
@@ -31,7 +32,6 @@ export default function RegisterPage() {
     }
 
     try {
-      // 將所有平台資料整合成 JSON
       const platformData = {
         instagram,
         facebook,
@@ -49,7 +49,6 @@ export default function RegisterPage() {
       formData.append('userName', userName);
       formData.append('userRole', userRole);
 
-      // 將 platformData 轉為 JSON 字串
       formData.append('platforms', JSON.stringify(platformData));
 
       const resp = await fetch('/api/auth/register', {
