@@ -51,8 +51,9 @@ export default function App() {
 
   return (
     <div style={containerStyle}>
+      {/* ======== 頂部導覽列 ======== */}
       <header style={headerStyle}>
-        {/* 左側：加一個「品牌按鈕」 */}
+        {/* 左側：改成明顯按鈕 */}
         <button
           onClick={()=> window.location.href='/'}
           style={{
@@ -69,6 +70,7 @@ export default function App() {
           速誅侵權獵人
         </button>
 
+        {/* 右側：導航連結 */}
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact-us" style={navLinkStyle}>Contact Us</Link>
@@ -99,21 +101,35 @@ export default function App() {
         </nav>
       </header>
 
+      {/* ======== 首頁大紅框 Banner ======== */}
       {showBanner && (
         <div style={bannerStyle}>
-          <h1 style={{ fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange' }}>
-            速誅 SUZOO!
+          {/* 第一行：橘色 */}
+          <h1 style={{ 
+            fontSize:'64px', 
+            fontWeight:'bold', 
+            margin:'0.5rem 0', 
+            color:'orange' 
+          }}>
+            速誅侵權獵人
           </h1>
-          <h2 style={{ fontSize:'36px', margin:'0.5rem 0', color:'orange' }}>
-            侵權獵人系統 <span style={{ fontSize:'20px', color:'#fff' }}> (IP Hunter System) </span>
+          {/* 第二行：再紅一點 #ff5500 */}
+          <h2 style={{ 
+            fontSize:'36px', 
+            margin:'0.5rem 0', 
+            color:'#ff5500' 
+          }}>
+            SUZOO!KAIZOKU HUNTER SYSTEM
           </h2>
         </div>
       )}
 
+      {/* ======== 主內容區: 由 <Outlet /> 插入 ======== */}
       <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
         <Outlet />
       </main>
 
+      {/* ======== 頁尾紀念文字 ======== */}
       <footer style={{
         textAlign:'center',
         padding:'1rem',
