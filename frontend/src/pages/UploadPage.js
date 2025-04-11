@@ -1,10 +1,8 @@
-// frontend/src/pages/UploadPage.js
 import React, { useState } from 'react';
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
-  const [msg, setMsg] = useState('');
 
   const handleUpload = async(e) => {
     e.preventDefault();
@@ -25,19 +23,19 @@ export default function UploadPage() {
       const res = await fetch('/api/upload', {
         method:'POST',
         headers: {
-          'Authorization': 'Bearer ' + token
-          // 不要加 'Content-Type'
+          'Authorization': `Bearer ${token}`
+          // 不加 'Content-Type': 'multipart/form-data'
         },
         body: formData
       });
       const data = await res.json();
       if(res.ok) {
-        setMsg(`上傳成功！\n檔名: ${data.fileName}\nfingerprint: ${data.fingerprint}\nplan: ${data.plan}\n(影片:${data.usedVideos} / 圖片:${data.usedImages})`);
+        alert(`上傳成功！Fingerprint=${data.fingerprint}`);
       } else {
-        setMsg(`上傳失敗: ${data.error || '未知錯誤'}`);
+        alert(`上傳失敗: ${data.error || '未知錯誤'}`);
       }
     } catch(err) {
-      setMsg(`發生錯誤: ${err.message}`);
+      alert(`發生錯誤: ${err.message}`);
     }
   };
 
@@ -65,11 +63,6 @@ export default function UploadPage() {
         </div>
         <button type="submit" style={styles.button}>上傳</button>
       </form>
-      {msg && (
-        <pre style={{ marginTop:'1rem', color:'yellow', whiteSpace:'pre-wrap' }}>
-          {msg}
-        </pre>
-      )}
     </div>
   );
 }
