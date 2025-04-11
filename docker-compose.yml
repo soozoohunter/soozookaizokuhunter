@@ -144,9 +144,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 移除掛載 default.conf 的行，不再 read-only
-    # 只保留 /etc/letsencrypt SSL 憑證
     volumes:
+      # 僅掛載 SSL 憑證。預設不再掛載 default.conf(避免 read-only 問題)
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
