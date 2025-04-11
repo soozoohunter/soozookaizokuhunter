@@ -1,4 +1,3 @@
-// frontend/src/pages/LoginPage.js
 import React, { useState } from 'react';
 
 export default function LoginPage(){
@@ -17,8 +16,7 @@ export default function LoginPage(){
       if(res.ok){
         alert('登入成功');
         localStorage.setItem('token', data.token);
-        // 登入後導向 會員中心
-        window.location.href = '/profile';
+        window.location.href = '/';
       } else {
         alert(data.error || '登入失敗');
       }
@@ -78,7 +76,7 @@ const inputStyle = {
 const btnStyle = {
   marginTop:'12px',
   padding:'10px',
-  backgroundColor:'orange', 
+  backgroundColor:'orange',
   border:'none',
   borderRadius:'4px',
   color:'#fff',
