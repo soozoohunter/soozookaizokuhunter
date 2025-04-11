@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -21,21 +22,21 @@ export default function App() {
     minHeight: '100vh',
     margin: 0,
     fontFamily: 'sans-serif',
-    display:'flex', 
+    display:'flex',
     flexDirection:'column'
   };
   const headerStyle = {
-    display:'flex', 
-    justifyContent:'space-between', 
+    display:'flex',
+    justifyContent:'space-between',
     alignItems:'center',
-    padding:'1rem', 
-    background:'#111', 
+    padding:'1rem',
+    background:'#111',
     borderBottom:'1px solid #f00'
   };
   const navLinkStyle = {
-    marginRight:'1rem', 
-    color:'#ff1c1c', 
-    textDecoration:'none', 
+    marginRight:'1rem',
+    color:'#ff1c1c',
+    textDecoration:'none',
     fontWeight:'bold'
   };
 
@@ -76,10 +77,12 @@ export default function App() {
 
   return (
     <div style={containerStyle}>
+      {/* 頂部導覽列 */}
       <header style={headerStyle}>
         <div>
           <Link to="/" style={{...navLinkStyle, marginRight:'2rem'}}>速誅侵權獵人</Link>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
+          <Link to="/contact-us" style={navLinkStyle}>Contact Us</Link>
         </div>
         <nav>
           {!isLoggedIn && (
@@ -92,8 +95,8 @@ export default function App() {
             <>
               <Link to="/profile" style={navLinkStyle}>會員中心</Link>
               <Link to="/upload" style={navLinkStyle}>Upload</Link>
-              <button 
-                onClick={handleLogout} 
+              <button
+                onClick={handleLogout}
                 style={{
                   ...navLinkStyle,
                   background:'none',
@@ -108,6 +111,7 @@ export default function App() {
         </nav>
       </header>
 
+      {/* 首頁 Banner (未登入 && path === '/') */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
@@ -115,10 +119,12 @@ export default function App() {
         </div>
       )}
 
+      {/* 主內容：由 <Outlet/> 切換 */}
       <main style={mainContentStyle}>
         <Outlet />
       </main>
 
+      {/* 底部紀念文字 */}
       <footer style={footerStyle}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
