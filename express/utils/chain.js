@@ -3,35 +3,30 @@ const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
 
-// 讀 .env
+// 從 .env 讀取 RPC 與合約資訊
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
 const contractAddress = process.env.CONTRACT_ADDRESS || '';
-const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
+const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '0x012345...';
 
 // 初始化 Web3
 const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
-// 假設 ABI 放在 express/contracts/KaiKaiShieldStorage.abi.json
+// 假設 ABI 檔案位於 express/contracts/KaiKaiShieldStorage.abi.json
 const contractABI = require(path.join(__dirname, '..', 'contracts', 'KaiKaiShieldStorage.abi.json'));
+const contract = new web3.eth.Contract(contractABI, contractAddress);
 
-// 建立合約實例
-const contract = (contractAddress)
-  ? new web3.eth.Contract(contractABI, contractAddress)
-  : null;
-
-/** 取得帳戶 (私鑰 => account) */
+/** 取得帳戶物件 */
 function getAccount() {
-  const acct = web3.eth.accounts.privateKeyToAccount(privateKey);
-  web3.eth.accounts.wallet.add(acct);
-  return acct;
+  const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+  web3.eth.accounts.wallet.add(account);
+  return account;
 }
 
-/** 寫入任意 data => storeData(data) */
+/** 將任意 data 字串寫入鏈上 */
 async function writeToBlockchain(data) {
-  if(!contract) throw new Error('合約地址或 contract 未設定');
-  const acct = getAccount();
+  const account = getAccount();
   const tx = {
-    from: acct.address,
+    from: account.address,
     to: contractAddress,
     data: contract.methods.storeData(data).encodeABI(),
     gas: 2000000
@@ -40,13 +35,12 @@ async function writeToBlockchain(data) {
   return receipt.transactionHash;
 }
 
-/** 上傳指紋 => storeData(...) */
+/** 上傳檔案指紋 (dnaHash) + email */
 async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
-  if(!contract) throw new Error('合約地址或 contract 未設定');
-  const acct = getAccount();
+  const account = getAccount();
   const combined = `USER:${userEmail}|DNA:${dnaHash}|TYPE:${fileType}|TS:${timestamp}`;
   const tx = {
-    from: acct.address,
+    from: account.address,
     to: contractAddress,
     data: contract.methods.storeData(combined).encodeABI(),
     gas: 2000000
@@ -55,13 +49,12 @@ async function writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
   return receipt.transactionHash;
 }
 
-/** 侵權資訊 => storeData(...) */
+/** 記錄侵權資訊 */
 async function writeInfringementToChain(userEmail, infrInfo, timestamp) {
-  if(!contract) throw new Error('合約地址或 contract 未設定');
-  const acct = getAccount();
+  const account = getAccount();
   const combined = `USER:${userEmail}|INFR:${infrInfo}|TS:${timestamp}`;
   const tx = {
-    from: acct.address,
+    from: account.address,
     to: contractAddress,
     data: contract.methods.storeData(combined).encodeABI(),
     gas: 2000000
