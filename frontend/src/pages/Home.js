@@ -4,21 +4,21 @@ export default function Home() {
   return (
     <div style={styles.container}>
 
-      {/* ====== 只有一個大紅框 ====== */}
+      {/* 只有一個大紅框 */}
       <div style={styles.banner}>
-        {/* 第一行： 橘色 + 大標題, 後面加 (IP Hunter System) 紅橘色 */}
+        {/* 第一行：橘色 + 大標題 (IP Hunter System) 橘紅 */}
         <h1 style={styles.mainTitle}>
           速誅 SUZOO! 侵權獵人系統 <span style={styles.subEnglish}>(IP Hunter System)</span>
         </h1>
         
-        {/* 底下的描述 */}
+        {/* 底下描述文字 */}
         <p style={styles.desc}>
           這裡是您的智慧財產維權平台，
-          提供動態短影音與靜態圖像的區塊鏈存證、DMCA 自動申訴、商標監測等服務。<br/>
+          提供動態短影音與靜態圖像的區塊鏈存證、DMCA自動申訴、商標監測等服務。<br/>
           請善用上方選單進行「上傳作品」、「會員中心」、「Pricing」或「Contact Us」等操作。
         </p>
 
-        {/* 按鈕 => 引導到 /pricing */}
+        {/* 按鈕：連到 /pricing */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
@@ -54,7 +54,7 @@ const styles = {
     color: 'orange'
   },
   subEnglish: {
-    color: '#ff6600', // 橘紅色
+    color: '#ff6600', // 橘紅
     fontSize: '1.1rem',
     marginLeft: '8px'
   },
