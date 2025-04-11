@@ -1,67 +1,60 @@
+// frontend/src/pages/ContactUsPage.js
 import React, { useState } from 'react';
 
-export default function ContactUsPage() {
-  const [companyName, setCompanyName] = useState('');
-  const [title, setTitle] = useState(''); // 職稱
+export default function ContactUsPage(){
+  const [company, setCompany] = useState('');
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
   const [phone, setPhone] = useState('');
-  const [requirement, setRequirement] = useState('');
+  const [message, setMessage] = useState('');
+  const [msg, setMsg] = useState('');
 
-  const handleSubmit = (e)=>{
+  const handleSubmit= async(e)=>{
     e.preventDefault();
-    alert(`已收到您的資訊:\n公司: ${companyName}\n職稱: ${title}\n電話: ${phone}\n需求: ${requirement}`);
-    // 這裡可呼叫後端 API -> /api/contact
+    // 這裡只是前端簡易紀錄; 實務上您會 POST 到 /api/contact-us
+    setMsg(`已收到您的聯絡資訊:
+公司: ${company}
+姓名: ${name} / 頭銜: ${title}
+電話: ${phone}
+需求: ${message}`);
   };
 
   return (
-    <div style={{ maxWidth:'500px', margin:'40px auto', color:'#fff' }}>
-      <h2 style={{ textAlign:'center', marginBottom:'1rem' }}>Contact Us</h2>
+    <div style={{ maxWidth:'600px', margin:'40px auto', color:'#fff' }}>
+      <h2 style={{ textAlign:'center' }}>Contact Us</h2>
       <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column' }}>
-        <label style={labelStyle}>
+        <label style={lbStyle}>
           公司名稱
-          <input 
-            type="text"
-            value={companyName}
-            onChange={e=>setCompanyName(e.target.value)}
-            style={inputStyle}
-          />
+          <input value={company} onChange={e=>setCompany(e.target.value)} style={inputStyle} />
         </label>
-
-        <label style={labelStyle}>
-          職稱 / 頭銜
-          <input 
-            type="text"
-            value={title}
-            onChange={e=>setTitle(e.target.value)}
-            style={inputStyle}
-          />
+        <label style={lbStyle}>
+          姓名
+          <input value={name} onChange={e=>setName(e.target.value)} style={inputStyle} />
         </label>
-
-        <label style={labelStyle}>
+        <label style={lbStyle}>
+          頭銜 / 職稱
+          <input value={title} onChange={e=>setTitle(e.target.value)} style={inputStyle} />
+        </label>
+        <label style={lbStyle}>
           聯絡電話
-          <input 
-            type="text"
-            value={phone}
-            onChange={e=>setPhone(e.target.value)}
-            style={inputStyle}
-          />
+          <input value={phone} onChange={e=>setPhone(e.target.value)} style={inputStyle} />
         </label>
-
-        <label style={labelStyle}>
-          需求內容
-          <textarea
-            value={requirement}
-            onChange={e=>setRequirement(e.target.value)}
+        <label style={lbStyle}>
+          需求描述
+          <textarea 
+            value={message}
+            onChange={e=>setMessage(e.target.value)}
             style={{ ...inputStyle, height:'100px' }}
           />
         </label>
-
         <button type="submit" style={btnStyle}>送出</button>
       </form>
+      {msg && <pre style={{ marginTop:'1rem', whiteSpace:'pre-wrap', color:'yellow' }}>{msg}</pre>}
     </div>
   );
 }
 
-const labelStyle = {
+const lbStyle = {
   marginBottom:'10px'
 };
 const inputStyle = {
@@ -74,7 +67,7 @@ const inputStyle = {
 const btnStyle = {
   marginTop:'12px',
   padding:'10px',
-  backgroundColor:'orange',
+  backgroundColor:'#ff1c1c',
   border:'none',
   borderRadius:'4px',
   color:'#fff',
