@@ -1,4 +1,3 @@
-// frontend/src/pages/RegisterPage.js
 import React, { useState } from 'react';
 
 export default function RegisterPage() {
@@ -48,7 +47,6 @@ export default function RegisterPage() {
       formData.append('password', password);
       formData.append('userName', userName);
       formData.append('userRole', userRole);
-
       formData.append('platforms', JSON.stringify(platformData));
 
       const resp = await fetch('/api/auth/register', {
