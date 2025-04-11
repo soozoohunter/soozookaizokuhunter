@@ -1,3 +1,4 @@
+// frontend/src/pages/LoginPage.js
 import React, { useState } from 'react';
 
 export default function LoginPage(){
@@ -6,7 +7,6 @@ export default function LoginPage(){
 
   const handleLogin = async(e)=>{
     e.preventDefault();
-    // TODO: 寫您的後端邏輯
     try {
       const res = await fetch('/api/auth/login', {
         method:'POST',
@@ -16,9 +16,9 @@ export default function LoginPage(){
       const data = await res.json();
       if(res.ok){
         alert('登入成功');
-        // 存 token
         localStorage.setItem('token', data.token);
-        window.location.href = '/';
+        // 登入後導向 會員中心
+        window.location.href = '/profile';
       } else {
         alert(data.error || '登入失敗');
       }
@@ -78,7 +78,7 @@ const inputStyle = {
 const btnStyle = {
   marginTop:'12px',
   padding:'10px',
-  backgroundColor:'orange', // 改成橘色
+  backgroundColor:'orange', 
   border:'none',
   borderRadius:'4px',
   color:'#fff',
