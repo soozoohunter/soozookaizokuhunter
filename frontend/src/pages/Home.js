@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 
 export default function Home() {
   return (
@@ -12,14 +11,14 @@ export default function Home() {
           速誅 SUZOO! 侵權獵人系統 <span style={styles.subEnglish}>(IP Hunter System)</span>
         </h1>
         
-        {/* 底下的描述，可自行加 */}
+        {/* 底下的描述 */}
         <p style={styles.desc}>
           這裡是您的智慧財產維權平台，
-          提供動態短影音與靜態圖像的區塊鏈存證、DMCA自動申訴、商標監測等服務。<br/>
+          提供動態短影音與靜態圖像的區塊鏈存證、DMCA 自動申訴、商標監測等服務。<br/>
           請善用上方選單進行「上傳作品」、「會員中心」、「Pricing」或「Contact Us」等操作。
         </p>
 
-        {/* 在最下方做一個 "進入侵權獵人" 可點擊按鈕 */}
+        {/* 按鈕 => 引導到 /pricing */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
