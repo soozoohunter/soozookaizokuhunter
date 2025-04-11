@@ -1,11 +1,12 @@
+// src/index.js
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import MyRoutes from './MyRoutes';
-import './index.css'; // 若有全域CSS，可引用；沒有可省略
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <MyRoutes />
-  </React.StrictMode>
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
 );
