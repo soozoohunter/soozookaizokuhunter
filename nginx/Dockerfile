@@ -1,12 +1,16 @@
-FROM nginx:1.27.4-alpine
+# 例如檔案路徑: nginx/Dockerfile
+FROM nginx:alpine
 
-# 移除任何預設配置檔案
-RUN rm -f /etc/nginx/conf.d/*
+# 1) 刪除官方預設的 default.conf (或全部 .conf 皆可)
+RUN rm -f /etc/nginx/conf.d/default.conf
 
-# 將 default.conf 複製進容器
+# 2) 複製我們自己的 default.conf
 COPY default.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
-EXPOSE 443
+# 3) (可選) 如果有需要 ssl_dhparam，可放這裡
+# COPY dhparam.pem /etc/nginx/dhparam.pem
 
-CMD ["nginx", "-g", "daemon off;"]
+# 4) Expose 非必填，容器會用 80 / 443
+EXPOSE 80 443
+
+# Nginx 預設 CMD 即可
