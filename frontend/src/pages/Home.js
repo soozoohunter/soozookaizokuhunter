@@ -6,7 +6,7 @@ export default function Home() {
 
       {/* ====== 第一個紅框：保留頂部標題 ====== */}
       <div style={styles.banner}>
-        <h1 style={styles.mainTitle}>速誅 SUZOO! 侵權獵人系統</h1>
+        <h1 style={styles.mainTitle}>SUZOO Intellectual Property Infringement Detection System </h1>
       </div>
 
       {/* ====== 第二個紅框：添加您給的介紹文字 ====== */}
