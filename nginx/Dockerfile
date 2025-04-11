@@ -1,13 +1,15 @@
-# 使用官方 nginx:alpine 映像
 FROM nginx:1.27.4-alpine
 
-# 先刪除掉預設設定檔
+# 移除任何預設配置檔
 RUN rm -f /etc/nginx/conf.d/*
 
-# 複製我們自己的 default.conf 進容器
+# 把你要用的 default.conf 複製到容器裡
 COPY default.conf /etc/nginx/conf.d/default.conf
 
-# 讓容器繼續使用官方 entrypoint
+# 這裡若你需要其它設定，也可自行新增
+# ...
+
 EXPOSE 80
 EXPOSE 443
+
 CMD ["nginx", "-g", "daemon off;"]
