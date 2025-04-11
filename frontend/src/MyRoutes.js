@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
+
+// 你的頁面
 import Home from './pages/Home';
 import Pricing from './pages/Pricing';
 import ContactUsPage from './pages/ContactUsPage';
@@ -13,9 +15,8 @@ export default function MyRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 最外層 Layout: App */}
+        {/* 最外層 layout：App */}
         <Route path="/" element={<App />}>
-          {/* index => Home */}
           <Route index element={<Home />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="contact-us" element={<ContactUsPage />} />
