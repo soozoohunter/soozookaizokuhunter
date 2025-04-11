@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 
-export default function ContactUsPage(){
+export default function ContactUsPage() {
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [msg, setMsg] = useState('');
 
-  const handleSubmit = async(e)=>{
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // TODO: axios/fetch POST 到 /api/contact-us (若後端未實作請自行實作)
     alert(`感謝聯絡！\nName: ${name}\nCompany: ${company}\nEmail: ${email}\nMsg: ${msg}`);
-    setName(''); setCompany(''); setEmail(''); setMsg('');
+    setName(''); 
+    setCompany(''); 
+    setEmail(''); 
+    setMsg('');
   };
 
   return (
