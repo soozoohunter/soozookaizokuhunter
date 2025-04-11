@@ -120,6 +120,9 @@ services:
       - .env
     expose:
       - "3000"
+    # === 新增映射 Port，方便測試 React by "http://宿主IP:3000"
+    ports:
+      - "3000:3000"
     networks:
       - suzoo_net
     healthcheck:
