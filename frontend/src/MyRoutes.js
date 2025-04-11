@@ -13,7 +13,9 @@ export default function MyRoutes() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 最外層 Layout: App */}
         <Route path="/" element={<App />}>
+          {/* index => Home */}
           <Route index element={<Home />} />
           <Route path="pricing" element={<Pricing />} />
           <Route path="contact-us" element={<ContactUsPage />} />
