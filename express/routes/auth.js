@@ -11,6 +11,7 @@ const upload = multer({ dest: 'uploads/' });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
+// 產生 JWT
 function generateToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 }
@@ -51,13 +52,17 @@ router.post('/register', upload.single('trademarkLogo'), async (req, res) => {
       platforms,
       trademarkLogo: trademarkLogoPath,
       registrationNo
+      // plan = BASIC 預設
+      // uploadVideos = 0
+      // uploadImages = 0
     });
 
     return res.json({
       message: '註冊成功',
       userId: newUser.id,
       email: newUser.email,
-      userRole: newUser.userRole
+      userRole: newUser.userRole,
+      plan: newUser.plan
     });
   } catch (err) {
     console.error('[Register Error]', err);
@@ -88,7 +93,8 @@ router.post('/login', async (req, res) => {
       message:'登入成功',
       token,
       userRole: user.userRole,
-      userName: user.userName
+      userName: user.userName,
+      plan: user.plan
     });
   } catch (err) {
     console.error('[Login Error]', err);
