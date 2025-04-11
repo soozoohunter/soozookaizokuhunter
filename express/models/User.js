@@ -5,19 +5,15 @@ const sequelize = require('../db');
 
 /**
  * Users 資料表:
- *   email, password, userName, userRole='COPYRIGHT|TRADEMARK|BOTH'
- *   platforms=TEXT(存JSON), trademarkLogo=STRING, registrationNo=STRING
- *
- *   新增 plan (BASIC, PRO, ENTERPRISE)
- *   新增 uploadVideos, uploadImages (記錄已上傳次數，用於限制)
+ *   email, password, userName, userRole
+ *   plan (BASIC/PRO/ENTERPRISE)
+ *   uploadVideos / uploadImages
  */
-
 const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
-    validate: { isEmail: true }
+    unique: true
   },
   password: {
     type: DataTypes.STRING,
@@ -26,34 +22,19 @@ const User = sequelize.define('User', {
   userName: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'tempName' // 解決舊資料 not null
+    defaultValue: 'tempName'
   },
   userRole: {
-    type: DataTypes.ENUM('COPYRIGHT', 'TRADEMARK', 'BOTH'),
+    type: DataTypes.ENUM('COPYRIGHT','TRADEMARK','BOTH'),
     allowNull: false,
     defaultValue: 'COPYRIGHT'
   },
-  platforms: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  trademarkLogo: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  registrationNo: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-
-  // ★ 會員等級 (BASIC / PRO / ENTERPRISE)
+  // 會員方案
   plan: {
     type: DataTypes.ENUM('BASIC','PRO','ENTERPRISE'),
     allowNull: false,
     defaultValue: 'BASIC'
   },
-
-  // ★ 紀錄已上傳的影片/圖片次數 (示範用)
   uploadVideos: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -64,7 +45,6 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: 0
   }
-
 }, {
   tableName: 'Users',
   timestamps: true
