@@ -10,81 +10,72 @@ const jwt = require('jsonwebtoken');
 
 const sequelize = require('./db');
 const chain = require('./utils/chain');
-
-// 路由
-const authRouter = require('./routes/auth');          // /auth
-const membershipRouter = require('./routes/membership'); // /membership
-
-const User = require('./models/User'); // 為了上傳限制要抓 user 資訊
+const authRouter = require('./routes/auth');
+const membershipRouter = require('./routes/membership');
+const User = require('./models/User'); // 用於上傳限制
 
 const app = express();
 const HOST = '0.0.0.0';
 const PORT = process.env.PORT || 3000;
 
-// 解析 JSON/URL-encoded
+// 解析 JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended:true }));
 
 // Health
-app.get('/health', (req, res)=>{
+app.get('/health',(req,res)=>{
   res.json({ message:'Server healthy' });
 });
 
 /**
- * (A) /auth
+ * A) Auth
  */
 app.use('/auth', authRouter);
 
 /**
- * (B) 區塊鏈 => /chain/...
+ * B) 區塊鏈 => /chain/...
  */
 app.post('/chain/store', async(req,res)=>{
   try {
     const { data } = req.body;
-    if(!data){
-      return res.status(400).json({ success:false, error:'Missing data field' });
-    }
+    if(!data) return res.status(400).json({ error:'Missing data' });
     const txHash = await chain.writeToBlockchain(data);
     return res.json({ success:true, txHash });
   } catch(e){
-    console.error('Error writing data to chain:', e);
-    return res.status(500).json({ success:false, error:e.message });
+    console.error('[chain/store]', e);
+    return res.status(500).json({ error:e.message });
   }
 });
 app.post('/chain/writeUserAsset', async(req,res)=>{
   try {
     const { userEmail, dnaHash, fileType, timestamp } = req.body;
-    if(!userEmail || !dnaHash){
-      return res.status(400).json({ success:false, error:'Missing required fields' });
-    }
+    if(!userEmail || !dnaHash) return res.status(400).json({ error:'Missing userEmail/dnaHash' });
     const txHash = await chain.writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp);
     return res.json({ success:true, txHash });
   } catch(e){
-    console.error('Error writeUserAssetToChain:', e);
-    return res.status(500).json({ success:false, error:e.message });
+    console.error('[chain/writeUserAsset]', e);
+    return res.status(500).json({ error:e.message });
   }
 });
 app.post('/chain/writeInfringement', async(req,res)=>{
   try {
     const { userEmail, infrInfo, timestamp } = req.body;
-    if(!userEmail || !infrInfo){
-      return res.status(400).json({ success:false, error:'Missing userEmail or infrInfo' });
-    }
+    if(!userEmail || !infrInfo) return res.status(400).json({ error:'Missing userEmail/infrInfo' });
     const txHash = await chain.writeInfringementToChain(userEmail, infrInfo, timestamp);
     return res.json({ success:true, txHash });
   } catch(e){
-    console.error('Error writeInfringementToChain:', e);
-    return res.status(500).json({ success:false, error:e.message });
+    console.error('[chain/writeInfringement]', e);
+    return res.status(500).json({ error:e.message });
   }
 });
 
 /**
- * (C) /membership => 顯示 & 升級 會員
+ * C) 會員中心 => /membership
  */
 app.use('/membership', membershipRouter);
 
 /**
- * (D) 檔案上傳 /api/upload
+ * D) 檔案上傳 => /api/upload
  */
 const upload = multer({ dest:'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -92,55 +83,47 @@ const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 function authMiddleware(req,res,next){
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/,'');
-    if(!token) return res.status(401).json({ error:'尚未登入或缺少 Token' });
+    if(!token) return res.status(401).json({ error:'缺少token' });
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // { id, email }
+    req.user = decoded;
     next();
   } catch(e){
-    console.error('Token 驗證失敗:', e);
-    return res.status(401).json({ error:'Token 無效或已過期' });
+    console.error('[authMiddleware]', e);
+    return res.status(401).json({ error:'Token無效或已過期' });
   }
 }
 
-/**
- * 依方案限制:
- *  BASIC: 最多可上傳 3 個影片 + 10 張圖片
- *  PRO / ENTERPRISE: 不限
- */
-function planUploadLimitCheck(req, res, next) {
-  const userId = req.user.id;
-  // 先去DB查 user
-  User.findByPk(userId)
-    .then(user=>{
-      if(!user) {
-        return res.status(404).json({ error:'使用者不存在' });
-      }
-      // 簡單判斷: 若 user.plan='BASIC' => 限制
-      if(user.plan==='BASIC'){
-        // 判斷檔案類型? 這裡假設: mp4,mov -> 視為影片; png,jpg -> 視為圖片
-        const fileName = (req.file?.originalname||'').toLowerCase();
-        if(fileName.endsWith('.mp4') || fileName.endsWith('.mov')){
-          if(user.uploadVideos>=3){
-            return res.status(403).json({ error:'影片上傳已達 BASIC 方案 3次上限' });
-          }
-        } else if(fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png')){
-          if(user.uploadImages>=10){
-            return res.status(403).json({ error:'圖片上傳已達 BASIC 方案 10次上限' });
-          }
+// 用於檢查上傳限制
+async function planUploadLimitCheck(req,res,next){
+  try {
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+    if(!user) {
+      return res.status(404).json({ error:'使用者不存在' });
+    }
+
+    // BASIC => 影片3, 圖片10
+    if(user.plan==='BASIC'){
+      const filename = (req.file?.originalname||'').toLowerCase();
+      if(filename.endsWith('.mp4')||filename.endsWith('.mov')){
+        if(user.uploadVideos>=3){
+          return res.status(403).json({ error:'您是BASIC方案,影片上傳已達3次上限' });
         }
-        // 若都沒超過 -> 通過, attach userObj
-        req._userObj = user; 
-        next();
-      } else {
-        // PRO/ENTERPRISE 不限
-        req._userObj = user; 
-        next();
+      } else if(filename.endsWith('.jpg')||filename.endsWith('.jpeg')||filename.endsWith('.png')){
+        if(user.uploadImages>=10){
+          return res.status(403).json({ error:'您是BASIC方案,圖片上傳已達10次上限' });
+        }
       }
-    })
-    .catch(err=>{
-      console.error('[planUploadLimitCheck] Error:', err);
-      res.status(500).json({ error: err.message });
-    });
+      req._userObj = user;
+    } else {
+      // PRO/ENTERPRISE => 不限
+      req._userObj = user;
+    }
+    next();
+  } catch(e){
+    console.error('[planUploadLimitCheck]', e);
+    return res.status(500).json({ error:e.message });
+  }
 }
 
 app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCheck, async(req,res)=>{
@@ -148,7 +131,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     if(!req.file){
       return res.status(400).json({ error:'沒有檔案' });
     }
-    const userEmail = req.user.email || 'unknown@domain.com';
+    const userEmail = req.user.email;
     const filePath = req.file.path;
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
@@ -161,38 +144,36 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // 更新上傳次數
-    const userObj = req._userObj; // 在planUploadLimitCheck掛進來
-    const lowerName = (req.file.originalname||'').toLowerCase();
-    if(userObj.plan==='BASIC'){
-      // 簡單判斷檔案後綴
-      if(lowerName.endsWith('.mp4')||lowerName.endsWith('.mov')){
-        userObj.uploadVideos += 1;
-      } else if(lowerName.endsWith('.jpg')||lowerName.endsWith('.jpeg')||lowerName.endsWith('.png')){
-        userObj.uploadImages += 1;
+    // 更新計數
+    const user = req._userObj;
+    const filename = (req.file.originalname||'').toLowerCase();
+    if(user.plan==='BASIC'){
+      if(filename.endsWith('.mp4')||filename.endsWith('.mov')){
+        user.uploadVideos += 1;
+      } else if(filename.endsWith('.jpg')||filename.endsWith('.jpeg')||filename.endsWith('.png')){
+        user.uploadImages += 1;
       }
-      await userObj.save();
+      await user.save();
     }
 
-    // 刪除暫存檔
     fs.unlinkSync(filePath);
 
-    res.json({
-      message: '上傳成功',
+    return res.json({
+      message:'上傳成功',
       fileName: req.file.originalname,
       fingerprint,
-      plan: userObj.plan,
-      usedVideos: userObj.uploadVideos,
-      usedImages: userObj.uploadImages
+      plan: user.plan,
+      usedVideos: user.uploadVideos,
+      usedImages: user.uploadImages
     });
-  } catch(err){
-    console.error('[Upload Error]', err);
-    res.status(500).json({ error:err.message });
+  } catch(e){
+    console.error('[Upload Error]', e);
+    return res.status(500).json({ error:e.message });
   }
 });
 
 /**
- * 同步資料表 & 啟動
+ * 同步 & 啟動
  */
 sequelize.sync({ alter:false })
   .then(()=>{
