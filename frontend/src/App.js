@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -22,21 +21,21 @@ export default function App() {
     minHeight: '100vh',
     margin: 0,
     fontFamily: 'sans-serif',
-    display:'flex',
+    display:'flex', 
     flexDirection:'column'
   };
   const headerStyle = {
-    display:'flex',
-    justifyContent:'space-between',
+    display:'flex', 
+    justifyContent:'space-between', 
     alignItems:'center',
-    padding:'1rem',
-    background:'#111',
+    padding:'1rem', 
+    background:'#111', 
     borderBottom:'1px solid #f00'
   };
   const navLinkStyle = {
-    marginRight:'1rem',
-    color:'#ff1c1c',
-    textDecoration:'none',
+    marginRight:'1rem', 
+    color:'#ff1c1c', 
+    textDecoration:'none', 
     fontWeight:'bold'
   };
 
@@ -49,42 +48,31 @@ export default function App() {
     borderRadius:'8px',
     background:'rgba(255,28,28,0.06)'
   };
-  // 改為橘色
-  const mainTitleStyle = {
-    fontSize:'64px',
-    fontWeight:'bold',
-    margin:'0.5rem 0',
-    color:'orange'
-  };
-  const subTitleStyle = {
-    fontSize:'36px',
-    fontFamily:'"KaiTi","DFKai-SB","serif"',
-    margin:'0.5rem 0',
-    color:'orange'
-  };
-  const mainContentStyle = {
-    flex:1,
-    padding:'1rem',
-    margin:'0 1rem'
-  };
-  const footerStyle = {
-    textAlign:'center',
-    padding:'1rem',
-    marginTop:'auto',
-    fontSize:'0.85rem',
-    color:'#fff'
-  };
 
   return (
     <div style={containerStyle}>
-      {/* 頂部導覽列 */}
       <header style={headerStyle}>
-        <div>
-          <Link to="/" style={{...navLinkStyle, marginRight:'2rem'}}>速誅侵權獵人</Link>
+        {/* 左側：加一個「品牌按鈕」 */}
+        <button
+          onClick={()=> window.location.href='/'}
+          style={{
+            background:'none',
+            border:'2px solid #ff1c1c',
+            borderRadius:'4px',
+            color:'#ff1c1c',
+            padding:'6px 12px',
+            marginRight:'2rem',
+            cursor:'pointer',
+            fontWeight:'bold'
+          }}
+        >
+          速誅侵權獵人
+        </button>
+
+        <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact-us" style={navLinkStyle}>Contact Us</Link>
-        </div>
-        <nav>
+
           {!isLoggedIn && (
             <>
               <Link to="/login" style={navLinkStyle}>Login</Link>
@@ -95,8 +83,8 @@ export default function App() {
             <>
               <Link to="/profile" style={navLinkStyle}>會員中心</Link>
               <Link to="/upload" style={navLinkStyle}>Upload</Link>
-              <button
-                onClick={handleLogout}
+              <button 
+                onClick={handleLogout} 
                 style={{
                   ...navLinkStyle,
                   background:'none',
@@ -111,21 +99,28 @@ export default function App() {
         </nav>
       </header>
 
-      {/* 首頁 Banner (未登入 && path === '/') */}
       {showBanner && (
         <div style={bannerStyle}>
-          <h1 style={mainTitleStyle}>速誅 SUZOO!</h1>
-          <h2 style={subTitleStyle}>侵權獵人系統</h2>
+          <h1 style={{ fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange' }}>
+            速誅 SUZOO!
+          </h1>
+          <h2 style={{ fontSize:'36px', margin:'0.5rem 0', color:'orange' }}>
+            侵權獵人系統 <span style={{ fontSize:'20px', color:'#fff' }}> (IP Hunter System) </span>
+          </h2>
         </div>
       )}
 
-      {/* 主內容：由 <Outlet/> 切換 */}
-      <main style={mainContentStyle}>
+      <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
         <Outlet />
       </main>
 
-      {/* 底部紀念文字 */}
-      <footer style={footerStyle}>
+      <footer style={{
+        textAlign:'center',
+        padding:'1rem',
+        marginTop:'auto',
+        fontSize:'0.85rem',
+        color:'#fff'
+      }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
           <br/>
