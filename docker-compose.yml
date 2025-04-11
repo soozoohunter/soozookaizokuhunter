@@ -120,7 +120,6 @@ services:
       - .env
     expose:
       - "3000"
-    # 額外開放 3000 port 以便在需要時直接訪問 React
     ports:
       - "3000:3000"
     networks:
