@@ -1,12 +1,15 @@
-// express/models/User.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../db'); 
+const sequelize = require('../db');
 
 /**
  * Users 資料表:
- *   email, password, userName, userRole='COPYRIGHT|TRADEMARK|BOTH', 
+ *   email, password, userName, userRole='COPYRIGHT|TRADEMARK|BOTH',
  *   platforms=TEXT(存JSON), trademarkLogo=STRING, registrationNo=STRING
+ *
+ * 加入 userName.defaultValue = 'tempName'
+ * 可解決舊資料因 NOT NULL 違反而報 23502 的問題
  */
+
 const User = sequelize.define('User', {
   email: {
     type: DataTypes.STRING,
@@ -20,7 +23,8 @@ const User = sequelize.define('User', {
   },
   userName: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: false,
+    defaultValue: 'tempName' // ★ 新增預設值，舊紀錄自動帶此值，避免 NOT NULL 衝突
   },
   userRole: {
     type: DataTypes.ENUM('COPYRIGHT', 'TRADEMARK', 'BOTH'),
@@ -28,7 +32,7 @@ const User = sequelize.define('User', {
     defaultValue: 'COPYRIGHT'
   },
   platforms: {
-    type: DataTypes.TEXT, 
+    type: DataTypes.TEXT,
     allowNull: true
   },
   trademarkLogo: {
