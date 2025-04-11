@@ -1,7 +1,5 @@
 services:
-  # -------------------
-  # 1) PostgreSQL
-  # -------------------
+  # (1) PostgreSQL
   suzoo_postgres:
     image: postgres:15-alpine
     environment:
@@ -18,9 +16,7 @@ services:
       interval: 5s
       retries: 5
 
-  # -------------------
-  # 2) Ganache (Ethereum 私有鏈)
-  # -------------------
+  # (2) Ganache (Ethereum 私有鏈)
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
@@ -29,9 +25,7 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------
-  # 3) IPFS
-  # -------------------
+  # (3) IPFS
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     volumes:
@@ -43,9 +37,7 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------
-  # 4) FastAPI
-  # -------------------
+  # (4) FastAPI
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -65,9 +57,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # -------------------
-  # 5) Express
-  # -------------------
+  # (5) Express
   suzoo_express:
     build:
       context: ./express
@@ -89,9 +79,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # -------------------
-  # 6) Crawler
-  # -------------------
+  # (6) Crawler
   suzoo_crawler:
     build:
       context: ./crawler
@@ -106,9 +94,7 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------
-  # 7) React 前端
-  # -------------------
+  # (7) React 前端
   suzoo_react:
     build:
       context: ./frontend
@@ -130,9 +116,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # -------------------
-  # 8) Nginx (唯一對外入口)
-  # -------------------
+  # (8) Nginx (對外入口)
   suzoo_nginx:
     build:
       context: ./nginx
@@ -144,16 +128,14 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # 不再掛載 default.conf (避免 read-only)
+    # 僅掛載 SSL cert
     volumes:
-      # 僅掛載 SSL 憑證。預設不再掛載 default.conf(避免 read-only 問題)
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
       - suzoo_net
 
-# -------------------
-# Network & Volumes
-# -------------------
 networks:
   suzoo_net:
     driver: bridge
