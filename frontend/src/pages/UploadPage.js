@@ -1,8 +1,10 @@
+// frontend/src/pages/UploadPage.js
 import React, { useState } from 'react';
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
+  const [msg, setMsg] = useState('');
 
   const handleUpload = async(e) => {
     e.preventDefault();
@@ -23,24 +25,25 @@ export default function UploadPage() {
       const res = await fetch('/api/upload', {
         method:'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': 'Bearer ' + token
+          // 不要加 'Content-Type'
         },
         body: formData
       });
       const data = await res.json();
       if(res.ok) {
-        alert(`上傳成功！Fingerprint=${data.fingerprint}`);
+        setMsg(`上傳成功！\n檔名: ${data.fileName}\nfingerprint: ${data.fingerprint}\nplan: ${data.plan}\n(影片:${data.usedVideos} / 圖片:${data.usedImages})`);
       } else {
-        alert(`上傳失敗: ${data.error || '未知錯誤'}`);
+        setMsg(`上傳失敗: ${data.error || '未知錯誤'}`);
       }
     } catch(err) {
-      alert(`發生錯誤: ${err.message}`);
+      setMsg(`發生錯誤: ${err.message}`);
     }
   };
 
   return (
     <div style={styles.container}>
-      <h2>上傳作品 (動態短影音 / 靜態圖檔 )</h2>
+      <h2>上傳作品 (動態短影音 / 靜態圖檔)</h2>
       <form onSubmit={handleUpload} style={styles.form}>
         <div style={styles.formGroup}>
           <label>作品標題：</label>
@@ -62,6 +65,11 @@ export default function UploadPage() {
         </div>
         <button type="submit" style={styles.button}>上傳</button>
       </form>
+      {msg && (
+        <pre style={{ marginTop:'1rem', color:'yellow', whiteSpace:'pre-wrap' }}>
+          {msg}
+        </pre>
+      )}
     </div>
   );
 }
