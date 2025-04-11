@@ -1,55 +1,89 @@
-import React, { useState, useEffect } from 'react';
+// frontend/src/pages/ProfilePage.js
+import React, { useEffect, useState } from 'react';
 
 export default function ProfilePage(){
-  const [userInfo, setUserInfo] = useState(null);
-  const [works, setWorks] = useState([]); // 用於顯示已上傳作品 & fingerprint
+  const [info, setInfo] = useState(null);
+  const [msg, setMsg] = useState('');
 
   useEffect(()=>{
-    // 範例: 向後端取得 user 資料 + 作品
-    // fetch('/api/user/profile')...
-    setUserInfo({
-      email:'test@example.com',
-      userName:'BOSS',
-      userRole:'COPYRIGHT',
-      platforms:'{"instagram":"my_ig","facebook":"my_fb"}'
+    const token = localStorage.getItem('token');
+    if(!token){
+      setMsg('尚未登入');
+      return;
+    }
+    fetch('/membership',{
+      method:'GET',
+      headers:{
+        'Authorization':'Bearer '+ token
+      }
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      setInfo(d);
+    })
+    .catch(e=>{
+      setMsg('發生錯誤:'+ e.message);
     });
-    setWorks([
-      { title:'作品1', hash:'abcd1234' },
-      { title:'作品2', hash:'efgh5678' }
-    ]);
   },[]);
 
-  if(!userInfo) return <div style={{color:'#fff'}}>載入中...</div>;
+  const doUpgrade= async()=>{
+    try {
+      const resp = await fetch('/membership/upgrade',{
+        method:'POST',
+        headers:{
+          'Authorization':'Bearer '+ localStorage.getItem('token')
+        }
+      });
+      const data = await resp.json();
+      if(resp.ok){
+        alert('升級成功 => '+ data.plan);
+        setInfo({...info, plan:data.plan});
+      } else {
+        alert('升級失敗:'+ (data.error||'未知錯誤'));
+      }
+    } catch(e){
+      alert('發生錯誤:'+ e.message);
+    }
+  };
 
-  // 解析 platforms
-  let parsedPlatforms = {};
-  try {
-    parsedPlatforms = JSON.parse(userInfo.platforms || '{}');
-  } catch(e){}
+  if(msg){
+    return <div style={{ color:'#fff' }}>{msg}</div>;
+  }
+  if(!info){
+    return <div style={{ color:'#fff' }}>載入中...</div>;
+  }
+  if(info.error){
+    return <div style={{ color:'#fff' }}>錯誤: {info.error}</div>;
+  }
 
   return (
     <div style={{ maxWidth:'600px', margin:'40px auto', color:'#fff' }}>
       <h2>會員中心</h2>
-      <div style={{ marginBottom:'1rem' }}>
-        <p>Email: {userInfo.email}</p>
-        <p>暱稱: {userInfo.userName}</p>
-        <p>角色: {userInfo.userRole}</p>
-        <h3>平台帳號</h3>
-        {
-          Object.keys(parsedPlatforms).map(k=>(
-            <p key={k}>{k}: {parsedPlatforms[k]}</p>
-          ))
-        }
-      </div>
+      <p>Email: {info.email}</p>
+      <p>暱稱: {info.userName}</p>
+      <p>角色: {info.userRole}</p>
+      <p>目前方案: {info.plan}</p>
 
-      <h3>已上傳作品</h3>
-      <ul>
-        {works.map((w,i)=>(
-          <li key={i}>
-            {w.title} - Fingerprint: {w.hash}
-          </li>
-        ))}
-      </ul>
+      <p>已上傳影片次數: {info.uploadVideos}</p>
+      <p>已上傳圖片次數: {info.uploadImages}</p>
+
+      {/* 如果是 BASIC，可以升級 */}
+      {info.plan === 'BASIC' && (
+        <button 
+          onClick={doUpgrade}
+          style={{
+            marginTop:'12px',
+            padding:'10px',
+            backgroundColor:'orange',
+            border:'none',
+            borderRadius:'4px',
+            color:'#fff',
+            cursor:'pointer'
+          }}
+        >
+          升級到 PRO
+        </button>
+      )}
     </div>
   );
 }
