@@ -8,7 +8,7 @@ export default function ContactUsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: axios/fetch POST 到 /api/contact-us (若後端未實作請自行實作)
+    // TODO: axios/fetch POST 到 /api/contact-us (若後端未實作則僅示範)
     alert(`感謝聯絡！\nName: ${name}\nCompany: ${company}\nEmail: ${email}\nMsg: ${msg}`);
     setName(''); 
     setCompany(''); 
@@ -66,21 +66,21 @@ export default function ContactUsPage() {
 }
 
 const labelStyle = {
-  marginBottom:'10px'
+  marginBottom: '10px'
 };
 const inputStyle = {
-  width:'100%',
-  padding:'6px',
-  marginTop:'4px',
-  borderRadius:'4px',
-  border:'1px solid #666'
+  width: '100%',
+  padding: '6px',
+  marginTop: '4px',
+  borderRadius: '4px',
+  border: '1px solid #666'
 };
 const btnStyle = {
-  marginTop:'12px',
-  padding:'10px',
-  backgroundColor:'orange',
-  border:'none',
-  borderRadius:'4px',
-  color:'#fff',
-  cursor:'pointer'
+  marginTop: '12px',
+  padding: '10px',
+  backgroundColor: 'orange',
+  border: 'none',
+  borderRadius: '4px',
+  color: '#fff',
+  cursor: 'pointer'
 };
