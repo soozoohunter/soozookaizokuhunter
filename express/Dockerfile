@@ -2,12 +2,12 @@ FROM node:18-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
+# 安裝依賴
 COPY package.json ./
 RUN npm install
 
 COPY . .
 
-EXPOSE 3000
-CMD ["npm","start"]
+EXPOSE ${EXPRESS_PORT}
+
+CMD ["node", "server.js"]
