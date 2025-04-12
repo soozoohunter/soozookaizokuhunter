@@ -1,4 +1,3 @@
-// express/routes/auth.js
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -7,7 +6,7 @@ require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret';
 
-// 示範: 以陣列暫存用戶 (生產請用 DB)
+// 保留您原本的 user Array 或 DB 操作 (此處示範)
 const users = [];
 
 router.post('/register', async(req, res)=>{
@@ -16,12 +15,10 @@ router.post('/register', async(req, res)=>{
     if(!email || !password){
       return res.status(400).json({ error:'缺少 email 或 password' });
     }
-    // 檢查是否重複
     const exist = users.find(u=> u.email===email);
     if(exist){
       return res.status(400).json({ error:'Email 已被使用' });
     }
-    // 加密
     const hashed = await bcrypt.hash(password,10);
     users.push({ email, password:hashed });
     return res.json({ message:'註冊成功' });
