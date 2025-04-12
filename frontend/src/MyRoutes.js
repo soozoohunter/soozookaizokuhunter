@@ -1,3 +1,4 @@
+// frontend/src/MyRoutes.js
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
@@ -14,7 +15,7 @@ import Dashboard from './pages/Dashboard';
 import MembershipPage from './pages/MembershipPage';
 import PlatformAccounts from './pages/PlatformAccounts';
 import PaymentPage from './pages/PaymentPage';      // <-- 已新增
-import TrademarkCheckPage from './pages/TrademarkCheckPage';
+import TrademarkCheckPage from './pages/TrademarkCheckPage'; // <= 新增這行
 
 export default function MyRoutes(){
   return (
@@ -32,7 +33,7 @@ export default function MyRoutes(){
           <Route path="membership" element={<MembershipPage />} />
           <Route path="platform-accounts" element={<PlatformAccounts />} />
           <Route path="payment" element={<PaymentPage />} />            {/* <-- 已新增 */}
-          <Route path="trademark-check" element={<TrademarkCheckPage />} />
+          <Route path="trademark-check" element={<TrademarkCheckPage />} /> {/* 新增 */}
         </Route>
       </Routes>
     </BrowserRouter>
