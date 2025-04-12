@@ -1,47 +1,47 @@
 // express/routes/infringement.js
 const express = require('express');
 const router = express.Router();
-const Infringement = require('../models/Infringement');
 const jwt = require('jsonwebtoken');
-const { writeInfringementToChain } = require('../utils/chain');
+const Infringement = require('../models/Infringement');
+const { writeToBlockchain } = require('../utils/chain');
+require('dotenv').config();
 
-function authMiddleware(req, res, next) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
-  if (!token) return res.status(401).json({ error: '未授權，缺少Token' });
+const JWT_SECRET = process.env.JWT_SECRET;
+
+function auth(req, res, next){
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const token = (req.headers.authorization||'').replace(/^Bearer\s+/,'');
+    if(!token) return res.status(401).json({ error:'未登入' });
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Token無效' });
+  } catch(e){
+    return res.status(401).json({ error:'token失效' });
   }
 }
 
-// 新增侵權記錄 + 上鏈
-router.post('/report', authMiddleware, async (req, res) => {
-  const { workId, description } = req.body;
+// 新增報告
+router.post('/report', auth, async(req,res)=>{
   try {
-    const infringement = await Infringement.create({ workId, description });
-    
-    // 同時寫入區塊鏈
-    const userEmail = req.user.email;
-    const infrInfo = `Infr:${description}`;
-    const timestamp = Date.now().toString();
-    const txHash = await writeInfringementToChain(userEmail, infrInfo, timestamp);
-
-    res.json({ message: '侵權記錄已新增', infringement, chainTx: txHash });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const { description } = req.body;
+    if(!description) return res.status(400).json({ error:'缺少 description' });
+    const inf = await Infringement.create({ description });
+    const chainData = `User:${req.user.email}|desc=${description}`;
+    const txHash = await writeToBlockchain(chainData);
+    inf.chainRef = txHash;
+    await inf.save();
+    return res.json({ message:'侵權已紀錄', infringement:inf, chainTx:txHash });
+  } catch(e){
+    return res.status(500).json({ error:e.message });
   }
 });
 
-// 獲取所有侵權記錄
-router.get('/', async (req, res) => {
+// 取得全部
+router.get('/', async(req,res)=>{
   try {
     const list = await Infringement.findAll();
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.json(list);
+  } catch(e){
+    return res.status(500).json({ error:e.message });
   }
 });
 
