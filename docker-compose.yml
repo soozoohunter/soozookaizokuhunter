@@ -1,75 +1,161 @@
 services:
-  suzoo_nginx:
-    image: nginx:latest
-    container_name: suzoo_nginx
+  # -------------------
+  # 1) PostgreSQL
+  # -------------------
+  suzoo_postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - suzoo_db_data:/var/lib/postgresql/data
+    networks:
+      - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+
+  # -------------------
+  # 2) Ganache (Ethereum 私有鏈)
+  # -------------------
+  suzoo_ganache:
+    image: trufflesuite/ganache-cli:latest
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
-      - "80:80"  # 對外開放 80 埠
+      - "8545:8545"
+    networks:
+      - suzoo_net
+
+  # -------------------
+  # 3) IPFS
+  # -------------------
+  suzoo_ipfs:
+    image: ipfs/go-ipfs:latest
     volumes:
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf:ro  # 掛載 Nginx 設定
-      - react-static:/usr/share/nginx/html:ro                # 掛載前端編譯後靜態資源
-    depends_on:
-      suzoo_react:
-        condition: service_healthy
-      suzoo_express:
-        condition: service_healthy
-      suzoo_fastapi:
-        condition: service_healthy
-      suzoo_crawler:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]   # 確認 Nginx 可回應首頁
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - suzoo_ipfs_data:/data/ipfs
+    command: daemon
+    ports:
+      - "5001:5001"
+      - "8080:8080"
+    networks:
+      - suzoo_net
 
-  suzoo_react:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: suzoo_react
-    volumes:
-      - react-static:/app/build        # 將前端建置輸出的 build 資料夾與 volume 綁定
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]  # 檢查 React 靜態伺服器首頁
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  suzoo_express:
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    container_name: suzoo_express
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]  # 呼叫 Express 的健康檢查端點
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
+  # -------------------
+  # 4) FastAPI
+  # -------------------
   suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
-    container_name: suzoo_fastapi
+    depends_on:
+      - suzoo_ganache
+      - suzoo_ipfs
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    networks:
+      - suzoo_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]  # 呼叫 FastAPI 的健康檢查端點
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # -------------------
+  # 5) Express
+  # -------------------
+  suzoo_express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_postgres
+      - suzoo_ganache
+      - suzoo_ipfs
+      - suzoo_fastapi
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    networks:
+      - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
+  # -------------------
+  # 6) Crawler
+  # -------------------
   suzoo_crawler:
     build:
       context: ./crawler
       dockerfile: Dockerfile
-    container_name: suzoo_crawler
     depends_on:
-      suzoo_fastapi:
-        condition: service_healthy    # 等待 FastAPI 啟動後再啟動（未來若需與 FastAPI 互動）
+      - suzoo_express
+      - suzoo_postgres
+    env_file:
+      - .env
+    expose:
+      - "8081"
+    networks:
+      - suzoo_net
+
+  # -------------------
+  # 7) React 前端
+  # -------------------
+  suzoo_react:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_express
+      - suzoo_fastapi
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    networks:
+      - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL", "echo 1"]   # 簡單回傳 0 狀態表示健康
+      test: ["CMD-SHELL", "curl -f http://localhost:3000"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
 
+  # -------------------
+  # 8) Nginx (唯一對外入口)
+  # -------------------
+  suzoo_nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_react
+      - suzoo_express
+      - suzoo_fastapi
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # Let's Encrypt 憑證
+    restart: unless-stopped
+    networks:
+      - suzoo_net
+
+# -------------------
+# Network & Volumes
+# -------------------
+networks:
+  suzoo_net:
+    driver: bridge
+
 volumes:
-  react-static:
+  suzoo_db_data:
+  suzoo_ipfs_data:
