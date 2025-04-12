@@ -1,41 +1,46 @@
-// server.js
+// express/server.js
 
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
-const cors = require('cors');
 
 const sequelize = require('./db');
 const chain = require('./utils/chain');
 
-// ==== 您原本的路由 ====
+// =========== 路由 ===========
+// 您原本有的路由
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
 const paymentRouter = require('./routes/payment');
 const infringementRouter = require('./routes/infringement');
-// ... 若有其他路由，一併 require
+const trademarkRouter = require('./routes/trademarkCheck'); 
+// ^^ 如果您之前是 require('./routes/trademark') or trademarkCheckRoutes
+//    視實際檔名修改
 
-// ==== 新增: 商標檢索路由 ====
-const trademarkCheckRoutes = require('./routes/trademarkCheck');
+// 新增: Contact 路由
+const contactRouter = require('./routes/contact');
 
-// ==== Model ====
-const User = require('./models/User');
+// 載入 Model => 讓 Sequelize 知道這張表 (若有 Contact.js)
+require('./models/Contact'); 
+const User = require('./models/User'); // 會員 Model
 
 const app = express();
 const HOST = '0.0.0.0';
 const PORT = process.env.PORT || 3000;
 
+// 中介層
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // =====================
-// 健康檢查 / Health
+// Health
 // =====================
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
@@ -90,34 +95,25 @@ app.use('/membership', membershipRouter);
 
 // =====================
 // D) Profile => /profile
-//     - 綁定 IG/YouTube/TikTok/Shopee/Ruten
 // =====================
 app.use('/profile', profileRouter);
 
 // =====================
-// E) Payment or Infringement (您原有)
+// E) Payment / Infringement
 // =====================
 app.use('/payment', paymentRouter);
 app.use('/infringement', infringementRouter);
 
 // =====================
-// F) DMCA 路由 (範例)
+// F) 商標檢索 => /api/trademark-check
 // =====================
-app.post('/dmca/report', async (req, res) => {
-  const { reporterEmail, infringingLink, note } = req.body;
-  if (!reporterEmail || !infringingLink) {
-    return res.status(400).json({ error: '缺少必填欄位' });
-  }
-  // 範例：僅 console.log
-  console.log(`[DMCA] ${reporterEmail} 投訴連結: ${infringingLink}, note:${note || '無'}`);
-  return res.json({ message: 'DMCA 投訴已收到' });
-});
+// 若是 trademarkRouter, 或 trademarkCheckRoutes, 視您的實際命名:
+app.use('/api/trademark-check', trademarkRouter);
 
 // =====================
-// G) 商標檢索 => /api/trademark-check
-//     這裡掛載 trademarkCheckRoutes
+// G) Contact => /api/contact
 // =====================
-app.use('/api/trademark-check', trademarkCheckRoutes);
+app.use('/api/contact', contactRouter);
 
 // =====================
 // H) 檔案上傳 => /api/upload
@@ -146,7 +142,7 @@ async function planUploadLimitCheck(req, res, next) {
       return res.status(404).json({ error: '使用者不存在' });
     }
 
-    // 根據 plan 判斷可上傳的上限
+    // 您既有的 plan Upload Limit:
     let maxVideos = 3;
     let maxImages = 10;
     if (user.plan === 'PRO') {
@@ -157,6 +153,7 @@ async function planUploadLimitCheck(req, res, next) {
       maxImages = 60;
     }
 
+    // 檢查檔案類型
     const filename = (req.file?.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       if (user.uploadVideos >= maxVideos) {
@@ -164,17 +161,21 @@ async function planUploadLimitCheck(req, res, next) {
           .status(403)
           .json({ error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限` });
       }
-    } else if (
-      filename.endsWith('.jpg') ||
-      filename.endsWith('.jpeg') ||
-      filename.endsWith('.png')
-    ) {
+    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
       if (user.uploadImages >= maxImages) {
         return res
           .status(403)
           .json({ error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限` });
       }
     }
+
+    // 若需檢查是否超過免費期 (如 planUploadLimitCheck.js):
+    // const now = new Date();
+    // const oneMonthAfterReg = new Date(user.createdAt.getTime() + 30*24*60*60*1000);
+    // if(now > oneMonthAfterReg && !user.hasPaid){
+    //   return res.status(402).json({ error:'Free month ended. Please upgrade to continue.' });
+    // }
+
     req._userObj = user;
     next();
   } catch (e) {
@@ -201,17 +202,12 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // 更新上傳次數計數
+    // 更新上傳次數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
-
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       user.uploadVideos += 1;
-    } else if (
-      filename.endsWith('.jpg') ||
-      filename.endsWith('.jpeg') ||
-      filename.endsWith('.png')
-    ) {
+    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
       user.uploadImages += 1;
     }
     await user.save();
@@ -233,14 +229,14 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
 });
 
 // =====================
-// 啟動
+// 最終啟動
 // =====================
 sequelize
   .sync({ alter: false })
   .then(() => {
     console.log('All tables synced!');
     app.listen(PORT, HOST, () => {
-      console.log(`Express server is running on http://${HOST}:${PORT}`);
+      console.log(`Express server running on http://${HOST}:${PORT}`);
     });
   })
   .catch((err) => {
