@@ -44,7 +44,7 @@ services:
       - suzoo_net
 
   ######################
-  # 4) FastAPI (可選)
+  # 4) FastAPI (若你需要)
   ######################
   suzoo_fastapi:
     build:
@@ -90,24 +90,7 @@ services:
       retries: 5
 
   ######################
-  # 6) Crawler (可選)
-  ######################
-  suzoo_crawler:
-    build:
-      context: ./crawler
-      dockerfile: Dockerfile
-    depends_on:
-      - suzoo_express
-      - suzoo_postgres
-    env_file:
-      - .env
-    expose:
-      - "8081"
-    networks:
-      - suzoo_net
-
-  ######################
-  # 7) React 前端
+  # 6) React 前端
   ######################
   suzoo_react:
     build:
@@ -131,7 +114,7 @@ services:
       retries: 3
 
   ######################
-  # 8) Nginx (對外)
+  # 7) Nginx (對外)
   ######################
   suzoo_nginx:
     build:
