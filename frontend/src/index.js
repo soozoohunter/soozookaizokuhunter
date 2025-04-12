@@ -1,8 +1,8 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import './index.css'; // 若您有自訂CSS
-import App from './App';
+import MyRoutes from './MyRoutes';
+import './index.css'; // 若有自訂CSS
 
-const container = document.getElementById('root');
-const root = createRoot(container);
-root.render(<App />);
+const rootElement = document.getElementById('root');
+const root = createRoot(rootElement);
+root.render(<MyRoutes />);
