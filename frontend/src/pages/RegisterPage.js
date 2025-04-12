@@ -1,62 +1,74 @@
+// src/pages/RegisterPage.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function RegisterPage() {
+export default function RegisterPage(){
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [userName, setUserName] = useState('');
+  const [msg, setMsg] = useState('');
+  const nav = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+  const doRegister = async()=>{
+    setMsg('');
+    if(!email || !password || !userName){
+      setMsg('請輸入完整註冊資訊');
       return;
     }
     try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
+      const formData = new FormData();
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('userName', userName);
+
+      const resp = await fetch('/auth/register',{
+        method:'POST',
+        body: formData
       });
-      if (!res.ok) {
-        if (res.status === 409) {
-          setError('Email is already registered.');
-        } else {
-          setError('Registration failed. Please try again.');
-        }
+      const data = await resp.json();
+      if(resp.ok){
+        setMsg('註冊成功，請至信箱查看驗證碼後前往 [驗證頁] 輸入');
+        // 前往驗證頁
+        setTimeout(()=>{
+          nav('/verify-email');
+        }, 1500);
       } else {
-        // Registration successful
-        alert('Registration successful! Please log in.');
-        navigate('/login');
+        setMsg('註冊失敗: '+ data.error);
       }
-    } catch (err) {
-      console.error('Registration error:', err);
-      setError('Registration failed due to a network or server error.');
+    } catch(e){
+      setMsg('發生錯誤: '+ e.message);
     }
   };
 
   return (
-    <div className="register-page">
-      <h2>Register</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Email: <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-        </div>
-        <div>
-          <label>Password: <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
-        </div>
-        <div>
-          <label>Confirm Password: <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>
-        </div>
-        {error && <p className="error">{error}</p>}
-        <button type="submit">Sign Up</button>
-      </form>
+    <div>
+      <h2>註冊</h2>
+      <div>
+        <label>Email: </label>
+        <input 
+          type="email"
+          value={email} 
+          onChange={e=>setEmail(e.target.value)} 
+        />
+      </div>
+      <div>
+        <label>密碼: </label>
+        <input 
+          type="password" 
+          value={password} 
+          onChange={e=>setPassword(e.target.value)}
+        />
+      </div>
+      <div>
+        <label>暱稱: </label>
+        <input 
+          value={userName} 
+          onChange={e=>setUserName(e.target.value)} 
+        />
+      </div>
+      <button onClick={doRegister}>送出註冊</button>
+
+      {msg && <p style={{ color:'yellow', marginTop:'1rem' }}>{msg}</p>}
     </div>
   );
 }
-
-export default RegisterPage;
