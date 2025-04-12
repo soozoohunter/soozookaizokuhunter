@@ -20,7 +20,7 @@ services:
       retries: 5
 
   ###################################
-  # 2) Ganache (ETH 私有鏈)
+  # 2) Ganache (ETH 私有鏈, 可選)
   ###################################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
@@ -47,7 +47,7 @@ services:
       - suzoo_net
 
   ###################################
-  # 4) FastAPI (若需要Python後端)
+  # 4) FastAPI (Python後端, 可選)
   ###################################
   suzoo_fastapi:
     build:
@@ -83,6 +83,7 @@ services:
       - suzoo_postgres
       - suzoo_ganache
       - suzoo_ipfs
+      - suzoo_fastapi
     expose:
       - "${EXPRESS_PORT}"
     networks:
@@ -116,7 +117,7 @@ services:
       retries: 3
 
   ###################################
-  # 7) Nginx (對外, 80 & 443)
+  # 7) Nginx (對外)
   ###################################
   suzoo_nginx:
     build:
@@ -134,7 +135,6 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # SSL 憑證 (Let's Encrypt) 掛載
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
