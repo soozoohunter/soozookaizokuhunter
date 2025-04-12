@@ -1,7 +1,7 @@
 services:
-  ######################
-  # 1) PostgreSQL
-  ######################
+  ###########################
+  # 1) PostgreSQL (可選)
+  ###########################
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -19,9 +19,9 @@ services:
       timeout: 5s
       retries: 5
 
-  ######################
-  # 2) Ganache (ETH)
-  ######################
+  ###########################
+  # 2) Ganache (ETH 私有鏈) (可選)
+  ###########################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -31,9 +31,9 @@ services:
     networks:
       - suzoo_net
 
-  ######################
-  # 3) IPFS
-  ######################
+  ###########################
+  # 3) IPFS (可選)
+  ###########################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -45,10 +45,15 @@ services:
       - suzoo_ipfs_data:/data/ipfs
     networks:
       - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5001/api/v0/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  ######################
+  ###########################
   # 4) FastAPI (可選)
-  ######################
+  ###########################
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -64,14 +69,14 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
 
-  ######################
-  # 5) Express
-  ######################
+  ###########################
+  # 5) Express (Node.js 後端)
+  ###########################
   suzoo_express:
     build:
       context: ./express
@@ -89,14 +94,32 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${EXPRESS_PORT}/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:${EXPRESS_PORT}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  ######################
-  # 6) React 前端
-  ######################
+  ###########################
+  # 6) Crawler (可選, 保留您原本)
+  ###########################
+  suzoo_crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: suzoo_crawler
+    env_file:
+      - .env
+    depends_on:
+      - suzoo_express
+      - suzoo_postgres
+    expose:
+      - "8081"
+    networks:
+      - suzoo_net
+
+  ###########################
+  # 7) React 前端
+  ###########################
   suzoo_react:
     build:
       context: ./frontend
@@ -116,9 +139,9 @@ services:
       timeout: 10s
       retries: 3
 
-  ######################
-  # 7) Nginx (對外)
-  ######################
+  ###########################
+  # 8) Nginx (對外 80/443)
+  ###########################
   suzoo_nginx:
     build:
       context: ./nginx
