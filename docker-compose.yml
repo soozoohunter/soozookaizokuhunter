@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   ######################
   # 1) PostgreSQL
@@ -72,7 +74,7 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    container_name: suzoo_express         # <-- 新增 container_name
+    container_name: suzoo_express
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
@@ -80,13 +82,17 @@ services:
       - suzoo_fastapi
     env_file:
       - .env
-    ports:
-      - "3000:3000"                       # <-- 新增對外埠口
-    environment:                          # <-- 新增環境變數
-      - GMAIL_USER=jeffqqm@gmail.com
-      - GMAIL_PASS=Zack967988
+
+    # ✅ 不要對外暴露 3000，僅在容器內部透過 suzoo_net
+    # ports: 
+    #   - "3000:3000"
     expose:
       - "3000"
+
+    environment:
+      - GMAIL_USER=jeffqqm@gmail.com
+      - GMAIL_PASS=Zack967988
+
     networks:
       - suzoo_net
     healthcheck:
