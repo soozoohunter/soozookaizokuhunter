@@ -1,17 +1,16 @@
-FROM node:18-alpine
+FROM node:18-slim
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+COPY package.json ./
 RUN npm install
 
 COPY . .
 
 RUN npm run build
-
-# 安裝 serve 供容器健康檢查時可看到3000
 RUN npm install -g serve
 
 EXPOSE 3000
-
 CMD ["serve", "-s", "build", "-l", "3000"]
