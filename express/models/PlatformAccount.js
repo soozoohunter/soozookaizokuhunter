@@ -3,10 +3,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 /**
- * PlatformAccount: 紀錄使用者不同平台的帳號
- *  userId => Users.id
- *  platform => e.g. 'instagram','shopee'
- *  accountId => 該平台上的帳號ID
+ * 例: platform='instagram', accountId='my_ig'
  */
 const PlatformAccount = sequelize.define('PlatformAccount', {
   id: {
