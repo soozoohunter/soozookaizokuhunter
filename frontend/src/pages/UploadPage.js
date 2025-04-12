@@ -1,101 +1,60 @@
 import React, { useState } from 'react';
 
-export default function UploadPage() {
+function UploadPage({ token }) {
   const [file, setFile] = useState(null);
-  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
 
-  const handleUpload = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if(!file) {
-      alert('請選擇檔案');
-      return;
-    }
-    const token = localStorage.getItem('token');
-    if(!token) {
-      alert('尚未登入');
+    setStatus('');
+    setError('');
+    if (!file) {
+      setError('Please choose a file to upload.');
       return;
     }
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('title', title);
-
       const res = await fetch('/api/upload', {
-        method:'POST',
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
-          // 不加 'Content-Type': 'multipart/form-data'
         },
         body: formData
       });
-      const data = await res.json();
-      if(res.ok) {
-        alert(`上傳成功！Fingerprint=${data.fingerprint}`);
+      if (!res.ok) {
+        setError(`Upload failed with status ${res.status}.`);
       } else {
-        alert(`上傳失敗: ${data.error || '未知錯誤'}`);
+        // Try to parse response
+        let resultText = '';
+        try {
+          const data = await res.json();
+          resultText = JSON.stringify(data);
+        } catch {
+          resultText = await res.text();
+        }
+        setStatus(resultText || 'Upload successful!');
       }
-    } catch(err) {
-      alert(`發生錯誤: ${err.message}`);
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError('Upload failed due to a network or server error.');
     }
   };
 
   return (
-    <div style={styles.container}>
-      <h2>上傳作品 (動態短影音 / 靜態圖檔)</h2>
-      <form onSubmit={handleUpload} style={styles.form}>
-        <div style={styles.formGroup}>
-          <label>作品標題：</label>
-          <input 
-            type="text"
-            value={title}
-            onChange={e=>setTitle(e.target.value)}
-            style={styles.input}
-            placeholder="輸入著作權（作品）標題"
-          />
+    <div className="upload-page">
+      <h2>Upload</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <input type="file" onChange={(e) => setFile(e.target.files[0])} />
         </div>
-        <div style={styles.formGroup}>
-          <label>選擇檔案：</label>
-          <input 
-            type="file"
-            onChange={e=>setFile(e.target.files[0])}
-            style={styles.input}
-          />
-        </div>
-        <button type="submit" style={styles.button}>上傳</button>
+        {error && <p className="error">{error}</p>}
+        {status && <p className="status">{status}</p>}
+        <button type="submit">Upload File</button>
       </form>
     </div>
   );
 }
 
-const styles = {
-  container:{
-    maxWidth:'500px',
-    margin:'40px auto',
-    padding:'20px',
-    border:'1px solid #ccc',
-    borderRadius:'8px',
-    background:'#111',
-    color:'#fff'
-  },
-  form:{
-    display:'flex',
-    flexDirection:'column'
-  },
-  formGroup:{
-    marginBottom:'10px'
-  },
-  input:{
-    marginTop:'5px',
-    padding:'6px',
-    borderRadius:'4px',
-    border:'1px solid #666'
-  },
-  button:{
-    padding:'8px 16px',
-    backgroundColor: '#ff1c1c',
-    color:'#fff',
-    border:'none',
-    borderRadius:'4px',
-    cursor:'pointer'
-  }
-};
+export default UploadPage;
