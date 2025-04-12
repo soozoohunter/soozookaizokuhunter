@@ -90,7 +90,24 @@ services:
       retries: 5
 
   ######################
-  # 6) React 前端
+  # 6) Crawler (可選)
+  ######################
+  suzoo_crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_express
+      - suzoo_postgres
+    env_file:
+      - .env
+    expose:
+      - "8081"
+    networks:
+      - suzoo_net
+
+  ######################
+  # 7) React 前端
   ######################
   suzoo_react:
     build:
@@ -98,6 +115,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - suzoo_express
+      - suzoo_fastapi
     env_file:
       - .env
     expose:
@@ -113,7 +131,7 @@ services:
       retries: 3
 
   ######################
-  # 7) Nginx (對外)
+  # 8) Nginx (對外)
   ######################
   suzoo_nginx:
     build:
@@ -122,6 +140,7 @@ services:
     depends_on:
       - suzoo_react
       - suzoo_express
+      - suzoo_fastapi
     ports:
       - "80:80"
       - "443:443"
