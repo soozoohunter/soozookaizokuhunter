@@ -90,7 +90,7 @@ services:
       retries: 5
 
   ######################
-  # 6) Crawler (可選)
+  # 6) Crawler (可有可無)
   ######################
   suzoo_crawler:
     build:
@@ -121,7 +121,7 @@ services:
     expose:
       - "3000"
     ports:
-      - "3000:3000"  # 方便測試
+      - "3000:3000"
     networks:
       - suzoo_net
     healthcheck:
@@ -144,10 +144,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 用 suzoo.conf 取代 default.conf
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # SSL 憑證
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
       - suzoo_net
