@@ -33,11 +33,11 @@ export default function HomePage() {
       {/* 核心介紹 */}
       <section style={{ textAlign: 'center', marginBottom: '2rem' }}>
         <h2 style={{ color: 'orange', marginBottom: '1rem' }}>
-          世界首創一站式著作權上鏈 & 侵權偵測 & DMCA 申訴 & 商標申請/檢索/維權
+          世界首創使用區塊鏈來守護您的智慧財產權 & 24小時侵權爬蟲偵測 & DMCA合作提出申訴要求侵權產品直接下架 & 商標申請/檢索/維權
         </h2>
         <p style={{ maxWidth: '600px', margin: '0 auto', lineHeight: '1.6' }}>
           本平台提供<strong>動態 Fingerprint</strong>（短影音）與<strong>靜態 Fingerprint</strong>
-          （商品圖片），全程上鏈保留智慧財產證據。若發生侵權，我們可於 24 小時內執行 DMCA
+          （商品圖片），全程上鏈保護原創者擁有智慧財產權利證據。若發生侵權，我們可於 24 小時內執行 DMCA
           下架。另提供「商標一站式申請與監控」，讓您輕鬆維護延展，免除繁雜紀錄。
         </p>
       </section>
