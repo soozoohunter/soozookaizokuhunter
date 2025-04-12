@@ -1,12 +1,12 @@
-// express/models/User.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
 /**
- * 方案: BASIC / PRO / ENTERPRISE
- *   - BASIC: shortVideo=3, image=15, trademark=1
- *   - PRO:   shortVideo=50, image=150, trademark=10
- *   - ENT:   unlimited
+ * Users 資料表:
+ *   email, password, userName, userRole
+ *   plan (BASIC/PRO/ENTERPRISE)
+ *   uploadVideos / uploadImages / uploadTrademarks
+ *   verifyEmail (是否已透過Email驗證)
  */
 const User = sequelize.define('User', {
   email: {
@@ -35,23 +35,23 @@ const User = sequelize.define('User', {
   },
   uploadVideos: {
     type: DataTypes.INTEGER,
+    allowNull: false,
     defaultValue: 0
   },
   uploadImages: {
     type: DataTypes.INTEGER,
+    allowNull: false,
     defaultValue: 0
   },
   uploadTrademarks: {
     type: DataTypes.INTEGER,
+    allowNull: false,
     defaultValue: 0
   },
-  emailVerified: {
+  verifyEmail: {
     type: DataTypes.BOOLEAN,
+    allowNull: false,
     defaultValue: false
-  },
-  verificationCode: {
-    type: DataTypes.STRING,
-    allowNull: true
   }
 }, {
   tableName: 'Users',
