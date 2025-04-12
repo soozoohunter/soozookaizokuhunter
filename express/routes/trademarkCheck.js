@@ -4,9 +4,14 @@ const router = express.Router();
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+// ★ 如果要上鏈紀錄，請匯入 chain (假設路徑為 ../utils/chain.js)
+const chain = require('../utils/chain'); // 若無此檔，請自行建立 chain.js
+
 /**
- * [範例] 申請前檢索 (TIPO 的初步示範)
- * GET /api/trademark-check/pre?keyword=...
+ * ----------------------------------------
+ *  A) 申請前檢索 (/pre)
+ *      GET /api/trademark-check/pre?keyword=...
+ * ----------------------------------------
  */
 router.get('/pre', async (req, res) => {
   const { keyword } = req.query;
@@ -15,29 +20,41 @@ router.get('/pre', async (req, res) => {
   }
 
   try {
-    // 這裡僅做示範，實際需依 TIPO 網站的表單流程、驗證機制做更多處理
-    const targetUrl = 'https://cloud.tipo.gov.tw/S282/S282WV1/';
+    // 以下僅示範: 假設要爬 TIPO 某段頁面(實際需動態操作)
+    const targetUrl = `https://cloud.tipo.gov.tw/S282/S282WV1/#/?searchBy=text&kw=${encodeURIComponent(keyword)}`;
 
+    // 用 axios 抓頁面 (示範: 可能需 Cookie / form data / headless 等, 這裡簡化)
     const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:110.0) Gecko/20100101 Firefox/110.0',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
     });
 
-    // 使用 cheerio 解析回傳的 HTML
+    // 解析 HTML (若 TIPO 網頁是動態JS載入, cheerio 可能撈不到)
     const $ = cheerio.load(response.data);
-    // 以下僅示範列印整頁標題
-    const pageTitle = $('title').text() || 'No Title Found';
+    const results = [];
 
-    // 在此，你可能需要進一步尋找該網站表單的輸入欄位 name、__VIEWSTATE、__EVENTVALIDATION 等參數
-    // 並用 axios.post(...) 提交。這部分需自行再做研究。
+    // 假裝搜尋結果區域
+    $('.search-result-item').each((i, el) => {
+      const name = $(el).find('.trademark-name').text().trim();
+      const status = $(el).find('.trademark-status').text().trim();
+      results.push({ name, status });
+    });
 
-    // 假設僅示範回傳頁面標題 + 你傳入的 keyword
+    // ★ 上鏈: 紀錄查詢行為
+    try {
+      await chain.writeCustomRecord(
+        'TRADEMARK_CHECK',
+        `type=PRE|keyword=${keyword}|count=${results.length}`
+      );
+    } catch (chainErr) {
+      console.error('[Chain Error] pre-search:', chainErr);
+    }
+
+    // 回傳 JSON 結果
     res.json({
       searchType: 'pre',
       keyword,
-      tipopageTitle: pageTitle,
-      note: '如需真正查詢，請模擬帶入表單的 VIEWSTATE、檢索參數等。'
+      dataCount: results.length,
+      results,
     });
   } catch (err) {
     console.error('Pre-search error:', err);
@@ -45,10 +62,11 @@ router.get('/pre', async (req, res) => {
   }
 });
 
-
 /**
- * [範例] 申請後維權檢索 (TIPO 的初步示範)
- * GET /api/trademark-check/post?keyword=...
+ * ----------------------------------------
+ *  B) 申請後維權檢索 (/post)
+ *      GET /api/trademark-check/post?keyword=...
+ * ----------------------------------------
  */
 router.get('/post', async (req, res) => {
   const { keyword } = req.query;
@@ -57,30 +75,151 @@ router.get('/post', async (req, res) => {
   }
 
   try {
-    // 與 /pre 類似，也是假設爬 TIPO 首頁當範例
-    const targetUrl = 'https://cloud.tipo.gov.tw/S282/S282WV1/';
+    // 範例: 後端查 "圖形" 或 "文字" 皆可; 這裡舉例傳 "searchBy=mark"
+    const targetUrl = `https://cloud.tipo.gov.tw/S282/S282WV1/#/?searchBy=mark&kw=${encodeURIComponent(keyword)}`;
 
     const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:110.0) Gecko/20100101 Firefox/110.0',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
     });
 
     const $ = cheerio.load(response.data);
-    const pageTitle = $('title').text() || 'No Title Found';
+    const results = [];
 
-    // 假設回傳頁面標題 + keyword
-    // 實際上要再去分析表單及 POST/GET 參數
+    // 假裝搜尋結果區域 (自行修改對應 TIPO 頁面元素)
+    $('.infringement-item').each((i, el) => {
+      const caseNumber = $(el).find('.case-num').text().trim();
+      const infringementDesc = $(el).find('.case-desc').text().trim();
+      results.push({ caseNumber, infringementDesc });
+    });
+
+    // ★ 上鏈
+    try {
+      await chain.writeCustomRecord(
+        'TRADEMARK_CHECK',
+        `type=POST|keyword=${keyword}|count=${results.length}`
+      );
+    } catch (chainErr) {
+      console.error('[Chain Error] post-search:', chainErr);
+    }
+
     res.json({
       searchType: 'post',
       keyword,
-      tipopageTitle: pageTitle,
-      note: '如需真正查詢，請模擬帶入表單的 VIEWSTATE、檢索參數等。'
+      dataCount: results.length,
+      results,
     });
   } catch (err) {
     console.error('Post-search error:', err);
     res.status(500).json({ error: '爬蟲失敗或目標網站無法存取' });
   }
 });
+
+/**
+ * ----------------------------------------
+ *  C) 文字檢索 (/text)
+ *      GET /api/trademark-check/text?keyword=...
+ * ----------------------------------------
+ */
+router.get('/text', async (req, res) => {
+  const { keyword } = req.query;
+  if (!keyword) {
+    return res.status(400).json({ error: '缺少 keyword 參數' });
+  }
+
+  try {
+    // 對應 TIPO 的 "文字檢索" => searchBy=text
+    const targetUrl = `https://cloud.tipo.gov.tw/S282/S282WV1/#/?searchBy=text&kw=${encodeURIComponent(keyword)}`;
+
+    const response = await axios.get(targetUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    const $ = cheerio.load(response.data);
+    const results = [];
+
+    // 下面為示範: 依實際頁面 DOM 而定
+    $('.search-result-item').each((i, el) => {
+      const markName = $(el).find('.mark-name').text().trim();
+      const markStatus = $(el).find('.mark-status').text().trim();
+      results.push({ markName, markStatus });
+    });
+
+    // 上鏈: 紀錄這次檢索行為
+    try {
+      await chain.writeCustomRecord(
+        'TRADEMARK_CHECK',
+        `type=TEXT|keyword=${keyword}|count=${results.length}`
+      );
+    } catch (chainErr) {
+      console.error('[Chain Error] text-search:', chainErr);
+    }
+
+    res.json({
+      searchType: 'text',
+      keyword,
+      dataCount: results.length,
+      results,
+    });
+  } catch (err) {
+    console.error('[Text-search error]', err);
+    res.status(500).json({ error: '爬蟲失敗或目標網站無法存取' });
+  }
+});
+
+/**
+ * ----------------------------------------
+ *  D) 圖形檢索 (/mark)
+ *      GET /api/trademark-check/mark?keyword=...
+ * ----------------------------------------
+ */
+router.get('/mark', async (req, res) => {
+  const { keyword } = req.query;
+  if (!keyword) {
+    return res.status(400).json({ error: '缺少 keyword 參數' });
+  }
+
+  try {
+    // TIPO 圖形檢索 => searchBy=mark
+    const targetUrl = `https://cloud.tipo.gov.tw/S282/S282WV1/#/?searchBy=mark&kw=${encodeURIComponent(keyword)}`;
+
+    const response = await axios.get(targetUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    const $ = cheerio.load(response.data);
+    const results = [];
+
+    $('.search-result-graphic').each((i, el) => {
+      const markTitle = $(el).find('.graphic-title').text().trim();
+      const markStatus = $(el).find('.graphic-status').text().trim();
+      results.push({ markTitle, markStatus });
+    });
+
+    // 上鏈
+    try {
+      await chain.writeCustomRecord(
+        'TRADEMARK_CHECK',
+        `type=MARK|keyword=${keyword}|count=${results.length}`
+      );
+    } catch (chainErr) {
+      console.error('[Chain Error] mark-search:', chainErr);
+    }
+
+    res.json({
+      searchType: 'mark',
+      keyword,
+      dataCount: results.length,
+      results,
+    });
+  } catch (err) {
+    console.error('[Mark-search error]', err);
+    res.status(500).json({ error: '爬蟲失敗或目標網站無法存取' });
+  }
+});
+
+/** 
+ * (可選) E) 若要圖片檢索 (/image)，可再新增一隻
+ * router.get('/image', async (req, res) => { ... });
+ */
 
 module.exports = router;
