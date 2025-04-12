@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const sequelize = require('./db');
 
-// 路由
+// === 路由 (原有) ===
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const paymentRouter = require('./routes/payment');
@@ -12,7 +12,9 @@ const uploadRouter = require('./routes/upload');
 const profilesRouter = require('./routes/profiles');
 const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademark'); // 若有
-const trademarkCheckRoutes = require('./routes/trademarkCheck'); // 新增
+
+// === 新增: 商標檢索路由 (下方檔案) ===
+const trademarkCheckRoutes = require('./routes/trademarkCheck');
 
 const app = express();
 const HOST = '0.0.0.0';
@@ -22,24 +24,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 健康檢查路由
+// 健康檢查
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
 
-// 綁定既有路由
+// === 綁定既有路由 ===
 app.use('/auth', authRouter);
 app.use('/membership', membershipRouter);
 app.use('/payment', paymentRouter);
 app.use('/upload', uploadRouter);
 app.use('/profiles', profilesRouter);
 app.use('/infringement', infringementRouter);
-app.use('/trademark', trademarkRouter); // 若實際實作
+app.use('/trademark', trademarkRouter); // 若有 (自行擴充)
 
-// 新增掛載 trademarkCheckRoutes：提供 /api/trademark-check/... 的爬蟲 API
+// === 新增: 提供 /api/trademark-check/... 的爬蟲查詢功能 ===
 app.use('/api/trademark-check', trademarkCheckRoutes);
 
-// 同步資料庫 (Sequelize)
+// 同步資料庫
 sequelize
   .sync({ alter: false })
   .then(() => {
