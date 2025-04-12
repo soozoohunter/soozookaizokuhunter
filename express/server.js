@@ -1,10 +1,9 @@
-// express/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
 // (可選) 若使用 Sequelize
-// const sequelize = require('./db');
+// const sequelize = require('./db'); 
 
 const app = express();
 const PORT = process.env.EXPRESS_PORT || 3000;
@@ -15,14 +14,13 @@ app.use(express.json());
 // Health check
 app.get('/health',(req,res)=>res.json({ message:'Express healthy' }));
 
-// 路由
+// Routes
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const uploadRouter = require('./routes/upload');
-// 若您有 infringement, profiles, payment... 也可引入
-// const infringementRouter = require('./routes/infringement');
-// const profilesRouter = require('./routes/profiles');
-// ...
+// 若您原本有 infringement, profiles 等, 繼續保留:
+/// const infringementRouter = require('./routes/infringement');
+/// const profilesRouter = require('./routes/profiles');
 
 app.use('/auth', authRouter);
 app.use('/membership', membershipRouter);
@@ -40,7 +38,7 @@ sequelize.sync({ alter:false })
   .catch(err=> console.error('DB sync error:', err));
 */
 
-// 若沒使用資料庫,直接啟動:
+// 若沒使用 DB, 直接啟動:
 app.listen(PORT, ()=>{
   console.log(`Express server running on port ${PORT}`);
 });
