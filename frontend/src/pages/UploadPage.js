@@ -1,60 +1,60 @@
+// src/pages/UploadPage.js
 import React, { useState } from 'react';
 
-function UploadPage({ token }) {
+export default function UploadPage(){
+  const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
-  const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus('');
-    setError('');
-    if (!file) {
-      setError('Please choose a file to upload.');
+  const doUpload= async()=>{
+    if(!file){
+      alert('請選擇檔案');
       return;
     }
+    setMsg('');
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
+      formData.append('title', title);
+
+      const resp = await fetch('/api/upload',{
+        method:'POST',
+        headers:{
+          'Authorization':'Bearer '+ localStorage.getItem('token')
         },
         body: formData
       });
-      if (!res.ok) {
-        setError(`Upload failed with status ${res.status}.`);
+      const data = await resp.json();
+      if(resp.ok){
+        setMsg('上傳成功: '+ JSON.stringify(data));
       } else {
-        // Try to parse response
-        let resultText = '';
-        try {
-          const data = await res.json();
-          resultText = JSON.stringify(data);
-        } catch {
-          resultText = await res.text();
-        }
-        setStatus(resultText || 'Upload successful!');
+        setMsg('上傳失敗: '+ (data.error||''));
       }
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError('Upload failed due to a network or server error.');
+    } catch(e){
+      setMsg('發生錯誤: '+ e.message);
     }
   };
 
   return (
-    <div className="upload-page">
-      <h2>Upload</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <input type="file" onChange={(e) => setFile(e.target.files[0])} />
-        </div>
-        {error && <p className="error">{error}</p>}
-        {status && <p className="status">{status}</p>}
-        <button type="submit">Upload File</button>
-      </form>
+    <div>
+      <h2>上傳作品 (動態短影音 / 圖片)</h2>
+      <div style={{ margin:'0.5rem 0' }}>
+        <label>作品標題: </label>
+        <input 
+          value={title} 
+          onChange={e=>setTitle(e.target.value)} 
+          placeholder="輸入作品標題"
+        />
+      </div>
+      <div style={{ margin:'0.5rem 0' }}>
+        <label>選擇檔案: </label>
+        <input 
+          type="file" 
+          onChange={e=> setFile(e.target.files[0])}
+        />
+      </div>
+      <button onClick={doUpload}>上傳</button>
+      {msg && <p style={{ marginTop:'1rem', color:'yellow' }}>{msg}</p>}
     </div>
   );
 }
-
-export default UploadPage;
