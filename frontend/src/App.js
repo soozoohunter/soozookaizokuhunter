@@ -1,27 +1,27 @@
 import React from 'react';
-import { 
-  BrowserRouter, 
-  Routes, 
-  Route, 
-  Link, 
-  Outlet, 
-  useLocation 
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Outlet,
+  useLocation
 } from 'react-router-dom';
 
-// ★如果您有其他 pages：
+// 保留您原有 pages:
 import Home from './pages/Home';
+import Pricing from './pages/Pricing';
+import ContactUsPage from './pages/ContactUsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
+import MembershipPage from './pages/MembershipPage';
 import Dashboard from './pages/Dashboard';
-import Pricing from './pages/Pricing';          // 若有
-import ContactUsPage from './pages/ContactUsPage'; // 若有
-import ProfilePage from './pages/ProfilePage'; // 若有
-import MembershipPage from './pages/MembershipPage'; // 若有
-import UploadPage from './pages/UploadPage'; // 若有
+import UploadPage from './pages/UploadPage';
+// ...若您有更多頁面, 請自行 import
 
-// Layout 組件：保留您原本的外觀、Banner、Header、Footer
+// Layout: 用於保留您 header + banner + footer 結構 + handleLogout
 function Layout(){
-  // 保留您原本的變數/函式
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
   const location = useLocation();
@@ -34,7 +34,7 @@ function Layout(){
     window.location.href = "/";
   };
 
-  // 保留您原本的 style
+  // 您的 style
   const containerStyle = {
     backgroundColor: '#000',
     color: '#ff1c1c',
@@ -74,7 +74,6 @@ function Layout(){
 
   return (
     <div style={containerStyle}>
-      {/* header */}
       <header style={headerStyle}>
         <button
           onClick={()=> window.location.href='/'}
@@ -83,7 +82,6 @@ function Layout(){
           速誅侵權獵人
         </button>
 
-        {/* 導覽列 (保留您原本的 Link) */}
         <nav style={{ display:'flex', alignItems:'center'}}>
           <Link to="/pricing" style={navBtnStyle}>Pricing</Link>
           <Link to="/contact-us" style={navBtnStyle}>Contact Us</Link>
@@ -110,7 +108,6 @@ function Layout(){
         </nav>
       </header>
 
-      {/* Banner (若在首頁且未登入才顯示) */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={{fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange'}}>
@@ -122,12 +119,11 @@ function Layout(){
         </div>
       )}
 
-      {/* 主內容：Outlet 會渲染子路由對應畫面 */}
       <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
+        {/* Outlet 用來渲染下層路由 */}
         <Outlet />
       </main>
 
-      {/* Footer */}
       <footer style={{ textAlign:'center', padding:'1rem', marginTop:'auto', fontSize:'0.85rem', color:'#fff' }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
@@ -141,29 +137,30 @@ function Layout(){
   );
 }
 
-// App：BrowserRouter + Routes
+// App: 設定路由
 export default function App(){
   return (
     <BrowserRouter>
       <Routes>
-        {/* 根路由使用 Layout 包裹 => <Outlet> */}
+        {/* 根路由掛 Layout */}
         <Route path="/" element={<Layout />}>
-          {/* index => 直接渲染 Home */}
+          {/* index => Home */}
           <Route index element={<Home />} />
 
-          {/* 您原本的 /login, /register, /dashboard, /upload, /membership, /profile... */}
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="upload" element={<UploadPage />} /> {/* 若您有 UploadPage */}
-          <Route path="membership" element={<MembershipPage />} /> {/* 若您有 */}
-          <Route path="profile" element={<ProfilePage />} /> {/* 若您有 */}
-
-          {/* 額外 /pricing, /contact-us */}
+          {/* 其他對應頁面 */}
           <Route path="pricing" element={<Pricing />} />
           <Route path="contact-us" element={<ContactUsPage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="membership" element={<MembershipPage />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="upload" element={<UploadPage />} />
 
-          {/* 其餘路由 (404等) 可在此加 <Route path="*" element={<NotFound />} /> */}
+          {/* 若您有更多, 例如 /infringement */}
+          {/* <Route path="infringement" element={<InfringementPage />} /> */}
+
+          {/* 404 => <Route path="*" element={<NotFound/>} /> */}
         </Route>
       </Routes>
     </BrowserRouter>
