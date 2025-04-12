@@ -1,3 +1,4 @@
+// express/models/Infringement.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
