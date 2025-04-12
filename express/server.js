@@ -1,9 +1,10 @@
+// express/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// 若使用資料庫
-// const sequelize = require('./db'); // or any db config
+// (可選) 若使用 Sequelize
+// const sequelize = require('./db');
 
 const app = express();
 const PORT = process.env.EXPRESS_PORT || 3000;
@@ -11,23 +12,35 @@ const PORT = process.env.EXPRESS_PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 健康檢查
-app.get('/health', (req, res) => {
-  res.json({ message: 'Express healthy' });
-});
+// Health check
+app.get('/health',(req,res)=>res.json({ message:'Express healthy' }));
 
 // 路由
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const uploadRouter = require('./routes/upload');
-// etc...
+// 若您有 infringement, profiles, payment... 也可引入
+// const infringementRouter = require('./routes/infringement');
+// const profilesRouter = require('./routes/profiles');
+// ...
 
 app.use('/auth', authRouter);
 app.use('/membership', membershipRouter);
 app.use('/upload', uploadRouter);
+// app.use('/infringement', infringementRouter);
+// app.use('/profiles', profilesRouter);
 
-// 啟動
-// 若使用資料庫: sequelize.sync().then(...)
-app.listen(PORT, () => {
+// 資料庫同步 (若使用 Sequelize)
+/*
+sequelize.sync({ alter:false })
+  .then(()=>{
+    console.log('All tables synced!');
+    app.listen(PORT, ()=> console.log(`Express running on port ${PORT}`));
+  })
+  .catch(err=> console.error('DB sync error:', err));
+*/
+
+// 若沒使用資料庫,直接啟動:
+app.listen(PORT, ()=>{
   console.log(`Express server running on port ${PORT}`);
 });
