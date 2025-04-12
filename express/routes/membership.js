@@ -1,69 +1,56 @@
 // express/routes/membership.js
-
-require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// 驗證中介層
-function authMiddleware(req, res, next){
+function auth(req, res, next){
   try {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/,'');
-    if(!token) {
-      return res.status(401).json({ error:'未登入' });
-    }
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const token = (req.headers.authorization||'').replace(/^Bearer\s+/,'');
+    if(!token) return res.status(401).json({ error:'未登入' });
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch(e){
-    console.error('[authMiddleware] Error', e);
-    return res.status(401).json({ error:'Token無效或已過期' });
+    return res.status(401).json({ error:'token失效' });
   }
 }
 
-// GET /api/membership => 查看會員資料
-router.get('/', authMiddleware, async(req,res)=>{
+// GET /membership => 取用戶plan
+router.get('/', auth, async(req,res)=>{
   try {
-    const userId = req.user.id;
-    const user = await User.findByPk(userId);
-    if(!user) {
-      return res.status(404).json({ error:'使用者不存在' });
-    }
+    const user = await User.findByPk(req.user.id);
+    if(!user) return res.status(404).json({ error:'用戶不存在' });
     return res.json({
       email: user.email,
       userName: user.userName,
       userRole: user.userRole,
       plan: user.plan,
       uploadVideos: user.uploadVideos,
-      uploadImages: user.uploadImages
+      uploadImages: user.uploadImages,
+      uploadTrademarks: user.uploadTrademarks
     });
   } catch(e){
-    console.error('[Membership GET]', e);
     return res.status(500).json({ error:e.message });
   }
 });
 
-// POST /api/membership/upgrade => 升級成 PRO
-router.post('/upgrade', authMiddleware, async(req,res)=>{
+// POST /membership/upgrade => 升級
+router.post('/upgrade', auth, async(req,res)=>{
   try {
-    const userId = req.user.id;
-    const user = await User.findByPk(userId);
-    if(!user){
-      return res.status(404).json({ error:'使用者不存在' });
-    }
-    // 升級到 PRO (示例)
-    user.plan = 'PRO';
-    await user.save();
+    const { plan } = req.body; // "PRO" or "ENTERPRISE"
+    const user = await User.findByPk(req.user.id);
+    if(!user) return res.status(404).json({ error:'用戶不存在' });
 
-    return res.json({
-      message:'已升級為 PRO 方案',
-      plan: user.plan
-    });
+    if(!['BASIC','PRO','ENTERPRISE'].includes(plan)){
+      return res.status(400).json({ error:'不支援方案' });
+    }
+    user.plan = plan;
+    await user.save();
+    return res.json({ message:'升級成功', plan:user.plan });
   } catch(e){
-    console.error('[Membership Upgrade]', e);
     return res.status(500).json({ error:e.message });
   }
 });
