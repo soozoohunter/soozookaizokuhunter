@@ -44,7 +44,7 @@ services:
       - suzoo_net
 
   ######################
-  # 4) FastAPI
+  # 4) FastAPI (可自行保留/刪除)
   ######################
   suzoo_fastapi:
     build:
@@ -90,7 +90,7 @@ services:
       retries: 5
 
   ######################
-  # 6) Crawler (可有可無)
+  # 6) Crawler (可選)
   ######################
   suzoo_crawler:
     build:
@@ -107,7 +107,7 @@ services:
       - suzoo_net
 
   ######################
-  # 7) React 前端
+  # 7) React
   ######################
   suzoo_react:
     build:
@@ -131,7 +131,7 @@ services:
       retries: 3
 
   ######################
-  # 8) Nginx (對外)
+  # 8) Nginx
   ######################
   suzoo_nginx:
     build:
