@@ -1,4 +1,3 @@
-// express/routes/membership.js
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -18,9 +17,8 @@ function auth(req, res, next){
   }
 }
 
-// GET /membership => 回傳當前用戶方案
 router.get('/', auth, (req, res)=>{
-  // (此處僅示範, 生產應查 DB)
+  // 您可從 DB 撈 user 資訊, 此處示範
   return res.json({
     email: req.user.email,
     plan: 'BASIC',
