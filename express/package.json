@@ -1,7 +1,7 @@
 {
   "name": "suzoo-express",
   "version": "1.0.0",
-  "description": "Express server for suzoo project",
+  "description": "Enterprise-grade Express server for suzoo project",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
