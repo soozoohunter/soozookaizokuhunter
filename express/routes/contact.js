@@ -1,14 +1,10 @@
 // express/routes/contact.js
 const express = require('express');
 const router = express.Router();
-const nodemailer = require('nodemailer');
-const Contact = require('../models/Contact'); // 若您有 contact model
-const { GMAIL_USER, GMAIL_PASS } = process.env;
+// 若要寄信，可引入 nodemailer
+// const nodemailer = require('nodemailer');
 
-/**
- * POST /api/contact
- * 將前端的聯繫表單資料存入 DB，並用 nodemailer 寄給您。
- */
+// POST /api/contact
 router.post('/', async (req, res) => {
   try {
     const {
@@ -17,60 +13,47 @@ router.post('/', async (req, res) => {
       contactName,
       phone,
       email,
-      message,
+      message
     } = req.body;
 
-    // 基本檢查
-    if (!contactName || !email || !message) {
-      return res.status(400).json({
-        error: 'Missing required fields: contactName, email, and message',
-      });
+    // 簡單檢查必填
+    if(!contactName || !email || !message){
+      return res.status(400).json({ error:'缺少必要欄位 (姓名 / email / message)' });
     }
 
-    // 1) (可選) 存入 DB
-    // 如果您沒有這張 Contact table，可自行建立 models/Contact.js
-    // 也可省略
-    const newContact = await Contact.create({
-      companyName,
+    // 這裡可以改成存入 DB，或用 nodemailer 寄信給你
+    console.log('[Contact Form]', {
+      companyName, 
       title,
       contactName,
       phone,
       email,
-      message,
+      message
     });
 
-    // 2) 寄信 (若沒設定 GMAIL_USER/PASS，就僅存 DB)
-    if (GMAIL_USER && GMAIL_PASS) {
-      let transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: GMAIL_USER,
-          pass: GMAIL_PASS,
-        },
-      });
+    // 範例: 如果要寄信，可於此處使用 nodemailer:
+    /*
+    let transporter = nodemailer.createTransport({
+      service: 'gmail', // 或自訂 smtp
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS
+      }
+    });
+    let info = await transporter.sendMail({
+      from: `"系統通知" <${process.env.GMAIL_USER}>`,
+      to: "yourEmail@domain.com", // 收件人
+      subject: `聯絡表單 - 來自: ${contactName}`,
+      text: `公司:${companyName}\n職稱:${title}\n聯絡人:${contactName}\n電話:${phone}\nEmail:${email}\n需求:${message}`,
+    });
+    console.log('Contact mail sent:', info.messageId);
+    */
 
-      const mailOptions = {
-        from: `"ContactForm" <${GMAIL_USER}>`,
-        to: GMAIL_USER, // 您的收件信箱
-        subject: '[ContactUs] New Inquiry',
-        html: `
-          <h3>New Inquiry from ${contactName}</h3>
-          <p><b>Company:</b> ${companyName || '(N/A)'}</p>
-          <p><b>Title:</b> ${title || '(N/A)'}</p>
-          <p><b>Phone:</b> ${phone || '(N/A)'}</p>
-          <p><b>Email:</b> ${email}</p>
-          <p><b>Message:</b> ${message}</p>
-          <p>(Record ID: ${newContact.id})</p>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
-    }
-
-    return res.json({ message: 'OK' });
-  } catch (err) {
-    console.error('[Contact POST] error:', err);
-    return res.status(500).json({ error: err.message });
+    // 回傳成功
+    return res.json({ message:'已收到您的聯絡資訊' });
+  } catch(err){
+    console.error('[POST /api/contact] Error', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
