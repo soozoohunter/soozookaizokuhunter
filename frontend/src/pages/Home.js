@@ -1,35 +1,46 @@
-// frontend/src/pages/Home.js
+// src/pages/Home.js
 import React from 'react';
 
 export default function Home() {
   return (
     <div style={styles.container}>
+
       {/* 只有一個大紅框 */}
       <div style={styles.banner}>
-        {/* 第一行：橘色 + 大標題 (IP Hunter System) 橘紅 */}
+        {/* 第一行：改為您要的標題 */}
         <h1 style={styles.mainTitle}>
-          速誅 SUZOO! 侵權獵人系統 <span style={styles.subEnglish}>(IP Hunter System)</span>
+          世界首創一站式著作權上鏈證明原創 + 侵權偵測
         </h1>
-        
-        {/* 底下描述文字 */}
+
+        {/* 底下描述文字：介紹文 */}
         <p style={styles.desc}>
-          這裡是您的智慧財產維權平台，
-          提供動態短影音與靜態圖像的區塊鏈存證、DMCA自動申訴、商標監測等服務。<br/>
-          請善用上方選單進行「上傳作品」、「會員中心」、「Pricing」或「Contact Us」等操作。
+          您想為自己的作品（短影音、商品照片、文字或圖像）進行嚴謹且快速的智慧財產權保護嗎？<br />
+          本系統結合區塊鏈技術，能為每部短影音產生「動態指紋」(Fingerprint) 與可驗證的 SHA 雜湊，
+          為商品照片產生「靜態指紋」，有效建立原創 DNA 記錄。<br /><br />
+
+          <strong>在發現侵權</strong>時，我們的自動化侵權偵測會主動通知您，並可在 24 小時內提出
+          <em>DMCA</em> 申訴，協助讓侵權品迅速下架消失。<br />
+          同時，我們也提供 <strong>一站式商標申請、檢索與維權</strong> 服務，協助您輕鬆掌握商標登記狀況，
+          避免商標延展時的繁複作業與隱性風險。<br /><br />
+
+          這套「世界首創一站式著作權上鏈證明原創 + 侵權偵測」平台，
+          不僅能牢固地保護您的智慧財產，還能大幅縮短處理時間，
+          讓您專注於創作與品牌經營，<strong>我們在背後 24 小時為您守護。</strong>
         </p>
 
-        {/* 按鈕：連到 /pricing */}
+        {/* 行動按鈕：連到 /pricing 或其他路由 */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
         >
-          立即瞭解服務方案
+          了解服務方案
         </button>
       </div>
     </div>
   );
 }
 
+// 內嵌樣式
 const styles = {
   container: {
     backgroundColor: '#000',
@@ -52,11 +63,6 @@ const styles = {
     margin: 0,
     marginBottom: '1rem',
     color: 'orange'
-  },
-  subEnglish: {
-    color: '#ff6600', // 橘紅
-    fontSize: '1.1rem',
-    marginLeft: '8px'
   },
   desc: {
     fontSize: '1rem',
