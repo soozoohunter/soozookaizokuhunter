@@ -13,7 +13,7 @@ import UploadPage from './pages/UploadPage';
 import Dashboard from './pages/Dashboard';
 import MembershipPage from './pages/MembershipPage';
 import PlatformAccounts from './pages/PlatformAccounts';
-import PaymentPage from './pages/PaymentPage';
+import PaymentPage from './pages/PaymentPage';      // <-- 已新增
 import TrademarkCheckPage from './pages/TrademarkCheckPage';
 
 export default function MyRoutes(){
@@ -31,7 +31,7 @@ export default function MyRoutes(){
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="membership" element={<MembershipPage />} />
           <Route path="platform-accounts" element={<PlatformAccounts />} />
-          <Route path="payment" element={<PaymentPage />} />
+          <Route path="payment" element={<PaymentPage />} />            {/* <-- 已新增 */}
           <Route path="trademark-check" element={<TrademarkCheckPage />} />
         </Route>
       </Routes>
