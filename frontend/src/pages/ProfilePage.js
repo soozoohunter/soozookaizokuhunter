@@ -1,77 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function ProfilePage() {
-  const [userInfo, setUserInfo] = useState(null);
+function ProfilePage({ token }) {
+  const [profileData, setProfileData] = useState(null);
+  const [error, setError] = useState('');
 
-  useEffect(()=>{
-    // 範例：抓取後端 /api/user/profile (若您後端尚未實作，可自行實作)
-    // 這裡僅示範: 假裝拿到 user = { email, userName, userRole, platforms {...}, ... }
-    async function fetchProfile() {
+  useEffect(() => {
+    const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if(!token) return;
-        const resp = await fetch('/api/user/profile', {
-          headers: { 'Authorization': 'Bearer ' + token }
+        const res = await fetch('/api/profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        if(resp.ok){
-          const data = await resp.json();
-          setUserInfo(data);
-        } else {
-          console.log('無法取得會員資料');
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}`);
         }
-      } catch(e){
-        console.log(e);
+        const data = await res.json();
+        setProfileData(data);
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+        setError('Failed to load profile data.');
       }
-    }
+    };
     fetchProfile();
-  },[]);
-
-  // 如果後端未實作 /api/user/profile，可先 mock
-  // const userInfo = {
-  //   email: 'test@example.com',
-  //   userName: 'BOSS',
-  //   userRole: 'COPYRIGHT',
-  //   platforms: {
-  //     instagram: 'my_ig',
-  //     facebook: 'my_fb'
-  //   },
-  //   uploadedWorks: [
-  //     { title:'作品1', fingerprint:'abcd1234' },
-  //     { title:'作品2', fingerprint:'efgh5678' }
-  //   ]
-  // };
+  }, [token]);
 
   return (
-    <div style={{ maxWidth:'600px', margin:'40px auto', color:'#fff' }}>
-      <h2 style={{ textAlign:'center', marginBottom:'1rem' }}>會員中心</h2>
-      {!userInfo && (
-        <p>載入中或尚未登入</p>
-      )}
-      {userInfo && (
-        <>
-          <p>Email: {userInfo.email}</p>
-          <p>暱稱: {userInfo.userName}</p>
-          <p>角色: {userInfo.userRole}</p>
-
-          <h3>平台帳號</h3>
-          { userInfo.platforms && (
-            <ul>
-              {Object.entries(userInfo.platforms).map(([k,v])=>(
-                <li key={k}>{k}: {v}</li>
-              ))}
-            </ul>
-          )}
-
-          <h3>已上傳作品</h3>
-          { userInfo.uploadedWorks && (
-            <ul>
-              {userInfo.uploadedWorks.map((w,i)=>(
-                <li key={i}>作品 {i+1} - Fingerprint: {w.fingerprint}</li>
-              ))}
-            </ul>
-          )}
-        </>
+    <div className="profile-page">
+      <h2>Your Profile</h2>
+      {error && <p className="error">{error}</p>}
+      {profileData ? (
+        <div>
+          {profileData.name && <p>Name: {profileData.name}</p>}
+          {profileData.username && !profileData.name && <p>Username: {profileData.username}</p>}
+          {profileData.email && <p>Email: {profileData.email}</p>}
+          {/* Add more profile fields as needed */}
+        </div>
+      ) : (
+        <p>Loading...</p>
       )}
     </div>
   );
 }
+
+export default ProfilePage;
