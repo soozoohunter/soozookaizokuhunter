@@ -1,46 +1,101 @@
-import React, { useState, useEffect } from 'react';
+// src/pages/MembershipPage.js
+import React, { useEffect, useState } from 'react';
 
-function MembershipPage({ token }) {
-  const [membershipData, setMembershipData] = useState(null);
-  const [error, setError] = useState('');
+export default function MembershipPage(){
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState('');
 
-  useEffect(() => {
-    const fetchMembership = async () => {
-      try {
-        const res = await fetch('/api/membership', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-          throw new Error(`Error ${res.status}`);
-        }
-        const data = await res.json();
-        setMembershipData(data);
-      } catch (err) {
-        console.error('Error fetching membership:', err);
-        setError('Failed to load membership data.');
+  useEffect(()=>{
+    const token = localStorage.getItem('token');
+    if(!token){
+      setMsg('尚未登入');
+      setLoading(false);
+      return;
+    }
+    fetch('/membership',{
+      method:'GET',
+      headers:{
+        'Authorization':'Bearer '+ token
       }
-    };
-    fetchMembership();
-  }, [token]);
+    })
+    .then(r=>r.json())
+    .then(d=>{
+      setInfo(d);
+      setLoading(false);
+    })
+    .catch(e=>{
+      setMsg('發生錯誤:'+ e.message);
+      setLoading(false);
+    });
+  },[]);
+
+  const doUpgrade = async(targetPlan)=>{
+    try {
+      const token = localStorage.getItem('token');
+      const resp = await fetch('/membership/upgrade',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+ token
+        },
+        body: JSON.stringify({ targetPlan })
+      });
+      const data = await resp.json();
+      if(resp.ok){
+        alert(data.message);
+        // 更新 info
+        setInfo(prev=>({
+          ...prev,
+          plan: data.plan
+        }));
+      } else {
+        alert('升級失敗: '+ data.error);
+      }
+    } catch(e){
+      alert('發生錯誤:'+ e.message);
+    }
+  };
+
+  if(loading){
+    return <div>載入中...</div>;
+  }
+  if(msg){
+    return <div style={{ color:'red' }}>{msg}</div>;
+  }
+  if(info.error){
+    return <div style={{ color:'red' }}>錯誤: {info.error}</div>;
+  }
 
   return (
-    <div className="membership-page">
-      <h2>Membership</h2>
-      {error && <p className="error">{error}</p>}
-      {membershipData ? (
-        <div>
-          <h3>Your Membership Details:</h3>
-          <ul>
-            {Object.entries(membershipData).map(([key, value]) => (
-              <li key={key}><strong>{key}:</strong> {String(value)}</li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p>Loading...</p>
+    <div>
+      <h2>會員中心</h2>
+      <p>Email: {info.email}</p>
+      <p>暱稱: {info.userName}</p>
+      <p>目前方案: {info.plan}</p>
+      <p>已上傳影片次數: {info.uploadVideos}</p>
+      <p>已上傳圖片次數: {info.uploadImages}</p>
+      <p>Email 驗證: {info.isEmailVerified?'已驗證':'未驗證'}</p>
+      <hr/>
+      <h3>方案升級</h3>
+      {info.plan==='BASIC' && (
+        <>
+          <button onClick={()=>doUpgrade('PRO')} style={{ marginRight:'1rem' }}>
+            升級至 PRO
+          </button>
+          <button onClick={()=>doUpgrade('ENTERPRISE')}>
+            升級至 ENTERPRISE
+          </button>
+        </>
+      )}
+      {info.plan==='PRO' && (
+        <button onClick={()=>doUpgrade('ENTERPRISE')}>
+          升級至 ENTERPRISE
+        </button>
+      )}
+      {info.plan==='ENTERPRISE' && (
+        <p>您已是最高階方案</p>
       )}
     </div>
   );
 }
-
-export default MembershipPage;
