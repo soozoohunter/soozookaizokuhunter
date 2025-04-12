@@ -1,4 +1,3 @@
-// express/utils/chain.js
 const Web3 = require('web3');
 require('dotenv').config();
 const path = require('path');
@@ -16,7 +15,7 @@ try {
   contract = new web3.eth.Contract(contractABI, contractAddress);
   console.log('[chain] 合約ABI載入成功');
 } catch(e){
-  console.warn('[chain] 載入ABI失敗, fallback =>', e.message);
+  console.warn('[chain] 載入ABI失敗 =>', e.message);
 }
 
 function getAccount(){
