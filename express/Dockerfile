@@ -2,11 +2,13 @@ FROM node:18-slim
 
 WORKDIR /app
 
-COPY package.json ./
+# 安裝系統套件
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
 RUN npm install
 
 COPY . .
 
-EXPOSE ${EXPRESS_PORT}
-
-CMD ["npm","start"]
+EXPOSE 3000
+CMD ["node", "server.js"]
