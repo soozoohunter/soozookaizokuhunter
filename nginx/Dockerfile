@@ -1,9 +1,7 @@
-FROM nginx:1.27.4-alpine
+FROM nginx:stable
 
-# 刪除官方預設的 default.conf，免得和我們自訂檔案打架
-RUN rm -f /etc/nginx/conf.d/default.conf
+# 拷貝 suzoo.conf 到 /etc/nginx/conf.d/
+COPY suzoo.conf /etc/nginx/conf.d/suzoo.conf
 
-# 不在這裡 COPY conf；我們用 docker-compose volumes 挂載 suzoo.conf
-EXPOSE 80 443
-
-CMD ["nginx", "-g", "daemon off;"]
+# 健康檢查可自行加
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost/ || exit 1
