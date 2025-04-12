@@ -1,4 +1,3 @@
-// express/routes/upload.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -24,7 +23,7 @@ router.post('/', auth, upload.single('file'), (req, res)=>{
   if(!req.file){
     return res.status(400).json({ error:'未選擇檔案' });
   }
-  // TODO: 寫DB or IPFS
+  // TODO: 在此把檔案資訊寫DB、或上傳Cloud/ IPFS/ S3...
   return res.json({
     message:'上傳成功',
     filename:req.file.filename
