@@ -9,10 +9,12 @@ import ContactUsPage from './pages/ContactUsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
-import MembershipPage from './pages/MembershipPage';
 import UploadPage from './pages/UploadPage';
 import Dashboard from './pages/Dashboard';
+import MembershipPage from './pages/MembershipPage';
 import PlatformAccounts from './pages/PlatformAccounts';
+import PaymentPage from './pages/PaymentPage';
+import TrademarkCheckPage from './pages/TrademarkCheckPage';
 
 export default function MyRoutes(){
   return (
@@ -25,10 +27,12 @@ export default function MyRoutes(){
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="membership" element={<MembershipPage />} />
-          <Route path="dashboard" element={<Dashboard />} />
           <Route path="upload" element={<UploadPage />} />
-          <Route path="platform-accounts" element={<PlatformAccounts token={localStorage.getItem('token')} />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="membership" element={<MembershipPage />} />
+          <Route path="platform-accounts" element={<PlatformAccounts />} />
+          <Route path="payment" element={<PaymentPage />} />
+          <Route path="trademark-check" element={<TrademarkCheckPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
