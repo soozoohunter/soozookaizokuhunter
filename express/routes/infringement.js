@@ -1,47 +1,51 @@
-// express/routes/infringement.js
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
 const Infringement = require('../models/Infringement');
+const jwt = require('jsonwebtoken');
 const { writeToBlockchain } = require('../utils/chain');
-require('dotenv').config();
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-function auth(req, res, next){
+function authMiddleware(req, res, next){
+  const token = (req.headers.authorization||'').replace(/^Bearer\s+/,'');
+  if(!token) return res.status(401).json({ error:'未授權' });
   try {
-    const token = (req.headers.authorization||'').replace(/^Bearer\s+/,'');
-    if(!token) return res.status(401).json({ error:'未登入' });
     req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch(e){
-    return res.status(401).json({ error:'token失效' });
+    return res.status(401).json({ error:'Token無效' });
   }
 }
 
-// 新增報告
-router.post('/report', auth, async(req,res)=>{
+// 新增侵權
+router.post('/report', authMiddleware, async (req,res)=>{
+  const { workId, description } = req.body;
+  if(!description){
+    return res.status(400).json({ error:'缺少描述' });
+  }
   try {
-    const { description } = req.body;
-    if(!description) return res.status(400).json({ error:'缺少 description' });
-    const inf = await Infringement.create({ description });
-    const chainData = `User:${req.user.email}|desc=${description}`;
+    const infr = await Infringement.create({ description });
+
+    // 上鏈
+    const chainData = `INFRINGE:${req.user.email}|DESC:${description}`;
     const txHash = await writeToBlockchain(chainData);
-    inf.chainRef = txHash;
-    await inf.save();
-    return res.json({ message:'侵權已紀錄', infringement:inf, chainTx:txHash });
+
+    infr.chainRef = txHash;
+    await infr.save();
+
+    res.json({ message:'已記錄侵權', chainRef:txHash });
   } catch(e){
-    return res.status(500).json({ error:e.message });
+    res.status(500).json({ error:e.message });
   }
 });
 
-// 取得全部
-router.get('/', async(req,res)=>{
+// 查詢所有
+router.get('/', async (req, res)=>{
   try {
     const list = await Infringement.findAll();
-    return res.json(list);
+    res.json(list);
   } catch(e){
-    return res.status(500).json({ error:e.message });
+    res.status(500).json({ error:e.message });
   }
 });
 
