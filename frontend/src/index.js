@@ -1,24 +1,13 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); // 載入環境變數
-const express = require('express');
-const app = express();
-const routes = require('./MyRoutes');
-// 如有需要可引入 CORS 中介軟體：const cors = require('cors');
+// frontend/src/index.js
 
-const PORT = process.env.PORT || 5000;
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import MyRoutes from './MyRoutes';
+import './index.css'; // 若有自訂 CSS
 
-// 中介軟體設定
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-// 開發環境若需要跨源訪問 API，可啟用 CORS：app.use(cors());
+// 取得掛載點
+const rootElement = document.getElementById('root');
 
-// 掛載路由
-app.use('/', routes);
-
-// 健康檢查端點（供健康檢查或監控使用）
-app.get('/health', (req, res) => res.send('OK'));
-
-// 啟動伺服器
-app.listen(PORT, () => {
-    console.log(`Express server running on port ${PORT}`);
-});
+// 建立 React Root 並渲染
+const root = createRoot(rootElement);
+root.render(<MyRoutes />);
