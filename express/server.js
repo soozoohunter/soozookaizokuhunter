@@ -3,28 +3,25 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-// 匯入 Sequelize 與本專案的 DB (若您有 index.js 等)
-const sequelize = require('./db'); // or ./models/index if that's your aggregator
+// 載入 Sequelize（db.js or models/index.js）
+const { sequelize } = require('./models'); 
+// 若您原本是 `./db`, 請改 const sequelize = require('./db'); 
+// 參考下方 index.js => module.exports = { sequelize, User, VerificationCode };
 
 const chain = require('./utils/chain');
 
-// ---------------------------
-// 1) 基本中介軟體
-// ---------------------------
+// 1) 建立 app
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ---------------------------
-// 2) 路由掛載
-// ---------------------------
+// 2) 路由
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
@@ -33,7 +30,7 @@ const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck');
 const contactRouter = require('./routes/contact'); // Contact 路由
 
-app.use('/auth', authRouter);             // 您要求新增
+app.use('/auth', authRouter);
 app.use('/membership', membershipRouter);
 app.use('/profile', profileRouter);
 app.use('/payment', paymentRouter);
@@ -41,16 +38,12 @@ app.use('/infringement', infringementRouter);
 app.use('/api/trademark-check', trademarkRouter);
 app.use('/api/contact', contactRouter);
 
-// ---------------------------
-// 3) Health Check
-// ---------------------------
+// 3) 健康檢查
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
 
-// ---------------------------
-// 4) 區塊鏈若需要
-// ---------------------------
+// 4) 區塊鏈 (可選)
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -91,16 +84,16 @@ app.post('/chain/writeInfringement', async (req, res) => {
   }
 });
 
-// ---------------------------
-// 5) 檔案上傳範例
-// ---------------------------
+// 5) 檔案上傳 + JWT + plan檢查
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
 function authMiddleware(req, res, next) {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
-    if (!token) return res.status(401).json({ error: '缺少 token' });
+    if (!token) {
+      return res.status(401).json({ error: '缺少 token' });
+    }
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
@@ -110,7 +103,8 @@ function authMiddleware(req, res, next) {
   }
 }
 
-const User = require('./models/User'); // 用於上傳檔案時的會員查詢
+// 載入 User model
+const User = require('./models/User');
 
 async function planUploadLimitCheck(req, res, next) {
   try {
@@ -120,7 +114,7 @@ async function planUploadLimitCheck(req, res, next) {
       return res.status(404).json({ error: '使用者不存在' });
     }
 
-    // 計算當前方案可上傳檔案數
+    // 根據 plan 設定限制
     let maxVideos = 3;
     let maxImages = 10;
     if (user.plan === 'PRO') {
@@ -134,15 +128,11 @@ async function planUploadLimitCheck(req, res, next) {
     const filename = (req.file?.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       if (user.uploadVideos >= maxVideos) {
-        return res.status(403).json({
-          error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限`,
-        });
+        return res.status(403).json({ error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限` });
       }
-    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+    } else if (/\.(jpe?g|png)$/.test(filename)) {
       if (user.uploadImages >= maxImages) {
-        return res.status(403).json({
-          error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限`,
-        });
+        return res.status(403).json({ error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限` });
       }
     }
 
@@ -161,10 +151,12 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     }
     const userEmail = req.user.email;
     const filePath = req.file.path;
+
+    // 產生檔案指紋
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // ★(可選) 上鏈
+    // 可選：上鏈
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -172,11 +164,12 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
+    // 更新上傳次數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
-    if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
+    if (/\.(mp4|mov)$/.test(filename)) {
       user.uploadVideos += 1;
-    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+    } else if (/\.(jpe?g|png)$/.test(filename)) {
       user.uploadImages += 1;
     }
     await user.save();
@@ -189,7 +182,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       fingerprint,
       plan: user.plan,
       usedVideos: user.uploadVideos,
-      usedImages: user.uploadImages,
+      usedImages: user.uploadImages
     });
   } catch (e) {
     console.error('[Upload Error]', e);
@@ -197,20 +190,17 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// ---------------------------
-// 6) 啟動伺服器
-// ---------------------------
+// 6) 啟動
 sequelize
   .sync({ alter: false })
   .then(() => {
     console.log('All tables synced!');
     const PORT = process.env.PORT || 3000;
     const HOST = process.env.HOST || '0.0.0.0';
-
     app.listen(PORT, HOST, () => {
       console.log(`Express server running on http://${HOST}:${PORT}`);
     });
   })
-  .catch((err) => {
+  .catch(err => {
     console.error('Unable to sync tables:', err);
   });
