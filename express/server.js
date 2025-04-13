@@ -1,9 +1,8 @@
 /********************************************************************
- * express/server.js (修正後，可直接覆蓋)
+ * express/server.js (最終整合版)
  ********************************************************************/
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });  // 讀取 .env
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -11,27 +10,31 @@ const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-// 若您在 express/models/index.js 有 export { sequelize, User }:
-const { sequelize } = require('./models'); 
+// 載入 Sequelize
+const { sequelize } = require('./models');
+const User = require('./models/User'); // 用於上傳時檢查方案
 
+// 載入區塊鏈工具 (chain.js)
 const chain = require('./utils/chain');
 
-// 1) 建立 app
+// 建立 Express App
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2) 路由載入
+/********************************************************
+ * 路由區
+ ********************************************************/
+// 範例路由：Auth, membership, profile, contact...
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
 const paymentRouter = require('./routes/payment');
 const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck');
-const contactRouter = require('./routes/contact'); 
+const contactRouter = require('./routes/contact');
 
-// 路由掛載
 app.use('/auth', authRouter);
 app.use('/membership', membershipRouter);
 app.use('/profile', profileRouter);
@@ -40,12 +43,16 @@ app.use('/infringement', infringementRouter);
 app.use('/api/trademark-check', trademarkRouter);
 app.use('/api/contact', contactRouter);
 
-// 健康檢查
+/********************************************************
+ * 健康檢查
+ ********************************************************/
 app.get('/health', (req, res) => {
   res.send('Express server healthy');
 });
 
-// 3) 區塊鏈 (可選)
+/********************************************************
+ * 區塊鏈 API 範例
+ ********************************************************/
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -88,14 +95,17 @@ app.post('/chain/writeInfringement', async (req, res) => {
   }
 });
 
-// 4) 檔案上傳 + JWT + plan檢查
+/********************************************************
+ * 檔案上傳 (Plan檢查 + JWT)
+ ********************************************************/
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
 // 驗證 token
 function authMiddleware(req, res, next) {
   try {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/, '');
     if (!token) {
       return res.status(401).json({ error: '缺少 token' });
     }
@@ -108,33 +118,35 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// 載入 User model，以便計算 plan 上傳限制
-const User = require('./models/User');
-
+// 方案檢查
 async function planUploadLimitCheck(req, res, next) {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId || req.user.id;  // 取決於 login 時 payload
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ error: '使用者不存在' });
     }
-    let maxVideos = 3;
-    let maxImages = 10;
+
+    let maxVideos = 3, maxImages = 10;
     if (user.plan === 'PRO') {
-      maxVideos = 15;
-      maxImages = 30;
+      maxVideos = 15;  maxImages = 30;
     } else if (user.plan === 'ENTERPRISE') {
-      maxVideos = 30;
-      maxImages = 60;
+      maxVideos = 30;  maxImages = 60;
     }
+
     const filename = (req.file?.originalname || '').toLowerCase();
+
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       if (user.uploadVideos >= maxVideos) {
-        return res.status(403).json({ error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限` });
+        return res.status(403).json({
+          error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限`
+        });
       }
     } else if (/\.(jpe?g|png)$/.test(filename)) {
       if (user.uploadImages >= maxImages) {
-        return res.status(403).json({ error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限` });
+        return res.status(403).json({
+          error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限`
+        });
       }
     }
     req._userObj = user;
@@ -150,27 +162,27 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     if (!req.file) {
       return res.status(400).json({ error: '沒有檔案' });
     }
-    const userEmail = req.user.email;
+    const userEmail = req.user.email; // login 時 payload
     const filePath = req.file.path;
-
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // 可選，上鏈
+    // 可選：上鏈
     try {
-      const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
-      console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
+      const dataToChain = `${userEmail}|${fingerprint}`;
+      const txHash = await chain.writeToBlockchain(dataToChain);
+      console.log('[Upload => chain.writeToBlockchain] TX=', txHash);
     } catch (chainErr) {
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // 更新上傳次數
+    // 更新使用者計數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
     if (/\.(mp4|mov)$/.test(filename)) {
-      user.uploadVideos += 1;
+      user.uploadVideos++;
     } else if (/\.(jpe?g|png)$/.test(filename)) {
-      user.uploadImages += 1;
+      user.uploadImages++;
     }
     await user.save();
 
@@ -190,15 +202,16 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// 5) 最後：啟動
-sequelize
-  .sync({ alter: false })
+/********************************************************
+ * 伺服器啟動
+ ********************************************************/
+sequelize.sync({ alter: false })
   .then(() => {
     console.log('All tables synced!');
     const PORT = process.env.PORT || 3000;
-    const HOST = process.env.HOST || '0.0.0.0';
-    app.listen(PORT, HOST, () => {
-      console.log(`Express server running on http://${HOST}:${PORT}`);
+    // 監聽 0.0.0.0 讓 Docker 容器能連通
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Express server running on http://0.0.0.0:${PORT}`);
     });
   })
   .catch(err => {
