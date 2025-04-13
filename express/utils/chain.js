@@ -1,53 +1,53 @@
-// express/utils/chain.js
-
+/********************************************************************
+ * express/utils/chain.js (最終整合版)
+ ********************************************************************/
 require('dotenv').config();
 const { ethers } = require('ethers');
 
 /**
- * 假設您在私有鏈上部署的合約 (類似 DataStorage.sol)，
- * 具有 storeRecord(recordType, data) function，
- * 並會 emit event RecordStored(address sender, string recordType, string data)。
- *
- * 以下 ABI 需與您實際部署的合約對應。
+ * 從環境變數載入 RPC URL、私鑰、合約位址等，如未設定則給予預設或拋錯
  */
-const contractABI = [
+const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
+const privateKey = process.env.PRIVATE_KEY || '';
+const contractAddress = process.env.CONTRACT_ADDRESS || '';  // 若未設置，則不啟用合約功能
+
+// 初始化 ethers.js 提供者
+let provider = null;
+try {
+  provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+} catch (err) {
+  console.error(`初始化 JsonRpcProvider("${rpcUrl}") 失敗:`, err);
+}
+
+// 建立錢包
+let wallet = null;
+if (!privateKey) {
+  console.warn("【警告】沒有提供 PRIVATE_KEY，區塊鏈寫入功能將無法使用。");
+} else if (provider) {
+  try {
+    wallet = new ethers.Wallet(privateKey, provider);
+  } catch (err) {
+    console.error("初始化 Wallet 失敗:", err);
+  }
+}
+
+// 建立合約實例
+// 以下範例 ABI 需替換為真實合約介面
+const defaultABI = [
   {
     "anonymous": false,
     "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "recordType",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "data",
-        "type": "string"
-      }
+      { "indexed": true,  "internalType": "address","name": "sender","type": "address"},
+      { "indexed": false, "internalType": "string","name": "recordType","type": "string"},
+      { "indexed": false, "internalType": "string","name": "data","type": "string"}
     ],
     "name": "RecordStored",
     "type": "event"
   },
   {
     "inputs": [
-      {
-        "internalType": "string",
-        "name": "recordType",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "data",
-        "type": "string"
-      }
+      { "internalType": "string","name": "recordType","type": "string" },
+      { "internalType": "string","name": "data","type": "string" }
     ],
     "name": "storeRecord",
     "outputs": [],
@@ -56,93 +56,72 @@ const contractABI = [
   }
 ];
 
-/**
- * ★ 合約位址 (硬編碼) ★
- * 如果您已重新部署了新合約，請將下方地址替換為「實際部署成功後」的位址。
- */
-const CONTRACT_ADDRESS = "0x590CC0a45103883cEa6E27c9a4Cc356De6384aeb";
+let contract = null;
+if (!contractAddress) {
+  console.warn("【警告】沒有提供 CONTRACT_ADDRESS，將無法使用合約寫入功能。");
+} else if (wallet) {
+  try {
+    contract = new ethers.Contract(contractAddress, defaultABI, wallet);
+    console.log(`合約初始化成功 => ${contractAddress}`);
+  } catch (err) {
+    console.error("初始化合約失敗:", err);
+  }
+}
 
 /**
- * 從 .env 載入：
- * ETH_NODE_URL  => 您的私有鏈 / 測試鏈 RPC，例如 http://127.0.0.1:8545
- * ETH_PRIVATE_KEY => 您用來發送交易的 EOA 私鑰 (hex string，帶 0x)
+ * 共同的寫入流程函式 (示範 storeRecord)
+ * @param {string} recordType 例如 'GENERIC'、'ASSET'、'INFRINGE' 等
+ * @param {string} data 要上鏈的文字
  */
-const { ETH_NODE_URL, ETH_PRIVATE_KEY } = process.env;
+async function storeRecord(recordType, data) {
+  if (!contract) {
+    const errMsg = "【區塊鏈錯誤】合約實例不存在或未初始化";
+    console.error(errMsg);
+    throw new Error(errMsg);
+  }
+  try {
+    const tx = await contract.storeRecord(recordType, data);
+    console.log(`[ETH] storeRecord(${recordType}, "${data}") TX =`, tx.hash);
+    const receipt = await tx.wait();
+    console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
+    return receipt.transactionHash;
+  } catch (err) {
+    console.error(`[storeRecord Error]`, err);
+    throw err;
+  }
+}
 
-// 初始化 ethers.js
-const provider = new ethers.providers.JsonRpcProvider(ETH_NODE_URL);
-const wallet = new ethers.Wallet(ETH_PRIVATE_KEY, provider);
-const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, wallet);
-
+/**
+ * 匯出多個上鏈函式
+ */
 module.exports = {
-
   /**
-   * 寫入「一般用途」資料。
-   * recordType = 'GENERIC'
-   * data = 您欲上鏈的字串
+   * 寫入一般資料: recordType = 'GENERIC'
    */
   async writeToBlockchain(data) {
-    try {
-      // 調用 storeRecord('GENERIC', data)
-      const tx = await contract.storeRecord('GENERIC', data);
-      const receipt = await tx.wait();
-      console.log(`[ETH] storeRecord(GENERIC, "${data}") => TX hash:`, receipt.transactionHash);
-      return receipt.transactionHash;
-    } catch (e) {
-      console.error('[writeToBlockchain Error]', e);
-      throw e;
-    }
+    return await storeRecord('GENERIC', data);
   },
 
   /**
-   * 寫入「上傳檔案」(短影音 / 圖片) 的 fingerprint 等資訊。
-   * recordType = 'ASSET'
-   * data = "userEmail|dnaHash|fileType|timestamp"
+   * 上傳檔案 fingerprint
    */
   async writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
-    try {
-      const combined = `${userEmail}|${dnaHash}|${fileType}|${timestamp}`;
-      const tx = await contract.storeRecord('ASSET', combined);
-      const receipt = await tx.wait();
-      console.log(`[ETH] storeRecord(ASSET, "${combined}") => TX hash:`, receipt.transactionHash);
-      return receipt.transactionHash;
-    } catch (e) {
-      console.error('[writeUserAssetToChain Error]', e);
-      throw e;
-    }
+    const combined = `${userEmail}|${dnaHash}|${fileType}|${timestamp}`;
+    return await storeRecord('ASSET', combined);
   },
 
   /**
-   * 寫入「侵權舉報」資訊。
-   * recordType = 'INFRINGE'
-   * data = "userEmail|infrInfo|timestamp"
+   * 侵權舉報
    */
   async writeInfringementToChain(userEmail, infrInfo, timestamp) {
-    try {
-      const combined = `${userEmail}|${infrInfo}|${timestamp}`;
-      const tx = await contract.storeRecord('INFRINGE', combined);
-      const receipt = await tx.wait();
-      console.log(`[ETH] storeRecord(INFRINGE, "${combined}") => TX hash:`, receipt.transactionHash);
-      return receipt.transactionHash;
-    } catch (e) {
-      console.error('[writeInfringementToChain Error]', e);
-      throw e;
-    }
+    const combined = `${userEmail}|${infrInfo}|${timestamp}`;
+    return await storeRecord('INFRINGE', combined);
   },
 
   /**
-   * 自訂寫入，可依需求帶入 recordType, data。
-   * 例如: 'REGISTER','UPGRADE','PLATFORM','ANY'
+   * 自訂
    */
   async writeCustomRecord(recordType, data) {
-    try {
-      const tx = await contract.storeRecord(recordType, data);
-      const receipt = await tx.wait();
-      console.log(`[ETH] storeRecord(${recordType}, "${data}") => TX hash:`, receipt.transactionHash);
-      return receipt.transactionHash;
-    } catch (e) {
-      console.error('[writeCustomRecord Error]', e);
-      throw e;
-    }
+    return await storeRecord(recordType, data);
   }
 };
