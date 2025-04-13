@@ -16,16 +16,27 @@ function generateToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn:'1h' });
 }
 
-// 寄送 Email 驗證碼 (範例：console.log)
+// 假示範: nodemailer
 async function sendVerificationEmail(toEmail, code){
-  // TODO: 可改用 nodemailer 或第三方 Email API
   console.log(`(偽) 寄送驗證信到 ${toEmail}，驗證碼: ${code}`);
 }
 
-// 註冊：先建立帳號 (isEmailVerified=false)，並寄出驗證碼
 router.post('/register', upload.none(), async(req,res)=>{
   try {
-    const { email, password, userName } = req.body;
+    const {
+      email, 
+      password, 
+      userName,
+      facebook,
+      instagram,
+      youtube,
+      tiktok,
+      shopee,
+      ruten,
+      amazon,
+      taobao
+    } = req.body;
+
     if(!email || !password || !userName) {
       return res.status(400).json({ error:'缺少必填欄位 (email, password, userName)' });
     }
@@ -34,20 +45,21 @@ router.post('/register', upload.none(), async(req,res)=>{
       return res.status(400).json({ error:'此 Email 已被註冊' });
     }
     const hashed = await bcrypt.hash(password,10);
-
-    // 產生 6 碼驗證碼
     const code = crypto.randomInt(100000, 999999).toString();
 
     const newUser = await User.create({
       email,
       password: hashed,
       userName,
-      plan: 'BASIC', // 初始皆為 BASIC
-      isEmailVerified: false,
-      emailVerifyCode: code
+      plan:'BASIC',
+      isEmailVerified:false,
+      emailVerifyCode: code,
+
+      // 如果model有這些欄位
+      facebook, instagram, youtube, tiktok,
+      shopee, ruten, amazon, taobao
     });
 
-    // 寄送驗證碼
     await sendVerificationEmail(email, code);
 
     return res.json({
@@ -61,7 +73,6 @@ router.post('/register', upload.none(), async(req,res)=>{
   }
 });
 
-// 驗證 Email：使用者拿到寄出的 code，在前端輸入後呼叫此 API
 router.post('/verifyEmail', upload.none(), async(req,res)=>{
   try {
     const { email, code } = req.body;
@@ -78,9 +89,9 @@ router.post('/verifyEmail', upload.none(), async(req,res)=>{
     if(user.emailVerifyCode !== code){
       return res.status(400).json({ error:'驗證碼不正確' });
     }
-    // 驗證成功
+
     user.isEmailVerified = true;
-    user.emailVerifyCode = null; // 清除驗證碼
+    user.emailVerifyCode = null; 
     await user.save();
 
     return res.json({ message:'Email 驗證成功，請重新登入' });
@@ -90,7 +101,6 @@ router.post('/verifyEmail', upload.none(), async(req,res)=>{
   }
 });
 
-// 登入：需檢查 isEmailVerified
 router.post('/login', upload.none(), async(req,res)=>{
   try {
     const { email, password } = req.body;
@@ -122,7 +132,6 @@ router.post('/login', upload.none(), async(req,res)=>{
   }
 });
 
-// 登出
 router.post('/logout',(req,res)=>{
   return res.json({ message:'已登出' });
 });

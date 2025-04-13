@@ -9,54 +9,43 @@ const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-// === Sequelize 與區塊鏈工具 ===
 const sequelize = require('./db');
 const chain = require('./utils/chain');
 
-// === 路由 ===
+// 路由
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
 const paymentRouter = require('./routes/payment');
 const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck'); 
-// ↑ 如果路徑/檔名不同，請自行調整
 
-// === 新增：Contact 路由 ===
-const contactRouter = require('./routes/contact'); 
-// ↑ 請確保已建立 routes/contact.js 檔案
+// Contact 路由
+const contactRouter = require('./routes/contact');
 
-// === 若有建立 Contact Model，需在此 require 讓 Sequelize 掃描 ===
+// 如果有 Contact model，則需要:
 // require('./models/Contact');
 
-// === 會員 Model (檢查上傳次數時會用到) ===
-const User = require('./models/User'); 
+const User = require('./models/User'); // 用於上傳檔案時的會員查詢
 
-// === 建立 Express App ===
 const app = express();
 const HOST = '0.0.0.0';
 const PORT = process.env.PORT || 3000;
 
-// === 中介層 ===
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// =====================
-// 1) Health Check
-// =====================
+// 健康檢查
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
 
-// =====================
-// 2) Auth 路由
-// =====================
+// Auth 路由
 app.use('/auth', authRouter);
 
-// =====================
-// 3) 區塊鏈測試路由 (/chain/...)
- // =====================
+// 區塊鏈
+ 6a2d5ec50b74f6d8c78a7e34a1f4bd37b866ff4d
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -97,35 +86,23 @@ app.post('/chain/writeInfringement', async (req, res) => {
   }
 });
 
-// =====================
-// 4) 會員中心 => /membership
-// =====================
+// 會員中心
 app.use('/membership', membershipRouter);
 
-// =====================
-// 5) Profile => /profile
-// =====================
+// Profile
 app.use('/profile', profileRouter);
 
-// =====================
-// 6) Payment / Infringement
-// =====================
+// Payment / Infringement
 app.use('/payment', paymentRouter);
 app.use('/infringement', infringementRouter);
 
-// =====================
-// 7) 商標檢索 => /api/trademark-check
-// =====================
+// 商標檢索
 app.use('/api/trademark-check', trademarkRouter);
 
-// =====================
-// 8) Contact => /api/contact
-// =====================
+// Contact
 app.use('/api/contact', contactRouter);
 
-// =====================
-// 9) 檔案上傳 => /api/upload
-// =====================
+// 檔案上傳
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -142,7 +119,6 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// === 範例: 上傳次數限制檢查 ===
 async function planUploadLimitCheck(req, res, next) {
   try {
     const userId = req.user.id;
@@ -164,9 +140,9 @@ async function planUploadLimitCheck(req, res, next) {
     const filename = (req.file?.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       if (user.uploadVideos >= maxVideos) {
-        return res
-          .status(403)
-          .json({ error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限` });
+        return res.status(403).json({
+          error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限`,
+        });
       }
     } else if (
       filename.endsWith('.jpg') ||
@@ -174,9 +150,9 @@ async function planUploadLimitCheck(req, res, next) {
       filename.endsWith('.png')
     ) {
       if (user.uploadImages >= maxImages) {
-        return res
-          .status(403)
-          .json({ error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限` });
+        return res.status(403).json({
+          error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限`,
+        });
       }
     }
 
@@ -198,7 +174,6 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // === (可選) 上鏈 ===
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -206,17 +181,19 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // === 更新計數 ===
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       user.uploadVideos += 1;
-    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+    } else if (
+      filename.endsWith('.jpg') ||
+      filename.endsWith('.jpeg') ||
+      filename.endsWith('.png')
+    ) {
       user.uploadImages += 1;
     }
     await user.save();
 
-    // 刪除暫存檔
     fs.unlinkSync(filePath);
 
     return res.json({
@@ -233,9 +210,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// =====================
-// 10) 最終啟動
-// =====================
+// 最終啟動
 sequelize
   .sync({ alter: false })
   .then(() => {
