@@ -80,12 +80,13 @@ services:
       - suzoo_fastapi
     env_file:
       - .env
-    # Express 預設在容器內跑 port 3000
+
     expose:
       - "3000"
     environment:
       - GMAIL_USER=jeffqqm@gmail.com
       - GMAIL_PASS=Zack967988
+
     networks:
       - suzoo_net
     healthcheck:
