@@ -1,16 +1,30 @@
 // express/server.js
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-const sequelize = require('./db');
+// 匯入 Sequelize 與本專案的 DB (若您有 index.js 等)
+const sequelize = require('./db'); // or ./models/index if that's your aggregator
+
 const chain = require('./utils/chain');
 
-// 路由
+// ---------------------------
+// 1) 基本中介軟體
+// ---------------------------
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ---------------------------
+// 2) 路由掛載
+// ---------------------------
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
@@ -19,25 +33,24 @@ const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck');
 const contactRouter = require('./routes/contact'); // Contact 路由
 
-const User = require('./models/User'); // 用於上傳檔案時的會員查詢
+app.use('/auth', authRouter);             // 您要求新增
+app.use('/membership', membershipRouter);
+app.use('/profile', profileRouter);
+app.use('/payment', paymentRouter);
+app.use('/infringement', infringementRouter);
+app.use('/api/trademark-check', trademarkRouter);
+app.use('/api/contact', contactRouter);
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
-
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// 健康檢查
+// ---------------------------
+// 3) Health Check
+// ---------------------------
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
 
-// A) Auth
-app.use('/auth', authRouter);
-
-// B) 區塊鏈 (若您需要)
+// ---------------------------
+// 4) 區塊鏈若需要
+// ---------------------------
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -49,6 +62,7 @@ app.post('/chain/store', async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
+
 app.post('/chain/writeUserAsset', async (req, res) => {
   try {
     const { userEmail, dnaHash, fileType, timestamp } = req.body;
@@ -62,6 +76,7 @@ app.post('/chain/writeUserAsset', async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
+
 app.post('/chain/writeInfringement', async (req, res) => {
   try {
     const { userEmail, infrInfo, timestamp } = req.body;
@@ -76,23 +91,9 @@ app.post('/chain/writeInfringement', async (req, res) => {
   }
 });
 
-// C) 會員中心
-app.use('/membership', membershipRouter);
-
-// D) Profile
-app.use('/profile', profileRouter);
-
-// E) Payment / Infringement
-app.use('/payment', paymentRouter);
-app.use('/infringement', infringementRouter);
-
-// F) 商標檢索
-app.use('/api/trademark-check', trademarkRouter);
-
-// G) Contact
-app.use('/api/contact', contactRouter);
-
-// H) 檔案上傳
+// ---------------------------
+// 5) 檔案上傳範例
+// ---------------------------
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -108,6 +109,8 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'Token 無效或已過期' });
   }
 }
+
+const User = require('./models/User'); // 用於上傳檔案時的會員查詢
 
 async function planUploadLimitCheck(req, res, next) {
   try {
@@ -169,7 +172,6 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // 更新計數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
@@ -195,11 +197,16 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// 啟動伺服器
+// ---------------------------
+// 6) 啟動伺服器
+// ---------------------------
 sequelize
   .sync({ alter: false })
   .then(() => {
     console.log('All tables synced!');
+    const PORT = process.env.PORT || 3000;
+    const HOST = process.env.HOST || '0.0.0.0';
+
     app.listen(PORT, HOST, () => {
       console.log(`Express server running on http://${HOST}:${PORT}`);
     });
