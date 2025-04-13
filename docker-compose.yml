@@ -81,12 +81,12 @@ services:
     env_file:
       - .env
     expose:
-      - "3000"  # 在容器內部運作 express
+      - "3000"
     environment:
       - GMAIL_USER=jeffqqm@gmail.com
       - GMAIL_PASS=Zack967988
-      - HOST=0.0.0.0        # 修正: Express 監聽 0.0.0.0
-      - PORT=3000           # 修正: express/server.js 會讀取
+      - HOST=0.0.0.0
+      - PORT=3000
     networks:
       - suzoo_net
     healthcheck:
@@ -108,7 +108,7 @@ services:
     env_file:
       - .env
     expose:
-      - "3000"  # React dev server on 3000
+      - "3000"
     ports:
       - "3000:3000"
     networks:
