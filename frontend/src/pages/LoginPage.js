@@ -6,15 +6,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errMsg, setErrMsg] = useState('');
-  const [userPlan, setUserPlan] = useState(''); // 若已登入過，顯示當前方案
+  const [userPlan, setUserPlan] = useState('');
   const nav = useNavigate();
 
-  // 嘗試抓取 membership，看是否已登入 => 顯示 plan
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return; // 尚未登入
+    if (!token) return;
     fetch('/membership', {
-      headers: { 'Authorization': 'Bearer ' + token }
+      headers: { Authorization: 'Bearer ' + token }
     })
       .then(r => r.json())
       .then(d => {
@@ -37,7 +36,6 @@ export default function LoginPage() {
       });
       const data = await resp.json();
       if (resp.ok) {
-        // 登入成功 => 存 token => 轉跳
         localStorage.setItem('token', data.token);
         alert('登入成功!');
         nav('/membership');
@@ -49,7 +47,6 @@ export default function LoginPage() {
     }
   };
 
-  // 置中 + 橘色框
   const containerStyle = {
     margin: '2rem auto',
     border: '2px solid orange',
@@ -64,35 +61,11 @@ export default function LoginPage() {
     marginBottom: '1rem',
     fontSize: '1.5rem'
   };
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '0.3rem',
-    color: '#fff',
-    textAlign: 'left'
-  };
-  const inputStyle = {
-    width: '100%',
-    padding: '0.5rem',
-    marginBottom: '1rem',
-    border: '1px solid #aaa',
-    borderRadius: '4px'
-  };
-  const btnStyle = {
-    marginTop: '0.5rem',
-    padding: '0.5rem 1.2rem',
-    border: '2px solid orange',
-    background: 'black',
-    color: 'orange',
-    cursor: 'pointer',
-    borderRadius: '4px',
-    fontWeight: 'bold'
-  };
 
   return (
     <div style={containerStyle}>
       <h2 style={titleStyle}>Login</h2>
 
-      {/* 如果使用者已登入過,顯示 "您目前方案: userPlan" */}
       {userPlan && (
         <p style={{ color: 'orange', marginBottom: '1rem' }}>
           目前方案：{userPlan}
@@ -100,19 +73,18 @@ export default function LoginPage() {
       )}
 
       <div style={{ textAlign: 'left' }}>
-        <label style={labelStyle}>Email：</label>
-        {/* 取消 type="email" 或 pattern */}
+        <label style={{ display:'block', color:'#fff', marginBottom:'4px' }}>Email：</label>
         <input
-          style={inputStyle}
+          style={{ width:'100%', padding:'0.5rem', marginBottom:'1rem' }}
           type="text"
           value={email}
           onChange={e => setEmail(e.target.value)}
           placeholder="輸入 Email"
         />
 
-        <label style={labelStyle}>Password：</label>
+        <label style={{ display:'block', color:'#fff', marginBottom:'4px' }}>Password：</label>
         <input
-          style={inputStyle}
+          style={{ width:'100%', padding:'0.5rem', marginBottom:'1rem' }}
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
@@ -124,7 +96,21 @@ export default function LoginPage() {
         <p style={{ color: 'yellow', marginBottom: '0.5rem' }}>{errMsg}</p>
       )}
 
-      <button onClick={doLogin} style={btnStyle}>Log In</button>
+      <button
+        onClick={doLogin}
+        style={{
+          marginTop: '0.5rem',
+          padding: '0.5rem 1.2rem',
+          border: '2px solid orange',
+          background: 'black',
+          color: 'orange',
+          cursor: 'pointer',
+          borderRadius: '4px',
+          fontWeight: 'bold'
+        }}
+      >
+        Log In
+      </button>
     </div>
   );
 }
