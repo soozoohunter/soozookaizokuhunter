@@ -1,3 +1,4 @@
+// express/routes/upload.js
 require('dotenv').config();
 const express = require('express');
 const router = express.Router();
@@ -81,7 +82,7 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res)=>{
     incrementUsage(user, fileType);
     await user.save();
 
-    // 刪除上傳的暫存檔
+    // 刪除暫存檔
     fs.unlinkSync(req.file.path);
 
     return res.json({
