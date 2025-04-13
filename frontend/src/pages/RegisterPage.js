@@ -2,8 +2,18 @@
 import React, { useState } from 'react';
 
 export default function RegisterPage() {
+  // STEP 狀態: 1=Email階段, 2=輸入驗證碼階段, 3=輸入密碼&其他欄位
+  const [step, setStep] = useState(1);
+
+  // Step1: Email
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+
+  // Step2: 驗證碼
+  const [code, setCode] = useState('');
+
+  // Step3: 兩次密碼 + 其餘欄位
+  const [password1, setPassword1] = useState('');
+  const [password2, setPassword2] = useState('');
   const [userName, setUserName] = useState('');
   const [facebook, setFacebook] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -13,24 +23,77 @@ export default function RegisterPage() {
   const [ruten, setRuten] = useState('');
   const [amazon, setAmazon] = useState('');
   const [taobao, setTaobao] = useState('');
+
+  // 錯誤/成功訊息
   const [errMsg, setErrMsg] = useState('');
   const [okMsg, setOkMsg] = useState('');
 
-  async function doRegister() {
-    setErrMsg('');
-    setOkMsg('');
-    if (!email || !password || !userName) {
-      setErrMsg('請填寫必填欄位：Email, Password, UserName');
+  // STEP1: 寄送驗證碼
+  async function handleSendCode() {
+    setErrMsg(''); setOkMsg('');
+    if (!email) {
+      setErrMsg('請填寫 Email');
       return;
     }
-
     try {
-      const resp = await fetch('/auth/register', {
+      const resp = await fetch('/auth/sendCode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setOkMsg('驗證碼已寄出，請查看信箱');
+        // 切換到 step=2
+        setStep(2);
+      } else {
+        setErrMsg(data.error || '寄送驗證碼失敗');
+      }
+    } catch (e) {
+      setErrMsg('發生錯誤:' + e.message);
+    }
+  }
+
+  // STEP2: 驗證碼檢查
+  async function handleCheckCode() {
+    setErrMsg(''); setOkMsg('');
+    if (!code) {
+      setErrMsg('請輸入驗證碼');
+      return;
+    }
+    try {
+      const resp = await fetch('/auth/checkCode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        setOkMsg('驗證碼正確，請繼續完成註冊');
+        setStep(3);
+      } else {
+        setErrMsg(data.error || '驗證失敗');
+      }
+    } catch (e) {
+      setErrMsg('發生錯誤:' + e.message);
+    }
+  }
+
+  // STEP3: 送出最終註冊
+  async function handleFinalRegister() {
+    setErrMsg(''); setOkMsg('');
+    if (!password1 || !password2 || !userName) {
+      setErrMsg('請輸入必填欄位(兩次密碼、UserName)');
+      return;
+    }
+    try {
+      const resp = await fetch('/auth/finalRegister', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
-          password,
+          email, 
+          password1, 
+          password2, 
           userName,
           facebook,
           instagram,
@@ -44,167 +107,222 @@ export default function RegisterPage() {
       });
       const data = await resp.json();
       if (resp.ok) {
-        setOkMsg('註冊成功，請前往信箱收驗證碼 -> /auth/verifyEmail');
+        setOkMsg('註冊成功，請去登入頁面登入');
       } else {
         setErrMsg(data.error || '註冊失敗');
       }
-    } catch (e) {
-      setErrMsg('發生錯誤: ' + e.message);
+    } catch(e) {
+      setErrMsg('發生錯誤:'+ e.message);
     }
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.wrapper}>
       <h2 style={styles.title}>會員註冊</h2>
       
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Email (必填)</label>
-        <input
-          type="text" // 避免 iPad "pattern mismatch"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={styles.input}
-        />
-      </div>
+      {step===1 && (
+        <div style={styles.formArea}>
+          <label style={styles.label}>Email <span style={{color:'orange'}}>(必填)</span></label>
+          <input 
+            style={styles.input}
+            type="text"
+            placeholder="請輸入您的 Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+          {errMsg && <p style={styles.errMsg}>{errMsg}</p>}
+          {okMsg && <p style={styles.okMsg}>{okMsg}</p>}
+          <button style={styles.btn} onClick={handleSendCode}>寄送驗證碼</button>
+        </div>
+      )}
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Password (必填)</label>
-        <input
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          style={styles.input}
-        />
-      </div>
+      {step===2 && (
+        <div style={styles.formArea}>
+          <label style={styles.label}>已寄送至 {email} 的驗證碼</label>
+          <input 
+            style={styles.input}
+            type="text"
+            placeholder="請輸入 6 碼驗證碼"
+            value={code}
+            onChange={e => setCode(e.target.value)}
+          />
+          {errMsg && <p style={styles.errMsg}>{errMsg}</p>}
+          {okMsg && <p style={styles.okMsg}>{okMsg}</p>}
+          <button style={styles.btn} onClick={handleCheckCode}>檢查驗證碼</button>
+        </div>
+      )}
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>UserName (必填)</label>
-        <input
-          type="text"
-          value={userName}
-          onChange={e => setUserName(e.target.value)}
-          style={styles.input}
-        />
-      </div>
+      {step===3 && (
+        <div style={styles.formArea}>
+          <div>
+            <label style={styles.label}>Password <span style={{color:'orange'}}>(必填)</span></label>
+            <input 
+              style={styles.input}
+              type="password"
+              placeholder="請輸入密碼"
+              value={password1}
+              onChange={e => setPassword1(e.target.value)}
+            />
+          </div>
 
-      {/* ---- 社群 / 電商平台 (選填) ---- */}
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Facebook</label>
-        <input
-          type="text"
-          value={facebook}
-          onChange={e => setFacebook(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Instagram</label>
-        <input
-          type="text"
-          value={instagram}
-          onChange={e => setInstagram(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>YouTube</label>
-        <input
-          type="text"
-          value={youtube}
-          onChange={e => setYoutube(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>TikTok</label>
-        <input
-          type="text"
-          value={tiktok}
-          onChange={e => setTiktok(e.target.value)}
-          style={styles.input}
-        />
-      </div>
+          <div>
+            <label style={styles.label}>Confirm Password <span style={{color:'orange'}}>(必填)</span></label>
+            <input 
+              style={styles.input}
+              type="password"
+              placeholder="再輸入一次密碼"
+              value={password2}
+              onChange={e => setPassword2(e.target.value)}
+            />
+          </div>
 
-      <div style={styles.formGroup}>
-        <label style={styles.label}>蝦皮 / Shopee</label>
-        <input
-          type="text"
-          value={shopee}
-          onChange={e => setShopee(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>露天 / Ruten</label>
-        <input
-          type="text"
-          value={ruten}
-          onChange={e => setRuten(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Amazon</label>
-        <input
-          type="text"
-          value={amazon}
-          onChange={e => setAmazon(e.target.value)}
-          style={styles.input}
-        />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>淘寶 / Taobao</label>
-        <input
-          type="text"
-          value={taobao}
-          onChange={e => setTaobao(e.target.value)}
-          style={styles.input}
-        />
-      </div>
+          <div>
+            <label style={styles.label}>UserName <span style={{color:'orange'}}>(必填)</span></label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="您的暱稱 / 用戶名"
+              value={userName}
+              onChange={e => setUserName(e.target.value)}
+            />
+          </div>
 
-      {errMsg && <p style={{ color: 'red' }}>{errMsg}</p>}
-      {okMsg && <p style={{ color: 'lime' }}>{okMsg}</p>}
+          {/* 其他欄位 (社群 / 電商) */}
+          <div>
+            <label style={styles.label}>Facebook</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="Facebook帳號或頁面連結"
+              value={facebook}
+              onChange={e => setFacebook(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>Instagram</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="IG帳號或連結"
+              value={instagram}
+              onChange={e => setInstagram(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>YouTube</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="YouTube頻道"
+              value={youtube}
+              onChange={e => setYoutube(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>TikTok</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="TikTok帳號"
+              value={tiktok}
+              onChange={e => setTiktok(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>蝦皮 / Shopee</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="蝦皮帳號"
+              value={shopee}
+              onChange={e => setShopee(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>露天 / Ruten</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="露天拍賣"
+              value={ruten}
+              onChange={e => setRuten(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>Amazon</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="Amazon 店鋪"
+              value={amazon}
+              onChange={e => setAmazon(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={styles.label}>淘寶 / Taobao</label>
+            <input 
+              style={styles.input}
+              type="text"
+              placeholder="淘寶帳號"
+              value={taobao}
+              onChange={e => setTaobao(e.target.value)}
+            />
+          </div>
 
-      <button onClick={doRegister} style={styles.button}>提交註冊</button>
+          {errMsg && <p style={styles.errMsg}>{errMsg}</p>}
+          {okMsg && <p style={styles.okMsg}>{okMsg}</p>}
+
+          <button style={styles.btn} onClick={handleFinalRegister}>提交註冊</button>
+        </div>
+      )}
     </div>
   );
 }
 
 const styles = {
-  container: {
-    maxWidth: '500px',
+  wrapper: {
+    maxWidth: '480px',
     margin: '2rem auto',
-    padding: '1rem',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    color: '#fff',
-    borderRadius: '8px'
+    border: '2px solid orange', // 外層橘色框框
+    borderRadius: '8px',
+    padding: '1.5rem',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    color: '#fff'
   },
   title: {
-    fontSize: '1.5rem',
+    textAlign: 'center',
+    color: 'orange',
     marginBottom: '1rem',
-    color: 'orange'
+    fontSize: '1.6rem'
   },
-  formGroup: {
-    marginBottom: '0.8rem'
+  formArea: {
+    marginBottom: '1rem'
   },
   label: {
     display: 'block',
     marginBottom: '4px',
-    color: '#ff1c1c'
+    color: 'orange'
   },
   input: {
     width: '100%',
     padding: '0.5rem',
+    border: '1px solid #ccc',
     borderRadius: '4px',
-    border: '1px solid #ccc'
+    marginBottom: '0.8rem'
   },
-  button: {
-    padding: '0.6rem 1.2rem',
-    border: 'none',
-    background: 'orange',
+  btn: {
+    backgroundColor: 'orange',
     color: '#000',
+    border: 'none',
+    padding: '0.6rem 1.2rem',
     fontWeight: 'bold',
     borderRadius: '4px',
     cursor: 'pointer'
+  },
+  errMsg: {
+    color: 'red'
+  },
+  okMsg: {
+    color: 'lime'
   }
 };
