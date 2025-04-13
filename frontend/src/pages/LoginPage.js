@@ -1,116 +1,106 @@
-// frontend/src/pages/LoginPage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
+  const nav = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errMsg, setErrMsg] = useState('');
-  const [userPlan, setUserPlan] = useState('');
-  const nav = useNavigate();
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    fetch('/membership', {
-      headers: { Authorization: 'Bearer ' + token }
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.plan) setUserPlan(d.plan);
-      })
-      .catch(e => console.error('membership fetch error:', e));
-  }, []);
 
   const doLogin = async () => {
     setErrMsg('');
     if (!email || !password) {
-      setErrMsg('請輸入 Email 和 密碼');
+      setErrMsg('請輸入帳號與密碼');
       return;
     }
     try {
       const resp = await fetch('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await resp.json();
       if (resp.ok) {
         localStorage.setItem('token', data.token);
-        alert('登入成功!');
+        alert('登入成功');
         nav('/membership');
       } else {
         setErrMsg(data.error || '登入失敗');
       }
     } catch (e) {
-      setErrMsg('發生錯誤: ' + e.message);
+      setErrMsg('發生錯誤:' + e.message);
     }
   };
 
-  const containerStyle = {
-    margin: '2rem auto',
-    border: '2px solid orange',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    maxWidth: '380px',
-    textAlign: 'center',
-    background: 'rgba(255,255,255,0.05)'
-  };
-  const titleStyle = {
-    color: 'red',
-    marginBottom: '1rem',
-    fontSize: '1.5rem'
-  };
-
   return (
-    <div style={containerStyle}>
-      <h2 style={titleStyle}>Login</h2>
+    <div style={styles.wrapper}>
+      <h2 style={styles.title}>Login</h2>
 
-      {userPlan && (
-        <p style={{ color: 'orange', marginBottom: '1rem' }}>
-          目前方案：{userPlan}
-        </p>
-      )}
+      <label style={styles.label}>帳號 (必填)</label>
+      <input
+        style={styles.input}
+        type="text"
+        placeholder="輸入您的登入帳號"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        autoComplete="off"
+        spellCheck="false"
+      />
 
-      <div style={{ textAlign: 'left' }}>
-        <label style={{ display:'block', color:'#fff', marginBottom:'4px' }}>Email：</label>
-        <input
-          style={{ width:'100%', padding:'0.5rem', marginBottom:'1rem' }}
-          type="text"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="輸入 Email"
-        />
+      <label style={styles.label}>密碼 (必填)</label>
+      <input
+        style={styles.input}
+        type="password"
+        placeholder="••••••"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+      />
 
-        <label style={{ display:'block', color:'#fff', marginBottom:'4px' }}>Password：</label>
-        <input
-          style={{ width:'100%', padding:'0.5rem', marginBottom:'1rem' }}
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          placeholder="輸入密碼"
-        />
-      </div>
+      {errMsg && <p style={styles.errMsg}>{errMsg}</p>}
 
-      {errMsg && (
-        <p style={{ color: 'yellow', marginBottom: '0.5rem' }}>{errMsg}</p>
-      )}
-
-      <button
-        onClick={doLogin}
-        style={{
-          marginTop: '0.5rem',
-          padding: '0.5rem 1.2rem',
-          border: '2px solid orange',
-          background: 'black',
-          color: 'orange',
-          cursor: 'pointer',
-          borderRadius: '4px',
-          fontWeight: 'bold'
-        }}
-      >
-        Log In
+      <button style={styles.btn} onClick={doLogin}>
+        登入
       </button>
     </div>
   );
 }
+
+const styles = {
+  wrapper: {
+    maxWidth: '400px',
+    margin: '2rem auto',
+    border: '2px solid orange',
+    borderRadius: '8px',
+    padding: '1.5rem',
+    backgroundColor: 'rgba(0,0,0,0.7)'
+  },
+  title: {
+    textAlign: 'center',
+    color: 'red',
+    marginBottom: '1rem'
+  },
+  label: {
+    display: 'block',
+    margin: '0.5rem 0',
+    color: 'orange'
+  },
+  input: {
+    width: '100%',
+    padding: '0.5rem',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    marginBottom: '0.5rem'
+  },
+  btn: {
+    backgroundColor: 'orange',
+    color: '#000',
+    border: 'none',
+    padding: '0.5rem 1.2rem',
+    fontWeight: 'bold',
+    borderRadius: '4px',
+    cursor: 'pointer'
+  },
+  errMsg: {
+    color: 'yellow'
+  }
+};
