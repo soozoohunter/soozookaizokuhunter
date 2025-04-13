@@ -1,7 +1,7 @@
+// express/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -22,8 +22,6 @@ const contactRouter = require('./routes/contact'); // Contact 路由
 const User = require('./models/User'); // 用於上傳檔案時的會員查詢
 
 const app = express();
-
-// 從環境變數讀取 PORT / HOST，並預設 3000 / 0.0.0.0
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -31,7 +29,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
+// 健康檢查
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
@@ -39,7 +37,7 @@ app.get('/health', (req, res) => {
 // A) Auth
 app.use('/auth', authRouter);
 
-// B) 區塊鏈
+// B) 區塊鏈 (若您需要)
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -51,7 +49,6 @@ app.post('/chain/store', async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
-
 app.post('/chain/writeUserAsset', async (req, res) => {
   try {
     const { userEmail, dnaHash, fileType, timestamp } = req.body;
@@ -65,7 +62,6 @@ app.post('/chain/writeUserAsset', async (req, res) => {
     return res.status(500).json({ error: e.message });
   }
 });
-
 app.post('/chain/writeInfringement', async (req, res) => {
   try {
     const { userEmail, infrInfo, timestamp } = req.body;
@@ -165,7 +161,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // 上鏈 (可選)
+    // ★(可選) 上鏈
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -199,7 +195,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// 啟動
+// 啟動伺服器
 sequelize
   .sync({ alter: false })
   .then(() => {
