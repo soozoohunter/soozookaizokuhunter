@@ -1,106 +1,63 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function LoginPage() {
-  const nav = useNavigate();
+function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errMsg, setErrMsg] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const doLogin = async () => {
-    setErrMsg('');
+  const handleLogin = async () => {
+    setError('');
     if (!email || !password) {
-      setErrMsg('請輸入帳號與密碼');
+      setError('請輸入帳號和密碼');
       return;
     }
+    setLoading(true);
     try {
-      const resp = await fetch('/auth/login', {
+      const response = await fetch('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await resp.json();
-      if (resp.ok) {
-        localStorage.setItem('token', data.token);
-        alert('登入成功');
-        nav('/membership');
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.message || '登入失敗，請檢查帳號與密碼');
       } else {
-        setErrMsg(data.error || '登入失敗');
+        // 登入成功，可將 JWT 保存並導向首頁或會員專區
+        localStorage.setItem('authToken', result.token);
+        alert('登入成功');
+        navigate('/'); // 導向首頁或其他登入後頁面
       }
-    } catch (e) {
-      setErrMsg('發生錯誤:' + e.message);
+    } catch (err) {
+      setError('伺服器發生錯誤，請稍後再試');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={styles.wrapper}>
-      <h2 style={styles.title}>Login</h2>
-
-      <label style={styles.label}>帳號 (必填)</label>
-      <input
-        style={styles.input}
-        type="text"
-        placeholder="輸入您的登入帳號"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        autoComplete="off"
-        spellCheck="false"
+    <div className="login-container">
+      <h2>Login</h2>
+      <label>Email：</label>
+      <input 
+        type="text" 
+        value={email} 
+        onChange={e => setEmail(e.target.value)} 
       />
-
-      <label style={styles.label}>密碼 (必填)</label>
-      <input
-        style={styles.input}
-        type="password"
-        placeholder="••••••"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
+      <label>Password：</label>
+      <input 
+        type="password" 
+        value={password} 
+        onChange={e => setPassword(e.target.value)} 
       />
-
-      {errMsg && <p style={styles.errMsg}>{errMsg}</p>}
-
-      <button style={styles.btn} onClick={doLogin}>
-        登入
+      {error && <div className="error-message">{error}</div>}
+      <button onClick={handleLogin} disabled={loading}>
+        {loading ? '登入中...' : '登入'}
       </button>
     </div>
   );
 }
 
-const styles = {
-  wrapper: {
-    maxWidth: '400px',
-    margin: '2rem auto',
-    border: '2px solid orange',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    backgroundColor: 'rgba(0,0,0,0.7)'
-  },
-  title: {
-    textAlign: 'center',
-    color: 'red',
-    marginBottom: '1rem'
-  },
-  label: {
-    display: 'block',
-    margin: '0.5rem 0',
-    color: 'orange'
-  },
-  input: {
-    width: '100%',
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #555',
-    marginBottom: '0.5rem'
-  },
-  btn: {
-    backgroundColor: 'orange',
-    color: '#000',
-    border: 'none',
-    padding: '0.5rem 1.2rem',
-    fontWeight: 'bold',
-    borderRadius: '4px',
-    cursor: 'pointer'
-  },
-  errMsg: {
-    color: 'yellow'
-  }
-};
+export default LoginPage;
