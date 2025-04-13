@@ -1,5 +1,3 @@
-// express/server.js
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -8,10 +6,9 @@ const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-// 載入 Sequelize（db.js or models/index.js）
+// 載入 Sequelize（假設在 express/models/index.js 內做初始化）
 const { sequelize } = require('./models'); 
-// 若您原本是 `./db`, 請改 const sequelize = require('./db'); 
-// 參考下方 index.js => module.exports = { sequelize, User, VerificationCode };
+// 若您使用 ./db.js，則改成 const sequelize = require('./db');
 
 const chain = require('./utils/chain');
 
@@ -22,6 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 2) 路由
+// -----------------------------------------------------
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
@@ -30,12 +28,18 @@ const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck');
 const contactRouter = require('./routes/contact'); // Contact 路由
 
+// Auth 路由
 app.use('/auth', authRouter);
+// 會員中心
 app.use('/membership', membershipRouter);
+// Profile
 app.use('/profile', profileRouter);
+// Payment / Infringement
 app.use('/payment', paymentRouter);
 app.use('/infringement', infringementRouter);
+// 商標檢索
 app.use('/api/trademark-check', trademarkRouter);
+// Contact
 app.use('/api/contact', contactRouter);
 
 // 3) 健康檢查
@@ -85,6 +89,7 @@ app.post('/chain/writeInfringement', async (req, res) => {
 });
 
 // 5) 檔案上傳 + JWT + plan檢查
+// -----------------------------------------------------
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -103,7 +108,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// 載入 User model
+// 導入 User model (for plan limit check)
 const User = require('./models/User');
 
 async function planUploadLimitCheck(req, res, next) {
@@ -156,7 +161,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // 可選：上鏈
+    // ★(可選) 上鏈
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -191,6 +196,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
 });
 
 // 6) 啟動
+// -----------------------------------------------------
 sequelize
   .sync({ alter: false })
   .then(() => {
