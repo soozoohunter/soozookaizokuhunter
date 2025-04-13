@@ -2,142 +2,103 @@ const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-// ★ 若您要把驗證碼暫存於資料庫，可改成 import VerificationCode from '...';
-//   這裡示範 "記憶體暫存" 方式:
-const VerificationCode = require('../utils/VerificationCode'); 
-// import { User } from '../models'; // 若您要操作資料庫中的 User
 
-const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+// 引入驗證碼工具 (使用記憶體 Map 暫存驗證碼)
+const { generateCode, verifyCode, removeCode } = require('../utils/VerificationCode');
+// 引入 User 資料模型 (Sequelize)
+const { User } = require('../models');
 
-/**
- * [POST] /auth/sendCode
- * 產生 6 碼驗證碼並寄送給使用者
- */
-router.post('/sendCode', async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    // 產生驗證碼
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // 暫存或寫進 DB
-    VerificationCode.saveCode(email, code);
-
-    // 檢查環境變數
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('未設定 EMAIL_USER/EMAIL_PASS');
-      return res.status(500).json({ error: 'Email service not configured' });
-    }
-
-    // 使用 Gmail (建議應用程式密碼)
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-
-    // 寄出 Email
-    await transporter.sendMail({
-      from: `"Suzoo應用" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: '您的驗證碼 (Suzoo)',
-      text: `您的驗證碼為: ${code}，請在 5 分鐘內使用`
-    });
-
-    return res.json({ message: '驗證碼已發送' });
-  } catch (err) {
-    console.error('[sendCode] error:', err);
-    return res.status(500).json({ error: '寄送驗證碼失敗' });
+// 設定 Gmail SMTP 發信
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
-/**
- * [POST] /auth/checkCode
- * 驗證碼比對
- */
+// 寄送驗證碼
+router.post('/sendCode', async (req, res) => {
+  const { email } = req.body;
+  try {
+    // 檢查 Email 是否已被註冊
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: '此 Email 已註冊過' });
+    }
+    // 產生驗證碼並發送郵件
+    const code = generateCode(email);
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: '會員驗證碼 Verification Code',
+      text: `您的會員驗證碼為: ${code}\nThis is your verification code: ${code}`
+    });
+    return res.json({ message: '驗證碼已寄出' });
+  } catch (err) {
+    console.error('Error in /auth/sendCode:', err);
+    return res.status(500).json({ message: '驗證碼寄送失敗' });
+  }
+});
+
+// 驗證輸入的驗證碼
 router.post('/checkCode', (req, res) => {
   const { email, code } = req.body;
-  if (!email || !code) {
-    return res.status(400).json({ error: '缺少 email 或 code' });
-  }
-  const valid = VerificationCode.verifyCode(email, code);
+  // 檢查驗證碼是否正確且未過期
+  const valid = verifyCode(email, code);
   if (!valid) {
-    return res.status(400).json({ error: '驗證碼錯誤或已過期' });
+    return res.status(400).json({ message: '驗證碼錯誤或已過期' });
   }
-  return res.json({ message: '驗證碼正確，請繼續註冊' });
+  return res.json({ message: '驗證碼正確' });
 });
 
-/**
- * [POST] /auth/finalRegister
- * 在驗證碼正確後，寫入使用者資料
- */
+// 完成註冊 (建立帳號)
 router.post('/finalRegister', async (req, res) => {
+  const { email, password, code } = req.body;
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: '缺少 email 或 password' });
+    // 再次驗證驗證碼（防止跳過前一步）
+    const valid = verifyCode(email, code);
+    if (!valid) {
+      return res.status(400).json({ message: '驗證碼錯誤或已過期' });
     }
-    // 檢查驗證狀態
-    if (!VerificationCode.isVerified(email)) {
-      return res.status(400).json({ error: 'Email 尚未通過驗證碼驗證' });
+    // 檢查 Email 是否重複
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ message: '此 Email 已註冊過' });
     }
-
-    // TODO: 查詢 DB 是否已存在 user
-    // const existUser = await User.findOne({ where: { email }});
-    // if (existUser) {
-    //   return res.status(400).json({ error: '此 Email 已被註冊' });
-    // }
-    // 加密密碼
-    const hashed = await bcrypt.hash(password, 10);
-    // 新增 user
-    // await User.create({ email, password: hashed, plan: 'BASIC', ... });
-
-    // 完成後清除驗證碼
-    VerificationCode.clearCode(email);
+    // 建立新使用者帳號 (此範例未加密密碼，實務上應先雜湊)
+    const newUser = await User.create({ email, password });
+    // 移除已使用的驗證碼
+    removeCode(email);
     return res.json({ message: '註冊成功' });
   } catch (err) {
-    console.error('[finalRegister] error:', err);
-    return res.status(500).json({ error: '註冊失敗' });
+    console.error('Error in /auth/finalRegister:', err);
+    return res.status(500).json({ message: '註冊失敗，請稍後再試' });
   }
 });
 
-/**
- * [POST] /auth/login
- * 登入
- */
+// 使用者登入，回傳 JWT Token
 router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: '缺少 email 或 password' });
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
-
-    // 依需求查詢 user，並比對密碼
-    // const user = await User.findOne({ where: { email }});
-    // if (!user) {
-    //   return res.status(401).json({ error: '使用者不存在' });
-    // }
-    // const match = await bcrypt.compare(password, user.password);
-    // if (!match) {
-    //   return res.status(401).json({ error: '密碼錯誤' });
-    // }
-
-    // 簽發 JWT
+    // 檢查密碼是否正確
+    if (user.password !== password) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
+    }
+    // 簽發 JWT Token（有效期1小時）
     const token = jwt.sign(
-      { email }, // or { id: user.id, email: user.email}
-      JWT_SECRET,
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-
-    return res.json({ message: '登入成功', token });
+    return res.json({ token });
   } catch (err) {
-    console.error('[login] error:', err);
-    return res.status(500).json({ error: '登入失敗' });
+    console.error('Error in /auth/login:', err);
+    return res.status(500).json({ message: '登入失敗，請稍後再試' });
   }
 });
 
