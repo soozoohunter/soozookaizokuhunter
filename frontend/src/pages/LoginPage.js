@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [userPlan, setUserPlan] = useState(''); // 若已登入過，顯示當前方案
   const nav = useNavigate();
 
-  // 嘗試抓取 membership 看是否已登入 => 顯示 plan
+  // 嘗試抓取 membership，看是否已登入 => 顯示 plan
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return; // 尚未登入
@@ -40,7 +40,7 @@ export default function LoginPage() {
         // 登入成功 => 存 token => 轉跳
         localStorage.setItem('token', data.token);
         alert('登入成功!');
-        nav('/membership'); 
+        nav('/membership');
       } else {
         setErrMsg(data.error || '登入失敗');
       }
@@ -64,23 +64,28 @@ export default function LoginPage() {
     marginBottom: '1rem',
     fontSize: '1.5rem'
   };
-  const labelStyle = { display: 'block', marginBottom:'0.3rem', color:'#fff', textAlign:'left' };
+  const labelStyle = {
+    display: 'block',
+    marginBottom: '0.3rem',
+    color: '#fff',
+    textAlign: 'left'
+  };
   const inputStyle = {
     width: '100%',
     padding: '0.5rem',
-    marginBottom:'1rem',
-    border:'1px solid #aaa',
-    borderRadius:'4px'
+    marginBottom: '1rem',
+    border: '1px solid #aaa',
+    borderRadius: '4px'
   };
   const btnStyle = {
-    marginTop:'0.5rem',
-    padding:'0.5rem 1.2rem',
-    border:'2px solid orange',
-    background:'black',
-    color:'orange',
-    cursor:'pointer',
-    borderRadius:'4px',
-    fontWeight:'bold'
+    marginTop: '0.5rem',
+    padding: '0.5rem 1.2rem',
+    border: '2px solid orange',
+    background: 'black',
+    color: 'orange',
+    cursor: 'pointer',
+    borderRadius: '4px',
+    fontWeight: 'bold'
   };
 
   return (
@@ -89,30 +94,34 @@ export default function LoginPage() {
 
       {/* 如果使用者已登入過,顯示 "您目前方案: userPlan" */}
       {userPlan && (
-        <p style={{ color:'orange', marginBottom:'1rem' }}>
+        <p style={{ color: 'orange', marginBottom: '1rem' }}>
           目前方案：{userPlan}
         </p>
       )}
 
-      <div style={{ textAlign:'left' }}>
+      <div style={{ textAlign: 'left' }}>
         <label style={labelStyle}>Email：</label>
+        {/* 取消 type="email" 或 pattern */}
         <input
           style={inputStyle}
-          type="email"
+          type="text"
           value={email}
-          onChange={e=>setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="輸入 Email"
         />
+
         <label style={labelStyle}>Password：</label>
         <input
           style={inputStyle}
           type="password"
           value={password}
-          onChange={e=>setPassword(e.target.value)}
+          onChange={e => setPassword(e.target.value)}
+          placeholder="輸入密碼"
         />
       </div>
 
       {errMsg && (
-        <p style={{ color:'yellow', marginBottom:'0.5rem' }}>{errMsg}</p>
+        <p style={{ color: 'yellow', marginBottom: '0.5rem' }}>{errMsg}</p>
       )}
 
       <button onClick={doLogin} style={btnStyle}>Log In</button>
