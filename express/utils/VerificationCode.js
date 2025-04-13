@@ -1,7 +1,6 @@
-// express/utils/VerificationCode.js
-
+// express/utils/VerificationCode.js (純物件版)
 const codes = new Map();
-const CODE_EXPIRE = 5 * 60 * 1000; // 5分鐘
+const EXPIRE_MS = 5 * 60 * 1000; // 5分鐘
 
 module.exports = {
   saveCode(email, code) {
@@ -10,21 +9,19 @@ module.exports = {
   verifyCode(email, code) {
     const record = codes.get(email);
     if (!record) return false;
-    const now = Date.now();
-    if (now - record.createdAt > CODE_EXPIRE) {
+    if (Date.now() - record.createdAt > EXPIRE_MS) {
       codes.delete(email);
       return false;
     }
     if (record.code !== code) {
       return false;
     }
-    // 驗證成功
     record.verified = true;
     return true;
   },
   isVerified(email) {
-    const record = codes.get(email);
-    return (record && record.verified) || false;
+    const rec = codes.get(email);
+    return rec ? rec.verified : false;
   },
   clearCode(email) {
     codes.delete(email);
