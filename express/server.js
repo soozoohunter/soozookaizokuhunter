@@ -1,4 +1,11 @@
-require('dotenv').config();
+// ============================
+// express/server.js (最終版)
+// ============================
+
+const path = require('path');
+// 載入 .env 檔，可指定路徑或只用預設
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -6,20 +13,25 @@ const crypto = require('crypto');
 const multer = require('multer');
 const jwt = require('jsonwebtoken');
 
-// 載入 Sequelize（假設在 express/models/index.js 內做初始化）
-const { sequelize } = require('./models'); 
-// 若您使用 ./db.js，則改成 const sequelize = require('./db');
+// 若您有 ./models/index.js 載入 Sequelize (含 User, etc.)
+const { sequelize } = require('./models');
+// const sequelize = require('./db'); // 如果您是用 ./db.js
 
+// 若有需要 chain 功能
 const chain = require('./utils/chain');
 
-// 1) 建立 app
+// 建立 Express App
 const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// 2) 路由
-// -----------------------------------------------------
+// (可選) 使用 CORS
+app.use(cors());
+// 接收 JSON 與 URL-encoded
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// ============== 路由區塊 ==============
+
+// A) 載入各模組路由
 const authRouter = require('./routes/auth');
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
@@ -28,35 +40,30 @@ const infringementRouter = require('./routes/infringement');
 const trademarkRouter = require('./routes/trademarkCheck');
 const contactRouter = require('./routes/contact'); // Contact 路由
 
-// Auth 路由
+// B) 掛載路由
 app.use('/auth', authRouter);
-// 會員中心
 app.use('/membership', membershipRouter);
-// Profile
 app.use('/profile', profileRouter);
-// Payment / Infringement
 app.use('/payment', paymentRouter);
 app.use('/infringement', infringementRouter);
-// 商標檢索
 app.use('/api/trademark-check', trademarkRouter);
-// Contact
 app.use('/api/contact', contactRouter);
 
-// 3) 健康檢查
+// ============= Health Check (從 frontend/src/index.js 移過來) =============
 app.get('/health', (req, res) => {
-  res.json({ message: 'Server healthy' });
+  res.send('Express server healthy');
 });
 
-// 4) 區塊鏈 (可選)
+// ============= 區塊鏈路由 (可選) =============
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
     if (!data) return res.status(400).json({ error: 'Missing data' });
     const txHash = await chain.writeToBlockchain(data);
     return res.json({ success: true, txHash });
-  } catch (e) {
-    console.error('[chain/store]', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('[chain/store]', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -68,9 +75,9 @@ app.post('/chain/writeUserAsset', async (req, res) => {
     }
     const txHash = await chain.writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp);
     return res.json({ success: true, txHash });
-  } catch (e) {
-    console.error('[chain/writeUserAsset]', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('[chain/writeUserAsset]', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -82,14 +89,13 @@ app.post('/chain/writeInfringement', async (req, res) => {
     }
     const txHash = await chain.writeInfringementToChain(userEmail, infrInfo, timestamp);
     return res.json({ success: true, txHash });
-  } catch (e) {
-    console.error('[chain/writeInfringement]', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('[chain/writeInfringement]', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
-// 5) 檔案上傳 + JWT + plan檢查
-// -----------------------------------------------------
+// ============= 檔案上傳 & JWT & plan限制 =============
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -108,7 +114,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// 導入 User model (for plan limit check)
+// 依您實際位置載入 User model
 const User = require('./models/User');
 
 async function planUploadLimitCheck(req, res, next) {
@@ -119,7 +125,7 @@ async function planUploadLimitCheck(req, res, next) {
       return res.status(404).json({ error: '使用者不存在' });
     }
 
-    // 根據 plan 設定限制
+    // 根據 plan 設定
     let maxVideos = 3;
     let maxImages = 10;
     if (user.plan === 'PRO') {
@@ -143,9 +149,9 @@ async function planUploadLimitCheck(req, res, next) {
 
     req._userObj = user;
     next();
-  } catch (e) {
-    console.error('[planUploadLimitCheck]', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('[planUploadLimitCheck]', err);
+    return res.status(500).json({ error: err.message });
   }
 }
 
@@ -157,11 +163,11 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const userEmail = req.user.email;
     const filePath = req.file.path;
 
-    // 產生檔案指紋
+    // 產生指紋
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // ★(可選) 上鏈
+    // (可選) 上鏈
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -169,7 +175,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
-    // 更新上傳次數
+    // 更新次數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
     if (/\.(mp4|mov)$/.test(filename)) {
@@ -189,18 +195,19 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       usedVideos: user.uploadVideos,
       usedImages: user.uploadImages
     });
-  } catch (e) {
-    console.error('[Upload Error]', e);
-    return res.status(500).json({ error: e.message });
+  } catch (err) {
+    console.error('[Upload Error]', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
-// 6) 啟動
-// -----------------------------------------------------
+// ============= 啟動伺服器 =============
 sequelize
   .sync({ alter: false })
   .then(() => {
     console.log('All tables synced!');
+    // 若前端 & 後端要分開，可使用 3000 供後端
+    // Nginx 反向代理 /auth, /api
     const PORT = process.env.PORT || 3000;
     const HOST = process.env.HOST || '0.0.0.0';
     app.listen(PORT, HOST, () => {
