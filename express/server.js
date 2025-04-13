@@ -44,7 +44,7 @@ app.get('/health', (req, res) => {
 // Auth 路由
 app.use('/auth', authRouter);
 
-d41ff31 (本地修改: 說明你改了什麼)
+ 812ba476ace1c09f734fd649e8a66b0954e95761
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
