@@ -1,5 +1,3 @@
-// express/server.js
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -18,33 +16,30 @@ const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
 const paymentRouter = require('./routes/payment');
 const infringementRouter = require('./routes/infringement');
-const trademarkRouter = require('./routes/trademarkCheck'); 
-
-// Contact 路由
-const contactRouter = require('./routes/contact');
-
-// 如果有 Contact model，則需要:
-// require('./models/Contact');
+const trademarkRouter = require('./routes/trademarkCheck');
+const contactRouter = require('./routes/contact'); // Contact 路由
 
 const User = require('./models/User'); // 用於上傳檔案時的會員查詢
 
 const app = express();
-const HOST = '0.0.0.0';
+
+// 從環境變數讀取 PORT / HOST，並預設 3000 / 0.0.0.0
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 健康檢查
+// Health check
 app.get('/health', (req, res) => {
   res.json({ message: 'Server healthy' });
 });
 
-// Auth 路由
+// A) Auth
 app.use('/auth', authRouter);
 
- 812ba476ace1c09f734fd649e8a66b0954e95761
+// B) 區塊鏈
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
@@ -85,23 +80,23 @@ app.post('/chain/writeInfringement', async (req, res) => {
   }
 });
 
-// 會員中心
+// C) 會員中心
 app.use('/membership', membershipRouter);
 
-// Profile
+// D) Profile
 app.use('/profile', profileRouter);
 
-// Payment / Infringement
+// E) Payment / Infringement
 app.use('/payment', paymentRouter);
 app.use('/infringement', infringementRouter);
 
-// 商標檢索
+// F) 商標檢索
 app.use('/api/trademark-check', trademarkRouter);
 
-// Contact
+// G) Contact
 app.use('/api/contact', contactRouter);
 
-// 檔案上傳
+// H) 檔案上傳
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -126,6 +121,7 @@ async function planUploadLimitCheck(req, res, next) {
       return res.status(404).json({ error: '使用者不存在' });
     }
 
+    // 計算當前方案可上傳檔案數
     let maxVideos = 3;
     let maxImages = 10;
     if (user.plan === 'PRO') {
@@ -143,11 +139,7 @@ async function planUploadLimitCheck(req, res, next) {
           error: `您是${user.plan}方案, 影片上傳已達${maxVideos}次上限`,
         });
       }
-    } else if (
-      filename.endsWith('.jpg') ||
-      filename.endsWith('.jpeg') ||
-      filename.endsWith('.png')
-    ) {
+    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
       if (user.uploadImages >= maxImages) {
         return res.status(403).json({
           error: `您是${user.plan}方案, 圖片上傳已達${maxImages}次上限`,
@@ -173,6 +165,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
+    // 上鏈 (可選)
     try {
       const txHash = await chain.writeToBlockchain(`${userEmail}|${fingerprint}`);
       console.log('[Upload] fingerprint 上鏈成功 =>', txHash);
@@ -180,15 +173,12 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
       console.error('[Upload] 上鏈失敗 =>', chainErr);
     }
 
+    // 更新計數
     const user = req._userObj;
     const filename = (req.file.originalname || '').toLowerCase();
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       user.uploadVideos += 1;
-    } else if (
-      filename.endsWith('.jpg') ||
-      filename.endsWith('.jpeg') ||
-      filename.endsWith('.png')
-    ) {
+    } else if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
       user.uploadImages += 1;
     }
     await user.save();
@@ -209,7 +199,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
   }
 });
 
-// 最終啟動
+// 啟動
 sequelize
   .sync({ alter: false })
   .then(() => {
