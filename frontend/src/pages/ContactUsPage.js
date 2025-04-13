@@ -1,166 +1,146 @@
 // frontend/src/pages/ContactUsPage.js
 import React, { useState } from 'react';
 
-export default function ContactUsPage(){
+export default function ContactUsPage() {
   const [companyName, setCompanyName] = useState('');
-  const [title, setTitle] = useState(''); // 職稱
+  const [jobTitle, setJobTitle] = useState('');
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [message, setMessage] = useState('');
-  const [responseMsg, setResponseMsg] = useState('');
+  const [resultMsg, setResultMsg] = useState('');
 
-  // 提交聯絡表單
-  const handleSubmit = async(e)=>{
+  // 送出表單
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setResponseMsg('');
-
-    // 檢查必填
-    if(!contactName || !email || !message){
-      setResponseMsg('請至少填寫 [聯絡人姓名]、[Email]、[需求/訊息]');
-      return;
-    }
+    setResultMsg('');
 
     try {
-      const resp = await fetch('/api/contact',{
-        method:'POST',
-        headers: { 'Content-Type':'application/json' },
+      const resp = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           companyName,
-          title,
+          jobTitle,
           contactName,
           phone,
-          email,
+          address,
           message
         })
       });
       const data = await resp.json();
-
-      if(resp.ok){
-        // 成功
-        setResponseMsg('您的訊息已送出，我們將儘快與您聯繫。');
-        // 清空
+      if (resp.ok) {
+        setResultMsg('感謝您的聯絡，我們已收到表單！');
+        // 清空欄位
         setCompanyName('');
-        setTitle('');
+        setJobTitle('');
         setContactName('');
         setPhone('');
-        setEmail('');
+        setAddress('');
         setMessage('');
       } else {
-        setResponseMsg('送出失敗: ' + (data.error||'不明原因'));
+        setResultMsg(`送出失敗：${data.error || '未知錯誤'}`);
       }
-    } catch(err){
-      setResponseMsg('發生錯誤: ' + err.message);
+    } catch (err) {
+      setResultMsg('發生錯誤：' + err.message);
     }
   };
 
-  // 置中、橘色邊框的樣式
+  // 讓頁面與表單置中 + 橘色邊框
   const containerStyle = {
-    maxWidth: '500px',
     margin: '2rem auto',
     border: '2px solid orange',
     borderRadius: '8px',
     padding: '1.5rem',
-    backgroundColor: '#111',
-    color: '#fff',
-    fontFamily: 'sans-serif'
+    maxWidth: '480px',
+    textAlign: 'left',
+    background: 'rgba(255,255,255,0.05)'
   };
 
-  const labelStyle = { display:'block', marginBottom:'0.3rem' };
+  const titleStyle = {
+    textAlign: 'center',
+    color: 'red',
+    marginBottom: '1rem',
+    fontSize: '1.5rem'
+  };
+
+  const labelStyle = { display: 'block', margin: '0.5rem 0 0.2rem', color:'#fff' };
   const inputStyle = {
-    width:'100%',
-    padding:'0.5rem',
-    marginBottom:'1rem',
-    border:'1px solid #555',
-    borderRadius:'4px',
-    background:'#222',
-    color:'#fff'
+    width: '100%',
+    padding: '0.5rem',
+    borderRadius: '4px',
+    border: '1px solid #aaa'
   };
   const textareaStyle = {
-    width:'100%',
-    height:'100px',
-    padding:'0.5rem',
-    marginBottom:'1rem',
-    border:'1px solid #555',
-    borderRadius:'4px',
-    background:'#222',
-    color:'#fff'
+    width: '100%',
+    height: '80px',
+    padding: '0.5rem',
+    borderRadius: '4px',
+    border: '1px solid #aaa'
   };
-  const buttonStyle = {
-    background:'orange',
-    color:'#000',
-    border:'none',
-    borderRadius:'4px',
-    padding:'0.5rem 1rem',
+  const btnStyle = {
+    marginTop:'1rem',
+    padding:'0.5rem 1.2rem',
+    border:'2px solid orange',
+    background:'black',
+    color:'orange',
     cursor:'pointer',
+    borderRadius:'4px',
     fontWeight:'bold'
   };
 
   return (
     <div style={containerStyle}>
-      <h2 style={{ textAlign:'center', color:'red', marginBottom:'1rem' }}>
-        Contact Us
-      </h2>
+      <h2 style={titleStyle}>Contact Us</h2>
+
       <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>公司名稱 (Company Name):</label>
-        <input 
-          type="text"
+        <label style={labelStyle}>公司名稱 / Company Name</label>
+        <input
           style={inputStyle}
           value={companyName}
-          onChange={e=>setCompanyName(e.target.value)}
+          onChange={(e) => setCompanyName(e.target.value)}
         />
 
-        <label style={labelStyle}>職稱 (Title):</label>
-        <input 
-          type="text"
+        <label style={labelStyle}>頭銜 / Job Title</label>
+        <input
           style={inputStyle}
-          value={title}
-          onChange={e=>setTitle(e.target.value)}
+          value={jobTitle}
+          onChange={(e) => setJobTitle(e.target.value)}
         />
 
-        <label style={labelStyle}>聯絡人姓名 (Contact Name)*:</label>
-        <input 
-          type="text"
+        <label style={labelStyle}>聯絡人姓名 / Contact Name</label>
+        <input
           style={inputStyle}
           value={contactName}
-          onChange={e=>setContactName(e.target.value)}
-          required
+          onChange={(e) => setContactName(e.target.value)}
         />
 
-        <label style={labelStyle}>電話 (Phone):</label>
-        <input 
-          type="text"
+        <label style={labelStyle}>聯絡電話 / Phone</label>
+        <input
           style={inputStyle}
           value={phone}
-          onChange={e=>setPhone(e.target.value)}
+          onChange={(e) => setPhone(e.target.value)}
         />
 
-        <label style={labelStyle}>Email*:</label>
-        <input 
-          type="email"
+        <label style={labelStyle}>地址 / Address</label>
+        <input
           style={inputStyle}
-          value={email}
-          onChange={e=>setEmail(e.target.value)}
-          required
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
         />
 
-        <label style={labelStyle}>需求 / 訊息 (Message)*:</label>
-        <textarea 
+        <label style={labelStyle}>需求 / Message</label>
+        <textarea
           style={textareaStyle}
           value={message}
-          onChange={e=>setMessage(e.target.value)}
-          required
+          onChange={(e) => setMessage(e.target.value)}
         />
 
-        <div style={{ textAlign:'center', marginTop:'1rem' }}>
-          <button type="submit" style={buttonStyle}>送出聯絡</button>
-        </div>
+        <button type="submit" style={btnStyle}>送出</button>
       </form>
 
-      {responseMsg && (
-        <p style={{ color:'yellow', marginTop:'1rem', textAlign:'center' }}>
-          {responseMsg}
-        </p>
+      {resultMsg && (
+        <p style={{ marginTop:'1rem', color:'orange', fontWeight:'bold' }}>{resultMsg}</p>
       )}
     </div>
   );
