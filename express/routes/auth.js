@@ -1,187 +1,120 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
+const VerificationCode = require('./VerificationCode'); // 匯入驗證碼模組
+// （若有 User 模型或資料存取層，可在此引入，例如：const User = require('./User');）
 
-// 載入 Sequelize 模型
-const { User, VerificationCode } = require('../models');
-
-// 設定寄信服務 (這裡以 Gmail 為例，需要在 .env 中提供帳號密碼)
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-// 工具函式：產生六位數驗證碼
-function generateVerificationCode() {
-  // 生成 100000 到 999999 的隨機整數，轉為字串，不足6位時補零
-  const code = Math.floor(100000 + Math.random() * 900000);
-  return code.toString().padStart(6, '0');
-}
-
-// 發送驗證碼 API
+// 發送驗證碼郵件
 router.post('/sendCode', async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ message: 'Email 未提供' });
-  }
-  try {
-    // 檢查是否已有該 Email 的帳號
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: '此 Email 已註冊過帳號' });
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+        // 產生6位數隨機驗證碼
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        // 保存驗證碼（暫存於記憶體或資料庫）
+        VerificationCode.saveCode(email, code);
+        // 檢查環境變數中的郵件帳戶設定 (使用 Gmail 時建議使用應用程式專用密碼)
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.error('未設定 EMAIL_USER/EMAIL_PASS 環境變數');
+            return res.status(500).json({ error: 'Email service not configured' });
+        }
+        // 設定 SMTP 傳輸器（使用 Gmail）
+        let transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+        // 寄出含驗證碼的電子郵件
+        await transporter.sendMail({
+            from: `"Suzoo應用" <${process.env.EMAIL_USER}>`, // 發信人，可自行調整名稱
+            to: email,
+            subject: '您的驗證碼',
+            text: `您的驗證碼是：${code}`
+        });
+        return res.json({ message: '驗證碼已發送' });
+    } catch (err) {
+        console.error('Error in /auth/sendCode:', err);
+        return res.status(500).json({ error: '寄送驗證碼失敗' });
     }
-    // 產生驗證碼
-    const code = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 分鐘後過期
-
-    // 檢查是否已存在尚未使用的驗證碼紀錄
-    let codeRecord = await VerificationCode.findOne({ where: { email } });
-    if (codeRecord) {
-      // 更新驗證碼與有效期限
-      codeRecord.code = code;
-      codeRecord.expiresAt = expiresAt;
-      await codeRecord.save();
-    } else {
-      // 建立新的驗證碼紀錄
-      codeRecord = await VerificationCode.create({ email, code, expiresAt });
-    }
-
-    // 寄送驗證碼郵件
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: '會員註冊驗證碼',
-      text: `您的驗證碼是：${code}，請在10分鐘內完成驗證。`
-    };
-    await transporter.sendMail(mailOptions);
-
-    return res.json({ message: '驗證碼已發送' });
-  } catch (error) {
-    console.error('sendCode error:', error);
-    return res.status(500).json({ message: '伺服器錯誤，無法發送驗證碼' });
-  }
 });
 
-// 驗證碼確認 API
-router.post('/checkCode', async (req, res) => {
-  const { email, code } = req.body;
-  if (!email || !code) {
-    return res.status(400).json({ message: '參數不足' });
-  }
-  try {
-    const codeRecord = await VerificationCode.findOne({ where: { email } });
-    if (!codeRecord) {
-      return res.status(400).json({ message: '請先申請驗證碼' });
+// 驗證輸入的驗證碼是否正確
+router.post('/checkCode', (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) {
+        return res.status(400).json({ error: 'Email and code are required' });
     }
-    // 檢查驗證碼是否過期
-    if (new Date() > codeRecord.expiresAt) {
-      // 已過期，刪除這筆驗證碼紀錄
-      await VerificationCode.destroy({ where: { email } });
-      return res.status(400).json({ message: '驗證碼已過期，請重新申請' });
+    const valid = VerificationCode.verifyCode(email, code);
+    if (!valid) {
+        return res.status(400).json({ error: '驗證碼錯誤或已過期' });
     }
-    // 驗證碼是否正確
-    if (codeRecord.code !== code) {
-      return res.status(400).json({ message: '驗證碼錯誤' });
-    }
-    // 驗證成功
-    return res.json({ message: '驗證成功' });
-  } catch (error) {
-    console.error('checkCode error:', error);
-    return res.status(500).json({ message: '伺服器錯誤，請稍後再試' });
-  }
+    return res.json({ message: '驗證碼正確，請繼續註冊流程' });
 });
 
-// 最終註冊 API
+// 驗證碼正確後的最終註冊
 router.post('/finalRegister', async (req, res) => {
-  const { email, code, username, password, facebook, instagram, youtube, tiktok, shopee, ruten, amazon, taobao } = req.body;
-  if (!email || !code || !username || !password) {
-    return res.status(400).json({ message: '參數不足' });
-  }
-  try {
-    // 查詢驗證碼紀錄
-    const codeRecord = await VerificationCode.findOne({ where: { email } });
-    if (!codeRecord) {
-      return res.status(400).json({ message: '請先完成驗證碼發送流程' });
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        // 確認該 email 已通過驗證碼驗證
+        if (!VerificationCode.isVerified(email)) {
+            return res.status(400).json({ error: 'Email not verified' });
+        }
+        // **將新使用者資料寫入資料庫**（需依據實際資料庫實作）
+        // 建議先檢查使用者是否已存在，以及使用雜湊後的密碼 (例如 bcrypt.hashSync)
+        // 例如：
+        // const hashedPassword = bcrypt.hashSync(password, 10);
+        // await User.create({ email, password: hashedPassword });
+        // （上方為示意，User 模型及資料庫操作需依專案而定）
+        // 清除驗證碼記錄
+        VerificationCode.clearCode(email);
+        return res.json({ message: '註冊成功' });
+    } catch (err) {
+        console.error('Error in /auth/finalRegister:', err);
+        return res.status(500).json({ error: '註冊過程發生錯誤' });
     }
-    // 檢查驗證碼是否過期
-    if (new Date() > codeRecord.expiresAt) {
-      await VerificationCode.destroy({ where: { email } });
-      return res.status(400).json({ message: '驗證碼已過期，請重新申請' });
-    }
-    // 檢查驗證碼是否正確
-    if (codeRecord.code !== code) {
-      return res.status(400).json({ message: '驗證碼錯誤' });
-    }
-    // 檢查帳號或用戶名稱是否已存在
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: '此 Email 已存在帳號，無法重複註冊' });
-    }
-    const existingName = await User.findOne({ where: { username } });
-    if (existingName) {
-      return res.status(400).json({ message: '用戶名稱已被使用，請選擇其他名稱' });
-    }
-    // 哈希密碼
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-    // 建立新使用者
-    await User.create({
-      email,
-      username,
-      password: hashedPassword,
-      facebook: facebook || '',
-      instagram: instagram || '',
-      youtube: youtube || '',
-      tiktok: tiktok || '',
-      shopee: shopee || '',
-      ruten: ruten || '',
-      amazon: amazon || '',
-      taobao: taobao || ''
-    });
-    // 新增成功後刪除驗證碼紀錄（避免重複使用）
-    await VerificationCode.destroy({ where: { email } });
-    return res.json({ message: '註冊成功' });
-  } catch (error) {
-    console.error('finalRegister error:', error);
-    return res.status(500).json({ message: '伺服器錯誤，無法完成註冊' });
-  }
 });
 
-// 登入 API
+// 使用者登入
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: '請提供帳號和密碼' });
-  }
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ message: '帳號或密碼錯誤' });
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        // **驗證使用者帳密**（需依據實際資料庫實作）
+        // 例如：
+        // const user = await User.findOne({ where: { email } });
+        // if (!user) {
+        //     return res.status(401).json({ error: '無效的 Email 或密碼' });
+        // }
+        // // 比對密碼（若有雜湊）
+        // const passwordMatch = bcrypt.compareSync(password, user.password);
+        // if (!passwordMatch) {
+        //     return res.status(401).json({ error: '無效的 Email 或密碼' });
+        // }
+        // // 若未使用雜湊（不建議）則直接比對明文：
+        // if (user.password !== password) {
+        //     return res.status(401).json({ error: '無效的 Email 或密碼' });
+        // }
+        // JWT 簽發，包含使用者 ID 和 email
+        const token = jwt.sign(
+            { id: user.id, email: user.email },   // 確保 payload 中包含 email
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+        return res.json({ token });
+    } catch (err) {
+        console.error('Error in /auth/login:', err);
+        return res.status(500).json({ error: '登入失敗' });
     }
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ message: '帳號或密碼錯誤' });
-    }
-    // 產生 JWT（有效期可自行調整，例如 1 天）
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-    return res.json({ 
-      message: '登入成功',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username
-      }
-    });
-  } catch (error) {
-    console.error('login error:', error);
-    return res.status(500).json({ message: '伺服器錯誤，請稍後再試' });
-  }
 });
 
 module.exports = router;
