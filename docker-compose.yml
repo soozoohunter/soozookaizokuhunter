@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   ######################
   # 1) PostgreSQL
@@ -80,13 +82,11 @@ services:
       - suzoo_fastapi
     env_file:
       - .env
-
     expose:
       - "3000"
     environment:
       - GMAIL_USER=jeffqqm@gmail.com
       - GMAIL_PASS=Zack967988
-
     networks:
       - suzoo_net
     healthcheck:
