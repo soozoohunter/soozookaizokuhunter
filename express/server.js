@@ -44,7 +44,7 @@ app.get('/health', (req, res) => {
 // Auth 路由
 app.use('/auth', authRouter);
 
-// 區塊鏈
+d41ff31 (本地修改: 說明你改了什麼)
 app.post('/chain/store', async (req, res) => {
   try {
     const { data } = req.body;
