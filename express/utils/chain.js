@@ -3,57 +3,53 @@
 require('dotenv').config();
 const { ethers } = require('ethers');
 
+// 從 .env 載入
+// 改為讀取 BLOCKCHAIN_RPC_URL，如果沒設定就 http://127.0.0.1:8545
+const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
+const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.PRIVATE_KEY || '';
+const contractAddress = process.env.CONTRACT_ADDRESS || '';
+
+// 初始化 provider
 let provider = null;
+try {
+  // v6: JsonRpcProvider 直接掛在 ethers
+  provider = new ethers.JsonRpcProvider(rpcUrl);
+  console.log(`[chain.js] Provider init => ${rpcUrl}`);
+} catch (err) {
+  console.error(`[chain.js] 初始化 JsonRpcProvider("${rpcUrl}") 失敗:`, err);
+}
+
+// 初始化 wallet
 let wallet = null;
-let contract = null;
-
-// 讀取 env
-const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || ''; 
-const PRIVATE_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || ''; 
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '';
-
-// (A) 初始化 Provider
-try {
-  if (!RPC_URL) {
-    console.warn("[chain.js] BLOCKCHAIN_RPC_URL not found in .env => skip provider init");
-  } else {
-    provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-    console.log("[chain.js] Provider connected =>", RPC_URL);
+if (!privateKey) {
+  console.warn("[chain.js] 沒有提供 PRIVATE_KEY/BLOCKCHAIN_PRIVATE_KEY => 無法執行區塊鏈寫入");
+} else if (!provider) {
+  console.warn("[chain.js] provider 為 null => 跳過 wallet 初始化");
+} else {
+  try {
+    wallet = new ethers.Wallet(privateKey, provider);
+    console.log(`[chain.js] Wallet init => ${wallet.address}`);
+  } catch (err) {
+    console.error("[chain.js] 初始化 Wallet 失敗:", err);
   }
-} catch (err) {
-  console.error("[chain.js] 初始化 provider 失敗:", err);
 }
 
-// (B) 初始化 Wallet
-try {
-  if (!PRIVATE_KEY) {
-    console.warn("[chain.js] BLOCKCHAIN_PRIVATE_KEY not set => skip wallet init");
-  } else if (!provider) {
-    console.warn("[chain.js] Provider is null => skip wallet init");
-  } else {
-    wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-    console.log("[chain.js] Wallet init success =>", wallet.address);
-  }
-} catch (err) {
-  console.error("[chain.js] 初始化 Wallet 失敗:", err);
-}
-
-// (C) 初始化合約 (此處為範例 ABI)
+// 合約 ABI (請確保與您實際部署的合約一致)
 const defaultABI = [
   {
     "anonymous": false,
     "inputs": [
-      {"indexed":true,"internalType":"address","name":"sender","type":"address"},
-      {"indexed":false,"internalType":"string","name":"recordType","type":"string"},
-      {"indexed":false,"internalType":"string","name":"data","type":"string"}
+      { "indexed": true,  "internalType": "address","name": "sender","type": "address"},
+      { "indexed": false, "internalType": "string","name": "recordType","type": "string"},
+      { "indexed": false, "internalType": "string","name": "data","type": "string"}
     ],
     "name": "RecordStored",
     "type": "event"
   },
   {
     "inputs": [
-      {"internalType":"string","name":"recordType","type":"string"},
-      {"internalType":"string","name":"data","type":"string"}
+      { "internalType": "string","name": "recordType","type": "string" },
+      { "internalType": "string","name": "data","type": "string" }
     ],
     "name": "storeRecord",
     "outputs": [],
@@ -62,37 +58,37 @@ const defaultABI = [
   }
 ];
 
-try {
-  if (!CONTRACT_ADDRESS) {
-    console.warn("[chain.js] CONTRACT_ADDRESS not set => skip contract init");
-  } else if (!wallet) {
-    console.warn("[chain.js] Wallet not inited => skip contract init");
-  } else {
-    contract = new ethers.Contract(CONTRACT_ADDRESS, defaultABI, wallet);
-    console.log("[chain.js] 合約 init success =>", CONTRACT_ADDRESS);
+let contract = null;
+if (!contractAddress) {
+  console.warn("[chain.js] 沒有提供 CONTRACT_ADDRESS => 無法初始化合約");
+} else if (!wallet) {
+  console.warn("[chain.js] wallet 為 null => 跳過合約初始化");
+} else {
+  try {
+    contract = new ethers.Contract(contractAddress, defaultABI, wallet);
+    console.log(`[chain.js] 合約初始化成功 => ${contractAddress}`);
+  } catch (err) {
+    console.error("[chain.js] 初始化合約失敗:", err);
   }
-} catch (err) {
-  console.error("[chain.js] 初始化合約失敗:", err);
 }
 
-// (D) 封裝 storeRecord (若 contract 為 null，則跳過)
+// 封裝 storeRecord
 async function storeRecord(recordType, data) {
   if (!contract) {
-    throw new Error("[chain.js] contract is null, cannot storeRecord");
+    throw new Error("[chain.js] 合約實例不存在或未初始化");
   }
   try {
     const tx = await contract.storeRecord(recordType, data);
-    console.log(`[chain.js] storeRecord(${recordType}, ${data}), TX=`, tx.hash);
+    console.log(`[ETH] storeRecord(${recordType}, "${data}"), TX=`, tx.hash);
     const receipt = await tx.wait();
-    console.log(`[chain.js] Mined =>`, receipt.transactionHash);
+    console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
     return receipt.transactionHash;
   } catch (err) {
-    console.error("[chain.js] storeRecord error:", err);
+    console.error("[chain.js] storeRecord Error:", err);
     throw err;
   }
 }
 
-// 匯出需要的 function
 module.exports = {
   async writeToBlockchain(data) {
     return await storeRecord('GENERIC', data);
