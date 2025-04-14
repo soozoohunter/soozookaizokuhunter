@@ -1,340 +1,156 @@
 // frontend/src/pages/Register.jsx
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Register() {
-  // 基本欄位
   const [email, setEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
-
-  // 用途: 'copyright' or 'trademark'
-  const [usageType, setUsageType] = useState('');
-
-  // 如果用途=copyright → 填社群
-  const [igAccount, setIgAccount] = useState('');
-  const [facebookAccount, setFacebookAccount] = useState('');
-  const [tiktokAccount, setTiktokAccount] = useState('');
-  const [youtubeAccount, setYoutubeAccount] = useState('');
-
-  // 如果用途=trademark → 填電商賣場
-  const [shopeeAccount, setShopeeAccount] = useState('');
-  const [rutenAccount, setRutenAccount] = useState('');
-  const [amazonAccount, setAmazonAccount] = useState('');
-  const [ebayAccount, setEbayAccount] = useState('');
-  const [taobaoAccount, setTaobaoAccount] = useState('');
-
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('copyright');
   const [error, setError] = useState('');
+
   const navigate = useNavigate();
 
-  // 送出表單
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-
+    if (!email || !userName || !password || !confirmPassword) {
+      setError('請填寫所有必填欄位');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('兩次密碼不一致');
+      return;
+    }
     try {
-      // 將所有欄位送到後端
-      const body = {
-        email,
-        userName,
-        password,
-        usageType,
-        igAccount,
-        facebookAccount,
-        tiktokAccount,
-        youtubeAccount,
-        shopeeAccount,
-        rutenAccount,
-        amazonAccount,
-        ebayAccount,
-        taobaoAccount
-      };
-
-      // 後端路由: /auth/register
+      const body = { email, userName, password, confirmPassword, role };
       const res = await fetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify(body)
       });
       const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.message || '註冊失敗');
+        setError(data.message || '註冊失敗');
+      } else {
+        alert('註冊成功！您目前為 BASIC 方案 (首月免費)');
+        navigate('/login');
       }
-
-      alert('註冊成功，請登入');
-      navigate('/login');
     } catch (err) {
-      setError(err.message);
+      console.error('Register error:', err);
+      setError('發生錯誤，請稍後再試');
     }
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      marginTop: '2rem'
-    }}>
-      <form
+    <div style={{ display:'flex', justifyContent:'center', marginTop:'2rem' }}>
+      <form 
         onSubmit={handleRegister}
-        noValidate
         style={{
-          textAlign: 'center',
-          border: '2px solid orange',
-          padding: '20px',
-          borderRadius: '8px'
+          textAlign:'center',
+          border:'2px solid orange',
+          padding:'20px',
+          borderRadius:'8px'
         }}
       >
-        <h2 style={{ color: 'orange', marginBottom: '1rem' }}>會員註冊</h2>
+        <h2 style={{ color:'orange', marginBottom:'1rem' }}>註冊</h2>
 
         {/* Email */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-            Email (必填):
-          </label>
+        <div style={{ marginBottom:'1rem' }}>
+          <label style={{ display:'block', marginBottom:'0.5rem', color:'#fff' }}>Email:</label>
           <input
-            type="text"
+            type="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={e=>setEmail(e.target.value)}
             required
-            style={{ 
-              width: '100%', 
-              padding: '0.5rem', 
-              border: '1px solid orange'
-            }}
+            style={{ width:'100%', padding:'0.5rem', border:'1px solid orange' }}
           />
         </div>
 
-        {/* 使用者名稱 */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-            使用者名稱 (必填):
-          </label>
+        {/* User Name */}
+        <div style={{ marginBottom:'1rem' }}>
+          <label style={{ display:'block', marginBottom:'0.5rem', color:'#fff' }}>使用者名稱:</label>
           <input
             type="text"
             value={userName}
-            onChange={e => setUserName(e.target.value)}
+            onChange={e=>setUserName(e.target.value)}
             required
-            style={{ 
-              width: '100%', 
-              padding: '0.5rem', 
-              border: '1px solid orange'
-            }}
+            style={{ width:'100%', padding:'0.5rem', border:'1px solid orange' }}
           />
         </div>
 
-        {/* 密碼 */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-            密碼 (必填):
-          </label>
+        {/* Password */}
+        <div style={{ marginBottom:'1rem' }}>
+          <label style={{ display:'block', marginBottom:'0.5rem', color:'#fff' }}>密碼:</label>
           <input
             type="password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e=>setPassword(e.target.value)}
             required
-            style={{ 
-              width: '100%', 
-              padding: '0.5rem', 
-              border: '1px solid orange'
-            }}
+            style={{ width:'100%', padding:'0.5rem', border:'1px solid orange' }}
           />
         </div>
 
-        {/* 用途(usageType) 下拉 */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-            主要用途 (必選):
-          </label>
-          <select
-            value={usageType}
-            onChange={e => setUsageType(e.target.value)}
+        {/* Confirm Password */}
+        <div style={{ marginBottom:'1rem' }}>
+          <label style={{ display:'block', marginBottom:'0.5rem', color:'#fff' }}>再次輸入密碼:</label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={e=>setConfirmPassword(e.target.value)}
             required
-            style={{ 
-              width: '100%', 
-              padding: '0.5rem', 
-              border: '1px solid orange'
-            }}
-          >
-            <option value="">-- 請選擇 --</option>
-            <option value="copyright">著作權(IG/FB/TikTok/YouTube)</option>
-            <option value="trademark">商標(蝦皮/露天/Amazon/eBay/淘寶)</option>
-          </select>
+            style={{ width:'100%', padding:'0.5rem', border:'1px solid orange' }}
+          />
         </div>
 
-        {/* copyright → 社群 */}
-        {usageType === 'copyright' && (
-          <>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                IG 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={igAccount}
-                onChange={e => setIgAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                Facebook 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={facebookAccount}
-                onChange={e => setFacebookAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                TikTok 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={tiktokAccount}
-                onChange={e => setTiktokAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                YouTube 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={youtubeAccount}
-                onChange={e => setYoutubeAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-          </>
-        )}
+        {/* Role */}
+        <div style={{ marginBottom:'1rem', color:'#fff', textAlign:'left' }}>
+          <label>選擇主要用途 / 角色:</label><br/>
+          <label>
+            <input
+              type="radio"
+              name="role"
+              value="copyright"
+              checked={role === 'copyright'}
+              onChange={e=>setRole(e.target.value)}
+            />
+            著作權(短影音/圖片)
+          </label><br/>
+          <label>
+            <input
+              type="radio"
+              name="role"
+              value="trademark"
+              checked={role === 'trademark'}
+              onChange={e=>setRole(e.target.value)}
+            />
+            商標
+          </label><br/>
+          <label>
+            <input
+              type="radio"
+              name="role"
+              value="both"
+              checked={role === 'both'}
+              onChange={e=>setRole(e.target.value)}
+            />
+            兩者皆需
+          </label>
+        </div>
 
-        {/* trademark → 電商帳號 */}
-        {usageType === 'trademark' && (
-          <>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                蝦皮 Shopee 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={shopeeAccount}
-                onChange={e => setShopeeAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                露天 Ruten 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={rutenAccount}
-                onChange={e => setRutenAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                Amazon 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={amazonAccount}
-                onChange={e => setAmazonAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                eBay 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={ebayAccount}
-                onChange={e => setEbayAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
-                淘寶 Taobao 帳號 (必填):
-              </label>
-              <input
-                type="text"
-                value={taobaoAccount}
-                onChange={e => setTaobaoAccount(e.target.value)}
-                required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: '1px solid orange'
-                }}
-              />
-            </div>
-          </>
-        )}
+        {/* Error */}
+        {error && <p style={{ color:'red', marginBottom:'1rem' }}>{error}</p>}
 
-        {/* 錯誤訊息 */}
-        {error && (
-          <p style={{ color: 'red', marginBottom: '1rem' }}>
-            {error}
-          </p>
-        )}
-
-        {/* 送出按鈕 */}
-        <button
+        {/* Submit */}
+        <button 
           type="submit"
           style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: 'orange',
-            border: 'none',
-            color: '#fff',
-            cursor: 'pointer'
+            padding:'0.5rem 1rem',
+            backgroundColor:'orange',
+            border:'none',
+            color:'#fff',
+            cursor:'pointer'
           }}
         >
           立即註冊
