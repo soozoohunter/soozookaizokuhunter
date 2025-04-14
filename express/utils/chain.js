@@ -1,18 +1,20 @@
 // express/utils/chain.js
-
 require('dotenv').config();
 const { ethers } = require('ethers');
 
-// 從 .env 載入
-// 改為讀取 BLOCKCHAIN_RPC_URL，如果沒設定就 http://127.0.0.1:8545
+/**
+ * 使用者可在 .env 中指定：
+ *   BLOCKCHAIN_RPC_URL  (若未設，就用 'http://127.0.0.1:8545')
+ *   BLOCKCHAIN_PRIVATE_KEY 或 PRIVATE_KEY
+ *   CONTRACT_ADDRESS
+ */
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.PRIVATE_KEY || '';
 const contractAddress = process.env.CONTRACT_ADDRESS || '';
 
-// 初始化 provider
+// 初始化 provider (v6 用法：new ethers.JsonRpcProvider)
 let provider = null;
 try {
-  // v6: JsonRpcProvider 直接掛在 ethers
   provider = new ethers.JsonRpcProvider(rpcUrl);
   console.log(`[chain.js] Provider init => ${rpcUrl}`);
 } catch (err) {
@@ -34,22 +36,22 @@ if (!privateKey) {
   }
 }
 
-// 合約 ABI (請確保與您實際部署的合約一致)
+// 合約 ABI (示範)
 const defaultABI = [
   {
     "anonymous": false,
     "inputs": [
-      { "indexed": true,  "internalType": "address","name": "sender","type": "address"},
-      { "indexed": false, "internalType": "string","name": "recordType","type": "string"},
-      { "indexed": false, "internalType": "string","name": "data","type": "string"}
+      { "indexed": true, "internalType": "address", "name": "sender", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "recordType", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "data", "type": "string" }
     ],
     "name": "RecordStored",
     "type": "event"
   },
   {
     "inputs": [
-      { "internalType": "string","name": "recordType","type": "string" },
-      { "internalType": "string","name": "data","type": "string" }
+      { "internalType": "string", "name": "recordType", "type": "string" },
+      { "internalType": "string", "name": "data", "type": "string" }
     ],
     "name": "storeRecord",
     "outputs": [],
@@ -72,7 +74,9 @@ if (!contractAddress) {
   }
 }
 
-// 封裝 storeRecord
+/**
+ * 寫入合約 storeRecord(recordType, data)
+ */
 async function storeRecord(recordType, data) {
   if (!contract) {
     throw new Error("[chain.js] 合約實例不存在或未初始化");
@@ -80,8 +84,11 @@ async function storeRecord(recordType, data) {
   try {
     const tx = await contract.storeRecord(recordType, data);
     console.log(`[ETH] storeRecord(${recordType}, "${data}"), TX=`, tx.hash);
+
+    // 等待交易確認
     const receipt = await tx.wait();
     console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
+
     return receipt.transactionHash;
   } catch (err) {
     console.error("[chain.js] storeRecord Error:", err);
@@ -89,8 +96,10 @@ async function storeRecord(recordType, data) {
   }
 }
 
+// 匯出多個上鏈函式
 module.exports = {
   async writeToBlockchain(data) {
+    // 例如 recordType='GENERIC'
     return await storeRecord('GENERIC', data);
   },
   async writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
