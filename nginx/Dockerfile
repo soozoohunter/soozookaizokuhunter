@@ -1,3 +1,4 @@
+# nginx/Dockerfile
 FROM nginx:stable
 
 COPY suzoo.conf /etc/nginx/conf.d/suzoo.conf
