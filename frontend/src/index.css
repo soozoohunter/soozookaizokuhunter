@@ -1,5 +1,6 @@
-/* frontend/src/index.css */
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-  }
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #000; /* 深色 */
+  color: #ff1c1c;         /* 紅字 */
+}
