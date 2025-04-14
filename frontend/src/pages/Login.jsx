@@ -1,60 +1,41 @@
-// frontend/src/pages/Login.jsx
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // CAPTCHA
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaText, setCaptchaText] = useState('');  // 後端回傳的文字
-  const [userInputCaptcha, setUserInputCaptcha] = useState('');
-  
   const [error, setError] = useState('');
+
+  // 如果有啟用 captcha，需要的狀態 (如 captchaId, captchaText, userInputCaptcha)
+  // 這裡略。若你已有 captcha 流程可自行加回去。
+
   const navigate = useNavigate();
 
-  // 一進來抓後端 captcha
-  const fetchCaptcha = async () => {
-    try {
-      const res = await fetch('/auth/captcha');
-      if (!res.ok) throw new Error('無法取得驗證碼');
-      const data = await res.json();
-      setCaptchaId(data.captchaId);
-      setCaptchaText(data.captchaText);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  useEffect(() => {
-    fetchCaptcha();
-  }, []);
-
-  const handleRefreshCaptcha = () => {
-    fetchCaptcha();
-    setUserInputCaptcha('');
-  };
+  // (如有 captcha 流程) 在這裡 fetch captcha
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+
     try {
+      // Body 若有 captchaId, captchaText 也一起放
+      const body = {
+        email,
+        password
+      };
+
+      // 發送 POST /auth/login
       const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          captchaId,
-          captchaText: userInputCaptcha
-        })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
+
       if (!res.ok) {
         setError(data.message || '登入失敗');
       } else {
+        // 儲存 token，跳轉
         localStorage.setItem('token', data.token);
         alert('登入成功');
         navigate('/');
@@ -66,32 +47,39 @@ function Login() {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      marginTop: '2rem'
+    }}>
       <form 
-        onSubmit={handleLogin} 
-        noValidate 
-        style={{ 
-          textAlign: 'center', 
-          border: '2px solid orange', 
-          padding: '20px', 
+        onSubmit={handleLogin}
+        style={{
+          textAlign: 'center',
+          border: '2px solid orange',
+          padding: '20px',
           borderRadius: '8px'
         }}
       >
-        <h2>Login</h2>
+        <h2 style={{ color: 'orange', marginBottom: '1rem' }}>Login</h2>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email:</label>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            Email:
+          </label>
           <input
-            type="email"
+            type="text"   // 用 text 以避免 iOS 說 pattern 不符
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
             style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
           />
         </div>
-        
+
         <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password:</label>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            Password:
+          </label>
           <input
             type="password"
             value={password}
@@ -101,42 +89,20 @@ function Login() {
           />
         </div>
 
-        {/* 顯示後端給的文字 captcha */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label>驗證碼 (請輸入下列文字):</label><br/>
-          <div style={{ fontWeight: 'bold', margin: '5px 0' }}>
-            {captchaText || '...'}
-          </div>
-          <input
-            type="text"
-            placeholder="輸入上方驗證文字"
-            value={userInputCaptcha}
-            onChange={(e) => setUserInputCaptcha(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
-          />
-          <button 
-            type="button"
-            onClick={handleRefreshCaptcha}
-            style={{ marginTop: '5px', cursor: 'pointer' }}
-          >
-            刷新驗證碼
-          </button>
-        </div>
-
+        {/* 顯示錯誤訊息 */}
         {error && <p style={{ color: 'red', marginBottom: '1rem' }}>{error}</p>}
 
-        <button 
-          type="submit" 
-          style={{ 
-            padding: '0.5rem 1rem', 
-            backgroundColor: 'orange', 
-            border: 'none', 
-            color: '#fff', 
+        <button
+          type="submit"
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: 'orange',
+            border: 'none',
+            color: '#fff',
             cursor: 'pointer'
           }}
         >
-          Login
+          登入
         </button>
       </form>
     </div>
