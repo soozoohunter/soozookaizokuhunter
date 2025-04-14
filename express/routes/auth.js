@@ -2,7 +2,9 @@
 
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
+
+// 使用 bcryptjs 取代 bcrypt
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
@@ -15,7 +17,7 @@ const chain = require('../utils/chain');
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587,
-  secure: (process.env.SMTP_SECURE === 'true'),
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER || process.env.EMAIL_USER,
     pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
@@ -133,8 +135,7 @@ router.post('/finalRegister', async (req, res) => {
       }
     }
 
-    // 建議加密密碼
-    const bcrypt = require('bcrypt');
+    // 加密密碼 (改用 bcryptjs)
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // 建立新用戶
@@ -148,7 +149,7 @@ router.post('/finalRegister', async (req, res) => {
 
     // 上鏈(可選)
     try {
-      const dataToChain = `${email}|IG:${igAccount||''}|FB:${facebookAccount||''}|TT:${tiktokAccount||''}`;
+      const dataToChain = `${email}|IG:${igAccount || ''}|FB:${facebookAccount || ''}|TT:${tiktokAccount || ''}`;
       await chain.writeCustomRecord('REGISTER', dataToChain);
     } catch (chainErr) {
       console.error('[finalRegister] 上鏈失敗，但不影響帳號建立:', chainErr);
@@ -176,7 +177,7 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
-    // 密碼比對
+    // 密碼比對 (改用 bcryptjs)
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
@@ -188,6 +189,7 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'KaiKaiShieldSecret',
       { expiresIn: '1h' }
     );
+
     return res.json({ token });
   } catch (err) {
     console.error('Error in /auth/login:', err);
