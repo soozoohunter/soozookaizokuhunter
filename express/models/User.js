@@ -1,15 +1,50 @@
-// models/User.js
-const mongoose = require('mongoose');
+/********************************************************************
+ * models/User.js
+ ********************************************************************/
+const { DataTypes } = require('sequelize');
 
-const UserSchema = new mongoose.Schema({
-  email:      { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true },       // 密碼哈希值
-  plan:       { type: String, enum: ['free', 'premium'], default: 'free' },
-  uploadsUsed:  { type: Number, default: 0 },           // 已使用的上傳次數
-  apiCallsUsed: { type: Number, default: 0 },           // 已使用的API調用次數
-  name:       { type: String },                        // 使用者姓名
-  contact:    { type: String }                         // 其他聯絡資訊
-  // ...可擴充其他欄位，例如帳戶建立時間等
-});
-
-module.exports = mongoose.model('User', UserSchema);
+module.exports = (sequelize) => {
+  return sequelize.define('User', {
+    // email 改為 unique
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    // bcryptjs 後的哈希
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    userName: {
+      field: 'user_name',
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'copyright'
+    },
+    plan: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'BASIC'
+    },
+    uploadVideos: {
+      field: 'upload_videos',
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    uploadImages: {
+      field: 'upload_images',
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    }
+  }, {
+    tableName: 'users',
+    timestamps: false
+  });
+};
