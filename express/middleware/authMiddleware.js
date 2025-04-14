@@ -1,20 +1,21 @@
-// middleware/authMiddleware.js
+/********************************************************************
+ * middleware/authMiddleware.js
+ * 檢查 JWT
+ ********************************************************************/
 const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization']; 
+module.exports = function(req, res, next) {
+  const authHeader = req.headers['authorization'];
   if (!authHeader) {
-    return res.status(401).json({ message: '未提供授權 token' });
+    return res.status(401).json({ error: '缺少授權 token' });
   }
-  const token = authHeader.split(' ')[1];  // 假設格式: "Bearer <token>"
+  const token = authHeader.replace(/^Bearer\s+/, '');
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    // 將 JWT payload 資訊附加到請求物件上供後續使用
-    req.user = payload;  // 包含 userId, plan 等資訊
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.user = payload;  // { userId, plan }
     next();
-  } catch (err) {
-    return res.status(401).json({ message: '授權 token 無效' });
+  } catch (e) {
+    return res.status(401).json({ error: 'token 驗證失敗' });
   }
-}
-
-module.exports = authMiddleware;
+};
