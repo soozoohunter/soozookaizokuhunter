@@ -3,30 +3,57 @@ const User = require('../models/User');
 
 module.exports = async function (req, res, next) {
   try {
-    const userId = req.user.id;
-    const user = await User.findByPk(userId);
+    const user = await User.findByPk(req.user.userId || req.user.id);
     if (!user) {
-      return res.status(404).json({ error: '使用者不存在' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // 假設 user 有 createdAt 欄位
-    const now = new Date();
-    const oneMonthAfterReg = new Date(user.createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    // define usage limit by plan
+    const plan = user.plan || 'BASIC';
+    let maxVideo = 3, maxImage = 10;
+    let allowDMCA = false;
 
-    // 若超過一個月，且尚未付費 => 擋下
-    if (now > oneMonthAfterReg) {
-      // 假設 user.hasPaid = true/false
-      if (!user.hasPaid) {
-        return res.status(402).json({
-          error: 'Your free month has ended. Please upgrade or pay for continuing usage.',
-        });
-      }
+    switch (plan) {
+      case 'BASIC':
+        maxVideo = 3;   // 首月免費
+        maxImage = 10;
+        allowDMCA = false;
+        break;
+      case 'ADVANCED':
+        maxVideo = 10;
+        maxImage = 25;
+        allowDMCA = true;
+        break;
+      case 'PRO':
+        maxVideo = 20;
+        maxImage = 50;
+        allowDMCA = true;
+        break;
+      case 'ENTERPRISE':
+        maxVideo = 9999;
+        maxImage = 9999;
+        allowDMCA = true;
+        break;
+      default:
+        // fallback
+        maxVideo = 3;
+        maxImage = 10;
+        allowDMCA = false;
     }
 
-    // 繼續
+    // example usage
+    if (user.uploadVideos > maxVideo) {
+      return res.status(403).json({ error:`影片已達上限(${maxVideo})` });
+    }
+    if (user.uploadImages > maxImage) {
+      return res.status(403).json({ error:`圖片已達上限(${maxImage})` });
+    }
+
+    // 存 allowDMCA 供後續路由檢查
+    req.userPlan = { allowDMCA, maxVideo, maxImage };
     next();
-  } catch (err) {
-    console.error('[planUploadLimitCheck] error:', err);
-    return res.status(500).json({ error: err.message });
+  } catch(e) {
+    console.error('[planUploadLimitCheck] error:', e);
+    return res.status(500).json({ error:e.message });
   }
 };
