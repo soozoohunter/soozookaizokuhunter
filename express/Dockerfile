@@ -1,15 +1,20 @@
 # express/Dockerfile
-FROM node:18-slim
+FROM node:18-alpine
 
-WORKDIR /app
+# 建置時的工作目錄
+WORKDIR /usr/src/app
 
-# 可加這行，也可不加
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# 先複製 package*.json
+COPY package*.json ./
 
-COPY package.json ./
+# 執行 npm install
 RUN npm install
 
+# 再複製全部源碼
 COPY . .
 
+# 開放埠 (非對外, 給 docker-compose 用)
 EXPOSE 3000
+
+# 預設啟動指令
 CMD ["node", "server.js"]
