@@ -1,58 +1,66 @@
-// controllers/authController.js
-const bcrypt = require('bcrypt');
+/********************************************************************
+ * controllers/authController.js
+ ********************************************************************/
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User } = require('../models');
 
-const AuthController = {
-  // 使用者註冊
-  register: async (req, res, next) => {
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+
+const authController = {
+  async register(req, res) {
     try {
-      const { email, password, name, contact } = req.body;
-      // 檢查 email 是否已被使用
-      let existing = await User.findOne({ email });
-      if (existing) {
-        return res.status(400).json({ message: 'Email 已被註冊' });
+      const { email, password, userName, role } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ message: '缺少 email 或 password' });
       }
-      // 雜湊使用者密碼
-      const passwordHash = await bcrypt.hash(password, 10);
-      // 建立新使用者（預設 plan 為 free）
-      const user = await User.create({ email, passwordHash, name, contact });
-      // 簽發 JWT，payload 可包含用戶ID與 plan
-      const token = jwt.sign(
-        { userId: user._id, plan: user.plan }, 
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
-      return res.status(201).json({ token });  // 回傳 JWT token
+      // 檢查是否已被使用
+      const exist = await User.findOne({ where: { email } });
+      if (exist) {
+        return res.status(400).json({ message: '此 Email 已被註冊' });
+      }
+      // bcrypt 雜湊
+      const hashed = await bcrypt.hash(password, 10);
+      const newUser = await User.create({
+        email,
+        password: hashed,
+        userName,
+        role: role || 'copyright',
+        plan: 'BASIC'
+      });
+      return res.status(201).json({
+        message: '註冊成功',
+        userId: newUser.id,
+        plan: newUser.plan
+      });
     } catch (err) {
-      next(err);
+      console.error('[register error]', err);
+      return res.status(500).json({ message: '註冊失敗' });
     }
   },
 
-  // 使用者登入
-  login: async (req, res, next) => {
+  async login(req, res) {
     try {
       const { email, password } = req.body;
-      const user = await User.findOne({ email });
+      if (!email || !password) {
+        return res.status(400).json({ message: '缺少 email 或 password' });
+      }
+      const user = await User.findOne({ where: { email } });
       if (!user) {
-        return res.status(401).json({ message: '帳號或密碼不正確' });
+        return res.status(401).json({ message: '帳號或密碼錯誤' });
       }
-      // 驗證密碼
-      const match = await bcrypt.compare(password, user.passwordHash);
+      const match = await bcrypt.compare(password, user.password);
       if (!match) {
-        return res.status(401).json({ message: '帳號或密碼不正確' });
+        return res.status(401).json({ message: '帳號或密碼錯誤' });
       }
-      // 簽發 JWT，附帶用戶方案資訊
-      const token = jwt.sign(
-        { userId: user._id, plan: user.plan },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      // 簽發 JWT
+      const token = jwt.sign({ userId: user.id, plan: user.plan }, JWT_SECRET, { expiresIn: '1d' });
       return res.json({ token });
     } catch (err) {
-      next(err);
+      console.error('[login error]', err);
+      return res.status(500).json({ message: '登入失敗' });
     }
   }
 };
 
-module.exports = AuthController;
+module.exports = authController;
