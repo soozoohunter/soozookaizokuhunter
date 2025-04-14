@@ -1,198 +1,110 @@
-// express/routes/auth.js
-
+/********************************************************************
+ * express/routes/auth.js (最終版：一次性註冊 + 登入)
+ ********************************************************************/
 const express = require('express');
 const router = express.Router();
-
-// 使用 bcryptjs 取代 bcrypt
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs');  // 注意改用 bcryptjs
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 
+// Sequelize
 const { User } = require('../models');
-const { generateCode, verifyCode, removeCode } = require('../utils/VerificationCode');
-const { createCaptcha, verifyCaptcha } = require('../utils/captcha');
+
+// 區塊鏈 (上鏈)
 const chain = require('../utils/chain');
 
-// nodemailer 設定 (請確保 .env SMTP_HOST / SMTP_USER / SMTP_PASS 已正確)
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT) : 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
-  }
-});
+// JWT SECRET
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-// 1) 取得 CAPTCHA (GET)
-router.get('/captcha', (req, res) => {
-  const { captchaId, text } = createCaptcha();
-  // 此示範直接回傳文字給前端; 實務可用 SVG 圖片
-  return res.json({ captchaId, captchaText: text });
-});
-
-// 2) 寄送 Email 驗證碼 (Step 1)
-router.post('/sendCode', async (req, res) => {
-  try {
-    const { email, captchaId, captchaText } = req.body;
-    // 驗證 CAPTCHA
-    if (!verifyCaptcha(captchaId, captchaText)) {
-      return res.status(400).json({ message: 'CAPTCHA 錯誤或已過期' });
-    }
-    // 檢查 Email 是否重複
-    const existing = await User.findOne({ where: { email } });
-    if (existing) {
-      return res.status(400).json({ message: '此 Email 已註冊過' });
-    }
-    // 產生驗證碼
-    const code = generateCode(email);
-
-    // 寄送郵件
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: '會員驗證碼',
-      text: `您的驗證碼是：${code}\n5分鐘內有效`
-    };
-    await transporter.sendMail(mailOptions);
-
-    return res.json({ message: '驗證碼已寄出' });
-  } catch (err) {
-    console.error('Error in /auth/sendCode:', err);
-    return res.status(500).json({ message: '驗證碼寄送失敗' });
-  }
-});
-
-// 3) 驗證碼是否正確 (Step 2)
-router.post('/checkCode', (req, res) => {
-  try {
-    const { email, code, captchaId, captchaText } = req.body;
-    // 驗證 CAPTCHA
-    if (!verifyCaptcha(captchaId, captchaText)) {
-      return res.status(400).json({ message: 'CAPTCHA 錯誤或已過期' });
-    }
-    // 驗證碼
-    const valid = verifyCode(email, code);
-    if (!valid) {
-      return res.status(400).json({ message: '驗證碼錯誤或已過期' });
-    }
-    return res.json({ message: '驗證碼正確' });
-  } catch (err) {
-    console.error('Error in /auth/checkCode:', err);
-    return res.status(500).json({ message: '驗證碼檢查失敗' });
-  }
-});
-
-// 4) 完成註冊 (Step 3)
-router.post('/finalRegister', async (req, res) => {
+/**
+ * [POST] /auth/register
+ * 一次性註冊: email, userName, password, confirmPassword, role
+ * 預設 plan = 'BASIC'
+ */
+router.post('/register', async (req, res) => {
   try {
     const {
       email,
-      code,
+      userName,
       password,
-      igAccount,
-      facebookAccount,
-      tiktokAccount,
-      captchaId,
-      captchaText
+      confirmPassword,
+      role
     } = req.body;
 
-    // 驗證 CAPTCHA
-    if (!verifyCaptcha(captchaId, captchaText)) {
-      return res.status(400).json({ message: 'CAPTCHA 錯誤或已過期' });
+    // 1) 必填檢查
+    if (!email || !userName || !password || !confirmPassword) {
+      return res.status(400).json({ message: '缺少必填欄位 (email, userName, password, confirmPassword)' });
     }
-
-    // 驗證碼
-    const valid = verifyCode(email, code);
-    if (!valid) {
-      return res.status(400).json({ message: '驗證碼錯誤或已過期' });
+    // 2) 密碼比對
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: '兩次密碼輸入不相符' });
     }
-    removeCode(email); // 使用後刪除
-
-    // 檢查 Email
-    const existEmail = await User.findOne({ where: { email } });
-    if (existEmail) {
+    // 3) email 是否重複
+    const exist = await User.findOne({ where: { email } });
+    if (exist) {
       return res.status(400).json({ message: '此 Email 已註冊過' });
     }
 
-    // 檢查 IG / FB / Tiktok (若有填寫則檢查唯一性)
-    if (igAccount) {
-      const existIG = await User.findOne({ where: { igAccount } });
-      if (existIG) {
-        return res.status(400).json({ message: '此 IG 帳號已被使用' });
-      }
-    }
-    if (facebookAccount) {
-      const existFB = await User.findOne({ where: { facebookAccount } });
-      if (existFB) {
-        return res.status(400).json({ message: '此 Facebook 帳號已被使用' });
-      }
-    }
-    if (tiktokAccount) {
-      const existTT = await User.findOne({ where: { tiktokAccount } });
-      if (existTT) {
-        return res.status(400).json({ message: '此 TikTok 帳號已被使用' });
-      }
-    }
+    // 4) 預設 plan = 'BASIC'
+    let plan = 'BASIC';
 
-    // 加密密碼 (改用 bcryptjs)
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 建立新用戶
+    // 5) 建立 user (bcryptjs)
+    const hashed = await bcrypt.hash(password, 10);
     const newUser = await User.create({
       email,
-      password: hashedPassword,
-      igAccount: igAccount || null,
-      facebookAccount: facebookAccount || null,
-      tiktokAccount: tiktokAccount || null
+      password: hashed,
+      userName,
+      role: role || 'copyright',  // 若沒填 role, 預設 'copyright'
+      plan
     });
 
-    // 上鏈(可選)
+    // 6) 上鏈
     try {
-      const dataToChain = `${email}|IG:${igAccount || ''}|FB:${facebookAccount || ''}|TT:${tiktokAccount || ''}`;
-      await chain.writeCustomRecord('REGISTER', dataToChain);
+      // 紀錄: userName, email, role
+      const dataOnChain = `REGISTER|email=${email}|userName=${userName}|role=${role||'copyright'}`;
+      await chain.writeCustomRecord('REGISTER', dataOnChain);
     } catch (chainErr) {
-      console.error('[finalRegister] 上鏈失敗，但不影響帳號建立:', chainErr);
+      console.error('[Register] 上鏈失敗:', chainErr);
+      // 不影響註冊流程
     }
 
-    return res.json({ message: '註冊成功' });
+    return res.json({ message: '註冊成功', plan, role: newUser.role });
   } catch (err) {
-    console.error('Error in /auth/finalRegister:', err);
+    console.error('[Register Error]', err);
     return res.status(500).json({ message: '註冊失敗，請稍後再試' });
   }
 });
 
-// 5) 登入
+/**
+ * [POST] /auth/login
+ * email + password => JWT
+ */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password, captchaId, captchaText } = req.body;
-
-    // 驗證 CAPTCHA
-    if (!verifyCaptcha(captchaId, captchaText)) {
-      return res.status(400).json({ message: 'CAPTCHA 錯誤或已過期' });
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: '缺少 email 或 password' });
     }
-
-    // 找使用者
+    // 找 user
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
-    // 密碼比對 (改用 bcryptjs)
+    // bcryptjs 驗證
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 發 JWT
+    // 簽發 JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'KaiKaiShieldSecret',
+      JWT_SECRET,
       { expiresIn: '1h' }
     );
 
     return res.json({ token });
   } catch (err) {
-    console.error('Error in /auth/login:', err);
+    console.error('[Login Error]', err);
     return res.status(500).json({ message: '登入失敗，請稍後再試' });
   }
 });
