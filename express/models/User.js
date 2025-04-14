@@ -2,20 +2,36 @@
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
+    // Email
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
+    // 加密後密碼
     password: {
       type: DataTypes.STRING,
       allowNull: false
     },
+    // 用戶名稱
+    userName: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    // 角色: e.g. 'copyright' / 'trademark' / 'both'...
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'copyright'
+    },
+    // 方案: BASIC / ADVANCED / PRO / ENTERPRISE
     plan: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'basic'
+      defaultValue: 'BASIC'
     },
+
+    // 上傳次數
     uploadVideos: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -27,11 +43,11 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 0
     },
 
-    // 新增可綁定之社群帳號欄位 (IG / FB / Tiktok)
+    // 選填: igAccount, facebookAccount, tiktokAccount
     igAccount: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true  // 若您想限制唯一，則保留
+      unique: true
     },
     facebookAccount: {
       type: DataTypes.STRING,
