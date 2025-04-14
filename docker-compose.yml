@@ -82,9 +82,8 @@ services:
       - .env
     expose:
       - "3000"
+    # 這裡移除原本硬編碼的 GMAIL_USER / GMAIL_PASS，改用 .env
     environment:
-      - GMAIL_USER=jeffqqm@gmail.com
-      - GMAIL_PASS=Zack967988
       - HOST=0.0.0.0
       - PORT=3000
     networks:
@@ -135,6 +134,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      # 掛載 Let's Encrypt 憑證 (預設路徑 /etc/letsencrypt)
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
     networks:
