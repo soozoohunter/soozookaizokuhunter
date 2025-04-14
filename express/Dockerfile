@@ -1,15 +1,21 @@
+# express/Dockerfile
+
 FROM node:18-alpine
 
 # Create app directory
 WORKDIR /app
 
-# Install app dependencies
+# Copy package.json / package-lock.json
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
 
-# Bundle app source
+# Copy all source code
 COPY . .
 
+# Expose port (for docker-compose internal usage)
 EXPOSE 3000
 
+# Default command
 CMD ["node", "server.js"]
