@@ -1,40 +1,28 @@
-# 文件路徑: fastapi/main.py
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import requests
+# fastapi/main.py
+from fastapi import FastAPI, UploadFile, File
 import hashlib
-import os
 
 app = FastAPI()
 
-# 從系統環境變數讀取合約地址
-CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS", "0xYourContractAddressHere")
-
 @app.get("/health")
 def health():
-    """
-    健康檢查端點
-    同時回傳 FastAPI 服務狀態 & 當前讀取的合約地址(測試用途)
-    """
-    return {
-        "status": "ok",
-        "service": "fastapi",
-        "contract_address": CONTRACT_ADDRESS
-    }
-
-class FileURL(BaseModel):
-    url: str
+    return {"status": "ok", "service": "fastapi"}
 
 @app.post("/fingerprint")
-def fingerprint(data: FileURL):
+async def fingerprint(file: UploadFile = File(...)):
     """
-    下載指定 URL 的檔案內容, 計算其 MD5 指紋, 回傳 JSON
+    接收檔案上傳 (binary), 回傳其指紋 (SHA-256)。
+    如需重複偵測，需後端自行比對資料庫或檢索。
     """
-    try:
-        r = requests.get(data.url, timeout=10)
-        r.raise_for_status()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"無法下載檔案: {e}")
+    content = await file.read()
+    sha = hashlib.sha256(content).hexdigest()
 
-    md5_hash = hashlib.md5(r.content).hexdigest()
-    return {"fingerprint": md5_hash}
+    # 這裡可去查資料庫看是否重複
+    duplicate = False
+    matchId = None
+
+    return {
+        "fingerprint": sha,
+        "duplicate": duplicate,
+        "matchId": matchId
+    }
