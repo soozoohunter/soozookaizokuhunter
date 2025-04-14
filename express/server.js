@@ -26,8 +26,10 @@ app.use(express.urlencoded({ extended: true }));
 /********************************************************
  * 路由區
  ********************************************************/
-// 範例路由：Auth, membership, profile, contact...
+// Auth 路由
 const authRouter = require('./routes/auth');
+
+// 以下路由若您已有, 請自行確認檔案:
 const membershipRouter = require('./routes/membership');
 const profileRouter = require('./routes/profile');
 const paymentRouter = require('./routes/payment');
@@ -51,7 +53,7 @@ app.get('/health', (req, res) => {
 });
 
 /********************************************************
- * 區塊鏈 API 範例
+ * 區塊鏈 API 範例 (若有)
  ********************************************************/
 app.post('/chain/store', async (req, res) => {
   try {
@@ -96,12 +98,12 @@ app.post('/chain/writeInfringement', async (req, res) => {
 });
 
 /********************************************************
- * 檔案上傳 (Plan檢查 + JWT)
+ * 檔案上傳 (Plan 檢查 + JWT)
  ********************************************************/
 const upload = multer({ dest: 'uploads/' });
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-// 驗證 token
+// 驗證 token (示範)
 function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization || '';
@@ -118,7 +120,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// 方案檢查
+// 方案檢查 (假設與您先前一樣)
 async function planUploadLimitCheck(req, res, next) {
   try {
     const userId = req.user.userId || req.user.id;  // 取決於 login 時 payload
@@ -129,13 +131,14 @@ async function planUploadLimitCheck(req, res, next) {
 
     let maxVideos = 3, maxImages = 10;
     if (user.plan === 'PRO') {
-      maxVideos = 15;  maxImages = 30;
+      maxVideos = 15;  
+      maxImages = 30;
     } else if (user.plan === 'ENTERPRISE') {
-      maxVideos = 30;  maxImages = 60;
+      maxVideos = 30;  
+      maxImages = 60;
     }
 
     const filename = (req.file?.originalname || '').toLowerCase();
-
     if (filename.endsWith('.mp4') || filename.endsWith('.mov')) {
       if (user.uploadVideos >= maxVideos) {
         return res.status(403).json({
@@ -167,7 +170,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     const buffer = fs.readFileSync(filePath);
     const fingerprint = crypto.createHash('md5').update(buffer).digest('hex');
 
-    // 可選：上鏈
+    // 上鏈 (可選)
     try {
       const dataToChain = `${userEmail}|${fingerprint}`;
       const txHash = await chain.writeToBlockchain(dataToChain);
@@ -186,6 +189,7 @@ app.post('/api/upload', authMiddleware, upload.single('file'), planUploadLimitCh
     }
     await user.save();
 
+    // 刪除暫存檔
     fs.unlinkSync(filePath);
 
     return res.json({
