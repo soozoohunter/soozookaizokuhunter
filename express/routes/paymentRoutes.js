@@ -2,12 +2,15 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const PaymentController = require('../controllers/paymentController');
+const paymentController = require('../controllers/paymentController');
 
-// GET /api/payment/info - 獲取匯款帳號資訊（需登入後才能查看）
-router.get('/info', authMiddleware, PaymentController.getInfo);
+// GET /api/payment/info
+router.get('/info', authMiddleware, paymentController.getInfo);
 
-// POST /api/payment/notify - 用戶提交已匯款通知與基本資料
-router.post('/notify', authMiddleware, PaymentController.notify);
+// POST /api/payment/notify
+router.post('/notify', authMiddleware, paymentController.notify);
+
+// (可自定 /submit, etc.)
+router.post('/submit', authMiddleware, paymentController.submitPayment);
 
 module.exports = router;
