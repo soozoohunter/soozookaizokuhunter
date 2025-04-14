@@ -1,106 +1,147 @@
 services:
+  ######################
+  # 1) PostgreSQL
+  ######################
   suzoo_postgres:
-    image: postgres:15            # 使用官方 PostgreSQL 映像
-    container_name: suzoo_postgres
-    env_file: .env                # 載入資料庫帳密等環境變數
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # 資料庫資料卷，確保重啟後數據不丟失
-      - ./db:/docker-entrypoint-initdb.d:ro      # 初始化 SQL 腳本（若有）掛載【可選】
-    ports:
-      - "5432:5432"               # 將 Postgres 埠暴露給主機 (可選，看需要)
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - suzoo_db_data:/var/lib/postgresql/data
+    networks:
+      - suzoo_net
     healthcheck:
-      # 利用 pg_isready 檢查資料庫是否準備就緒 [oai_citation_attribution:5‡docs.docker.com](https://docs.docker.com/compose/how-tos/startup-order/#:~:text=The%20healthcheck%20for%20the%20,seconds%2C%20up%20to%205%20times)
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+
+  ######################
+  # 2) Ganache (ETH)
+  ######################
+  suzoo_ganache:
+    image: trufflesuite/ganache-cli:latest
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
+    ports:
+      - "8545:8545"
+    networks:
+      - suzoo_net
+
+  ######################
+  # 3) IPFS
+  ######################
+  suzoo_ipfs:
+    image: ipfs/go-ipfs:latest
+    volumes:
+      - suzoo_ipfs_data:/data/ipfs
+    command: daemon
+    ports:
+      - "5001:5001"
+      - "8080:8080"
+    networks:
+      - suzoo_net
+
+  ######################
+  # 4) FastAPI
+  ######################
+  suzoo_fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_ganache
+      - suzoo_ipfs
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    networks:
+      - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  ######################
+  # 5) Express
+  ######################
+  suzoo_express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    depends_on:
+      - suzoo_postgres
+      - suzoo_ganache
+      - suzoo_ipfs
+      - suzoo_fastapi
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+    networks:
+      - suzoo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
 
-  suzoo_ganache:
-    image: trufflesuite/ganache:latest   # Ganache CLI 映像
-    container_name: suzoo_ganache
-    # Ganache 默认使用 0.0.0.0 綁定, 埠 8545
-    command: ganache -h 0.0.0.0 -p 8545
-    ports:
-      - "8545:8545"               # 將 Ganache RPC 埠映射到本地主機，以便開發人員使用區塊鏈工具連接
-    healthcheck:
-      # 簡單檢查8545埠是否開放（檢查鏈上區塊號是否可獲取）
-      test: ["CMD-SHELL", "curl -f -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-
-  suzoo_ipfs:
-    image: ipfs/kubo:latest       # IPFS 節點 (Kubo 實作)
-    container_name: suzoo_ipfs
-    environment:
-      IPFS_PROFILE: server        # 使用伺服器設定（停用本地發現，提高性能）
-    ports:
-      - "5001:5001"               # IPFS API 埠（供後端或開發者調用）
-      - "8080:8080"               # IPFS Gateway 埠（供外部瀏覽器存取 IPFS 文件）
-    volumes:
-      - ipfs_data:/data/ipfs      # 保存 IPFS 資料庫，保證IPFS節點ID和儲存資料持久化
-    # （IPFS 默認在容器內部 API/Gateway 綁定 0.0.0.0，因此可供其他容器透過名稱 suzoo_ipfs 存取）
-
-  suzoo_fastapi:
+  ######################
+  # 6) React 前端
+  ######################
+  suzoo_react:
     build:
-      context: .                  # 使用當前目錄作為建置環境
-      dockerfile: fastapi/Dockerfile
-    container_name: suzoo_fastapi
-    env_file: .env
-    expose:
-      - "8000"                    # 將 FastAPI 的埠對其他容器可見（不暴露給主機，透過Nginx轉發）
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
-  suzoo_express:
-    build:
-      context: .                  # 使用當前目錄作為建置環境
-      dockerfile: express/Dockerfile
-    container_name: suzoo_express
-    env_file: .env
-    expose:
-      - "3000"                    # Express 埠對內部網路開放，由Nginx代理，無需直接暴露
+      context: ./frontend
+      dockerfile: Dockerfile
     depends_on:
-      # 等待資料庫與其他關鍵服務健康啟動 [oai_citation_attribution:6‡docs.docker.com](https://docs.docker.com/compose/how-tos/startup-order/#:~:text=services%3A%20web%3A%20build%3A%20,condition%3A%20service_healthy%20restart%3A%20true%20redis) [oai_citation_attribution:7‡docs.docker.com](https://docs.docker.com/compose/how-tos/startup-order/#:~:text=Compose%20creates%20services%20in%20dependency,web)
-      suzoo_postgres:
-        condition: service_healthy
-      suzoo_ganache:
-        condition: service_healthy
-      suzoo_ipfs:
-        condition: service_healthy
+      - suzoo_express
+      - suzoo_fastapi
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    ports:
+      - "3000:3000"
+    networks:
+      - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  ######################
+  # 7) Nginx (對外)
+  ######################
   suzoo_nginx:
     build:
-      context: .                  # 建置包含前端與 Nginx 的映像
-      dockerfile: nginx/Dockerfile
-    container_name: suzoo_nginx
-    # 將80與443埠暴露到主機，供使用者透過瀏覽器訪問
+      context: ./nginx
+      dockerfile: Dockerfile
+    depends_on:
+      - suzoo_react
+      - suzoo_express
+      - suzoo_fastapi
     ports:
       - "80:80"
       - "443:443"
-    depends_on:
-      # 確保後端服務都準備好再啟動Nginx，避免出現502錯誤
-      suzoo_express:
-        condition: service_healthy
-      suzoo_fastapi:
-        condition: service_healthy
-    # Nginx可設定自己的healthcheck（例如請求一個狀態頁），此處可按需要添加
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
-    #   interval: 30s
-    #   timeout: 5s
-    #   retries: 3
+    volumes:
+      - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    restart: unless-stopped
+    networks:
+      - suzoo_net
+
+networks:
+  suzoo_net:
+    driver: bridge
+
 volumes:
-  postgres_data:
-  ipfs_data:
+  suzoo_db_data:
+  suzoo_ipfs_data:
