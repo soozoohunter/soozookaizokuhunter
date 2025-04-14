@@ -58,18 +58,15 @@ export default function App() {
       <header style={headerStyle}>
         <button
           onClick={()=> window.location.href='/'}
-          style={{
-            ...navBtnStyle,
-            marginRight:'2rem',
-          }}
+          style={{...navBtnStyle, marginRight:'2rem'}}
         >
           速誅侵權獵人
         </button>
 
         <nav style={{ display:'flex', alignItems:'center' }}>
           <Link to="/pricing" style={navBtnStyle}>Pricing</Link>
-          <Link to="/contact-us" style={navBtnStyle}>Contact Us</Link>
-
+          {/* 若有 Contact Us */}
+          {/* <Link to="/contact-us" style={navBtnStyle}>Contact Us</Link> */}
           {!isLoggedIn && (
             <>
               <Link to="/login" style={navBtnStyle}>Login</Link>
@@ -84,10 +81,7 @@ export default function App() {
               <Link to="/payment" style={navBtnStyle}>Payment</Link>
               <button
                 onClick={handleLogout}
-                style={{
-                  ...navBtnStyle,
-                  border:'none'
-                }}
+                style={{...navBtnStyle, border:'none'}}
               >
                 Logout
               </button>
