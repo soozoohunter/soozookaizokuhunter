@@ -1,114 +1,47 @@
 /********************************************************************
- * express/utils/chain.js (ethers v6)
+ * utils/chain.js (ethers v6)
  ********************************************************************/
 require('dotenv').config();
 const { ethers } = require('ethers');
 
-/**
- * 讀取 env:
- *   BLOCKCHAIN_RPC_URL => 預設 http://127.0.0.1:8545
- *   BLOCKCHAIN_PRIVATE_KEY => 私鑰
- *   CONTRACT_ADDRESS => 合約地址
- */
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
-const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.PRIVATE_KEY || '';
+const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
 const contractAddress = process.env.CONTRACT_ADDRESS || '';
 
-// 初始化 provider (v6)
-let provider = null;
-try {
-  provider = new ethers.JsonRpcProvider(rpcUrl);
-  console.log(`[chain.js] Provider init => ${rpcUrl}`);
-} catch (err) {
-  console.error(`[chain.js] 初始化 JsonRpcProvider(${rpcUrl}) 失敗:`, err);
-}
-
-// 初始化 wallet
-let wallet = null;
-if (!privateKey) {
-  console.warn("[chain.js] 沒有提供 PRIVATE_KEY/BLOCKCHAIN_PRIVATE_KEY => 無法執行區塊鏈寫入");
-} else if (!provider) {
-  console.warn("[chain.js] provider 為 null => 跳過 wallet 初始化");
-} else {
-  try {
-    wallet = new ethers.Wallet(privateKey, provider);
-    console.log(`[chain.js] Wallet init => ${wallet.address}`);
-  } catch (err) {
-    console.error("[chain.js] 初始化 Wallet 失敗:", err);
-  }
-}
-
-// 合約 ABI (示範，可自行修改)
-const defaultABI = [
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true, "internalType": "address", "name": "sender", "type": "address" },
-      { "indexed": false, "internalType": "string", "name": "recordType", "type": "string" },
-      { "indexed": false, "internalType": "string", "name": "data", "type": "string" }
-    ],
-    "name": "RecordStored",
-    "type": "event"
-  },
+const KaiKaiShieldABI = [
   {
     "inputs": [
-      { "internalType": "string", "name": "recordType", "type": "string" },
-      { "internalType": "string", "name": "data", "type": "string" }
+      { "internalType": "string", "name": "_fingerprint", "type": "string" },
+      { "internalType": "string", "name": "_ipfsHash", "type": "string" }
     ],
     "name": "storeRecord",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   }
+  // 若需要 getRecordByFingerprint, 也可加在這
 ];
 
-// 初始化 contract
-let contract = null;
-if (!contractAddress) {
-  console.warn("[chain.js] 沒有提供 CONTRACT_ADDRESS => 無法初始化合約");
-} else if (!wallet) {
-  console.warn("[chain.js] wallet 為 null => 跳過合約初始化");
-} else {
-  try {
-    contract = new ethers.Contract(contractAddress, defaultABI, wallet);
-    console.log(`[chain.js] 合約初始化成功 => ${contractAddress}`);
-  } catch (err) {
-    console.error("[chain.js] 初始化合約失敗:", err);
-  }
+let provider, wallet, contract;
+
+try {
+  provider = new ethers.JsonRpcProvider(rpcUrl);
+  wallet = new ethers.Wallet(privateKey, provider);
+  contract = new ethers.Contract(contractAddress, KaiKaiShieldABI, wallet);
+  console.log(`[chain.js] connected to chain, contract=${contractAddress}, wallet=${wallet.address}`);
+} catch (err) {
+  console.error('[chain.js] init error:', err);
 }
 
-// 共同的寫入流程
-async function storeRecord(recordType, data) {
+async function storeFileRecord(fingerprint, ipfsHash) {
   if (!contract) {
-    throw new Error("[chain.js] 合約不存在或未初始化");
+    throw new Error('No contract instance');
   }
-  try {
-    const tx = await contract.storeRecord(recordType, data);
-    console.log(`[ETH] storeRecord(${recordType}, "${data}") => TX=`, tx.hash);
-
-    const receipt = await tx.wait();
-    console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
-
-    return receipt.transactionHash;
-  } catch (err) {
-    console.error("[chain.js] storeRecord Error:", err);
-    throw err;
-  }
+  const tx = await contract.storeRecord(fingerprint, ipfsHash);
+  const receipt = await tx.wait();
+  return receipt.transactionHash;
 }
 
 module.exports = {
-  async writeToBlockchain(data) {
-    return await storeRecord('GENERIC', data);
-  },
-  async writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
-    const combined = `${userEmail}|${dnaHash}|${fileType}|${timestamp}`;
-    return await storeRecord('ASSET', combined);
-  },
-  async writeInfringementToChain(userEmail, infrInfo, timestamp) {
-    const combined = `${userEmail}|${infrInfo}|${timestamp}`;
-    return await storeRecord('INFRINGE', combined);
-  },
-  async writeCustomRecord(recordType, data) {
-    return await storeRecord(recordType, data);
-  }
+  storeFileRecord
 };
