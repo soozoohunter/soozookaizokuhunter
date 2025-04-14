@@ -1,18 +1,17 @@
 /********************************************************************
- * express/routes/auth.js (最終版：一次性註冊 + 登入)
+ * express/routes/auth.js (一次性註冊 + 登入) - 使用 bcryptjs
  ********************************************************************/
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');  // 注意改用 bcryptjs
+const bcrypt = require('bcryptjs');   // 使用 bcryptjs
 const jwt = require('jsonwebtoken');
 
 // Sequelize
 const { User } = require('../models');
 
-// 區塊鏈 (上鏈)
+// 區塊鏈
 const chain = require('../utils/chain');
 
-// JWT SECRET
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
 /**
@@ -22,13 +21,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
  */
 router.post('/register', async (req, res) => {
   try {
-    const {
-      email,
-      userName,
-      password,
-      confirmPassword,
-      role
-    } = req.body;
+    const { email, userName, password, confirmPassword, role } = req.body;
 
     // 1) 必填檢查
     if (!email || !userName || !password || !confirmPassword) {
@@ -36,7 +29,7 @@ router.post('/register', async (req, res) => {
     }
     // 2) 密碼比對
     if (password !== confirmPassword) {
-      return res.status(400).json({ message: '兩次密碼輸入不相符' });
+      return res.status(400).json({ message: '兩次密碼不一致' });
     }
     // 3) email 是否重複
     const exist = await User.findOne({ where: { email } });
@@ -45,21 +38,20 @@ router.post('/register', async (req, res) => {
     }
 
     // 4) 預設 plan = 'BASIC'
-    let plan = 'BASIC';
+    const plan = 'BASIC';
 
-    // 5) 建立 user (bcryptjs)
+    // 5) 建立 user
     const hashed = await bcrypt.hash(password, 10);
     const newUser = await User.create({
       email,
       password: hashed,
       userName,
-      role: role || 'copyright',  // 若沒填 role, 預設 'copyright'
+      role: role || 'copyright',
       plan
     });
 
-    // 6) 上鏈
+    // 6) 上鏈 (可選)
     try {
-      // 紀錄: userName, email, role
       const dataOnChain = `REGISTER|email=${email}|userName=${userName}|role=${role||'copyright'}`;
       await chain.writeCustomRecord('REGISTER', dataOnChain);
     } catch (chainErr) {
@@ -84,11 +76,13 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: '缺少 email 或 password' });
     }
+
     // 找 user
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
+
     // bcryptjs 驗證
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
