@@ -1,140 +1,73 @@
 // frontend/src/pages/Register.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 function Register() {
-  const [step, setStep] = useState(1);
-
-  // Step 1: Email
-  // Step 2: Verify code
-  // Step 3: Set password + IG/FB/TikTok
+  // 基本欄位
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [userName, setUserName] = useState('');   // 不用暱稱，改為使用者名稱
   const [password, setPassword] = useState('');
+
+  // 用途: 'copyright' or 'trademark'
+  const [usageType, setUsageType] = useState('');
+
+  // 如果用途=copyright → 填社群
   const [igAccount, setIgAccount] = useState('');
   const [facebookAccount, setFacebookAccount] = useState('');
   const [tiktokAccount, setTiktokAccount] = useState('');
+  const [youtubeAccount, setYoutubeAccount] = useState('');
 
-  // CAPTCHA
-  const [captchaId, setCaptchaId] = useState('');
-  const [captchaText, setCaptchaText] = useState('');
-  const [userInputCaptcha, setUserInputCaptcha] = useState('');
+  // 如果用途=trademark → 填電商賣場
+  const [shopeeAccount, setShopeeAccount] = useState('');
+  const [rutenAccount, setRutenAccount] = useState('');
+  const [amazonAccount, setAmazonAccount] = useState('');
+  const [ebayAccount, setEbayAccount] = useState('');
+  const [taobaoAccount, setTaobaoAccount] = useState('');
 
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  // 進入此頁，就抓一次 captcha
-  const fetchCaptcha = async () => {
+  // 送出整個表單
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+
     try {
-      const res = await fetch('/auth/captcha');
-      if (!res.ok) throw new Error('無法取得驗證碼');
-      const data = await res.json();
-      setCaptchaId(data.captchaId);
-      setCaptchaText(data.captchaText);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+      // 將所有欄位送到後端
+      const body = {
+        email,
+        userName,
+        password,
+        usageType,
+        igAccount,
+        facebookAccount,
+        tiktokAccount,
+        youtubeAccount,
+        shopeeAccount,
+        rutenAccount,
+        amazonAccount,
+        ebayAccount,
+        taobaoAccount
+      };
 
-  // 每次 step 改變都刷新驗證碼 (可自行決定)
-  useEffect(() => {
-    fetchCaptcha();
-  }, [step]);
-
-  const handleRefreshCaptcha = () => {
-    setUserInputCaptcha('');
-    fetchCaptcha();
-  };
-
-  // Step 1: 寄送驗證碼
-  const handleSendCode = async () => {
-    try {
-      setError('');
-      const res = await fetch('/auth/sendCode', {
+      // 假設後端的路由為 /auth/register (可自行調整)
+      const res = await fetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          captchaId,
-          captchaText: userInputCaptcha
-        })
+        body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || '無法寄送驗證碼');
-      }
-      alert('驗證碼已寄出，請至信箱查收');
-      setStep(2);
-      setUserInputCaptcha('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
 
-  // Step 2: 驗證碼
-  const handleCheckCode = async () => {
-    try {
-      setError('');
-      const res = await fetch('/auth/checkCode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code,
-          captchaId,
-          captchaText: userInputCaptcha
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || '驗證碼錯誤');
-      }
-      alert('驗證碼正確，請設定密碼並填寫社群帳號');
-      setStep(3);
-      setUserInputCaptcha('');
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Step 3: 完成註冊
-  const handleFinalRegister = async () => {
-    try {
-      setError('');
-      const res = await fetch('/auth/finalRegister', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code,
-          password,
-          igAccount,
-          facebookAccount,
-          tiktokAccount,
-          captchaId,
-          captchaText: userInputCaptcha
-        })
-      });
-      const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || '註冊失敗');
       }
+
       alert('註冊成功，請登入');
       navigate('/login');
+
     } catch (err) {
       setError(err.message);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (step === 1) {
-      handleSendCode();
-    } else if (step === 2) {
-      handleCheckCode();
-    } else if (step === 3) {
-      handleFinalRegister();
     }
   };
 
@@ -145,7 +78,7 @@ function Register() {
       marginTop: '2rem'
     }}>
       <form
-        onSubmit={handleSubmit}
+        onSubmit={handleRegister}
         noValidate
         style={{
           textAlign: 'center',
@@ -154,103 +87,191 @@ function Register() {
           borderRadius: '8px'
         }}
       >
-        <h2>Register (Step {step})</h2>
+        <h2 style={{ color: 'orange', marginBottom: '1rem' }}>會員註冊</h2>
 
-        {/* Step 1/2/3 都要填 Email */}
+        {/* Email */}
         <div style={{ marginBottom: '1rem' }}>
-          <label>Email:</label><br/>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            Email (必填):
+          </label>
           <input
-            type="email"
+            type="text"  // 避免 iOS 堅持 email format
             value={email}
             onChange={e => setEmail(e.target.value)}
-            readOnly={step > 1}
             required
             style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
           />
         </div>
 
-        {/* Step 2/3 => 驗證碼 */}
-        {step >= 2 && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label>驗證碼 (寄到您的信箱):</label><br/>
-            <input
-              type="text"
-              value={code}
-              onChange={e => setCode(e.target.value)}
-              required
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
-            />
-          </div>
-        )}
+        {/* 使用者名稱 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            使用者名稱 (必填):
+          </label>
+          <input
+            type="text"
+            value={userName}
+            onChange={e => setUserName(e.target.value)}
+            required
+            style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+          />
+        </div>
 
-        {/* Step 3 => 密碼 + IG/FB/Tiktok */}
-        {step === 3 && (
+        {/* 密碼 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            密碼 (必填):
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+          />
+        </div>
+
+        {/* 用途(usageType) 下拉 */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            主要用途 (必選):
+          </label>
+          <select
+            value={usageType}
+            onChange={e => setUsageType(e.target.value)}
+            required
+            style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+          >
+            <option value="">-- 請選擇 --</option>
+            <option value="copyright">著作權(IG/FB/TikTok/YouTube)</option>
+            <option value="trademark">商標(蝦皮/露天/Amazon/eBay/淘寶)</option>
+          </select>
+        </div>
+
+        {/* 若 usageType = copyright → 顯示社群帳號 */}
+        {usageType === 'copyright' && (
           <>
             <div style={{ marginBottom: '1rem' }}>
-              <label>Password:</label><br/>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                IG 帳號 (必填):
+              </label>
               <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
+                type="text"
+                value={igAccount}
+                onChange={e => setIgAccount(e.target.value)}
                 required
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <label>IG 帳號 (可空):</label><br/>
-              <input
-                type="text"
-                value={igAccount}
-                onChange={e => setIgAccount(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
-              />
-            </div>
-            <div style={{ marginBottom: '1rem' }}>
-              <label>Facebook 帳號 (可空):</label><br/>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                Facebook 帳號 (必填):
+              </label>
               <input
                 type="text"
                 value={facebookAccount}
                 onChange={e => setFacebookAccount(e.target.value)}
+                required
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <label>TikTok 帳號 (可空):</label><br/>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                TikTok 帳號 (必填):
+              </label>
               <input
                 type="text"
                 value={tiktokAccount}
                 onChange={e => setTiktokAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                YouTube 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={youtubeAccount}
+                onChange={e => setYoutubeAccount(e.target.value)}
+                required
                 style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
               />
             </div>
           </>
         )}
 
-        {/* CAPTCHA 區域 */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label>驗證碼 (請輸入下列文字):</label><br/>
-          <div style={{ fontWeight: 'bold', margin: '5px 0' }}>
-            {captchaText || '...'}
-          </div>
-          <input
-            type="text"
-            placeholder="輸入上方驗證文字"
-            value={userInputCaptcha}
-            onChange={e => setUserInputCaptcha(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
-          />
-          <button 
-            type="button"
-            onClick={handleRefreshCaptcha}
-            style={{ marginTop: '5px', cursor: 'pointer' }}
-          >
-            刷新驗證碼
-          </button>
-        </div>
+        {/* 若 usageType = trademark → 顯示電商帳號 */}
+        {usageType === 'trademark' && (
+          <>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                蝦皮 Shopee 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={shopeeAccount}
+                onChange={e => setShopeeAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                露天 Ruten 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={rutenAccount}
+                onChange={e => setRutenAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                Amazon 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={amazonAccount}
+                onChange={e => setAmazonAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                eBay 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={ebayAccount}
+                onChange={e => setEbayAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+                淘寶 Taobao 帳號 (必填):
+              </label>
+              <input
+                type="text"
+                value={taobaoAccount}
+                onChange={e => setTaobaoAccount(e.target.value)}
+                required
+                style={{ width: '100%', padding: '0.5rem', border: '1px solid orange' }}
+              />
+            </div>
+          </>
+        )}
 
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {/* 錯誤訊息 */}
+        {error && <p style={{ color: 'red', marginBottom: '1rem' }}>{error}</p>}
 
+        {/* 送出按鈕 */}
         <button
           type="submit"
           style={{
@@ -261,7 +282,7 @@ function Register() {
             cursor: 'pointer'
           }}
         >
-          {step === 1 ? '寄送驗證碼' : step === 2 ? '驗證碼確認' : '完成註冊'}
+          立即註冊
         </button>
       </form>
     </div>
