@@ -12,7 +12,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 路由匯入
+// 新增的路由匯入 (for /auth)
+const authRouter = require('./routes/auth'); // or './routes/authRoutes'
+
+// 其他路由匯入
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const trademarkRoutes = require('./routes/trademarkRoutes');
@@ -26,7 +29,11 @@ app.get('/health', (req, res) => {
   res.send(`Express server healthy - DB: ${process.env.POSTGRES_DB}, Chain: ${process.env.BLOCKCHAIN_RPC_URL}`);
 });
 
-// 註冊各個路由 (注意前綴)
+// 掛載路由
+// 1) 您需要的 /auth 前綴
+app.use('/auth', authRouter);
+
+// 2) 其餘 /api/... 路徑
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/trademarks', trademarkRoutes);
