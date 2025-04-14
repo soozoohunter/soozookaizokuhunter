@@ -1,24 +1,26 @@
-// express/utils/chain.js
+/********************************************************************
+ * express/utils/chain.js (ethers v6)
+ ********************************************************************/
 require('dotenv').config();
 const { ethers } = require('ethers');
 
 /**
- * 使用者可在 .env 中指定：
- *   BLOCKCHAIN_RPC_URL  (若未設，就用 'http://127.0.0.1:8545')
- *   BLOCKCHAIN_PRIVATE_KEY 或 PRIVATE_KEY
- *   CONTRACT_ADDRESS
+ * 讀取 env:
+ *   BLOCKCHAIN_RPC_URL => 預設 http://127.0.0.1:8545
+ *   BLOCKCHAIN_PRIVATE_KEY => 私鑰
+ *   CONTRACT_ADDRESS => 合約地址
  */
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545';
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.PRIVATE_KEY || '';
 const contractAddress = process.env.CONTRACT_ADDRESS || '';
 
-// 初始化 provider (v6 用法：new ethers.JsonRpcProvider)
+// 初始化 provider (v6)
 let provider = null;
 try {
   provider = new ethers.JsonRpcProvider(rpcUrl);
   console.log(`[chain.js] Provider init => ${rpcUrl}`);
 } catch (err) {
-  console.error(`[chain.js] 初始化 JsonRpcProvider("${rpcUrl}") 失敗:`, err);
+  console.error(`[chain.js] 初始化 JsonRpcProvider(${rpcUrl}) 失敗:`, err);
 }
 
 // 初始化 wallet
@@ -36,7 +38,7 @@ if (!privateKey) {
   }
 }
 
-// 合約 ABI (示範)
+// 合約 ABI (示範，可自行修改)
 const defaultABI = [
   {
     "anonymous": false,
@@ -60,6 +62,7 @@ const defaultABI = [
   }
 ];
 
+// 初始化 contract
 let contract = null;
 if (!contractAddress) {
   console.warn("[chain.js] 沒有提供 CONTRACT_ADDRESS => 無法初始化合約");
@@ -74,18 +77,15 @@ if (!contractAddress) {
   }
 }
 
-/**
- * 寫入合約 storeRecord(recordType, data)
- */
+// 共同的寫入流程
 async function storeRecord(recordType, data) {
   if (!contract) {
-    throw new Error("[chain.js] 合約實例不存在或未初始化");
+    throw new Error("[chain.js] 合約不存在或未初始化");
   }
   try {
     const tx = await contract.storeRecord(recordType, data);
-    console.log(`[ETH] storeRecord(${recordType}, "${data}"), TX=`, tx.hash);
+    console.log(`[ETH] storeRecord(${recordType}, "${data}") => TX=`, tx.hash);
 
-    // 等待交易確認
     const receipt = await tx.wait();
     console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
 
@@ -96,10 +96,8 @@ async function storeRecord(recordType, data) {
   }
 }
 
-// 匯出多個上鏈函式
 module.exports = {
   async writeToBlockchain(data) {
-    // 例如 recordType='GENERIC'
     return await storeRecord('GENERIC', data);
   },
   async writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
