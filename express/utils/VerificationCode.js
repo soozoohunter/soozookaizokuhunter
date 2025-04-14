@@ -1,4 +1,5 @@
-// 驗證碼工具：使用記憶體 Map 暫存驗證碼，5 分鐘後失效
+// express/utils/VerificationCode.js
+
 const verificationCodes = new Map();
 
 function generateCode(email) {
@@ -15,7 +16,7 @@ function generateCode(email) {
   const timeoutId = setTimeout(() => {
     verificationCodes.delete(email);
   }, 5 * 60 * 1000);
-  // 暫存驗證碼和相關資訊
+
   verificationCodes.set(email, { code, expires, timeoutId });
   return code;
 }
