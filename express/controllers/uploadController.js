@@ -1,60 +1,79 @@
-// controllers/uploadController.js
-const FileRecord = require('../models/File');                // 假設我們有一個文件紀錄的模型
-const fingerprintService = require('../services/fingerprintService');
+/********************************************************************
+ * controllers/uploadController.js
+ * 負責接收上傳檔案 -> fingerprint -> IPFS / blockchain -> DB
+ ********************************************************************/
+const fs = require('fs');
+const path = require('path');
+const { File, User } = require('../models');
+const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
-const blockchainService = require('../services/blockchainService');
-const User = require('../models/User');
+const fingerprintService = require('../services/fingerprintService');
 
-const UploadController = {
-  uploadFile: async (req, res, next) => {
+const uploadController = {
+  async uploadFile(req, res) {
     try {
-      // Multer 已將檔案資訊附加在 req.file 上
+      const userId = req.user.userId;
       if (!req.file) {
-        return res.status(400).json({ message: '未收到檔案' });
-      }
-      const userId = req.user.userId;         // 從 authMiddleware 附加的 payload 取得使用者ID
-      const fileBuffer = req.file.buffer;     // 檔案的 Buffer (因為使用 memoryStorage)
-      const originalName = req.file.originalname;
-
-      // 1. 圖像指紋比對服務：傳送檔案以取得指紋與重複性檢查
-      const { fingerprint, duplicate, matchId } = await fingerprintService.checkImage(fileBuffer);
-      if (duplicate) {
-        // 如服務回報已存在相似檔案，可選擇拒絕重複上傳
-        return res.status(409).json({ message: '上傳失敗：檔案與現有檔案重複', matchId });
+        return res.status(400).json({ error: '沒有收到檔案' });
       }
 
-      // 2. 儲存檔案至 IPFS 去中心化存儲
-      const cid = await ipfsService.saveFile(fileBuffer);
-      // （可選）等待 IPFS 完成 Pin 動作
+      // 讀取檔案內容
+      const filePath = req.file.path;
+      const fileBuffer = fs.readFileSync(filePath);
 
-      // 3. 將指紋上鏈儲存（透過智能合約）
-      await blockchainService.storeFingerprint(fingerprint);
+      // 計算指紋
+      const fingerprint = fingerprintService.sha256(fileBuffer);
 
-      // 4. 在本地資料庫記錄上傳檔案資訊
-      const fileRecord = await FileRecord.create({
-        user: userId,
-        fileName: originalName,
-        ipfsCid: cid,
-        fingerprint: fingerprint
+      // (可選) 上傳到 IPFS
+      let ipfsHash = null;
+      try {
+        ipfsHash = await ipfsService.saveFile(fileBuffer);
+      } catch (e) {
+        console.error('IPFS 上傳失敗:', e.message);
+      }
+
+      // (可選) 上鏈
+      let txHash = null;
+      try {
+        txHash = await chain.storeFileRecord(fingerprint, ipfsHash || '');
+      } catch (e) {
+        console.error('區塊鏈 storeRecord 失敗:', e.message);
+      }
+
+      // 寫入 DB
+      const newFile = await File.create({
+        user_id: userId,
+        filename: req.file.originalname,
+        fingerprint,
+        ipfs_hash: ipfsHash || null,
+        tx_hash: txHash || null
       });
 
-      // 5. 更新使用者的上傳次數計數
-      await User.findByIdAndUpdate(userId, { $inc: { uploadsUsed: 1 } });
+      // 刪除本地暫存
+      fs.unlinkSync(filePath);
 
-      // 回傳成功結果，包含IPFS CID等資訊
-      return res.status(201).json({ 
-        message: '上傳成功', 
-        file: {
-          id: fileRecord._id,
-          fileName: originalName,
-          ipfsCid: cid,
-          fingerprint: fingerprint
-        }
+      // 更新 user 上傳次數
+      const user = await User.findByPk(userId);
+      // 簡單判斷是否是圖片還是影片
+      if (req.file.mimetype.startsWith('video')) {
+        user.uploadVideos++;
+      } else {
+        user.uploadImages++;
+      }
+      await user.save();
+
+      return res.json({
+        message: '上傳成功',
+        fileId: newFile.id,
+        fingerprint,
+        ipfsHash,
+        txHash
       });
     } catch (err) {
-      next(err);
+      console.error('[uploadFile error]', err);
+      return res.status(500).json({ error: err.message });
     }
   }
 };
 
-module.exports = UploadController;
+module.exports = uploadController;
