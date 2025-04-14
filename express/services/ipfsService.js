@@ -1,22 +1,24 @@
-// services/ipfsService.js
+/********************************************************************
+ * services/ipfsService.js
+ ********************************************************************/
 const { create } = require('ipfs-http-client');
 
-const ipfsHost = process.env.IPFS_HOST || 'localhost';
-const ipfsPort = process.env.IPFS_PORT || '5001';
-let ipfs;
+let ipfs = null;
 try {
+  // 透過環境變數指定 IPFS 節點
+  const ipfsHost = process.env.IPFS_HOST || 'suzoo_ipfs';
+  const ipfsPort = process.env.IPFS_PORT || '5001';
   ipfs = create({ host: ipfsHost, port: ipfsPort, protocol: 'http' });
-  console.log(`Connected to IPFS node at ${ipfsHost}:${ipfsPort}`);
+  console.log(`[ipfsService] connected to IPFS at ${ipfsHost}:${ipfsPort}`);
 } catch (err) {
-  console.error('IPFS連線失敗:', err);
+  console.error('[ipfsService] init fail:', err);
 }
 
-// 將檔案Buffer存儲到IPFS，返回內容ID (CID)
 async function saveFile(buffer) {
-  if (!ipfs) throw new Error('IPFS 客戶端未正確初始化');
+  if (!ipfs) throw new Error('IPFS 未初始化');
   const result = await ipfs.add(buffer);
-  // 根據 ipfs-http-client 版本，result 可能包含 path 或 cid 屬性
-  const cid = result.path || result.cid.toString();
+  // `result` 可能包含 path 或 cid 屬性
+  const cid = result.cid.toString();
   return cid;
 }
 
