@@ -1,20 +1,22 @@
-// controllers/trademarkController.js
+/********************************************************************
+ * controllers/trademarkController.js
+ ********************************************************************/
 const trademarkService = require('../services/trademarkService');
 
-const TrademarkController = {
-  search: async (req, res, next) => {
+const trademarkController = {
+  async search(req, res) {
     try {
-      const query = req.query.q;
-      if (!query) {
-        return res.status(400).json({ message: '缺少查詢參數 q' });
+      const q = req.query.q;
+      if (!q) {
+        return res.status(400).json({ error: '缺少查詢參數 q' });
       }
-      // 調用商標爬蟲服務進行查詢
-      const results = await trademarkService.searchTrademark(query);
-      return res.json({ query, results });
+      const results = await trademarkService.searchTrademark(q);
+      return res.json({ query: q, results });
     } catch (err) {
-      next(err);
+      console.error('[trademarkController.search] error:', err);
+      return res.status(500).json({ error: '無法查詢商標' });
     }
   }
 };
 
-module.exports = TrademarkController;
+module.exports = trademarkController;
