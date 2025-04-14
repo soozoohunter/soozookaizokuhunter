@@ -53,7 +53,7 @@ app.get('/health', (req, res) => {
 });
 
 /********************************************************
- * 區塊鏈 API 範例 (若有)
+ * 區塊鏈 API 範例 (若有需要)
  ********************************************************/
 app.post('/chain/store', async (req, res) => {
   try {
@@ -131,10 +131,10 @@ async function planUploadLimitCheck(req, res, next) {
 
     let maxVideos = 3, maxImages = 10;
     if (user.plan === 'PRO') {
-      maxVideos = 15;  
+      maxVideos = 15;
       maxImages = 30;
     } else if (user.plan === 'ENTERPRISE') {
-      maxVideos = 30;  
+      maxVideos = 30;
       maxImages = 60;
     }
 
