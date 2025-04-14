@@ -1,21 +1,17 @@
 # express/Dockerfile
-
 FROM node:18-alpine
 
-# Create app directory
 WORKDIR /app
 
-# Copy package.json / package-lock.json
+# 複製 package 定義並安裝相依
 COPY package*.json ./
+RUN npm install --omit=dev
 
-# Install dependencies
-RUN npm install
-
-# Copy all source code
+# 複製後端源碼
 COPY . .
 
-# Expose port (for docker-compose internal usage)
+# 開放 3000 埠
 EXPOSE 3000
 
-# Default command
+# 預設啟動
 CMD ["node", "server.js"]
