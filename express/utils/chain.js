@@ -1,38 +1,34 @@
-/********************************************************************
- * express/utils/chain.js (最終整合版)
- ********************************************************************/
+// express/utils/chain.js
+
 require('dotenv').config();
 const { ethers } = require('ethers');
 
-/**
- * 從環境變數載入 RPC URL、私鑰、合約位址等，如未設定則給予預設或拋錯
- */
+// 從 env 載入
 const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
-const privateKey = process.env.PRIVATE_KEY || '';
-const contractAddress = process.env.CONTRACT_ADDRESS || '';  // 若未設置，則不啟用合約功能
+const privateKey = process.env.PRIVATE_KEY || process.env.BLOCKCHAIN_PRIVATE_KEY || '';
+const contractAddress = process.env.CONTRACT_ADDRESS || '';
 
-// 初始化 ethers.js 提供者
+// 初始化 provider
 let provider = null;
 try {
   provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 } catch (err) {
-  console.error(`初始化 JsonRpcProvider("${rpcUrl}") 失敗:`, err);
+  console.error(`[chain.js] 初始化 JsonRpcProvider("${rpcUrl}") 失敗:`, err);
 }
 
-// 建立錢包
+// 初始化 wallet
 let wallet = null;
 if (!privateKey) {
-  console.warn("【警告】沒有提供 PRIVATE_KEY，區塊鏈寫入功能將無法使用。");
+  console.warn("[chain.js] 沒有提供 PRIVATE_KEY，將無法執行區塊鏈寫入功能。");
 } else if (provider) {
   try {
     wallet = new ethers.Wallet(privateKey, provider);
   } catch (err) {
-    console.error("初始化 Wallet 失敗:", err);
+    console.error("[chain.js] 初始化 Wallet 失敗:", err);
   }
 }
 
-// 建立合約實例
-// 以下範例 ABI 需替換為真實合約介面
+// 合約 ABI (請確保與您實際部署的合約一致)
 const defaultABI = [
   {
     "anonymous": false,
@@ -58,69 +54,44 @@ const defaultABI = [
 
 let contract = null;
 if (!contractAddress) {
-  console.warn("【警告】沒有提供 CONTRACT_ADDRESS，將無法使用合約寫入功能。");
+  console.warn("[chain.js] 沒有提供 CONTRACT_ADDRESS，無法使用合約功能。");
 } else if (wallet) {
   try {
     contract = new ethers.Contract(contractAddress, defaultABI, wallet);
-    console.log(`合約初始化成功 => ${contractAddress}`);
+    console.log(`[chain.js] 合約初始化成功 => ${contractAddress}`);
   } catch (err) {
-    console.error("初始化合約失敗:", err);
+    console.error("[chain.js] 初始化合約失敗:", err);
   }
 }
 
-/**
- * 共同的寫入流程函式 (示範 storeRecord)
- * @param {string} recordType 例如 'GENERIC'、'ASSET'、'INFRINGE' 等
- * @param {string} data 要上鏈的文字
- */
 async function storeRecord(recordType, data) {
   if (!contract) {
-    const errMsg = "【區塊鏈錯誤】合約實例不存在或未初始化";
-    console.error(errMsg);
-    throw new Error(errMsg);
+    throw new Error("[chain.js] 合約實例不存在或未初始化");
   }
   try {
     const tx = await contract.storeRecord(recordType, data);
-    console.log(`[ETH] storeRecord(${recordType}, "${data}") TX =`, tx.hash);
+    console.log(`[ETH] storeRecord(${recordType}, "${data}") TX=`, tx.hash);
     const receipt = await tx.wait();
     console.log(`[ETH] storeRecord => TX hash:`, receipt.transactionHash);
     return receipt.transactionHash;
   } catch (err) {
-    console.error(`[storeRecord Error]`, err);
+    console.error("[chain.js] storeRecord Error:", err);
     throw err;
   }
 }
 
-/**
- * 匯出多個上鏈函式
- */
 module.exports = {
-  /**
-   * 寫入一般資料: recordType = 'GENERIC'
-   */
   async writeToBlockchain(data) {
     return await storeRecord('GENERIC', data);
   },
-
-  /**
-   * 上傳檔案 fingerprint
-   */
   async writeUserAssetToChain(userEmail, dnaHash, fileType, timestamp) {
     const combined = `${userEmail}|${dnaHash}|${fileType}|${timestamp}`;
     return await storeRecord('ASSET', combined);
   },
-
-  /**
-   * 侵權舉報
-   */
   async writeInfringementToChain(userEmail, infrInfo, timestamp) {
     const combined = `${userEmail}|${infrInfo}|${timestamp}`;
     return await storeRecord('INFRINGE', combined);
   },
-
-  /**
-   * 自訂
-   */
   async writeCustomRecord(recordType, data) {
     return await storeRecord(recordType, data);
   }
