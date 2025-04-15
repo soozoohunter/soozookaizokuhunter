@@ -12,6 +12,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 新增引入 createDefaultAdmin
+const { createDefaultAdmin } = require('./createDefaultAdmin');
+
 // 新增的路由匯入 (for /auth)
 const authRouter = require('./routes/auth'); // or './routes/authRoutes'
 
@@ -38,14 +41,18 @@ app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/trademarks', trademarkRoutes);
 app.use('/api/payment', paymentRoutes);
-
 // 若有其他路由...
 // app.use('/api/infringement', infringementRoutes);
 
 // 初始化 Sequelize & 啟動
 sequelize.sync({ alter: false })
-  .then(() => {
+  .then(async () => {
     console.log('All tables synced!');
+
+    // 在資料庫同步完成後，呼叫自動建立預設管理員函式
+    await createDefaultAdmin();
+
+    // 最後開始監聽
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Express server running on http://0.0.0.0:${PORT}`);
