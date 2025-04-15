@@ -1,12 +1,11 @@
-// routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
-// POST /api/auth/register
+// 註冊新帳號
 router.post('/register', authController.register);
 
-// POST /api/auth/login
+// 使用者登入
 router.post('/login', authController.login);
 
 module.exports = router;
