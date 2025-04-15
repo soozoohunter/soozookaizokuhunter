@@ -1,10 +1,3 @@
-/**
- * Login.jsx
- * 
- * 修正後程式碼，可直接覆蓋原先檔案。
- * 部署前請先執行：npm install styled-components
- */
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
