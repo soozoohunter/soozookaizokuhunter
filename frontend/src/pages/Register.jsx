@@ -1,214 +1,394 @@
+// frontend/src/pages/Register.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function Register() {
+export default function Register() {
   const navigate = useNavigate();
-  // 表單欄位的狀態初始化
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     email: '',
     userName: '',
     password: '',
     confirmPassword: '',
     role: '',
     serialNumber: '',
-    IG: '',
-    FB: '',
-    YouTube: '',
-    TikTok: '',
-    Shopee: '',
-    Ruten: '',
-    Yahoo: '',
-    Amazon: '',
-    Taobao: '',
-    eBay: ''
+    ig: '',
+    fb: '',
+    youtube: '',
+    tiktok: '',
+    shopee: '',
+    ruten: '',
+    yahoo: '',
+    amazon: '',
+    ebay: '',
+    taobao: ''
   });
   const [error, setError] = useState('');
 
-  // 處理輸入變更的通用函式
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // 表單提交處理
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 前端驗證：檢查必要欄位是否填寫
-    const { email, userName, password, confirmPassword, role, serialNumber, ...accounts } = formData;
-    if (!email || !userName || !password || !confirmPassword || !role || !serialNumber) {
-      setError('請完整填寫所有必填欄位');
+    // 簡單驗證
+    if (!form.email || !form.userName || !form.password || !form.confirmPassword) {
+      setError('請填寫必填欄位 / Required fields missing');
       return;
     }
-    // 檢查密碼與確認密碼一致
-    if (password !== confirmPassword) {
-      setError('密碼與確認密碼不一致');
-      return;
-    }
-    // 檢查至少填寫一個社群/電商帳號
-    const hasAccount = Object.values(accounts).some(acc => acc && acc.trim() !== '');
-    if (!hasAccount) {
-      setError('請至少填寫一項社群或電商平台帳號');
+    if (form.password !== form.confirmPassword) {
+      setError('兩次密碼不一致 / Passwords do not match');
       return;
     }
 
     try {
-      // 呼叫後端 API 進行註冊
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+      // 準備要送給後端的資料
+      const body = {
+        email: form.email,
+        userName: form.userName,
+        password: form.password,
+        role: form.role || 'copyright',
+        serialNumber: form.serialNumber || '',
+
+        // 社群/電商平台 (可至少填一項)
+        ig: form.ig,
+        fb: form.fb,
+        youtube: form.youtube,
+        tiktok: form.tiktok,
+        shopee: form.shopee,
+        ruten: form.ruten,
+        yahoo: form.yahoo,
+        amazon: form.amazon,
+        ebay: form.ebay,
+        taobao: form.taobao
+      };
+
+      const res = await fetch('/auth/register', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(body)
       });
-      const result = await response.json();
-      if (response.ok) {
-        // 註冊成功：提示並導向登入頁
-        alert('註冊成功，請使用您的用戶名稱登入');
-        navigate('/login');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || data.error || '註冊失敗 (Register Failed)');
       } else {
-        // 註冊失敗：顯示後端回傳的錯誤訊息
-        setError(result.error || '註冊失敗，請稍後再試');
+        alert('註冊成功，資料已上鏈 / Registration success!');
+        navigate('/login');
       }
     } catch (err) {
-      console.error('Registration error', err);
-      setError('發生未知錯誤，請稍後再試');
+      console.error('Register error:', err);
+      setError('發生錯誤，請稍後再試 / An error occurred, please try again.');
     }
   };
 
   return (
-    <div style={{ padding: '2em' }}>
-      <h2>會員註冊</h2>
-      <form onSubmit={handleSubmit}>
-        {/* Email 欄位 */}
-        <label htmlFor="email">電子郵件 Email</label>
-        <input 
-          id="email" name="email" type="email" 
-          value={formData.email} onChange={handleChange} 
-          placeholder="請輸入電子郵件" required 
-        />
+    <div style={styles.container}>
+      <form onSubmit={handleSubmit} style={styles.form}>
+        <h2 style={styles.title}>會員註冊 / Membership Registration</h2>
 
-        {/* 使用者名稱欄位 */}
-        <label htmlFor="userName">
-          用戶名稱 <span style={{ fontWeight: 'normal' }}>（將作為日後登入帳號）</span>
-        </label>
-        <input 
-          id="userName" name="userName" type="text" 
-          value={formData.userName} onChange={handleChange} 
-          placeholder="請設定用戶名稱" required 
-        />
+        {/* Email */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>電子郵件 (Email):</label>
+          <input
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            required
+            style={styles.input}
+            placeholder="example@mail.com"
+          />
+        </div>
 
-        {/* 密碼欄位 */}
-        <label htmlFor="password">密碼 Password</label>
-        <input 
-          id="password" name="password" type="password" 
-          value={formData.password} onChange={handleChange} 
-          placeholder="請設定密碼" required 
-        />
+        {/* userName */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>用戶名稱 (Username):</label>
+          <input
+            type="text"
+            name="userName"
+            value={form.userName}
+            onChange={handleChange}
+            required
+            style={styles.input}
+            placeholder="作為登入帳號 / For login usage"
+          />
+        </div>
 
-        {/* 確認密碼欄位 */}
-        <label htmlFor="confirmPassword">確認密碼 Confirm Password</label>
-        <input 
-          id="confirmPassword" name="confirmPassword" type="password" 
-          value={formData.confirmPassword} onChange={handleChange} 
-          placeholder="再次輸入密碼" required 
-        />
+        {/* password */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>密碼 (Password):</label>
+          <input
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            required
+            style={styles.input}
+            placeholder="請輸入密碼 / Enter password"
+          />
+        </div>
 
-        {/* 角色選擇欄位 */}
-        <label htmlFor="role">角色 Role</label>
-        <select id="role" name="role" value={formData.role} onChange={handleChange} required>
-          <option value="" disabled>-- 請選擇角色 --</option>
-          <option value="copyright">著作權 (Copyright)</option>
-          <option value="trademark">商標權 (Trademark)</option>
-          <option value="both">兩者皆有 (Both)</option>
-        </select>
+        {/* confirmPassword */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>確認密碼 (Confirm Password):</label>
+          <input
+            type="password"
+            name="confirmPassword"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            required
+            style={styles.input}
+            placeholder="再次輸入密碼 / Confirm password"
+          />
+        </div>
 
-        {/* 序號欄位 */}
-        <label htmlFor="serialNumber">序號 Serial Number</label>
-        <input 
-          id="serialNumber" name="serialNumber" type="text" 
-          value={formData.serialNumber} onChange={handleChange} 
-          placeholder="請輸入您的序號" required 
-        />
+        {/* role */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>角色 (Role):</label>
+          <select
+            name="role"
+            value={form.role}
+            onChange={handleChange}
+            style={styles.input}
+          >
+            <option value="">-- 選擇角色 / Choose Role --</option>
+            <option value="copyright">著作權 (Copyright)</option>
+            <option value="trademark">商標 (Trademark)</option>
+            <option value="both">兩者皆需 (Both)</option>
+          </select>
+        </div>
 
-        {/* 社群/電商帳號欄位群組 */}
-        <h3>社群/電商平台帳號綁定</h3>
-        <p style={{ fontSize: '0.9em', margin: '0 0 0.5em' }}>
-          * 請填寫您在各平台上的帳號名稱（至少一項）： 
+        {/* serialNumber (選填) */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>序號 (Serial Number):</label>
+          <input
+            type="text"
+            name="serialNumber"
+            value={form.serialNumber}
+            onChange={handleChange}
+            style={styles.input}
+            placeholder="(可選) 您的序號 / Optional"
+          />
+        </div>
+
+        <h3 style={styles.subSectionTitle}>
+          社群/電商平台帳號綁定 (Social/E-Commerce Binding)
+        </h3>
+        <p style={styles.hint}>
+          * 請填寫您在各平台的帳號名稱 (至少一項)  
+          * Please provide your account names on social/e-commerce platforms (at least one)
         </p>
-        <label htmlFor="IG">Instagram 帳號</label>
-        <input 
-          id="IG" name="IG" type="text" 
-          value={formData.IG} onChange={handleChange} 
-          placeholder="Instagram 用戶名"
-        />
-        <label htmlFor="FB">Facebook 帳號</label>
-        <input 
-          id="FB" name="FB" type="text" 
-          value={formData.FB} onChange={handleChange} 
-          placeholder="Facebook 用戶名"
-        />
-        <label htmlFor="YouTube">YouTube 頻道</label>
-        <input 
-          id="YouTube" name="YouTube" type="text" 
-          value={formData.YouTube} onChange={handleChange} 
-          placeholder="YouTube 頻道名稱"
-        />
-        <label htmlFor="TikTok">TikTok 帳號</label>
-        <input 
-          id="TikTok" name="TikTok" type="text" 
-          value={formData.TikTok} onChange={handleChange} 
-          placeholder="TikTok 用戶名"
-        />
-        <label htmlFor="Shopee">蝦皮購物帳號 (Shopee)</label>
-        <input 
-          id="Shopee" name="Shopee" type="text" 
-          value={formData.Shopee} onChange={handleChange} 
-          placeholder="Shopee 賣場名稱"
-        />
-        <label htmlFor="Ruten">露天拍賣帳號 (Ruten)</label>
-        <input 
-          id="Ruten" name="Ruten" type="text" 
-          value={formData.Ruten} onChange={handleChange} 
-          placeholder="露天拍賣 賣家帳號"
-        />
-        <label htmlFor="Yahoo">Yahoo奇摩帳號</label>
-        <input 
-          id="Yahoo" name="Yahoo" type="text" 
-          value={formData.Yahoo} onChange={handleChange} 
-          placeholder="Yahoo奇摩 賣家名稱"
-        />
-        <label htmlFor="Amazon">Amazon 賣家帳號</label>
-        <input 
-          id="Amazon" name="Amazon" type="text" 
-          value={formData.Amazon} onChange={handleChange} 
-          placeholder="Amazon 商店名稱"
-        />
-        <label htmlFor="Taobao">淘寶帳號</label>
-        <input 
-          id="Taobao" name="Taobao" type="text" 
-          value={formData.Taobao} onChange={handleChange} 
-          placeholder="淘寶 賣家帳號"
-        />
-        <label htmlFor="eBay">eBay 帳號</label>
-        <input 
-          id="eBay" name="eBay" type="text" 
-          value={formData.eBay} onChange={handleChange} 
-          placeholder="eBay 賣家帳號"
-        />
 
-        {/* 提交按鈕 */}
-        <button type="submit">提交註冊</button>
+        {/* ig */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Instagram 帳號 (IG):</label>
+          <input
+            type="text"
+            name="ig"
+            value={form.ig}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
 
-        {/* 錯誤訊息顯示 */}
-        {error && <p className="hint" style={{ color: 'red' }}>{error}</p>}
+        {/* fb */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Facebook 帳號 (FB):</label>
+          <input
+            type="text"
+            name="fb"
+            value={form.fb}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
 
-        {/* 提示語，說明為何要綁定帳號 */}
-        <p className="hint">
-          註冊時綁定您的社群/電商帳號，可有效證明內容原創性，並作為後續侵權偵測的依據。
+        {/* youtube */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>YouTube 頻道 (YouTube):</label>
+          <input
+            type="text"
+            name="youtube"
+            value={form.youtube}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* tiktok */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>TikTok 帳號:</label>
+          <input
+            type="text"
+            name="tiktok"
+            value={form.tiktok}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* shopee */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>蝦皮賣場 (Shopee):</label>
+          <input
+            type="text"
+            name="shopee"
+            value={form.shopee}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* ruten */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>露天拍賣 (Ruten):</label>
+          <input
+            type="text"
+            name="ruten"
+            value={form.ruten}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* yahoo */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Yahoo奇摩拍賣:</label>
+          <input
+            type="text"
+            name="yahoo"
+            value={form.yahoo}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* amazon */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Amazon 賣家帳號:</label>
+          <input
+            type="text"
+            name="amazon"
+            value={form.amazon}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* ebay */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>eBay 帳號:</label>
+          <input
+            type="text"
+            name="ebay"
+            value={form.ebay}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* taobao */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>淘寶 (Taobao) 帳號:</label>
+          <input
+            type="text"
+            name="taobao"
+            value={form.taobao}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        </div>
+
+        {/* Error Message */}
+        {error && <p style={styles.errorMsg}>{error}</p>}
+
+        {/* Submit Button */}
+        <button type="submit" style={styles.submitBtn}>
+          提交註冊 / Register Now
+        </button>
+
+        <p style={styles.note}>
+          註冊時綁定您的社群/電商帳號，可有效證明內容原創性，並作為後續侵權偵測依據。<br/>
+          Binding your social/e-commerce accounts at registration can effectively prove originality 
+          and serve as evidence for future infringement detection.
         </p>
       </form>
     </div>
   );
 }
 
-export default Register;
+const styles = {
+  container: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '90vh',
+    backgroundColor: '#000'
+  },
+  form: {
+    border: '2px solid orange',
+    borderRadius: '10px',
+    padding: '2rem',
+    textAlign: 'center',
+    maxWidth: '480px',
+    width: '100%',
+    backgroundColor: 'rgba(255,140,0,0.1)'
+  },
+  title: {
+    color: 'orange',
+    marginBottom: '1.5rem',
+    fontSize: '1.6rem'
+  },
+  formGroup: {
+    marginBottom: '1rem',
+    textAlign: 'left'
+  },
+  label: {
+    display: 'block',
+    marginBottom: '0.3rem',
+    color: '#FFD700', // 黃金色，與橘色區分
+    fontWeight: 'bold'
+  },
+  input: {
+    width: '100%',
+    padding: '0.5rem',
+    borderRadius: '4px',
+    border: '1px solid #ccc'
+  },
+  subSectionTitle: {
+    margin: '1.5rem 0 0.5rem 0',
+    color: 'orange',
+    fontSize: '1.1rem',
+    borderBottom: '1px solid orange',
+    textAlign: 'center'
+  },
+  hint: {
+    color: '#ccc',
+    fontSize: '0.85rem',
+    marginBottom: '1rem'
+  },
+  errorMsg: {
+    color: 'red',
+    marginTop: '0.5rem',
+    marginBottom: '1rem'
+  },
+  submitBtn: {
+    backgroundColor: 'orange',
+    color: '#000',
+    padding: '0.6rem 1rem',
+    border: 'none',
+    borderRadius: '4px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    width: '100%'
+  },
+  note: {
+    color: '#ccc',
+    fontSize: '0.85rem',
+    marginTop: '1rem',
+    lineHeight: '1.4'
+  }
+};
