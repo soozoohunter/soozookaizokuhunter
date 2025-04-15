@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    // 開發模式下本地啟動 (熱更新)
+    
     "start": "react-scripts start",
-    // 正式建置產生 /build 資料夾
+  
     "build": "react-scripts build"
   },
   "dependencies": {
@@ -19,7 +19,7 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4",
 
-    // ===== 新增 styled-components =====
+  
     "styled-components": "^5.3.9"
   }
 }
