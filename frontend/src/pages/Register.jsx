@@ -3,63 +3,186 @@ import { useNavigate, Link } from 'react-router-dom';
 
 function Register() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
   const [userName, setUserName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('');
+  const [socialAccount, setSocialAccount] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (!email || !userName || !password || !confirmPassword || !role) {
-      setError('請填寫所有必填欄位');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError('兩次輸入的密碼不一致');
-      return;
-    }
-
-    const newUserData = { email, userName, password, role };
-
     try {
       setLoading(true);
-      const res = await fetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUserData)
-      });
-
-      if (res.ok) {
-        alert('註冊成功，請登入');
-        navigate('/login');
-      } else {
-        const data = await res.json();
-        setError(data.message || '註冊失敗，請重試');
-      }
-    } catch (err) {
-      setError('網路錯誤，請稍後再試');
-    } finally {
+      // TODO: Call the registration API with { userName, email, password, role, socialAccount }
+      // For example:
+      // await AuthService.register({ userName, email, password, role, socialAccount });
+      // On success, navigate to login or another page:
       setLoading(false);
+      navigate('/login');
+    } catch (err) {
+      setLoading(false);
+      // Capture error message from API or use a generic message
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
     }
   };
 
   return (
-    <div className="auth-container" style={styles.container}>
-      <h2 style={styles.title}>會員註冊</h2>
-      {error && <div style={styles.error}>{error}</div>}
-      <form onSubmit={handleSubmit} style={styles.form}>
-        {['email', 'userName', 'password', 'confirmPassword'].map((field, idx) => (
-          <input key={idx} type={field.includes('password') ? 'password' : field} placeholder={field} value={eval(field)} onChange={(e) => eval('set' + field.charAt(0).toUpperCase() + field.slice(1))(e.target.value)} required style={styles.input} />
-        ))}
-        <input type="text" placeholder="role" value={role} onChange={(e) => setRole(e.target.value)} required style={styles.input} />
-        <button type="submit" disabled={loading} style={styles.button}>{loading ? '註冊中...' : '註冊'}</button>
-        <div style={styles.linkContainer}>已有帳號？<Link to="/login" style={styles.link}>立即登入</Link></div>
+    <div className="auth-container" style={{
+      minHeight: '100vh',
+      backgroundColor: '#000',
+      color: '#FFD700',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center'
+    }}>
+      <h2 style={{
+        color: '#F8E114',
+        marginBottom: '20px',
+        textAlign: 'center',
+        fontSize: '2em',
+        fontWeight: 'bold'
+      }}>
+        Register
+      </h2>
+      {error && <div style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>{error}</div>}
+      <form onSubmit={handleRegister} style={{ width: '90%', maxWidth: '400px', padding: '20px', border: '1px solid #FFA500', borderRadius: '8px', boxShadow: '0 0 8px rgba(255,165,0,0.5)', backgroundColor: '#000' }}>
+        <input
+          type="text"
+          placeholder="Username"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#FFD700',
+            padding: '10px',
+            marginBottom: '10px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
+          }}
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#FFD700',
+            padding: '10px',
+            marginBottom: '10px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
+          }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#FFD700',
+            padding: '10px',
+            marginBottom: '10px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
+          }}
+        />
+        <input
+          type="text"
+          placeholder="Role"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#FFD700',
+            padding: '10px',
+            marginBottom: '10px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
+          }}
+        />
+        <input
+          type="text"
+          placeholder="Social Account"
+          value={socialAccount}
+          onChange={(e) => setSocialAccount(e.target.value)}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#FFD700',
+            padding: '10px',
+            marginBottom: '20px',
+            width: '100%',
+            boxSizing: 'border-box',
+            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
+          }}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            backgroundColor: '#000',
+            border: '1px solid #FFA500',
+            borderRadius: '4px',
+            color: '#F8E114',
+            padding: '10px',
+            width: '100%',
+            fontSize: '1em',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          {loading ? 'Registering...' : 'Register'}
+        </button>
+        <div style={{ marginTop: '15px', textAlign: 'center', color: '#FFD700' }}>
+          Already have an account? <Link to="/login" style={{ color: '#F8E114', textDecoration: 'none' }}>Login</Link>
+        </div>
       </form>
+      <style>{`
+        .auth-container input,
+        .auth-container select,
+        .auth-container button {
+          transition: all 0.3s;
+        }
+        .auth-container input:hover,
+        .auth-container select:hover {
+          border-color: #FFD700;
+        }
+        .auth-container input:focus,
+        .auth-container select:focus {
+          outline: none;
+          border-color: #FFD700;
+          box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+        }
+        .auth-container button:hover {
+          background-color: #FFA500;
+          color: #000;
+        }
+        .auth-container button:active {
+          background-color: #cc8400;
+        }
+        .auth-container a:hover {
+          text-decoration: underline;
+        }
+      `}</style>
     </div>
   );
 }
