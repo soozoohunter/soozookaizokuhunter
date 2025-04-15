@@ -1,138 +1,76 @@
-// frontend/src/pages/Login.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Login() {
-  const navigate = useNavigate();
+function Login() {
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  const navigate = useNavigate();
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(''); // 清空先前的錯誤
+
+    if (!userName || !password) {
+      setError('請輸入使用者名稱和密碼');
+      return;
+    }
 
     try {
-      // 發送 userName + password 至後端
       const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userName, password })
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || data.error || '登入失敗 (Login Failed)');
+      if (res.ok) {
+        // 登入成功，取得回傳的 token
+        const data = await res.json();
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        // 可在此設定全域登入狀態（例如透過 context），這裡簡化略過
+        navigate('/');  // 導向首頁
       } else {
-        // 成功登入
-        if (data.token) localStorage.setItem('token', data.token);
-        alert('登入成功 (Login Success)');
-        navigate('/');
+        // 登入失敗
+        const data = await res.json();
+        setError(data.message || '登入失敗，帳號或密碼錯誤');
       }
     } catch (err) {
-      console.error('[Login Error]', err);
-      setError('發生錯誤，請稍後再試 / An error occurred, please try again.');
+      console.error('Network error during login:', err);
+      setError('網路錯誤，請稍後再試');
     }
   };
 
   return (
-    <div style={styles.container}>
-      {/* 包一層 wrapper 以實現置中 + 橘色框 */}
-      <div style={styles.formWrapper}>
-        <h2 style={styles.title}>會員登入 / Member Login</h2>
-
-        {/* 錯誤訊息 */}
-        {error && <p style={styles.errorMsg}>{error}</p>}
-
-        <form onSubmit={handleLogin} style={styles.form}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>用戶名稱 (Username):</label>
-            <input
-              type="text"
-              style={styles.input}
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="請輸入用戶名稱 / Enter username"
-              required
+    <div className="login-page">
+      <h2>會員登入</h2>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <form onSubmit={handleLogin}>
+        <div>
+          <label>使用者名稱：
+            <input 
+              type="text" 
+              value={userName} 
+              onChange={(e) => setUserName(e.target.value)} 
+              required 
             />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>密碼 (Password):</label>
-            <input
-              type="password"
-              style={styles.input}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="請輸入密碼 / Enter password"
-              required
+          </label>
+        </div>
+        <div>
+          <label>密碼：
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
             />
-          </div>
-
-          <button type="submit" style={styles.submitBtn}>
-            登入 / Login
-          </button>
-        </form>
-      </div>
+          </label>
+        </div>
+        <button type="submit">登入</button>
+      </form>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    // 使容器充滿螢幕高度，以便垂直置中
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-    minHeight: '100vh',
-    margin: 0,
-    padding: 0
-  },
-  formWrapper: {
-    border: '2px solid orange',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(255,140,0,0.1)',
-    width: '350px',
-    padding: '1.5rem',
-    textAlign: 'center'
-  },
-  title: {
-    color: 'orange',
-    marginBottom: '1rem',
-    fontSize: '1.6rem'
-  },
-  errorMsg: {
-    color: 'red',
-    marginBottom: '1rem'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  formGroup: {
-    marginBottom: '1rem',
-    textAlign: 'left'
-  },
-  label: {
-    color: '#FFD700',
-    marginBottom: '0.3rem',
-    fontWeight: 'bold'
-  },
-  input: {
-    width: '100%',
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #ccc'
-  },
-  submitBtn: {
-    marginTop: '1rem',
-    backgroundColor: 'orange',
-    color: '#000',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '0.6rem',
-    fontWeight: 'bold',
-    cursor: 'pointer'
-  }
-};
+export default Login;
