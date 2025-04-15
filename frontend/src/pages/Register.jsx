@@ -1,9 +1,3 @@
- * Register.jsx
- * 合併原先的企業級 UI 與文字內容，並使用單一 form 狀態及簡潔的前端驗證邏輯。
- * 部署前請先安裝：
- *   npm install styled-components
- */
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
