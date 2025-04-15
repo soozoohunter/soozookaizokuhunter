@@ -1,48 +1,34 @@
-/*************************************************************
- * MyRoutes.jsx
- * 最終整合版 React Router 設定檔，可整支覆蓋
- *************************************************************/
+// frontend/src/MyRoutes.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// === 最外層 Layout (含 Navbar, Footer, <Outlet />) ===
+// 版型佈局
 import App from './App';
 
-// === 各頁面 ===
+// 各頁面
 import Home from './pages/Home';
-import Login from './pages/Login';                 // 如若實際名稱是 LoginPage.jsx，請改為 import LoginPage from...
-import Register from './pages/Register';           // 同理
-import Dashboard from './pages/Dashboard';
-import ProfilePage from './pages/ProfilePage';
-import UploadPage from './pages/UploadPage';
-import PaymentPage from './pages/PaymentPage';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import PricingPage from './pages/PricingPage';
-import TrademarkCheckPage from './pages/TrademarkCheckPage';
-// 若還有其他頁面, 一併 import
+import PaymentPage from './pages/PaymentPage';
+// ... 若有 Dashboard, Profile, Upload 也在此匯入
 
 export default function MyRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1) 將 App 作為最外層 Layout */}
+        {/* 最外層路由：使用 <App /> 作為 layout */}
         <Route path="/" element={<App />}>
-          {/* 2) 透過 <Outlet> 顯示的子路由 */}
+          {/* 子路由，會在 <Outlet /> 呈現 */}
           <Route index element={<Home />} />
-
-          <Route path="pricing" element={<PricingPage />} />
-
-          {/* 登入 / 註冊 */}
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
-
-          {/* 會員功能 */}
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="upload" element={<UploadPage />} />
+          <Route path="pricing" element={<PricingPage />} />
           <Route path="payment" element={<PaymentPage />} />
-          <Route path="trademark-check" element={<TrademarkCheckPage />} />
-
-          {/* 若有其他子路由，請在此新增 */}
+          {/* 其他例如 */}
+          {/* <Route path="dashboard" element={<Dashboard />} /> */}
+          {/* <Route path="profile" element={<ProfilePage />} /> */}
+          {/* <Route path="upload" element={<UploadPage />} /> */}
         </Route>
       </Routes>
     </BrowserRouter>
