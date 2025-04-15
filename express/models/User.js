@@ -1,100 +1,68 @@
-/********************************************************************
- * models/User.js
- * Sequelize 定義 user 表，包含 email (必填), userName(登入用), password,
- * 以及社群/電商欄位 (可選, unique)，serialNumber(唯一序號) 等。
- ********************************************************************/
+'use strict';
+const bcrypt = require('bcryptjs');
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    // email (必填，但不做登入用)
+    // 電子郵件
     email: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true   // 電子郵件必須唯一
+      unique: true,
+      validate: {
+        isEmail: true  // 驗證格式為 Email
+      }
     },
-
-    // userName (必填, 唯一, 用於登入)
+    // 用戶名
     userName: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true   // 使用者名稱必須唯一
+      unique: true
     },
-
-    // bcrypt 雜湊後的密碼
+    // 加密後的密碼雜湊
     password: {
       type: DataTypes.STRING,
       allowNull: false
     },
-
-    // 社群/電商平台帳號欄位 (允許 null，但若填寫則必須唯一)
-    ig: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    fb: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    youtube: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    tiktok: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    shopee: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    ruten: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    ebay: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    amazon: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-    taobao: {
-      type: DataTypes.STRING,
-      allowNull: true,
-      unique: true
-    },
-
-    // 使用者序號 (必填, 唯一). 可自行定義生成規則
-    serialNumber: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
-    },
-
-    // 可再添加 plan, role 等欄位
-    plan: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      defaultValue: 'BASIC'
-    },
+    // 角色（預設'user'，如需其他角色可在此擴充）
     role: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'copyright'
+      defaultValue: 'user'
+    },
+    // 序號（允許為空）
+    serialNumber: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
+    },
+    // 社群/電商帳號綁定資訊（允許為空）
+    socialBinding: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    // 會員方案(plan)欄位，如不需要可刪除
+    plan: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'BASIC'
     }
-
   }, {
-    // 若想自動紀錄 createdAt / updatedAt 可改 timestamps: true
-    timestamps: true
+    // 模型選項
+    hooks: {
+      // 在建立使用者前自動執行密碼加密
+      beforeCreate: async (user, options) => {
+        if (user.password) {
+          const salt = await bcrypt.genSalt(10);
+          user.password = await bcrypt.hash(user.password, salt);
+        }
+      },
+      // 如果有更新密碼，也可以在beforeUpdate中處理類似邏輯:
+      // beforeUpdate: async (user, options) => { ... }
+    },
+    // 如果使用下劃線命名，可以加上 underscored: true，看專案需要
   });
+
+  // 可定義模型關聯 (associations) 這裡略過，如: User.associate = models => { ... };
 
   return User;
 };
