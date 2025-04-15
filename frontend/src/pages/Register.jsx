@@ -1,189 +1,358 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+// Reuse styled-components from Login where appropriate, or redefine for clarity
+const Container = styled.div`
+  min-height: 100vh;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+`;
+
+const Form = styled.form`
+  width: 90%;
+  max-width: 500px;
+  padding: 2rem;
+`;
+
+const Title = styled.h1`
+  color: #FFD700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 8px #FFD700;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin: 1rem 0 0.5rem 0;
+  font-weight: bold;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #000;
+  color: #fff;
+  border: 1px solid ${props => (props.error ? 'red' : '#FFA500')};
+  border-radius: 4px;
+  font-size: 1rem;
+  &:focus {
+    outline: none;
+    border-color: ${props => (props.error ? 'red' : '#FFA500')};
+    box-shadow: 0 0 6px ${props => (props.error ? 'red' : '#FFA500')};
+  }
+  &::placeholder {
+    color: #999;
+  }
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #000;
+  color: #fff;
+  border: 1px solid ${props => (props.error ? 'red' : '#FFA500')};
+  border-radius: 4px;
+  font-size: 1rem;
+  &:focus {
+    outline: none;
+    border-color: ${props => (props.error ? 'red' : '#FFA500')};
+    box-shadow: 0 0 6px ${props => (props.error ? 'red' : '#FFA500')};
+  }
+`;
+
+const Button = styled.button`
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: #000;
+  color: #FFD700;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: 2px solid #FFA500;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  text-shadow: 0 0 4px #FFD700;
+  &:hover, &:focus {
+    outline: none;
+    box-shadow: 0 0 8px #FFA500;
+  }
+`;
+
+const ErrorText = styled.p`
+  color: red;
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem 0;
+`;
+
+const SwitchText = styled.p`
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #fff;
+`;
 
 function Register() {
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('');
+  // Form field states
   const [email, setEmail] = useState('');
+  const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('');
-  const [socialAccount, setSocialAccount] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('');  // role value: 'copyright' | 'trademark' | 'both'
+  // Social/E-commerce accounts states
+  const [accounts, setAccounts] = useState({
+    IG: '', FB: '', YouTube: '', TikTok: '',
+    Shopee: '', Ruten: '', Yahoo: '', Amazon: '', eBay: '', Taobao: ''
+  });
+  // Error states for fields
+  const [errorEmail, setErrorEmail] = useState('');
+  const [errorUserName, setErrorUserName] = useState('');
+  const [errorPassword, setErrorPassword] = useState('');
+  const [errorConfirmPassword, setErrorConfirmPassword] = useState('');
+  const [errorRole, setErrorRole] = useState('');
+  const [errorAccounts, setErrorAccounts] = useState('');
+  const [errorGeneral, setErrorGeneral] = useState('');
+
+  // Helper: basic email format check (simple regex or includes)
+  const isValidEmail = (str) => {
+    return /\S+@\S+\.\S+/.test(str);
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError('');
+    setErrorGeneral('');
+    let valid = true;
+    // Validate email
+    if (!email.trim()) {
+      setErrorEmail('請輸入電子郵件 / Enter email');
+      valid = false;
+    } else if (!isValidEmail(email.trim())) {
+      setErrorEmail('電子郵件格式不正確 / Invalid email format');
+      valid = false;
+    } else {
+      setErrorEmail('');
+    }
+    // Validate username
+    if (!userName.trim()) {
+      setErrorUserName('請輸入使用者名稱 / Enter username');
+      valid = false;
+    } else {
+      setErrorUserName('');
+    }
+    // Validate password
+    if (!password) {
+      setErrorPassword('請輸入密碼 / Enter password');
+      valid = false;
+    } else {
+      setErrorPassword('');
+    }
+    // Validate confirmPassword matches
+    if (!confirmPassword) {
+      setErrorConfirmPassword('請再次輸入密碼 / Re-enter password');
+      valid = false;
+    } else if (password && confirmPassword && password !== confirmPassword) {
+      setErrorConfirmPassword('兩次密碼不一致 / Passwords do not match');
+      valid = false;
+    } else {
+      setErrorConfirmPassword('');
+    }
+    // Validate role selected
+    if (!role) {
+      setErrorRole('請選擇角色 / Select a role');
+      valid = false;
+    } else {
+      setErrorRole('');
+    }
+    // Validate at least one social/e-commerce account
+    const hasOneAccount = Object.values(accounts).some(val => val.trim() !== '');
+    if (!hasOneAccount) {
+      setErrorAccounts('請至少提供一項社群或電商帳號 / Provide at least one social/e-commerce account');
+      valid = false;
+    } else {
+      setErrorAccounts('');
+    }
+    if (!valid) {
+      return; // stop if any validation failed
+    }
     try {
-      setLoading(true);
-      // TODO: Call the registration API with { userName, email, password, role, socialAccount }
-      // For example:
-      // await AuthService.register({ userName, email, password, role, socialAccount });
-      // On success, navigate to login or another page:
-      setLoading(false);
-      navigate('/login');
+      // Prepare data to submit (exclude confirmPassword)
+      const payload = {
+        email: email.trim(),
+        userName: userName.trim(),
+        password: password,
+        role: role,
+        // Include all accounts fields (empty strings if not provided)
+        ...accounts
+      };
+      const res = await fetch('/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        // Registration failed, capture error message if available
+        // const errData = await res.json();
+        // setErrorGeneral(errData.message || '註冊失敗 / Registration failed');
+        setErrorGeneral('註冊失敗，請確認資料或稍後再試 / Registration failed, please check your data and try again');
+      } else {
+        // On success, redirect to login page
+        navigate('/login');
+      }
     } catch (err) {
-      setLoading(false);
-      // Capture error message from API or use a generic message
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setErrorGeneral('註冊發生錯誤 / An error occurred during registration');
+      console.error('Register error:', err);
     }
   };
 
+  // Handler for social accounts input change
+  const handleAccountChange = (field, value) => {
+    setAccounts(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
-    <div className="auth-container" style={{
-      minHeight: '100vh',
-      backgroundColor: '#000',
-      color: '#FFD700',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center'
-    }}>
-      <h2 style={{
-        color: '#F8E114',
-        marginBottom: '20px',
-        textAlign: 'center',
-        fontSize: '2em',
-        fontWeight: 'bold'
-      }}>
-        Register
-      </h2>
-      {error && <div style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>{error}</div>}
-      <form onSubmit={handleRegister} style={{ width: '90%', maxWidth: '400px', padding: '20px', border: '1px solid #FFA500', borderRadius: '8px', boxShadow: '0 0 8px rgba(255,165,0,0.5)', backgroundColor: '#000' }}>
-        <input
-          type="text"
-          placeholder="Username"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#FFD700',
-            padding: '10px',
-            marginBottom: '10px',
-            width: '100%',
-            boxSizing: 'border-box',
-            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-          }}
-        />
-        <input
+    <Container>
+      <Form onSubmit={handleRegister}>
+        <Title>註冊 / Register</Title>
+        {/* Email */}
+        <Label htmlFor="email">電子郵件 / Email</Label>
+        <Input 
+          id="email"
           type="email"
-          placeholder="Email"
+          placeholder="請輸入電子郵件 / Enter email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#FFD700',
-            padding: '10px',
-            marginBottom: '10px',
-            width: '100%',
-            boxSizing: 'border-box',
-            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-          }}
+          error={!!errorEmail}
         />
-        <input
+        {errorEmail && <ErrorText>{errorEmail}</ErrorText>}
+        {/* Username */}
+        <Label htmlFor="new-username">使用者名稱 / Username</Label>
+        <Input 
+          id="new-username"
+          type="text"
+          placeholder="請輸入使用者名稱 / Enter username"
+          value={userName}
+          onChange={(e) => setUserName(e.target.value)}
+          error={!!errorUserName}
+        />
+        {errorUserName && <ErrorText>{errorUserName}</ErrorText>}
+        {/* Password */}
+        <Label htmlFor="new-password">密碼 / Password</Label>
+        <Input 
+          id="new-password"
           type="password"
-          placeholder="Password"
+          placeholder="請輸入密碼 / Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#FFD700',
-            padding: '10px',
-            marginBottom: '10px',
-            width: '100%',
-            boxSizing: 'border-box',
-            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-          }}
+          error={!!errorPassword || !!errorConfirmPassword}
         />
-        <input
-          type="text"
-          placeholder="Role"
+        {errorPassword && <ErrorText>{errorPassword}</ErrorText>}
+        {/* Confirm Password */}
+        <Label htmlFor="confirm-password">確認密碼 / Confirm Password</Label>
+        <Input 
+          id="confirm-password"
+          type="password"
+          placeholder="請再次輸入密碼 / Re-enter password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          error={!!errorConfirmPassword}
+        />
+        {errorConfirmPassword && <ErrorText>{errorConfirmPassword}</ErrorText>}
+        {/* Role Selection */}
+        <Label htmlFor="role">角色類型 / Role</Label>
+        <Select 
+          id="role"
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#FFD700',
-            padding: '10px',
-            marginBottom: '10px',
-            width: '100%',
-            boxSizing: 'border-box',
-            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-          }}
-        />
-        <input
-          type="text"
-          placeholder="Social Account"
-          value={socialAccount}
-          onChange={(e) => setSocialAccount(e.target.value)}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#FFD700',
-            padding: '10px',
-            marginBottom: '20px',
-            width: '100%',
-            boxSizing: 'border-box',
-            boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-          }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            backgroundColor: '#000',
-            border: '1px solid #FFA500',
-            borderRadius: '4px',
-            color: '#F8E114',
-            padding: '10px',
-            width: '100%',
-            fontSize: '1em',
-            fontWeight: 'bold',
-            cursor: 'pointer'
-          }}
+          error={!!errorRole}
         >
-          {loading ? 'Registering...' : 'Register'}
-        </button>
-        <div style={{ marginTop: '15px', textAlign: 'center', color: '#FFD700' }}>
-          Already have an account? <Link to="/login" style={{ color: '#F8E114', textDecoration: 'none' }}>Login</Link>
-        </div>
-      </form>
-      <style>{`
-        .auth-container input,
-        .auth-container select,
-        .auth-container button {
-          transition: all 0.3s;
-        }
-        .auth-container input:hover,
-        .auth-container select:hover {
-          border-color: #FFD700;
-        }
-        .auth-container input:focus,
-        .auth-container select:focus {
-          outline: none;
-          border-color: #FFD700;
-          box-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
-        }
-        .auth-container button:hover {
-          background-color: #FFA500;
-          color: #000;
-        }
-        .auth-container button:active {
-          background-color: #cc8400;
-        }
-        .auth-container a:hover {
-          text-decoration: underline;
-        }
-      `}</style>
-    </div>
+          <option value="" disabled>請選擇角色 / Select Role</option>
+          <option value="copyright">著作權 / Copyright</option>
+          <option value="trademark">商標 / Trademark</option>
+          <option value="both">兩者 / Both</option>
+        </Select>
+        {errorRole && <ErrorText>{errorRole}</ErrorText>}
+        {/* Social/E-commerce Accounts Section */}
+        <Label>社群/電商帳號（至少填寫一項） / Social/E-commerce Accounts (at least one)</Label>
+        {/* We will create an input for each account type */}
+        <Input 
+          type="text"
+          placeholder="IG 帳號 / IG Account"
+          value={accounts.IG}
+          onChange={(e) => handleAccountChange('IG', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="FB 帳號 / FB Account"
+          value={accounts.FB}
+          onChange={(e) => handleAccountChange('FB', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="YouTube 帳號 / YouTube Account"
+          value={accounts.YouTube}
+          onChange={(e) => handleAccountChange('YouTube', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="TikTok 帳號 / TikTok Account"
+          value={accounts.TikTok}
+          onChange={(e) => handleAccountChange('TikTok', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="Shopee 帳號 / Shopee Account"
+          value={accounts.Shopee}
+          onChange={(e) => handleAccountChange('Shopee', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="露天帳號 / Ruten Account"
+          value={accounts.Ruten}
+          onChange={(e) => handleAccountChange('Ruten', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="Yahoo 帳號 / Yahoo Account"
+          value={accounts.Yahoo}
+          onChange={(e) => handleAccountChange('Yahoo', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="Amazon 帳號 / Amazon Account"
+          value={accounts.Amazon}
+          onChange={(e) => handleAccountChange('Amazon', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="eBay 帳號 / eBay Account"
+          value={accounts.eBay}
+          onChange={(e) => handleAccountChange('eBay', e.target.value)}
+        />
+        <Input 
+          type="text"
+          placeholder="淘寶帳號 / Taobao Account"
+          value={accounts.Taobao}
+          onChange={(e) => handleAccountChange('Taobao', e.target.value)}
+        />
+        {errorAccounts && <ErrorText>{errorAccounts}</ErrorText>}
+        {/* General error (e.g. registration failed) */}
+        {errorGeneral && <ErrorText>{errorGeneral}</ErrorText>}
+        {/* Submit button */}
+        <Button type="submit">註冊 / Register</Button>
+        {/* Switch to Login link */}
+        <SwitchText>
+          已有帳號？ <Link to="/login" style={{color: '#FFD700'}}>登入 / Login</Link>
+        </SwitchText>
+      </Form>
+    </Container>
   );
 }
 
