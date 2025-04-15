@@ -1,51 +1,64 @@
-/* src/App.css */
-
-/* 全域黑背景 + 紅字風格 */
+/* 全域主題樣式：黑色背景，橘色文字 */
 body {
   margin: 0;
-  padding: 0;
-  background-color: #000; /* 黑色背景 */
-  color: #ff1c1c;         /* 紅字 */
-  font-family: sans-serif;
+  background-color: #000;
+  color: #ffa500;  /* 橘色文字 (Hex #FFA500) */
+  font-family: Arial, Helvetica, sans-serif;
 }
-
-.top-nav {
-  padding: 1rem;
-  background: #111;  /* 深黑色導覽列 */
+/* 標題樣式 */
+h1, h2, h3 {
+  color: #ffa500;
 }
-
-.top-nav a {
-  margin-right: 1rem;
-  color: #ff1c1c;
+/* 連結預設樣式（如需） */
+a {
+  color: #ffa500;
   text-decoration: none;
 }
-
-.top-nav a:hover {
-  text-decoration: underline;
+/* 表單容器置中佈局 */
+form {
+  max-width: 400px;
+  margin: 2em auto;
+  padding: 1em;
 }
-
-/* 首頁 Home.js */
-.home-container {
-  text-align: center;
-  margin-top: 5rem;
+/* 輸入欄位與下拉選單：黑底橘框橘字 */
+input, select, textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1em;
+  padding: 0.5em;
+  background-color: #111;
+  border: 1px solid #ffa500;
+  color: #ffa500;
 }
-
-.main-title {
-  font-size: 2.2rem;
-  color: #ff1c1c;
-  text-shadow: 2px 2px 2px rgba(0,0,0,0.8);
-  letter-spacing: 1px;
+/* placeholder文字使用較淺的灰/橘色，避免過亮 */
+input::placeholder, textarea::placeholder {
+  color: #888;
 }
-
-.sub-description {
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: #fff;       
-  opacity: 0.9;
-  line-height: 1.4;
-}
-
-.sub-description span {
+/* 標籤文字橘色，與背景對比明顯 */
+label {
+  margin: 0.5em 0 0.2em;
+  color: #ffa500;
   font-weight: bold;
-  color: #fff;
+}
+/* 橘色主題按鈕 */
+button {
+  background-color: #ffa500;
+  color: #000;
+  border: none;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+}
+/* 按鈕 hover 效果：稍微變亮 */
+button:hover {
+  background-color: #ffbf33;
+}
+/* 提示文字小一點，保持橘色 */
+.hint {
+  font-size: 0.9em;
+  color: #ffa500;
+  margin-top: 1em;
+  line-height: 1.5;
 }
