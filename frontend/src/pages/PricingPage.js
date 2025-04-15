@@ -51,9 +51,9 @@ export default function PricingPage() {
           {/* PRO */}
           <PlanCard
             planName="PRO"
-            price="NT$1,999 / 月"
+            price="NT$2,999 / 月"
             details={[
-              '短影音上限：50 部',
+              '短影音上限：30 部',
               '圖片上限：100 張',
               'DMCA 下架申訴 + 限時技術支援',
               '可下載區塊鏈原創證明'
@@ -64,10 +64,10 @@ export default function PricingPage() {
           {/* ENTERPRISE - Small */}
           <PlanCard
             planName="ENTERPRISE (Small)"
-            price="NT$2,999 / 月"
+            price="NT$6,999 / 月"
             details={[
-              '短影音上限：300 部',
-              '圖片上限：600 張',
+              '短影音上限：100 部',
+              '圖片上限：400 張',
               'DMCA 下架申訴 + 優先技術支援',
               '可下載區塊鏈原創證明'
             ]}
@@ -77,7 +77,7 @@ export default function PricingPage() {
           {/* ENTERPRISE - Large */}
           <PlanCard
             planName="ENTERPRISE (Large)"
-            price="NT$4,999 / 月"
+            price="NT$16,999 / 月"
             details={[
               '短影音無上限',
               '圖片無上限',
