@@ -1,22 +1,28 @@
+/**
+ * Login.jsx
+ * 
+ * 修正後程式碼，可直接覆蓋原先檔案。
+ * 部署前請先執行：npm install styled-components
+ */
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-// Styled-components for styled UI elements
+// ----------- styled-components 設計 -----------
 const Container = styled.div`
   min-height: 100vh;
-  background: #000;
+  background: #000; 
   display: flex;
   justify-content: center;
   align-items: center;
   color: #fff; /* default text color white */
 `;
 
-const Form = styled.form`
+const FormWrapper = styled.form`
   width: 90%;
   max-width: 400px;
   padding: 2rem;
-  /* Centering the form content vertically for larger screens if needed */
 `;
 
 const Title = styled.h1`
@@ -38,15 +44,17 @@ const Input = styled.input`
   margin-bottom: 1rem;
   background: #000;
   color: #fff;
-  border: 1px solid ${props => (props.error ? 'red' : '#FFA500')};
+  border: 1px solid
+    ${props => (props.error ? 'red' : '#FFA500')};
   border-radius: 4px;
   font-size: 1rem;
-  /* Remove default outline and add glow on focus */
+
   &:focus {
     outline: none;
     border-color: ${props => (props.error ? 'red' : '#FFA500')};
     box-shadow: 0 0 6px ${props => (props.error ? 'red' : '#FFA500')};
   }
+
   &::placeholder {
     color: #999;
   }
@@ -64,7 +72,8 @@ const Button = styled.button`
   cursor: pointer;
   text-shadow: 0 0 4px #FFD700;
   /* Add a slight glow on hover/focus for the button */
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     outline: none;
     box-shadow: 0 0 8px #FFA500;
   }
@@ -73,7 +82,7 @@ const Button = styled.button`
 const ErrorText = styled.p`
   color: red;
   font-size: 0.9rem;
-  margin: -0.8rem 0 1rem 0; /* position error text right below input */
+  margin: -0.8rem 0 1rem 0; 
 `;
 
 const SwitchText = styled.p`
@@ -83,102 +92,113 @@ const SwitchText = styled.p`
   color: #fff;
 `;
 
-// Login component
+// ----------- 主元件 -----------
 function Login() {
   const navigate = useNavigate();
-  // State for form fields
-  const [userName, setUserName] = useState('');
-  const [password, setPassword] = useState('');
-  // State for error messages
-  const [errorUserName, setErrorUserName] = useState('');
-  const [errorPassword, setErrorPassword] = useState('');
-  const [errorGeneral, setErrorGeneral] = useState(''); // general error (e.g. login failed)
 
-  const handleLogin = async (e) => {
+  // 單一 form 狀態管理 (userName、password)
+  const [form, setForm] = useState({
+    userName: '',
+    password: ''
+  });
+
+  // 單一錯誤訊息
+  const [error, setError] = useState('');
+
+  // 監聽表單輸入
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 表單提交
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Reset general error
-    setErrorGeneral('');
-    let valid = true;
-    // Basic front-end validation
-    if (!userName.trim()) {
-      setErrorUserName('請輸入使用者名稱 / Enter username');
-      valid = false;
-    } else {
-      setErrorUserName('');
+    setError('');
+
+    // 前端基本驗證：欄位必填
+    if (!form.userName.trim() || !form.password) {
+      setError('請輸入使用者名稱與密碼 / Please enter username and password');
+      return;
     }
-    if (!password) {
-      setErrorPassword('請輸入密碼 / Enter password');
-      valid = false;
-    } else {
-      setErrorPassword('');
-    }
-    if (!valid) {
-      return; // if any required field is empty, stop submission
-    }
+
     try {
-      // Call login API
+      // 呼叫後端登入 API
       const res = await fetch('/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ userName: userName.trim(), password: password })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: form.userName.trim(),
+          password: form.password
+        })
       });
+
+      const data = await res.json();
       if (!res.ok) {
-        // If response is not OK, handle error
-        // Optionally parse error message from backend:
-        // const errData = await res.json(); setErrorGeneral(errData.message || '...');
-        setErrorGeneral('登入失敗，請確認帳號密碼 / Login failed, please check your credentials');
-      } else {
-        const data = await res.json();
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-        }
-        // Redirect to home page after successful login
-        navigate('/');
+        // 若後端回傳非200，則顯示錯誤訊息
+        throw new Error(
+          data.message ||
+            '登入失敗，請確認帳號密碼 / Login failed, please check your credentials'
+        );
       }
+
+      // 登入成功，若有 token 就存到 localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
+      // 可在此導向首頁或儀表板
+      navigate('/');
     } catch (err) {
-      // Network or unexpected error
-      setErrorGeneral('登入發生錯誤 / An error occurred during login');
+      setError(err.message);
       console.error('Login error:', err);
     }
   };
 
   return (
     <Container>
-      <Form onSubmit={handleLogin}>
+      <FormWrapper onSubmit={handleSubmit}>
         <Title>登入 / Login</Title>
-        {/* Username field */}
-        <Label htmlFor="username">使用者名稱 / Username</Label>
-        <Input 
-          id="username"
+
+        {/* 使用者名稱 */}
+        <Label htmlFor="userName">使用者名稱 / Username</Label>
+        <Input
+          id="userName"
+          name="userName"
           type="text"
           placeholder="請輸入使用者名稱 / Enter username"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          error={!!errorUserName}
+          value={form.userName}
+          onChange={handleChange}
+          // 若 error 與 form.userName 為空，則顯示紅框
+          error={!!error && !form.userName.trim()}
         />
-        {errorUserName && <ErrorText>{errorUserName}</ErrorText>}
-        {/* Password field */}
+
+        {/* 密碼 */}
         <Label htmlFor="password">密碼 / Password</Label>
-        <Input 
+        <Input
           id="password"
+          name="password"
           type="password"
           placeholder="請輸入密碼 / Enter password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          error={!!errorPassword}
+          value={form.password}
+          onChange={handleChange}
+          // 若 error 與 form.password 為空，則顯示紅框
+          error={!!error && !form.password}
         />
-        {errorPassword && <ErrorText>{errorPassword}</ErrorText>}
-        {/* General error (e.g. invalid credentials) */}
-        {errorGeneral && <ErrorText>{errorGeneral}</ErrorText>}
-        {/* Submit button */}
+
+        {/* 一般錯誤訊息 (顯示在兩個欄位之後) */}
+        {error && <ErrorText>{error}</ErrorText>}
+
         <Button type="submit">登入 / Login</Button>
-        {/* Switch to Register link */}
+
+        {/* 底部切換連結 */}
         <SwitchText>
-          沒有帳號？ <Link to="/register" style={{color: '#FFD700'}}>註冊 / Register</Link>
+          沒有帳號？{' '}
+          <Link to="/register" style={{ color: '#FFD700' }}>
+            註冊 / Register
+          </Link>
         </SwitchText>
-      </Form>
+      </FormWrapper>
     </Container>
   );
 }
