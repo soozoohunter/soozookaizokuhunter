@@ -1,3 +1,4 @@
+// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -75,9 +76,7 @@ export default function App() {
           )}
           {isLoggedIn && (
             <>
-              <Link to="/dashboard" style={navBtnStyle}>Dashboard</Link>
-              <Link to="/profile" style={navBtnStyle}>會員中心</Link>
-              <Link to="/upload" style={navBtnStyle}>Upload</Link>
+              {/* 可依需求新增更多功能路由 */}
               <Link to="/payment" style={navBtnStyle}>Payment</Link>
               <button
                 onClick={handleLogout}
@@ -90,6 +89,7 @@ export default function App() {
         </nav>
       </header>
 
+      {/* 若尚未登入且在 "/" 路徑時，顯示大 Banner */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={{ fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange' }}>
@@ -102,6 +102,7 @@ export default function App() {
       )}
 
       <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
+        {/* 這裡會根據子路由顯示不同頁面 */}
         <Outlet />
       </main>
 
