@@ -1,202 +1,111 @@
-/********************************************************************
- * controllers/authController.js
- * 以 userName + password 做登入；序號 (serialNumber) 於後端自動生成
- ********************************************************************/
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../models');                // 假設使用 Sequelize 定義 User 模型
-const User = db.User;
-const blockchainService = require('../services/blockchainService');
+const { User } = require('../models');  // 假設 User 模型由 ../models/index.js 匯出
 
-/** 自動產生序號 **/
-function generateSerial() {
-  // 格式: yyyyMMddHHmmss + 4位隨機數
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const MM = String(now.getMonth()+1).padStart(2,'0');
-  const dd = String(now.getDate()).padStart(2,'0');
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  const ss = String(now.getSeconds()).padStart(2,'0');
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `${yyyy}${MM}${dd}${hh}${mm}${ss}${rand}`;
-}
-
-/**
- * [POST] /auth/register
- * 參數: userName, password, email, (其餘社群平台欄位, ex: ig, fb, youtube...)
- * - 不再接收 serialNumber，改用 generateSerial() 自動產生
- * - 寫入區塊鏈後回傳 transactionHash
- */
+// 註冊新使用者
 exports.register = async (req, res) => {
   try {
-    const {
-      userName,
-      password,
-      email,
-      ig, fb, youtube, tiktok, shopee, ruten, ebay, amazon, taobao,
-      role // 可選，如前端需要
-    } = req.body;
-
-    // 1) 檢查必填欄位 (userName, password, email)
-    if (!userName || !password || !email) {
-      return res.status(400).json({
-        success: false,
-        message: '缺少必要的註冊資訊 (userName, password, email)。'
-      });
+    const { email, userName, password, confirmPassword, role, serialNumber, socialBinding } = req.body;
+    // 1. 後端再次驗證必要欄位是否齊全
+    if (!email || !userName || !password || !confirmPassword) {
+      return res.status(400).json({ message: '必填欄位未填 / Required fields missing' });
     }
-
-    // 2) 檢查 userName, email 是否重複
-    const existingByName = await User.findOne({ where: { userName } });
-    if (existingByName) {
-      return res.status(400).json({
-        success: false,
-        message: '使用者名稱 (userName) 已被註冊。'
-      });
+    // 2. 確認密碼與確認密碼是否一致
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: '密碼不一致 / Passwords do not match' });
     }
-    const existingByEmail = await User.findOne({ where: { email } });
-    if (existingByEmail) {
-      return res.status(400).json({
-        success: false,
-        message: '電子信箱 (email) 已被註冊。'
-      });
+    // 3. 設定角色：僅允許 'admin' 或 'user'，若無提供則預設為 'user'
+    let finalRole = role;
+    if (!finalRole || (finalRole !== 'admin' && finalRole !== 'user')) {
+      finalRole = 'user';
     }
-
-    // 3) bcrypt 雜湊密碼
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 4) 自動產生序號
-    const serialNumber = generateSerial();
-
-    // 5) 建立新會員資料
+    // 4. 處理序號欄位：空字串轉為 null，避免唯一性衝突
+    let finalSerial = serialNumber;
+    if (typeof finalSerial === 'string' && finalSerial.trim() === '') {
+      finalSerial = null;
+    }
+    // 5. 准備建立使用者物件
     const newUser = await User.create({
-      userName,
-      password: hashedPassword,
       email,
-      serialNumber,
-      role: role || 'copyright',    // 若無前端指定 role，就預設 'copyright'
-      ig: ig || '',
-      fb: fb || '',
-      youtube: youtube || '',
-      tiktok: tiktok || '',
-      shopee: shopee || '',
-      ruten: ruten || '',
-      ebay: ebay || '',
-      amazon: amazon || '',
-      taobao: taobao || ''
+      userName,
+      password,       // 密碼將由模型 Hook 自動雜湊
+      role: finalRole,
+      serialNumber: finalSerial,
+      socialBinding   // 社群綁定資訊（若有提供）
     });
-
-    // 6) 寫入區塊鏈
-    let txHash;
-    try {
-      txHash = await blockchainService.storeUserOnChain({
-        userName: newUser.userName,
-        email: newUser.email,
-        serialNumber: newUser.serialNumber,
-        ig: newUser.ig || '',
-        fb: newUser.fb || '',
-        youtube: newUser.youtube || '',
-        tiktok: newUser.tiktok || '',
-        shopee: newUser.shopee || '',
-        ruten: newUser.ruten || '',
-        ebay: newUser.ebay || '',
-        amazon: newUser.amazon || '',
-        taobao: newUser.taobao || ''
-      });
-    } catch (error) {
-      console.error('Blockchain Error:', error);
-      // 若區塊鏈寫入失敗，刪除先前新增的使用者，避免資料不一致
-      await newUser.destroy();
-      return res.status(500).json({
-        success: false,
-        message: '區塊鏈寫入失敗，請稍後重試。',
-        error: error.message
-      });
-    }
-
-    // 7) 回應: 註冊成功 + 上鏈交易雜湊
+    // 6. （可選）將部分資料寫入區塊鏈，例如記錄 userName 或 serialNumber
+    // try {
+    //   blockchainService.recordNewUser(newUser.id, newUser.serialNumber);
+    // } catch (chainErr) {
+    //   console.error('區塊鏈寫入失敗:', chainErr);
+    //   // 區塊鏈失敗不影響主要流程，可選擇通知管理員或忽略
+    // }
+    // 7. 簽發 JWT，內容包含使用者ID和角色
+    const token = jwt.sign(
+      { id: newUser.id, role: newUser.role },
+      process.env.JWT_SECRET || 'default_jwt_secret',
+      { expiresIn: '7d' }
+    );
+    // 8. 回傳成功結果（201 Created）
     return res.status(201).json({
-      success: true,
-      message: '註冊成功，資料已上鏈。',
-      transactionHash: txHash
+      message: '註冊成功 / Registration successful',
+      token
     });
-  } catch (error) {
-    console.error('Register Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: '伺服器錯誤，請稍後再試。',
-      error: error.message
-    });
+  } catch (err) {
+    // 捕捉 Sequelize 驗證錯誤（例如 UNIQUE 約束違反）
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      // 根據錯誤欄位名稱給出對應訊息
+      const field = err.errors && err.errors[0] && err.errors[0].path;
+      let message = '資料重複無法使用 / Duplicate field value';
+      if (field === 'email') {
+        message = '電子郵件已被使用 / Email already in use';
+      } else if (field === 'userName') {
+        message = '用戶名已被使用 / Username already in use';
+      } else if (field === 'serialNumber') {
+        message = '序號已被使用 / Serial number already in use';
+      }
+      return res.status(400).json({ message });
+    }
+    // 其他錯誤
+    console.error('Register Error:', err);
+    return res.status(500).json({ message: '伺服器錯誤，請稍後再試 / Server error, please try later' });
   }
 };
 
-/**
- * [POST] /auth/login
- * 以 userName + password 登入
- */
+// 使用者登入
 exports.login = async (req, res) => {
   try {
-    const { userName, password } = req.body;
-
-    // 檢查必填
-    if (!userName || !password) {
-      return res.status(400).json({
-        success: false,
-        message: '請提供使用者名稱 (userName) 和密碼 (password)。'
-      });
+    const { email, password } = req.body;
+    // 檢查請求中是否有提供 Email 和 Password
+    if (!email || !password) {
+      return res.status(400).json({ message: '請提供電子郵件與密碼 / Please provide email and password' });
     }
-
-    // 1) 查詢 userName
-    const user = await User.findOne({ where: { userName } });
+    // 1. 查找使用者（以 email 為依據）
+    const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: '使用者名稱或密碼錯誤。'
-      });
+      // 找不到該 Email 對應的使用者
+      return res.status(401).json({ message: '電子郵件或密碼錯誤 / Incorrect email or password' });
     }
-
-    // 2) 驗證密碼
+    // 2. 比對密碼雜湊
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: '使用者名稱或密碼錯誤。'
-      });
+      // 密碼錯誤
+      return res.status(401).json({ message: '電子郵件或密碼錯誤 / Incorrect email or password' });
     }
-
-    // 3) 簽發 JWT (可選)
-    let token = null;
-    if (process.env.JWT_SECRET) {
-      token = jwt.sign(
-        {
-          id: user.id,
-          userName: user.userName
-          // 也可加更多 payload
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-    }
-
-    // 4) 回傳成功
+    // 3. 簽發 JWT
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || 'default_jwt_secret',
+      { expiresIn: '7d' }
+    );
+    // （若使用 Cookie，可用 res.cookie 在此設置 HttpOnly Cookie）
+    // 4. 回傳成功訊息與 JWT
     return res.json({
-      success: true,
-      message: '登入成功。',
-      user: {
-        id: user.id,
-        userName: user.userName,
-        email: user.email,
-        serialNumber: user.serialNumber
-      },
-      // 若有生成 token，則包含於回傳
-      ...(token ? { token } : {})
+      message: '登入成功 / Login successful',
+      token
     });
-  } catch (error) {
-    console.error('Login Error:', error);
-    return res.status(500).json({
-      success: false,
-      message: '伺服器錯誤，請稍後再試。',
-      error: error.message
-    });
+  } catch (err) {
+    console.error('Login Error:', err);
+    return res.status(500).json({ message: '伺服器錯誤，請稍後再試 / Server error, please try later' });
   }
 };
