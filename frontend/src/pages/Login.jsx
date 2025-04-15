@@ -1,98 +1,186 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import styled from 'styled-components';
 
+// Styled-components for styled UI elements
+const Container = styled.div`
+  min-height: 100vh;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #fff; /* default text color white */
+`;
+
+const Form = styled.form`
+  width: 90%;
+  max-width: 400px;
+  padding: 2rem;
+  /* Centering the form content vertically for larger screens if needed */
+`;
+
+const Title = styled.h1`
+  color: #FFD700; /* yellow title text */
+  text-align: center;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 8px #FFD700; /* glow effect for title */
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  background: #000;
+  color: #fff;
+  border: 1px solid ${props => (props.error ? 'red' : '#FFA500')};
+  border-radius: 4px;
+  font-size: 1rem;
+  /* Remove default outline and add glow on focus */
+  &:focus {
+    outline: none;
+    border-color: ${props => (props.error ? 'red' : '#FFA500')};
+    box-shadow: 0 0 6px ${props => (props.error ? 'red' : '#FFA500')};
+  }
+  &::placeholder {
+    color: #999;
+  }
+`;
+
+const Button = styled.button`
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: #000;
+  color: #FFD700;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: 2px solid #FFA500;
+  border-radius: 4px;
+  cursor: pointer;
+  text-shadow: 0 0 4px #FFD700;
+  /* Add a slight glow on hover/focus for the button */
+  &:hover, &:focus {
+    outline: none;
+    box-shadow: 0 0 8px #FFA500;
+  }
+`;
+
+const ErrorText = styled.p`
+  color: red;
+  font-size: 0.9rem;
+  margin: -0.8rem 0 1rem 0; /* position error text right below input */
+`;
+
+const SwitchText = styled.p`
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #fff;
+`;
+
+// Login component
 function Login() {
   const navigate = useNavigate();
+  // State for form fields
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  // State for error messages
+  const [errorUserName, setErrorUserName] = useState('');
+  const [errorPassword, setErrorPassword] = useState('');
+  const [errorGeneral, setErrorGeneral] = useState(''); // general error (e.g. login failed)
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-
-    if (!userName || !password) {
-      setError('請輸入使用者名稱和密碼');
-      return;
+    // Reset general error
+    setErrorGeneral('');
+    let valid = true;
+    // Basic front-end validation
+    if (!userName.trim()) {
+      setErrorUserName('請輸入使用者名稱 / Enter username');
+      valid = false;
+    } else {
+      setErrorUserName('');
     }
-
+    if (!password) {
+      setErrorPassword('請輸入密碼 / Enter password');
+      valid = false;
+    } else {
+      setErrorPassword('');
+    }
+    if (!valid) {
+      return; // if any required field is empty, stop submission
+    }
     try {
-      setLoading(true);
+      // Call login API
       const res = await fetch('/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, password })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userName: userName.trim(), password: password })
       });
-
-      if (res.ok) {
+      if (!res.ok) {
+        // If response is not OK, handle error
+        // Optionally parse error message from backend:
+        // const errData = await res.json(); setErrorGeneral(errData.message || '...');
+        setErrorGeneral('登入失敗，請確認帳號密碼 / Login failed, please check your credentials');
+      } else {
         const data = await res.json();
         if (data.token) {
           localStorage.setItem('token', data.token);
         }
+        // Redirect to home page after successful login
         navigate('/');
-      } else {
-        const data = await res.json();
-        setError(data.message || '登入失敗，帳號或密碼錯誤');
       }
     } catch (err) {
-      setError('網路錯誤，請稍後再試');
-    } finally {
-      setLoading(false);
+      // Network or unexpected error
+      setErrorGeneral('登入發生錯誤 / An error occurred during login');
+      console.error('Login error:', err);
     }
   };
 
   return (
-    <div className="auth-container" style={styles.container}>
-      <h2 style={styles.title}>會員登入</h2>
-      {error && <div style={styles.error}>{error}</div>}
-      <form onSubmit={handleLogin} style={styles.form}>
-        <input
+    <Container>
+      <Form onSubmit={handleLogin}>
+        <Title>登入 / Login</Title>
+        {/* Username field */}
+        <Label htmlFor="username">使用者名稱 / Username</Label>
+        <Input 
+          id="username"
           type="text"
-          placeholder="使用者名稱"
+          placeholder="請輸入使用者名稱 / Enter username"
           value={userName}
           onChange={(e) => setUserName(e.target.value)}
-          required
-          style={styles.input}
+          error={!!errorUserName}
         />
-        <input
+        {errorUserName && <ErrorText>{errorUserName}</ErrorText>}
+        {/* Password field */}
+        <Label htmlFor="password">密碼 / Password</Label>
+        <Input 
+          id="password"
           type="password"
-          placeholder="密碼"
+          placeholder="請輸入密碼 / Enter password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
-          style={styles.input}
+          error={!!errorPassword}
         />
-        <button type="submit" disabled={loading} style={styles.button}>
-          {loading ? '登入中...' : '登入'}
-        </button>
-        <div style={styles.linkContainer}>
-          還沒有帳號？<Link to="/register" style={styles.link}>立即註冊</Link>
-        </div>
-      </form>
-    </div>
+        {errorPassword && <ErrorText>{errorPassword}</ErrorText>}
+        {/* General error (e.g. invalid credentials) */}
+        {errorGeneral && <ErrorText>{errorGeneral}</ErrorText>}
+        {/* Submit button */}
+        <Button type="submit">登入 / Login</Button>
+        {/* Switch to Register link */}
+        <SwitchText>
+          沒有帳號？ <Link to="/register" style={{color: '#FFD700'}}>註冊 / Register</Link>
+        </SwitchText>
+      </Form>
+    </Container>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh', backgroundColor: '#000', color: '#FFD700', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center'
-  },
-  title: {
-    color: '#F8E114', marginBottom: '20px', fontSize: '2em', fontWeight: 'bold'
-  },
-  form: {
-    width: '90%', maxWidth: '400px', padding: '20px', border: '1px solid #FFA500', borderRadius: '8px', boxShadow: '0 0 8px rgba(255,165,0,0.5)', backgroundColor: '#000'
-  },
-  input: {
-    backgroundColor: '#000', border: '1px solid #FFA500', borderRadius: '4px', color: '#FFD700', padding: '10px', marginBottom: '10px', width: '100%', boxSizing: 'border-box', boxShadow: 'inset 0 0 5px rgba(255,165,0,0.5)'
-  },
-  button: {
-    backgroundColor: '#000', border: '1px solid #FFA500', borderRadius: '4px', color: '#F8E114', padding: '10px', width: '100%', fontWeight: 'bold', cursor: 'pointer'
-  },
-  linkContainer: { marginTop: '15px', textAlign: 'center' },
-  link: { color: '#F8E114', textDecoration: 'none' },
-  error: { color: 'red', marginBottom: '15px', textAlign: 'center' }
-};
 
 export default Login;
