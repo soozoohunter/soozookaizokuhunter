@@ -1,73 +1,100 @@
-// models/User.js (Sequelize 模型定義)
+/********************************************************************
+ * models/User.js
+ * Sequelize 定義 user 表，包含 email (必填), userName(登入用), password,
+ * 以及社群/電商欄位 (可選, unique)，serialNumber(唯一序號) 等。
+ ********************************************************************/
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
+    // email (必填，但不做登入用)
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true   // 電子郵件必須唯一
     },
+
+    // userName (必填, 唯一, 用於登入)
     userName: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true   // 使用者名稱必須唯一
     },
+
+    // bcrypt 雜湊後的密碼
     password: {
       type: DataTypes.STRING,
-      allowNull: false             // 將存儲經過雜湊的密碼
+      allowNull: false
     },
+
     // 社群/電商平台帳號欄位 (允許 null，但若填寫則必須唯一)
     ig: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // IG 帳號唯一綁定
+      unique: true
     },
     fb: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // FB 帳號唯一綁定
+      unique: true
     },
     youtube: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // YouTube 帳號唯一綁定
+      unique: true
     },
     tiktok: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // TikTok 帳號唯一綁定
+      unique: true
     },
     shopee: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // Shopee 帳號唯一綁定
+      unique: true
     },
     ruten: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // 露天拍賣 (Ruten) 帳號唯一綁定
+      unique: true
     },
     ebay: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // eBay 帳號唯一綁定
+      unique: true
     },
     amazon: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // Amazon 帳號唯一綁定
+      unique: true
     },
     taobao: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true                // 淘寶 (Taobao) 帳號唯一綁定
+      unique: true
     },
+
+    // 使用者序號 (必填, 唯一). 可自行定義生成規則
     serialNumber: {
-      type: DataTypes.STRING,     // 序號格式 "YYYYMMNN"
+      type: DataTypes.STRING,
       allowNull: false,
-      unique: true                // 每個用戶有唯一序號
+      unique: true
+    },
+
+    // 可再添加 plan, role 等欄位
+    plan: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'BASIC'
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'copyright'
     }
+
   }, {
-    timestamps: true  // 使用 createdAt 紀錄註冊時間
+    // 若想自動紀錄 createdAt / updatedAt 可改 timestamps: true
+    timestamps: true
   });
+
   return User;
 };
