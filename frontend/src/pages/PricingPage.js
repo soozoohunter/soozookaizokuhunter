@@ -8,11 +8,11 @@ export default function PricingPage() {
       <header style={styles.header}>
         <h1 style={styles.title}>方案 &amp; 定價 / Plans &amp; Pricing</h1>
         <p style={styles.subtitle}>
-          本平台透過「區塊鏈 + 侵權爬蟲」，強力保護您的著作權與商標權，  
-          以下為各會員方案與商標/訴訟服務費用說明。<br/>
+          本平台透過「區塊鏈 + 侵權爬蟲」，強力保護您的著作權與商標權。<br/>
+          以下為各會員方案與商標 / 訴訟服務費用說明。<br/>
           <em>
-            Our platform uses "Blockchain + Infringement Crawler" to safeguard your copyrights and trademarks.  
-            Below are membership plans and trademark/litigation pricing.
+            Our platform uses "Blockchain + Infringement Crawler" to safeguard your copyrights and trademarks.<br/>
+            Below are membership plans and trademark / litigation pricing.
           </em>
         </p>
       </header>
@@ -26,13 +26,12 @@ export default function PricingPage() {
             planName="BASIC"
             price="NT$0"
             details={[
-              '短影音上限：3 部 (僅一次)',
-              '圖片上限：10 張 (僅一次)',
-              '無 DMCA 下架申訴權限',
-              '無法下載上鏈紀錄',
-              'No DMCA Takedown, No chain record download'
+              '短影音上限：3 部（僅一次）',
+              '圖片上限：10 張（僅一次）',
+              '無 DMCA 申訴權限',
+              '無法下載上鏈紀錄 (No chain record download)'
             ]}
-            remark="(免費註冊方案)"
+            remark="(免費註冊方案 / Free Trial)"
           />
 
           {/* ADVANCED */}
@@ -61,7 +60,7 @@ export default function PricingPage() {
             remark="(每月自動續訂 / Monthly)"
           />
 
-          {/* ENTERPRISE - Small */}
+          {/* ENTERPRISE (Small) */}
           <PlanCard
             planName="ENTERPRISE (Small)"
             price="NT$6,999 / 月"
@@ -74,7 +73,7 @@ export default function PricingPage() {
             remark="(每月自動續訂 / Monthly)"
           />
 
-          {/* ENTERPRISE - Large */}
+          {/* ENTERPRISE (Large) */}
           <PlanCard
             planName="ENTERPRISE (Large)"
             price="NT$16,999 / 月"
@@ -94,16 +93,17 @@ export default function PricingPage() {
         <h2 style={styles.orangeText}>商標服務 / Trademark Services</h2>
         <p style={styles.desc}>
           <strong>單一商標、單一類別</strong>：每次收費 NT$999  
-          (包含申請、檢索、延展、維護等。如同時申請多類別，則按類別數量累計)  
-          <br/><em>
-            Each brand or mark + single class: NT$999 per application.  
-            (Includes search, filing, renewal, and basic maintenance. Multiple classes add up cumulatively.)
+          (包含申請、檢索、延展、維護等。如同時申請多類別，則按類別數量累計)<br/>
+          <em>
+            Each mark + single class: NT$999 per application  
+            (Includes search, filing, renewal, basic maintenance.  
+            Multiple classes add up cumulatively)
           </em>
         </p>
         <p style={styles.desc}>
-          商標侵權偵測，若需 24 小時內發函或提出異議，每案再收 NT$999  
-          <br/><em>
-            Trademark infringement detection & swift notice within 24 hours: an additional NT$999 per case
+          商標侵權偵測，若需 24 小時內發函或提出異議，每案再收 NT$999<br/>
+          <em>
+            Trademark infringement detection & 24h objection: NT$999 per case
           </em>
         </p>
       </section>
@@ -112,22 +112,22 @@ export default function PricingPage() {
       <section style={styles.section}>
         <h2 style={styles.orangeText}>智慧財產訴訟 / IP Litigation</h2>
         <p style={styles.desc}>
-          <strong>著作權侵權訴訟 / 商標權侵權訴訟</strong>：單次 NT$999  
-          (若勝訴，平台抽 20% 分潤，餘 80% 歸原著作權人或商標權人)  
-          <br/><em>
-            Copyright or Trademark Infringement Lawsuits: NT$999 per case,  
-            platform takes 20% upon successful litigation, 80% returns to the rights owner.
+          <strong>著作權侵權訴訟 / 商標權侵權訴訟</strong>：單次 NT$999<br/>
+          (若勝訴，平台抽 20% 分潤，餘 80% 歸原著作權人或商標權人)<br/>
+          <em>
+            Copyright/Trademark Infringement Lawsuits: NT$999 each.  
+            Upon success, platform takes 20%, 80% returns to rights owner.
           </em>
         </p>
         <p style={styles.desc}>
-          若需跨國及多國訴訟，費用另計；可另洽詢客製方案。  
-          <br/><em>
+          若需跨國或多國訴訟，費用另計；可洽詢客製方案。<br/>
+          <em>
             For multi-national lawsuits, custom fees apply; contact us for tailored solutions.
           </em>
         </p>
       </section>
 
-      {/* CTA：連到 Payment 或其他頁面 */}
+      {/* 付款 CTA 按鈕 */}
       <div style={styles.ctaArea}>
         <button style={styles.ctaBtn} onClick={()=>window.location.href='/payment'}>
           立即訂閱或提交付款 / Subscribe &amp; Pay
@@ -139,11 +139,7 @@ export default function PricingPage() {
 
 /** 
  * PlanCard: 顯示方案資訊的元件
- * @param {object} props 
- *   - planName: 方案名稱
- *   - price: 顯示的價格字串
- *   - details: 字串陣列，列出功能或限制
- *   - remark: (可選) 顯示在卡片底部的備註 
+ * @param { planName, price, details[], remark }
  */
 function PlanCard({ planName, price, details, remark }) {
   return (
@@ -151,14 +147,13 @@ function PlanCard({ planName, price, details, remark }) {
       <h3 style={cardStyles.planName}>{planName}</h3>
       <p style={cardStyles.price}>{price}</p>
       <ul style={cardStyles.list}>
-        {details.map((item, idx) => <li key={idx}>{item}</li>)}
+        {details.map((txt, i) => <li key={i}>{txt}</li>)}
       </ul>
       {remark && <p style={cardStyles.remark}>{remark}</p>}
     </div>
   );
 }
 
-/* 主要頁面樣式 */
 const styles = {
   container: {
     backgroundColor: '#000',
@@ -216,7 +211,6 @@ const styles = {
   }
 };
 
-/* 方案卡片樣式 */
 const cardStyles = {
   card: {
     border:'2px solid orange',
