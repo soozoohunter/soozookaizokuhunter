@@ -1,395 +1,246 @@
-// frontend/src/pages/Register.js
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/pages/PricingPage.js
+import React from 'react';
 
-export default function Register() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({
-    email: '',
-    userName: '',
-    password: '',
-    confirmPassword: '',
-    role: '',
-    serialNumber: '',
-    ig: '',
-    fb: '',
-    youtube: '',
-    tiktok: '',
-    shopee: '',
-    ruten: '',
-    yahoo: '',
-    amazon: '',
-    ebay: '',
-    taobao: ''
-  });
-  const [error, setError] = useState('');
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    // 檢查必填
-    if (!form.email || !form.userName || !form.password || !form.confirmPassword) {
-      setError('請填寫必要欄位 / Required fields missing');
-      return;
-    }
-    // 密碼一致性
-    if (form.password !== form.confirmPassword) {
-      setError('兩次密碼不一致 / Passwords do not match');
-      return;
-    }
-
-    try {
-      const body = {
-        email: form.email,
-        userName: form.userName,
-        password: form.password,
-        role: form.role || 'copyright',
-        serialNumber: form.serialNumber || '',
-        ig: form.ig,
-        fb: form.fb,
-        youtube: form.youtube,
-        tiktok: form.tiktok,
-        shopee: form.shopee,
-        ruten: form.ruten,
-        yahoo: form.yahoo,
-        amazon: form.amazon,
-        ebay: form.ebay,
-        taobao: form.taobao
-      };
-
-      const res = await fetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || data.error || '註冊失敗 (Register Failed)');
-      } else {
-        alert('註冊成功，資料已上鏈 / Registration success!');
-        navigate('/login');
-      }
-    } catch (err) {
-      console.error('[Register Error]', err);
-      setError('發生錯誤，請稍後再試 / An error occurred, please try again.');
-    }
-  };
-
+export default function PricingPage() {
   return (
     <div style={styles.container}>
-      <div style={styles.formWrapper}>
-        <h2 style={styles.title}>會員註冊 / Member Registration</h2>
+      {/* 頂部標題 */}
+      <header style={styles.header}>
+        <h1 style={styles.title}>方案 &amp; 定價 / Plans &amp; Pricing</h1>
+        <p style={styles.subtitle}>
+          本平台透過「區塊鏈 + 侵權爬蟲」，強力保護您的著作權與商標權。<br/>
+          以下為各會員方案與商標 / 訴訟服務費用說明。<br/>
+          <em>
+            Our platform uses "Blockchain + Infringement Crawler" to safeguard your copyrights and trademarks.<br/>
+            Below are membership plans and trademark / litigation pricing.
+          </em>
+        </p>
+      </header>
 
-        {/* 錯誤訊息 */}
-        {error && <p style={styles.errorMsg}>{error}</p>}
+      {/* 著作權保護方案 */}
+      <section style={styles.section}>
+        <h2 style={styles.orangeText}>著作權保護方案 / Copyright Protection Plans</h2>
+        <div style={styles.planGrid}>
+          {/* BASIC: Free trial */}
+          <PlanCard
+            planName="BASIC"
+            price="NT$0"
+            details={[
+              '短影音上限：3 部（僅一次）',
+              '圖片上限：10 張（僅一次）',
+              '無 DMCA 申訴權限',
+              '無法下載上鏈紀錄 (No chain record download)'
+            ]}
+            remark="(免費註冊方案 / Free Trial)"
+          />
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          {/* 電子郵件 */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>電子郵件 (Email):</label>
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              style={styles.input}
-              placeholder="example@mail.com"
-            />
-          </div>
+          {/* ADVANCED */}
+          <PlanCard
+            planName="ADVANCED"
+            price="NT$999 / 月"
+            details={[
+              '短影音上限：10 部',
+              '圖片上限：30 張',
+              '可使用 DMCA 下架申訴',
+              '可下載區塊鏈原創證明'
+            ]}
+            remark="(每月自動續訂 / Monthly)"
+          />
 
-          {/* userName */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>用戶名稱 (Username):</label>
-            <input
-              type="text"
-              name="userName"
-              value={form.userName}
-              onChange={handleChange}
-              required
-              style={styles.input}
-              placeholder="作為登入帳號 / For login usage"
-            />
-          </div>
+          {/* PRO */}
+          <PlanCard
+            planName="PRO"
+            price="NT$2,999 / 月"
+            details={[
+              '短影音上限：30 部',
+              '圖片上限：100 張',
+              'DMCA 下架申訴 + 限時技術支援',
+              '可下載區塊鏈原創證明'
+            ]}
+            remark="(每月自動續訂 / Monthly)"
+          />
 
-          {/* password */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>密碼 (Password):</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
-          </div>
+          {/* ENTERPRISE (Small) */}
+          <PlanCard
+            planName="ENTERPRISE (Small)"
+            price="NT$6,999 / 月"
+            details={[
+              '短影音上限：100 部',
+              '圖片上限：400 張',
+              'DMCA 下架申訴 + 優先技術支援',
+              '可下載區塊鏈原創證明'
+            ]}
+            remark="(每月自動續訂 / Monthly)"
+          />
 
-          {/* confirmPassword */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>確認密碼 (Confirm Password):</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
-          </div>
+          {/* ENTERPRISE (Large) */}
+          <PlanCard
+            planName="ENTERPRISE (Large)"
+            price="NT$16,999 / 月"
+            details={[
+              '短影音無上限',
+              '圖片無上限',
+              'DMCA 下架申訴 + 24/7 緊急服務',
+              '可下載區塊鏈原創證明'
+            ]}
+            remark="(每月自動續訂 / Monthly)"
+          />
+        </div>
+      </section>
 
-          {/* role */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>角色 (Role):</label>
-            <select
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              style={styles.input}
-            >
-              <option value="">-- 選擇角色 / Choose Role --</option>
-              <option value="copyright">著作權 (Copyright)</option>
-              <option value="trademark">商標 (Trademark)</option>
-              <option value="both">兩者皆需 (Both)</option>
-            </select>
-          </div>
+      {/* 商標服務 */}
+      <section style={styles.section}>
+        <h2 style={styles.orangeText}>商標服務 / Trademark Services</h2>
+        <p style={styles.desc}>
+          <strong>單一商標、單一類別</strong>：每次收費 NT$999  
+          (包含申請、檢索、延展、維護等。如同時申請多類別，則按類別數量累計)<br/>
+          <em>
+            Each mark + single class: NT$999 per application  
+            (Includes search, filing, renewal, basic maintenance.  
+            Multiple classes add up cumulatively)
+          </em>
+        </p>
+        <p style={styles.desc}>
+          商標侵權偵測，若需 24 小時內發函或提出異議，每案再收 NT$999<br/>
+          <em>
+            Trademark infringement detection & 24h objection: NT$999 per case
+          </em>
+        </p>
+      </section>
 
-          {/* serialNumber */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>序號 (Serial Number):</label>
-            <input
-              type="text"
-              name="serialNumber"
-              value={form.serialNumber}
-              onChange={handleChange}
-              style={styles.input}
-              placeholder="(可選) 可自訂一個序號"
-            />
-          </div>
+      {/* 訴訟服務 */}
+      <section style={styles.section}>
+        <h2 style={styles.orangeText}>智慧財產訴訟 / IP Litigation</h2>
+        <p style={styles.desc}>
+          <strong>著作權侵權訴訟 / 商標權侵權訴訟</strong>：單次 NT$999<br/>
+          (若勝訴，平台抽 20% 分潤，餘 80% 歸原著作權人或商標權人)<br/>
+          <em>
+            Copyright/Trademark Infringement Lawsuits: NT$999 each.  
+            Upon success, platform takes 20%, 80% returns to rights owner.
+          </em>
+        </p>
+        <p style={styles.desc}>
+          若需跨國或多國訴訟，費用另計；可洽詢客製方案。<br/>
+          <em>
+            For multi-national lawsuits, custom fees apply; contact us for tailored solutions.
+          </em>
+        </p>
+      </section>
 
-          <h3 style={styles.subSection}>
-            社群/電商平台帳號綁定 (Social/E-commerce Binding)
-          </h3>
-          <p style={styles.hint}>
-            * 請填寫您在各平台上的帳號名稱 (至少一項)  
-            * Provide at least one platform account name
-          </p>
-
-          {/* IG */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Instagram (IG):</label>
-            <input
-              type="text"
-              name="ig"
-              value={form.ig}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* FB */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Facebook (FB):</label>
-            <input
-              type="text"
-              name="fb"
-              value={form.fb}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* YouTube */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>YouTube 頻道 (Channel):</label>
-            <input
-              type="text"
-              name="youtube"
-              value={form.youtube}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* TikTok */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>TikTok 帳號:</label>
-            <input
-              type="text"
-              name="tiktok"
-              value={form.tiktok}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* Shopee */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>蝦皮 (Shopee) 賣場帳號:</label>
-            <input
-              type="text"
-              name="shopee"
-              value={form.shopee}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* ruten */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>露天 (Ruten) 拍賣帳號:</label>
-            <input
-              type="text"
-              name="ruten"
-              value={form.ruten}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* yahoo */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Yahoo奇摩 拍賣:</label>
-            <input
-              type="text"
-              name="yahoo"
-              value={form.yahoo}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* amazon */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Amazon 賣家帳號:</label>
-            <input
-              type="text"
-              name="amazon"
-              value={form.amazon}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* ebay */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>eBay 帳號:</label>
-            <input
-              type="text"
-              name="ebay"
-              value={form.ebay}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          {/* taobao */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>淘寶 (Taobao) 帳號:</label>
-            <input
-              type="text"
-              name="taobao"
-              value={form.taobao}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
-
-          <button type="submit" style={styles.submitBtn}>
-            提交註冊 / Register Now
-          </button>
-
-          <p style={styles.note}>
-            註冊時綁定社群/電商帳號，可有效證明內容原創，並作為侵權偵測依據。<br/>
-            Binding social/e-commerce accounts at registration effectively proves originality 
-            and aids future infringement detection.
-          </p>
-        </form>
+      {/* 付款 CTA 按鈕 */}
+      <div style={styles.ctaArea}>
+        <button style={styles.ctaBtn} onClick={()=>window.location.href='/payment'}>
+          立即訂閱或提交付款 / Subscribe &amp; Pay
+        </button>
       </div>
+    </div>
+  );
+}
+
+/** 
+ * PlanCard: 顯示方案資訊的元件
+ * @param { planName, price, details[], remark }
+ */
+function PlanCard({ planName, price, details, remark }) {
+  return (
+    <div style={cardStyles.card}>
+      <h3 style={cardStyles.planName}>{planName}</h3>
+      <p style={cardStyles.price}>{price}</p>
+      <ul style={cardStyles.list}>
+        {details.map((txt, i) => <li key={i}>{txt}</li>)}
+      </ul>
+      {remark && <p style={cardStyles.remark}>{remark}</p>}
     </div>
   );
 }
 
 const styles = {
   container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#000',
+    color: '#fff',
     minHeight: '100vh',
-    margin: 0,
-    padding: 0
+    padding: '2rem'
   },
-  formWrapper: {
-    border: '2px solid orange',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(255,140,0,0.1)',
-    width: '380px',
-    padding: '1.5rem',
-    textAlign: 'center'
+  header: {
+    textAlign: 'center',
+    marginBottom: '2rem'
   },
   title: {
+    fontSize: '2.2rem',
+    margin: 0,
+    color: 'orange'
+  },
+  subtitle: {
+    marginTop: '0.5rem',
+    fontSize: '1rem',
+    lineHeight: '1.4',
+    color: '#ccc'
+  },
+  section: {
+    marginTop: '2rem'
+  },
+  orangeText: {
     color: 'orange',
     marginBottom: '1rem',
-    fontSize: '1.6rem'
+    borderBottom: '2px solid orange',
+    display:'inline-block'
   },
-  errorMsg: {
-    color: 'red',
-    marginBottom: '1rem'
+  desc: {
+    marginBottom: '1rem',
+    lineHeight: '1.6'
   },
-  form: {
-    display: 'flex',
-    flexDirection: 'column'
+  planGrid: {
+    display:'flex',
+    flexWrap:'wrap',
+    gap:'1.5rem',
+    justifyContent:'center'
   },
-  formGroup: {
-    marginBottom: '0.8rem',
-    textAlign: 'left'
+  ctaArea: {
+    textAlign:'center',
+    marginTop:'2rem'
   },
-  label: {
-    color: '#FFD700',
-    marginBottom: '0.3rem',
-    fontWeight: 'bold',
-    display: 'block'
+  ctaBtn: {
+    backgroundColor:'orange',
+    color:'#000',
+    border:'none',
+    borderRadius:'6px',
+    padding:'0.75rem 1.5rem',
+    cursor:'pointer',
+    fontSize:'1.1rem',
+    fontWeight:'bold'
+  }
+};
+
+const cardStyles = {
+  card: {
+    border:'2px solid orange',
+    borderRadius:'8px',
+    padding:'1rem',
+    width:'220px',
+    backgroundColor:'rgba(255,165,0,0.1)'
   },
-  input: {
-    width: '100%',
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #ccc'
+  planName: {
+    color:'orange',
+    margin:'0 0 0.5rem 0',
+    fontSize:'1.4rem',
+    textDecoration:'underline'
   },
-  subSection: {
-    marginTop: '1.2rem',
-    marginBottom: '0.5rem',
-    color: 'orange',
-    borderBottom: '1px solid orange',
-    fontSize: '1.1rem'
+  price: {
+    fontSize:'1.2rem',
+    fontWeight:'bold',
+    margin:'0.5rem 0',
+    color:'#fff'
   },
-  hint: {
-    color: '#ccc',
-    fontSize: '0.85rem',
-    marginBottom: '1rem'
+  list: {
+    textAlign:'left',
+    margin:'1rem auto',
+    maxWidth:'200px'
   },
-  submitBtn: {
-    marginTop: '1rem',
-    backgroundColor: 'orange',
-    color: '#000',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '0.6rem',
-    fontWeight: 'bold',
-    cursor: 'pointer'
-  },
-  note: {
-    color: '#ccc',
-    fontSize: '0.85rem',
-    marginTop: '1rem',
-    lineHeight: '1.4'
+  remark: {
+    marginTop:'1rem',
+    fontSize:'0.9rem',
+    color:'#bbb',
+    fontStyle:'italic',
+    textAlign:'center'
   }
 };
