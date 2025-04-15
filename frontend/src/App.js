@@ -1,4 +1,4 @@
-// frontend/src/App.js
+// src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -7,6 +7,7 @@ export default function App() {
   const isLoggedIn = !!token;
 
   const location = useLocation();
+  // 若使用者尚未登入且在 "/" (首頁) 路由，則顯示banner
   const showBanner = (!isLoggedIn && location.pathname === '/');
 
   const handleLogout = () => {
@@ -14,14 +15,15 @@ export default function App() {
     window.location.href = "/";
   };
 
+  // 一些簡易的 inline style
   const containerStyle = {
     backgroundColor: '#000',
     color: '#ff1c1c',
     minHeight: '100vh',
     margin: 0,
     fontFamily: 'sans-serif',
-    display:'flex',
-    flexDirection:'column'
+    display: 'flex',
+    flexDirection: 'column'
   };
 
   const headerStyle = {
@@ -57,27 +59,35 @@ export default function App() {
   return (
     <div style={containerStyle}>
       <header style={headerStyle}>
+        {/* 左側 Logo / 返回首頁按鈕 */}
         <button
-          onClick={()=> window.location.href='/'}
+          onClick={() => window.location.href='/'}
           style={{...navBtnStyle, marginRight:'2rem'}}
         >
           速誅侵權獵人
         </button>
 
+        {/* 右側導覽按鈕 */}
         <nav style={{ display:'flex', alignItems:'center' }}>
           <Link to="/pricing" style={navBtnStyle}>Pricing</Link>
-          {/* 若有 Contact Us */}
-          {/* <Link to="/contact-us" style={navBtnStyle}>Contact Us</Link> */}
+          {/* 也可新增 <Link to="/contact-us" ...> */}
+
+          {/* 未登入時顯示 Login / Register */}
           {!isLoggedIn && (
             <>
               <Link to="/login" style={navBtnStyle}>Login</Link>
               <Link to="/register" style={navBtnStyle}>Register</Link>
             </>
           )}
+
+          {/* 已登入時顯示 Payment / Dashboard / Logout */}
           {isLoggedIn && (
             <>
-              {/* 可依需求新增更多功能路由 */}
               <Link to="/payment" style={navBtnStyle}>Payment</Link>
+              {/*
+                <Link to="/dashboard" style={navBtnStyle}>Dashboard</Link>
+                <Link to="/upload" style={navBtnStyle}>Upload</Link>
+              */}
               <button
                 onClick={handleLogout}
                 style={{...navBtnStyle, border:'none'}}
@@ -89,7 +99,7 @@ export default function App() {
         </nav>
       </header>
 
-      {/* 若尚未登入且在 "/" 路徑時，顯示大 Banner */}
+      {/* 若尚未登入且在 "/"，顯示此Banner */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={{ fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange' }}>
@@ -101,11 +111,12 @@ export default function App() {
         </div>
       )}
 
+      {/* 主要內容區：使用 <Outlet /> 呈現子頁面 */}
       <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
-        {/* 這裡會根據子路由顯示不同頁面 */}
         <Outlet />
       </main>
 
+      {/* 頁尾 */}
       <footer style={{ textAlign:'center', padding:'1rem', marginTop:'auto', fontSize:'0.85rem', color:'#fff' }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
