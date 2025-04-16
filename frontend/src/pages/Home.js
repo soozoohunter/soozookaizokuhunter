@@ -4,68 +4,76 @@ import React from 'react';
 export default function Home() {
   return (
     <div style={styles.container}>
-      {/* 主視覺區塊 */}
       <div style={styles.banner}>
-        {/* 主標題 */}
-        <h1 style={styles.mainTitle}>
-          世界首創🇹🇼區塊鏈智慧財產權保護平台
-        </h1>
 
-        {/* 中文介紹文字 */}
+        {/* 主標題：世界首創 + 台灣唯一 */}
+        <h1 style={styles.mainTitle}>世界首創 🇹🇼 台灣唯一 區塊鏈智慧財產權保護平台</h1>
+
+        {/* 中文介紹文字（仍具衝擊力，但可再依需求微調） */}
         <p style={styles.desc}>
-          您是否曾經擔心作品遭到抄襲或侵權？我們運用區塊鏈技術，
-          為每個短影音、圖片、文字或圖像作品生成獨特且可驗證的
-          <strong>動態或靜態指紋（Fingerprint）</strong>，
-          確保您的原創能夠被完整證明，全球獨家，台灣唯一！<br /><br />
+          是否擔心自己的原創作品被盜用、抄襲，卻苦無有效的保護手段？
+          我們結合區塊鏈技術與人工智慧侵權爬蟲，
+          <strong> 24 小時 </strong>全天候掃描全球網路，
+          隨時鎖定任何侵權行為，讓盜用者無所遁形，
+          迅速發動<em>DMCA</em>等法律訴訟，
+          <strong> 捍衛您的智慧財產權並消滅侵權源頭</strong>！<br /><br />
 
-          本平台的<strong>智慧財產權保護鏈</strong>，不僅能立即確認作品原創性，更能透過全自動侵權偵測，
-          在發現未經授權使用作品時，主動通知您並於 24 小時內迅速發動
-          <em>DMCA</em> 下架申訴，確保侵權品快速消失於市場。
-          我們將成為您的著作權、商標權與侵權的全方位智慧財產權守門員，更是侵權者的獵人，
-          徹底守護您的創作與品牌。<br /><br />
-
-          此外，我們提供完整的一站式商標服務，包括商標申請、檢索、延展、核駁答辯文件撰寫全方位服務，
-          以及智慧財產權訴訟服務（著作權、商標權臺灣侵權訴訟）。讓我們透過區塊鏈技術與專業法務團隊，
-          <strong>24 小時為您把關！</strong>
+          我們是<strong>智慧財產權的守護者</strong>，
+          為您的短影音、圖片、文字、商標等，
+          生成區塊鏈動態或靜態指紋（Fingerprint），
+          依托<strong>全方位著作權/商標法律支援與商標申請服務</strong>，
+          讓您的創作、品牌、專利無懈可擊。
+          在<strong>短短 24 小時</strong>內，即可快速發動行動，
+          使侵權品於市場上立即下架！<br /><br />
         </p>
 
-        {/* 英文介紹文字 */}
+        {/* 英文介紹文字：強調全球守護 */}
         <p style={styles.desc}>
-          Have you ever worried about your creations being plagiarized or infringed?
-          Our innovative blockchain technology generates a unique and verifiable 
-          <strong> dynamic or static fingerprint </strong>
-          for every video, image, text, or graphic, ensuring your originality 
-          is indisputably proven—globally exclusive, the only one in Taiwan!
+          Worried about your original creations being copied or plagiarized? 
+          Our platform seamlessly integrates <strong>blockchain</strong> technology 
+          and <strong>AI-powered infringement crawlers</strong> to globally scan 
+          for unauthorized usage <em>24/7</em>. 
+          We swiftly launch <em>DMCA</em> takedowns and legal measures 
+          to secure your intellectual property without mercy to infringers.
           <br /><br />
 
-          Our <strong>Intellectual Property Protection Chain</strong> instantly verifies originality
-          and employs fully automated infringement detection. Once unauthorized usage is detected,
-          you’ll be notified immediately, and we swiftly initiate a <em>DMCA</em> takedown within 24 hours, 
-          ensuring infringing content vanishes rapidly from the market. We serve as your comprehensive 
-          gatekeeper for copyrights, trademarks, and infringement—fearlessly hunting down violators 
-          to protect your creativity and brand.
-          <br /><br />
-
-          Additionally, we offer end-to-end trademark services—from application and searches 
-          to renewals and legal defenses—as well as full-scale IP litigation (copyrights, trademarks,
-          and clearance). Let our blockchain expertise and professional legal team safeguard 
-          your creative works and brand value—
-          <strong> 24-hour protection at your service!</strong>
+          We stand as the <strong>guardians of IP</strong>, 
+          providing a unique dynamic or static blockchain fingerprint 
+          for each video, image, text, and trademark. 
+          Coupled with robust <strong>copyright/trademark legal support</strong> 
+          and trademark filing services, we ensure your creations and brand 
+          remain untouchable. In as little as <strong>24 hours</strong>, 
+          infringing content is removed from the market—
+          giving you peace of mind and global protection.
         </p>
 
         {/* 紀念文字 */}
         <p style={styles.memorialText}>
           為紀念我最深愛的曾李素珠奶奶<br/>
-          In memory of my beloved grandmother Tseng Li Su-Chu, thank you for your endless love and support.
+          In memory of my beloved grandmother Tseng Li Su-Chu,<br />
+          thank you for your endless love and support.
         </p>
 
-        {/* 按鈕：連到定價 / 方案頁面 */}
+        {/* CTA 按鈕：前往 Pricing 方案介紹 */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
         >
           了解服務方案 / Learn More
         </button>
+
+        {/* 公司資訊 (中英並列) */}
+        <div style={styles.companyInfo}>
+          <hr style={styles.divider} />
+          <p style={styles.companyText}>
+            <strong>🇹🇼凱盾全球國際股份有限公司</strong><br/>
+            (Epic Global International Co., Ltd.)<br/><br/>
+
+            <strong>總公司 (Headquarters):</strong>1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br/>
+            <strong>辦公室 (Office):</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road, Banqiao District, New Taipei City<br/>
+            <strong>聯絡電話 (Contact):</strong> +886 900-296-168  GM Zack Yao
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -116,5 +124,19 @@ const styles = {
     cursor: 'pointer',
     fontSize: '1rem',
     marginTop: '1rem'
+  },
+  companyInfo: {
+    marginTop: '2rem',
+    textAlign: 'center'
+  },
+  divider: {
+    margin: '1rem auto',
+    width: '70%',
+    border: '1px solid #f00'
+  },
+  companyText: {
+    fontSize: '0.9rem',
+    color: '#ccc',
+    lineHeight: '1.4'
   }
 };
