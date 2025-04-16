@@ -1,7 +1,7 @@
 services:
-  ########################################################
+  #############################
   # 1) PostgreSQL
-  ########################################################
+  #############################
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -19,9 +19,9 @@ services:
       interval: 5s
       retries: 5
 
-  ########################################################
-  # 2) Ganache (Ethereum 模擬鏈)
-  ########################################################
+  #############################
+  # 2) Ganache (ETH)
+  #############################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -38,9 +38,9 @@ services:
     volumes:
       - suzoo_ganache_data:/data
 
-  ########################################################
-  # 3) IPFS (go-ipfs)
-  ########################################################
+  #############################
+  # 3) IPFS (Kubo)
+  #############################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -53,9 +53,9 @@ services:
     networks:
       - suzoo_net
 
-  ########################################################
+  #############################
   # 4) FastAPI
-  ########################################################
+  #############################
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -63,7 +63,7 @@ services:
     container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache   # <-- 改成 suzoo_ganache
+      - suzoo_ganache
       - suzoo_ipfs
     env_file:
       - .env
@@ -72,9 +72,9 @@ services:
     networks:
       - suzoo_net
 
-  ########################################################
+  #############################
   # 5) Express
-  ########################################################
+  #############################
   suzoo_express:
     build:
       context: ./express
@@ -82,7 +82,7 @@ services:
     container_name: suzoo_express
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache   # <-- 同上
+      - suzoo_ganache
       - suzoo_ipfs
       - suzoo_fastapi
     env_file:
@@ -92,9 +92,9 @@ services:
     networks:
       - suzoo_net
 
-  ########################################################
+  #############################
   # 6) React (前端)
-  ########################################################
+  #############################
   suzoo_react:
     build:
       context: ./frontend
@@ -112,9 +112,9 @@ services:
     networks:
       - suzoo_net
 
-  ########################################################
-  # 7) Nginx (反向代理 + SSL)
-  ########################################################
+  #############################
+  # 7) Nginx (對外)
+  #############################
   suzoo_nginx:
     build:
       context: ./nginx
