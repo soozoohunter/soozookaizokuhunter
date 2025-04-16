@@ -37,7 +37,6 @@ services:
       - suzoo_net
     volumes:
       - suzoo_ganache_data:/data
-    # 如果需要在 Ganache 啟動後載入一些帳戶或進行其他初始化，可再行設定
 
   ########################################################
   # 3) IPFS (go-ipfs)
@@ -64,7 +63,7 @@ services:
     container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache   # <-- 原本 suzoo_geth 改成 suzoo_ganache
+      - suzoo_ganache   # <-- 改成 suzoo_ganache
       - suzoo_ipfs
     env_file:
       - .env
@@ -142,4 +141,4 @@ networks:
 volumes:
   suzoo_db_data:
   suzoo_ipfs_data:
-  suzoo_ganache_data:  # <-- 新增 Ganache 資料卷（替代 suzoo_geth_data）
+  suzoo_ganache_data:
