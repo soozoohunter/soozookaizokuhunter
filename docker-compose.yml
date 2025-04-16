@@ -1,9 +1,7 @@
 services:
-  ######################
-  # 1) PostgreSQL
-  ######################
   suzoo_postgres:
     image: postgres:15-alpine
+    container_name: suzoo_postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -14,44 +12,49 @@ services:
     networks:
       - suzoo_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -h localhost"]
       interval: 5s
       retries: 5
 
-  ######################
-  # 2) Ganache (ETH)
-  ######################
-  suzoo_ganache:
-    image: trufflesuite/ganache-cli:latest
-    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
+  suzoo_geth:
+    image: ethereum/client-go:stable
+    container_name: suzoo_geth
+    command: >
+      --dev
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,personal
+      --allow-insecure-unlock
+      --http.corsdomain="*"
+      --http.vhosts="*"
     ports:
       - "8545:8545"
     networks:
       - suzoo_net
+    volumes:
+      - suzoo_geth_data:/root/.ethereum
 
-  ######################
-  # 3) IPFS (Kubo)
-  ######################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
-    volumes:
-      - suzoo_ipfs_data:/data/ipfs
+    container_name: suzoo_ipfs
     command: daemon
     ports:
       - "5001:5001"
       - "8080:8080"
+    volumes:
+      - suzoo_ipfs_data:/data/ipfs
     networks:
       - suzoo_net
 
-  ######################
-  # 4) FastAPI
-  ######################
   suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
+    container_name: suzoo_fastapi
     depends_on:
-      - suzoo_ganache
+      - suzoo_postgres
+      - suzoo_geth
       - suzoo_ipfs
     env_file:
       - .env
@@ -59,15 +62,7 @@ services:
       - "8000"
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-  ######################
-  # 5) Express (後端 API)
-  ######################
   suzoo_express:
     build:
       context: ./express
@@ -75,31 +70,21 @@ services:
     container_name: suzoo_express
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache
+      - suzoo_geth
       - suzoo_ipfs
       - suzoo_fastapi
     env_file:
       - .env
     expose:
       - "3000"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=3000
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  ######################
-  # 6) React 前端
-  ######################
   suzoo_react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: suzoo_react
     depends_on:
       - suzoo_express
       - suzoo_fastapi
@@ -111,19 +96,12 @@ services:
       - "3000:3000"
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  ######################
-  # 7) Nginx (對外)
-  ######################
   suzoo_nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    container_name: suzoo_nginx
     depends_on:
       - suzoo_react
       - suzoo_express
@@ -134,9 +112,9 @@ services:
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-    restart: unless-stopped
     networks:
       - suzoo_net
+    restart: unless-stopped
 
 networks:
   suzoo_net:
@@ -145,3 +123,4 @@ networks:
 volumes:
   suzoo_db_data:
   suzoo_ipfs_data:
+  suzoo_geth_data:
