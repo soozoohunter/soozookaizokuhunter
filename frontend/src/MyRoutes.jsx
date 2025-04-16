@@ -2,16 +2,18 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// 最外層 Layout
+// 外層 Layout (App)
 import App from './App';
 
-// 各頁面
-import Home from './pages/Home';          // 若您確定要保留 Home.js (或 Home.jsx)，請對應修改匯入路徑
+// 各子頁面 (若檔名或路徑不同，請依實際情況調整)
+import Home from './pages/Home';         // 如果檔名是 Home.jsx，則確定匯入正確路徑
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PricingPage from './pages/PricingPage';
 import PaymentPage from './pages/PaymentPage';
-// 若有 Dashboard, Profile, Upload... 等頁面也在此匯入
+// 如果需要 /upload、/dashboard 等，也可在此處引入，例如：
+// import UploadPage from './pages/UploadPage';
+// import Dashboard from './pages/Dashboard';
 
 export default function MyRoutes() {
   return (
@@ -19,18 +21,18 @@ export default function MyRoutes() {
       <Routes>
         {/* 最外層路由：使用 <App /> 作為 Layout */}
         <Route path="/" element={<App />}>
-          {/* 子路由 - 會在 <Outlet /> 呈現 */}
+          {/* index -> 根路徑顯示 Home */}
           <Route index element={<Home />} />
+
+          {/* 已定義的子頁面： /login, /register, /pricing, /payment */}
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="payment" element={<PaymentPage />} />
 
-          {/* 若有其他路由，例如：
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="upload" element={<UploadPage />} /> 
-          */}
+          {/* 若需要可加其他路徑，如: */}
+          {/* <Route path="upload" element={<UploadPage />} /> */}
+          {/* <Route path="dashboard" element={<Dashboard />} /> */}
         </Route>
       </Routes>
     </BrowserRouter>
