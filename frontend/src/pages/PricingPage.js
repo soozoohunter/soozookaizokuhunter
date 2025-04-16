@@ -24,12 +24,13 @@ export default function PricingPage() {
           {/* BASIC: Free trial */}
           <PlanCard
             planName="BASIC"
-            price="NT$0"
+            monthlyPrice="NT$0"
+            annualPrice="—"
             details={[
               '短影音上限：3 部（僅一次）',
               '圖片上限：10 張（僅一次）',
               '無 DMCA 申訴權限',
-              '無法下載上鏈紀錄 (No chain record download)'
+              '無法下載上鏈紀錄'
             ]}
             remark="(免費註冊方案 / Free Trial)"
           />
@@ -37,53 +38,57 @@ export default function PricingPage() {
           {/* ADVANCED */}
           <PlanCard
             planName="ADVANCED"
-            price="NT$999 / 月"
+            monthlyPrice="NT$999 / 月"
+            annualPrice="NT$9,990 / 年 (10個月價)"
             details={[
-              '短影音上限：10 部',
-              '圖片上限：30 張',
+              '短影音上限：10 部 /月',
+              '圖片上限：30 張 /月',
               '可使用 DMCA 下架申訴',
               '可下載區塊鏈原創證明'
             ]}
-            remark="(每月自動續訂 / Monthly)"
+            remark="(每月自動續訂 / Monthly or Yearly)"
           />
 
           {/* PRO */}
           <PlanCard
             planName="PRO"
-            price="NT$2,999 / 月"
+            monthlyPrice="NT$2,999 / 月"
+            annualPrice="NT$29,990 / 年 (10個月價)"
             details={[
-              '短影音上限：30 部',
-              '圖片上限：100 張',
+              '短影音上限：30 部 /月',
+              '圖片上限：100 張 /月',
               'DMCA 下架申訴 + 限時技術支援',
               '可下載區塊鏈原創證明'
             ]}
-            remark="(每月自動續訂 / Monthly)"
+            remark="(每月 or 年繳 10個月)"
           />
 
           {/* ENTERPRISE (Small) */}
           <PlanCard
             planName="ENTERPRISE (Small)"
-            price="NT$6,999 / 月"
+            monthlyPrice="NT$6,999 / 月"
+            annualPrice="NT$69,990 / 年 (10個月價)"
             details={[
-              '短影音上限：100 部',
-              '圖片上限：400 張',
+              '短影音上限：100 部 /月',
+              '圖片上限：400 張 /月',
               'DMCA 下架申訴 + 優先技術支援',
               '可下載區塊鏈原創證明'
             ]}
-            remark="(每月自動續訂 / Monthly)"
+            remark="(月繳或年繳)"
           />
 
           {/* ENTERPRISE (Large) */}
           <PlanCard
             planName="ENTERPRISE (Large)"
-            price="NT$16,999 / 月"
+            monthlyPrice="NT$16,999 / 月"
+            annualPrice="NT$169,990 / 年 (10個月價)"
             details={[
               '短影音無上限',
               '圖片無上限',
               'DMCA 下架申訴 + 24/7 緊急服務',
               '可下載區塊鏈原創證明'
             ]}
-            remark="(每月自動續訂 / Monthly)"
+            remark="(月繳或年繳)"
           />
         </div>
       </section>
@@ -138,14 +143,17 @@ export default function PricingPage() {
 }
 
 /** 
- * PlanCard: 顯示方案資訊的元件
- * @param { planName, price, details[], remark }
+ * PlanCard: 顯示方案 (月繳 / 年繳) 資訊
+ * @param { planName, monthlyPrice, annualPrice, details[], remark }
  */
-function PlanCard({ planName, price, details, remark }) {
+function PlanCard({ planName, monthlyPrice, annualPrice, details, remark }) {
   return (
     <div style={cardStyles.card}>
       <h3 style={cardStyles.planName}>{planName}</h3>
-      <p style={cardStyles.price}>{price}</p>
+      <p style={cardStyles.price}>
+        <span>月繳: {monthlyPrice}</span><br/>
+        <span>年繳: {annualPrice}</span>
+      </p>
       <ul style={cardStyles.list}>
         {details.map((txt, i) => <li key={i}>{txt}</li>)}
       </ul>
