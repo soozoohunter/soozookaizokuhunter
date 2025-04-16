@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   ########################################################
   # 1) PostgreSQL
@@ -20,26 +22,24 @@ services:
       retries: 5
 
   ########################################################
-  # 2) geth (Ethereum 私有鏈) -- Dev模式
+  # 2) Ganache (Ethereum 模擬鏈)
   ########################################################
-  suzoo_geth:
-    image: ethereum/client-go:stable
-    container_name: suzoo_geth
+  suzoo_ganache:
+    image: trufflesuite/ganache-cli:latest
+    container_name: suzoo_ganache
     command: >
-      --dev
-      --http
-      --http.addr 0.0.0.0
-      --http.port 8545
-      --http.api eth,net,web3,personal
-      --allow-insecure-unlock
-      --http.corsdomain="*"
-      --http.vhosts="*"
+      ganache-cli
+      --host 0.0.0.0
+      --port 8545
+      --accounts 5
+      --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
       - suzoo_net
     volumes:
-      - suzoo_geth_data:/root/.ethereum
+      - suzoo_ganache_data:/data
+    # 如果需要在 Ganache 啟動後載入一些帳戶或進行其他初始化，可再行設定
 
   ########################################################
   # 3) IPFS (go-ipfs)
@@ -66,7 +66,7 @@ services:
     container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
-      - suzoo_geth
+      - suzoo_ganache   # <-- 原本 suzoo_geth 改成 suzoo_ganache
       - suzoo_ipfs
     env_file:
       - .env
@@ -85,7 +85,7 @@ services:
     container_name: suzoo_express
     depends_on:
       - suzoo_postgres
-      - suzoo_geth
+      - suzoo_ganache   # <-- 同上
       - suzoo_ipfs
       - suzoo_fastapi
     env_file:
@@ -116,7 +116,7 @@ services:
       - suzoo_net
 
   ########################################################
-  # 7) Nginx (反向代理+SSL)
+  # 7) Nginx (反向代理 + SSL)
   ########################################################
   suzoo_nginx:
     build:
@@ -130,11 +130,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 在此處掛載:
     volumes:
-      # 將本機檔案 ./nginx/suzoo.conf -> 容器 /etc/nginx/conf.d/suzoo.conf
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # 將 /etc/letsencrypt (宿主機) -> 容器 /etc/letsencrypt:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
@@ -147,4 +144,4 @@ networks:
 volumes:
   suzoo_db_data:
   suzoo_ipfs_data:
-  suzoo_geth_data:
+  suzoo_ganache_data:  # <-- 新增 Ganache 資料卷（替代 suzoo_geth_data）
