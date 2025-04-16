@@ -7,7 +7,6 @@ export default function App() {
   const isLoggedIn = !!token;
 
   const location = useLocation();
-  // 若使用者尚未登入且在 "/" (首頁) 路徑，則顯示 Banner
   const showBanner = (!isLoggedIn && location.pathname === '/');
 
   const handleLogout = () => {
@@ -15,7 +14,6 @@ export default function App() {
     window.location.href = "/";
   };
 
-  // 容器樣式
   const containerStyle = {
     backgroundColor: '#000',
     color: '#ff1c1c',
@@ -26,7 +24,6 @@ export default function App() {
     flexDirection: 'column'
   };
 
-  // 頂部
   const headerStyle = {
     display: 'flex',
     justifyContent: 'space-between',
@@ -36,7 +33,6 @@ export default function App() {
     borderBottom: '1px solid #f00'
   };
 
-  // 導覽按鈕
   const navBtnStyle = {
     background: 'none',
     border: '2px solid orange',
@@ -49,7 +45,6 @@ export default function App() {
     textDecoration: 'none'
   };
 
-  // 首頁 Banner
   const bannerStyle = {
     textAlign: 'center',
     padding: '2rem',
@@ -62,7 +57,6 @@ export default function App() {
   return (
     <div style={containerStyle}>
       <header style={headerStyle}>
-        {/* 左側 Logo / 返回首頁 */}
         <button
           onClick={() => window.location.href='/'}
           style={{ ...navBtnStyle, marginRight: '2rem' }}
@@ -70,11 +64,9 @@ export default function App() {
           速誅侵權獵人
         </button>
 
-        {/* 右側導覽按鈕 */}
         <nav style={{ display: 'flex', alignItems: 'center' }}>
           <Link to="/pricing" style={navBtnStyle}>Pricing</Link>
 
-          {/* 未登入時顯示 Login / Register */}
           {!isLoggedIn && (
             <>
               <Link to="/login" style={navBtnStyle}>Login</Link>
@@ -82,14 +74,9 @@ export default function App() {
             </>
           )}
 
-          {/* 已登入時顯示 Payment / ... / Logout */}
           {isLoggedIn && (
             <>
               <Link to="/payment" style={navBtnStyle}>Payment</Link>
-              {/* 
-                <Link to="/dashboard" style={navBtnStyle}>Dashboard</Link>
-                <Link to="/upload" style={navBtnStyle}>Upload</Link>
-              */}
               <button
                 onClick={handleLogout}
                 style={{ ...navBtnStyle, border: 'none' }}
@@ -101,7 +88,6 @@ export default function App() {
         </nav>
       </header>
 
-      {/* 首頁 Banner：僅在 "/" 且未登入時顯示 */}
       {showBanner && (
         <div style={bannerStyle}>
           <h1 style={{ fontSize: '64px', fontWeight: 'bold', margin: '0.5rem 0', color: 'orange' }}>
@@ -113,12 +99,10 @@ export default function App() {
         </div>
       )}
 
-      {/* 主要內容：使用 <Outlet /> 呈現子路由頁面 */}
       <main style={{ flex: 1, padding: '1rem', margin: '0 1rem' }}>
         <Outlet />
       </main>
 
-      {/* 頁尾 */}
       <footer style={{ textAlign: 'center', padding: '1rem', marginTop: 'auto', fontSize: '0.85rem', color: '#fff' }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
