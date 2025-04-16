@@ -6,12 +6,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
 
 // 各子頁面 (若檔名或路徑不同，請依實際情況調整)
-import Home from './pages/Home';         // 如果檔名是 Home.jsx，則確定匯入正確路徑
+import Home from './pages/Home';         
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PricingPage from './pages/PricingPage';
 import PaymentPage from './pages/PaymentPage';
-// 如果需要 /upload、/dashboard 等，也可在此處引入，例如：
+// 如果需要 /upload、/dashboard 等，也可在此處引入
 // import UploadPage from './pages/UploadPage';
 // import Dashboard from './pages/Dashboard';
 
@@ -30,9 +30,10 @@ export default function MyRoutes() {
           <Route path="pricing" element={<PricingPage />} />
           <Route path="payment" element={<PaymentPage />} />
 
-          {/* 若需要可加其他路徑，如: */}
-          {/* <Route path="upload" element={<UploadPage />} /> */}
-          {/* <Route path="dashboard" element={<Dashboard />} /> */}
+          {/* 若需要可再加 /upload, /dashboard, etc.
+             <Route path="upload" element={<UploadPage />} /> 
+             <Route path="dashboard" element={<Dashboard />} />
+          */}
         </Route>
       </Routes>
     </BrowserRouter>
