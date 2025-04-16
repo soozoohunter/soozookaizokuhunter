@@ -1,3 +1,4 @@
+// src/Login.js
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -116,7 +117,7 @@ function Login() {
     }
 
     try {
-      // 呼叫後端登入 API
+      // 呼叫後端登入 API (若後端是 /api/auth/login, 請自行調整)
       const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,7 +129,7 @@ function Login() {
 
       const data = await res.json();
       if (!res.ok) {
-        // 若後端回傳非200，則顯示錯誤訊息
+        // 若後端回傳非 200, 拋錯顯示
         throw new Error(
           data.message ||
             '登入失敗，請確認帳號密碼 / Login failed, please check your credentials'
@@ -140,7 +141,7 @@ function Login() {
         localStorage.setItem('token', data.token);
       }
 
-      // 可在此導向首頁或儀表板
+      // 可在此導向首頁或 /upload ...
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -179,7 +180,7 @@ function Login() {
           error={!!error && !form.password}
         />
 
-        {/* 一般錯誤訊息 (顯示在兩個欄位之後) */}
+        {/* 顯示錯誤訊息 */}
         {error && <ErrorText>{error}</ErrorText>}
 
         <Button type="submit">登入 / Login</Button>
