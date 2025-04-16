@@ -1,3 +1,4 @@
+// src/Register.js
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -124,7 +125,7 @@ function Register() {
   // 單一錯誤訊息（顯示前端或後端失敗原因）
   const [error, setError] = useState('');
 
-  // change handler
+  // 監聽表單輸入
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
@@ -182,7 +183,7 @@ function Register() {
     }
 
     try {
-      // 向後端發送註冊請求
+      // 向後端發送註冊請求 (若後端路徑為 /api/auth/register 請自行修改)
       const res = await fetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
