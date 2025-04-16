@@ -3,17 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    // The script to launch your dev server (default for CRA).
     "start": "react-scripts start",
-
-    // The script to build optimized production files into the "build" folder.
-    "build": "react-scripts build",
-
-    // (Optional) The script to run tests (part of CRA defaults).
-    "test": "react-scripts test",
-
-    // (Optional) "eject" script is available if you ever want to customize CRA config.
-    "eject": "react-scripts eject"
+    "build": "react-scripts build"
   },
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.5",
@@ -26,30 +17,5 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4",
     "styled-components": "^5.3.9"
-  },
-  // (Optional) devDependencies if you use them, e.g.:
-  // "devDependencies": {
-  //   "eslint": "^8.36.0"
-  // },
-  "eslintConfig": {
-    // Usually CRA auto-generates an ESLint config, but you can add something like:
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  // (Optional) If you plan to host this somewhere that needs a "homepage":
-  // "homepage": "https://suzookaizokuhunter.com",
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }
