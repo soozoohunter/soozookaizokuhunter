@@ -10,7 +10,7 @@ const { User } = require('./models'); // 注意：如果 models 資料夾位置�
 // 預設管理員資訊
 const DEFAULT_ADMIN_EMAIL = 'jeffqqm@gmail.com';
 const DEFAULT_ADMIN_PASSWORD = 'Zack967988'; // 依您的需求設定
-const DEFAULT_ADMIN_USERNAME = 'AdminJeff';  // 可自行命名
+const DEFAULT_ADMIN_USERNAME = 'Zackyao1005';  // 可自行命名
 const DEFAULT_ADMIN_ROLE = 'admin';
 
 async function createDefaultAdmin() {
