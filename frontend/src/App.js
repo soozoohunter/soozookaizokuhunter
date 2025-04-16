@@ -27,33 +27,33 @@ export default function App() {
   };
 
   const headerStyle = {
-    display:'flex',
-    justifyContent:'space-between',
-    alignItems:'center',
-    padding:'1rem',
-    background:'#111',
-    borderBottom:'1px solid #f00'
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1rem',
+    background: '#111',
+    borderBottom: '1px solid #f00'
   };
 
   const navBtnStyle = {
-    background:'none',
-    border:'2px solid orange',
-    borderRadius:'4px',
-    color:'orange',
-    padding:'6px 12px',
-    marginRight:'1rem',
-    cursor:'pointer',
-    fontWeight:'bold',
-    textDecoration:'none'
+    background: 'none',
+    border: '2px solid orange',
+    borderRadius: '4px',
+    color: 'orange',
+    padding: '6px 12px',
+    marginRight: '1rem',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    textDecoration: 'none'
   };
 
   const bannerStyle = {
-    textAlign:'center',
-    padding:'2rem',
-    border:'2px solid #f00',
-    margin:'1rem',
-    borderRadius:'8px',
-    background:'rgba(255,28,28,0.06)'
+    textAlign: 'center',
+    padding: '2rem',
+    border: '2px solid #f00',
+    margin: '1rem',
+    borderRadius: '8px',
+    background: 'rgba(255,28,28,0.06)'
   };
 
   return (
@@ -62,13 +62,13 @@ export default function App() {
         {/* 左側 Logo / 返回首頁按鈕 */}
         <button
           onClick={() => window.location.href='/'}
-          style={{...navBtnStyle, marginRight:'2rem'}}
+          style={{ ...navBtnStyle, marginRight: '2rem' }}
         >
           速誅侵權獵人
         </button>
 
         {/* 右側導覽按鈕 */}
-        <nav style={{ display:'flex', alignItems:'center' }}>
+        <nav style={{ display: 'flex', alignItems: 'center' }}>
           <Link to="/pricing" style={navBtnStyle}>Pricing</Link>
           {/* 也可新增 <Link to="/contact-us" ...> */}
 
@@ -80,17 +80,17 @@ export default function App() {
             </>
           )}
 
-          {/* 已登入時顯示 Payment / Dashboard / Logout */}
+          {/* 已登入時顯示 Payment / ... / Logout */}
           {isLoggedIn && (
             <>
               <Link to="/payment" style={navBtnStyle}>Payment</Link>
-              {/*
+              {/* 
                 <Link to="/dashboard" style={navBtnStyle}>Dashboard</Link>
                 <Link to="/upload" style={navBtnStyle}>Upload</Link>
               */}
               <button
                 onClick={handleLogout}
-                style={{...navBtnStyle, border:'none'}}
+                style={{ ...navBtnStyle, border: 'none' }}
               >
                 Logout
               </button>
@@ -102,26 +102,26 @@ export default function App() {
       {/* 若尚未登入且在 "/"，顯示此Banner */}
       {showBanner && (
         <div style={bannerStyle}>
-          <h1 style={{ fontSize:'64px', fontWeight:'bold', margin:'0.5rem 0', color:'orange' }}>
+          <h1 style={{ fontSize: '64px', fontWeight: 'bold', margin: '0.5rem 0', color: 'orange' }}>
             速誅侵權獵人
           </h1>
-          <h2 style={{ fontSize:'36px', margin:'0.5rem 0', color:'#ff5500' }}>
+          <h2 style={{ fontSize: '36px', margin: '0.5rem 0', color: '#ff5500' }}>
             SUZOO!KAIZOKU HUNTER SYSTEM
           </h2>
         </div>
       )}
 
       {/* 主要內容區：使用 <Outlet /> 呈現子頁面 */}
-      <main style={{ flex:1, padding:'1rem', margin:'0 1rem' }}>
+      <main style={{ flex: 1, padding: '1rem', margin: '0 1rem' }}>
         <Outlet />
       </main>
 
       {/* 頁尾 */}
-      <footer style={{ textAlign:'center', padding:'1rem', marginTop:'auto', fontSize:'0.85rem', color:'#fff' }}>
+      <footer style={{ textAlign: 'center', padding: '1rem', marginTop: 'auto', fontSize: '0.85rem', color: '#fff' }}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
-          <br/>
-          <span style={{ fontSize:'0.8rem', opacity:0.85 }}>
+          <br />
+          <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
             by Ka!KaiShield 凱盾
           </span>
         </div>
