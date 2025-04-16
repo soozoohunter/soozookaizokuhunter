@@ -1,8 +1,11 @@
-// src/index.js
 import React from 'react';
-import { createRoot } from 'react-dom/client';
-import MyRoutes from './MyRoutes';   // <-- 引入路由配置
-import './index.css';               // 全域樣式 (若有)
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
 
-const root = createRoot(document.getElementById('root'));
-root.render(<MyRoutes />);
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
