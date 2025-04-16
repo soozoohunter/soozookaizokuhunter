@@ -1,160 +1,60 @@
-// src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
 export default function App() {
-  // 取得 token 判斷是否登入
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 取得當前路徑
   const location = useLocation();
-  // 若使用者尚未登入且在 "/" (首頁) 路徑，顯示 Banner
-  const showBanner = (!isLoggedIn && location.pathname === '/');
+  const showBanner = !isLoggedIn && location.pathname === '/';
 
-  // 登出邏輯
   const handleLogout = () => {
     localStorage.removeItem('token');
-    window.location.href = "/";
-  };
-
-  // 容器樣式
-  const containerStyle = {
-    backgroundColor: '#000',
-    color: '#ff1c1c',
-    minHeight: '100vh',
-    margin: 0,
-    fontFamily: 'sans-serif',
-    display: 'flex',
-    flexDirection: 'column'
-  };
-
-  // 頂部區域
-  const headerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '1rem',
-    background: '#111',
-    borderBottom: '1px solid #f00'
-  };
-
-  // 導覽按鈕樣式
-  const navBtnStyle = {
-    background: 'none',
-    border: '2px solid orange',
-    borderRadius: '4px',
-    color: 'orange',
-    padding: '6px 12px',
-    marginRight: '1rem',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    textDecoration: 'none'
-  };
-
-  // 首頁 Banner 區
-  const bannerStyle = {
-    textAlign: 'center',
-    padding: '2rem',
-    border: '2px solid #f00',
-    margin: '1rem',
-    borderRadius: '8px',
-    background: 'rgba(255,28,28,0.06)'
+    window.location.href = '/';
   };
 
   return (
-    <div style={containerStyle}>
-      {/* 頂部區域 */}
-      <header style={headerStyle}>
-        {/* 左側：Logo / 返回首頁 */}
-        <button
-          onClick={() => (window.location.href = '/')}
-          style={{ ...navBtnStyle, marginRight: '2rem' }}
-        >
-          速誅侵權獵人
-        </button>
-
-        {/* 右側導覽按鈕 */}
-        <nav style={{ display: 'flex', alignItems: 'center' }}>
-          <Link to="/pricing" style={navBtnStyle}>
-            Pricing
-          </Link>
-
-          {!isLoggedIn && (
+    <div style={{ fontFamily: 'Roboto, sans-serif', backgroundColor: '#101010', color: '#e0e0e0', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link to="/" style={{ color: '#ff6f00', fontSize: '1.5rem', textDecoration: 'none', fontWeight: 'bold' }}>速誅侵權獵人 SUZOO IP Guard</Link>
+        <nav>
+          <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
+          {!isLoggedIn ? (
             <>
-              <Link to="/login" style={navBtnStyle}>
-                Login
-              </Link>
-              <Link to="/register" style={navBtnStyle}>
-                Register
-              </Link>
+              <Link to="/login" style={navLinkStyle}>Login</Link>
+              <Link to="/register" style={navLinkStyle}>Register</Link>
             </>
-          )}
-
-          {isLoggedIn && (
+          ) : (
             <>
-              <Link to="/payment" style={navBtnStyle}>
-                Payment
-              </Link>
-              {/*
-                <Link to="/dashboard" style={navBtnStyle}>Dashboard</Link>
-                <Link to="/upload" style={navBtnStyle}>Upload</Link>
-              */}
-              <button
-                onClick={handleLogout}
-                style={{ ...navBtnStyle, border: 'none' }}
-              >
-                Logout
-              </button>
+              <Link to="/payment" style={navLinkStyle}>Payment</Link>
+              <button onClick={handleLogout} style={{ ...navLinkStyle, border: 'none', background: 'none' }}>Logout</button>
             </>
           )}
         </nav>
       </header>
 
-      {/* 首頁 Banner：僅在 "/" + 未登入時顯示 */}
       {showBanner && (
-        <div style={bannerStyle}>
-          <h1
-            style={{
-              fontSize: '64px',
-              fontWeight: 'bold',
-              margin: '0.5rem 0',
-              color: 'orange'
-            }}
-          >
-            速誅侵權獵人
-          </h1>
-          <h2
-            style={{
-              fontSize: '36px',
-              margin: '0.5rem 0',
-              color: '#ff5500'
-            }}
-          >
-            SUZOO!KAIZOKU HUNTER SYSTEM
-          </h2>
-        </div>
+        <section style={{ textAlign: 'center', padding: '3rem', backgroundColor: '#1c1c1c', borderBottom: '4px solid #ff6f00' }}>
+          <h1 style={{ fontSize: '3rem', color: '#ff6f00' }}>捍衛你的智慧財產權，自動且即刻。</h1>
+          <p style={{ fontSize: '1.2rem', marginTop: '1rem', lineHeight: '1.6' }}>
+            結合區塊鏈與AI智慧技術，24小時全天候掃描並追蹤全球侵權行為，
+            為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
+          </p>
+          <p style={{ fontSize: '1.1rem', color: '#ccc', marginTop: '1rem' }}>
+            Protect your intellectual property with blockchain-powered evidence and AI infringement detection, providing indisputable protection worldwide.
+          </p>
+        </section>
       )}
 
-      {/* 主要內容：使用 <Outlet /> 呈現子路由頁面 */}
-      <main style={{ flex: 1, padding: '1rem', margin: '0 1rem' }}>
+      <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
-      {/* 頁尾 */}
-      <footer
-        style={{
-          textAlign: 'center',
-          padding: '1rem',
-          marginTop: 'auto',
-          fontSize: '0.85rem',
-          color: '#fff'
-        }}
-      >
+      <footer style={{ textAlign: 'center', padding: '1rem', background: '#181818', borderTop: '1px solid #444', fontSize: '0.9rem', color: '#aaa' }}>
         <div>
-          為紀念我最深愛的 曾李素珠 阿嬤
-          <br />
+          為紀念我最深愛的 曾李素珠 阿嬤<br />
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
+            In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br />
             by Ka!KaiShield 凱盾
           </span>
         </div>
@@ -162,3 +62,13 @@ export default function App() {
     </div>
   );
 }
+
+const navLinkStyle = {
+  margin: '0 1rem',
+  color: '#e0e0e0',
+  textDecoration: 'none',
+  fontWeight: '500',
+  padding: '0.5rem 1rem',
+  border: '1px solid #ff6f00',
+  borderRadius: '4px'
+};
