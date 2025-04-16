@@ -55,7 +55,7 @@ export default function Home() {
 
         {/* 紀念文字 */}
         <p style={styles.memorialText}>
-          為紀念我最深愛的曾李素珠奶奶，感謝您無盡的愛與支持<br/>
+          為紀念我最深愛的曾李素珠奶奶<br/>
           In memory of my beloved grandmother Tseng Li Su-Chu, thank you for your endless love and support.
         </p>
 
