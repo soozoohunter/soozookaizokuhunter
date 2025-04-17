@@ -1,9 +1,21 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import jwt_decode from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
+
+  // 解析JWT以取得使用者角色
+  let userRole = '';
+  if (token) {
+    try {
+      const decoded = jwt_decode(token);
+      userRole = decoded.role;
+    } catch (e) {
+      console.error('Invalid token', e);
+    }
+  }
 
   const location = useLocation();
   const showBanner = !isLoggedIn && location.pathname === '/';
@@ -17,8 +29,6 @@ export default function App() {
     <div style={{ fontFamily: 'Roboto, sans-serif', backgroundColor: '#101010', color: '#e0e0e0', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
       <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-        {/* 加入 Logo 圖片 */}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
           <img
             src="/logo0.jpg"
@@ -37,6 +47,9 @@ export default function App() {
             </>
           ) : (
             <>
+              {userRole === 'admin' && (
+                <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
+              )}
               <Link to="/payment" style={navLinkStyle}>Payment</Link>
               <button onClick={handleLogout} style={{ ...navLinkStyle, border: 'none', background: 'none' }}>Logout</button>
             </>
