@@ -6,7 +6,7 @@ export default function App() {
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 解析JWT以取得使用者角色
+  // 解析 JWT 取得使用者角色
   let userRole = '';
   if (token) {
     try {
@@ -18,7 +18,7 @@ export default function App() {
   }
 
   const location = useLocation();
-  const showBanner = !isLoggedIn && location.pathname === '/';
+  const showBanner = location.pathname === '/';
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -27,31 +27,26 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'Roboto, sans-serif', backgroundColor: '#101010', color: '#e0e0e0', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-
       <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img
-            src="/logo0.jpg"
-            alt="Logo"
-            style={{ height: '60px', width: 'auto', marginRight: '1rem' }}
-          />
+          <img src="/logo0.jpg" alt="Logo" style={{ height: '60px', width: 'auto', marginRight: '1rem' }} />
           <span style={{ color: '#ff6f00', fontSize: '1.5rem', fontWeight: 'bold' }}>速誅侵權獵人 SUZOO IP Guard</span>
         </Link>
 
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
-          {!isLoggedIn ? (
+          {isLoggedIn && userRole === 'admin' && (
+            <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
+          )}
+          {isLoggedIn ? (
             <>
-              <Link to="/login" style={navLinkStyle}>Login</Link>
-              <Link to="/register" style={navLinkStyle}>Register</Link>
+              <Link to="/payment" style={navLinkStyle}>Payment</Link>
+              <button onClick={handleLogout} style={{ ...navLinkStyle, border: 'none', background: 'none' }}>Logout</button>
             </>
           ) : (
             <>
-              {userRole === 'admin' && (
-                <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
-              )}
-              <Link to="/payment" style={navLinkStyle}>Payment</Link>
-              <button onClick={handleLogout} style={{ ...navLinkStyle, border: 'none', background: 'none' }}>Logout</button>
+              <Link to="/login" style={navLinkStyle}>Login</Link>
+              <Link to="/register" style={navLinkStyle}>Register</Link>
             </>
           )}
         </nav>
@@ -63,8 +58,7 @@ export default function App() {
             Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
           </h1>
           <p style={{ fontSize: '0.95rem', color: '#ccc', marginTop: '1rem', lineHeight: '1.5' }}>
-            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，24小時全方位掃描並追蹤全球侵權行為，
-            為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
+            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，24小時全方位掃描並追蹤全球侵權行為，為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
           </p>
         </section>
       )}
@@ -95,4 +89,3 @@ const navLinkStyle = {
   border: '1px solid #ff6f00',
   borderRadius: '4px'
 };
-
