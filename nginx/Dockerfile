@@ -1,8 +1,14 @@
-# nginx/Dockerfile
-FROM nginx:stable
+FROM node:14 AS build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
 
-# 將您修正後的 suzoo.conf 複製到 /etc/nginx/conf.d/
-COPY suzoo.conf /etc/nginx/conf.d/suzoo.conf
+FROM nginx:latest
+COPY --from=build /app/build /usr/share/nginx/html
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+COPY suzoo.conf /etc/nginx/conf.d/
+
+
+HEALTHCHECK CMD curl -f http://localhost/ || exit 1
