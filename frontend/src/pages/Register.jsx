@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-// 原UI styled-components保持完全不變
 const Container = styled.div`
   min-height: 100vh;
   background: #000;
@@ -97,16 +96,11 @@ const SwitchText = styled.p`
   color: #fff;
 `;
 
-// 主元件調整後完整程式碼
 function Register() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    email: '',
-    userName: '',
-    password: '',
-    confirmPassword: '',
-    role: '',
+    email: '', userName: '', password: '', confirmPassword: '', role: '',
     IG: '', FB: '', YouTube: '', TikTok: '',
     Shopee: '', Ruten: '', Yahoo: '', Amazon: '', eBay: '', Taobao: ''
   });
@@ -120,11 +114,7 @@ function Register() {
 
   const hasOneSocialOrEcommerce = () => {
     const { IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao } = form;
-    return (
-      IG.trim() || FB.trim() || YouTube.trim() || TikTok.trim() ||
-      Shopee.trim() || Ruten.trim() || Yahoo.trim() || Amazon.trim() ||
-      eBay.trim() || Taobao.trim()
-    );
+    return IG.trim() || FB.trim() || YouTube.trim() || TikTok.trim() || Shopee.trim() || Ruten.trim() || Yahoo.trim() || Amazon.trim() || eBay.trim() || Taobao.trim();
   };
 
   const handleSubmit = async (e) => {
@@ -132,43 +122,27 @@ function Register() {
     setError('');
 
     if (!form.email.trim() || !form.userName.trim() || !form.password || !form.confirmPassword) {
-      setError('必填欄位未填 / Required fields are missing');
-      return;
+      setError('必填欄位未填 / Required fields are missing'); return;
     }
-
     if (form.password !== form.confirmPassword) {
-      setError('密碼不一致 / Passwords do not match');
-      return;
+      setError('密碼不一致 / Passwords do not match'); return;
     }
-
-    if (!form.role) {
-      setError('請選擇角色 / Select a role');
-      return;
-    }
-
+    if (!form.role) { setError('請選擇角色 / Select a role'); return; }
     if (!hasOneSocialOrEcommerce()) {
-      setError('請至少提供一項社群或電商帳號 / Provide at least one social/e-commerce account');
-      return;
+      setError('請至少提供一項社群或電商帳號 / Provide at least one social/e-commerce account'); return;
     }
 
     try {
       const res = await fetch('/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form)
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || '註冊失敗，請確認資料或稍後再試 / Registration failed.');
-      }
+      if (!res.ok) throw new Error(data.message || '註冊失敗，請確認資料或稍後再試');
 
       if (data.token) localStorage.setItem('token', data.token);
       navigate('/login');
-    } catch (err) {
-      setError(err.message);
-      console.error('Registration error:', err);
-    }
+    } catch (err) { setError(err.message); }
   };
 
   return (
@@ -197,22 +171,14 @@ function Register() {
           <option value="both">兩者</option>
         </Select>
 
-        <Label>社群帳號 (至少一項)</Label>
-        {['IG', 'FB', 'YouTube', 'TikTok'].map(name => (
-          <Input key={name} name={name} placeholder={`請輸入 ${name} 帳號`} onChange={handleChange} />
-        ))}
+        <Label style={{color:'#FFD700', fontSize:'1.2rem'}}>社群帳號 (至少一項)</Label>
+        {['IG','FB','YouTube','TikTok'].map(name=>(<Input key={name} name={name} placeholder={`請輸入 ${name} 帳號`} onChange={handleChange}/>))}
 
-        <Label>電商帳號 (至少一項)</Label>
-        {['Shopee', 'Ruten', 'Yahoo', 'Amazon', 'eBay', 'Taobao'].map(name => (
-          <Input key={name} name={name} placeholder={`請輸入 ${name} 帳號`} onChange={handleChange} />
-        ))}
+        <Label style={{color:'#FFD700', fontSize:'1.2rem'}}>電商帳號 (至少一項)</Label>
+        {['Shopee','Ruten','Yahoo','Amazon','eBay','Taobao'].map(name=>(<Input key={name} name={name} placeholder={`請輸入 ${name} 帳號`} onChange={handleChange}/>))}
 
         <Button type="submit">註冊 / Register</Button>
-
-        <SwitchText>
-          已有帳號？{' '}
-          <Link to="/login" style={{ color: '#FFD700' }}>登入 / Login</Link>
-        </SwitchText>
+        <SwitchText>已有帳號？<Link to="/login" style={{color:'#FFD700'}}>登入 / Login</Link></SwitchText>
       </FormWrapper>
     </Container>
   );
