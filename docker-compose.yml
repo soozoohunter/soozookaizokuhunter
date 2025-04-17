@@ -1,123 +1,88 @@
+version: "3.8"
+
 services:
-  suzoo_postgres:
-    image: postgres:15-alpine
-    container_name: suzoo_postgres
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - suzoo_db_data:/var/lib/postgresql/data
+  suzoo_nginx:
+    build: ./nginx
+    container_name: suzoo_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    # 確保 Nginx 加入 suzoo_net 網路，以能解析其他容器主機名稱
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -h localhost"]
-      interval: 5s
-      retries: 5
+    # 等待其他服務啟動後再啟動（確保 upstream 可解析）
+    depends_on:
+      - suzoo_express
+      - suzoo_react
+      - suzoo_fastapi
+    volumes:
+      # 掛載主機上的 SSL 證書資料夾到容器內（唯讀）
+      # 請確認主機上該路徑存在 fullchain.pem 和 privkey.pem，否則 Nginx 將無法啟動
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
+
+  suzoo_express:
+    build: ./express
+    container_name: suzoo_express
+    networks:
+      - suzoo_net
+    # 如 Express 需等待資料庫等服務，可在此指定相依服務
+    depends_on:
+      - suzoo_postgres
+    # 如需在開發環境直接訪問 Express，可考慮開放對外埠（例如 "3000:3000"），生產環境可省略
+
+  suzoo_react:
+    build: ./react
+    container_name: suzoo_react
+    networks:
+      - suzoo_net
+    # 若 React 前端為開發模式，可視需要開放對外埠號；否則經由 Nginx 代理即可
+
+  suzoo_fastapi:
+    build: ./fastapi
+    container_name: suzoo_fastapi
+    networks:
+      - suzoo_net
+
+  suzoo_postgres:
+    image: postgres:13
+    container_name: suzoo_postgres
+    networks:
+      - suzoo_net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=<你的資料庫使用者>
+      - POSTGRES_PASSWORD=<你的資料庫密碼>
+      - POSTGRES_DB=<你的資料庫名稱>
 
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
-    command: >
-      ganache-cli
-      --host 0.0.0.0
-      --port 8545
-      --accounts 5
-      --defaultBalanceEther 100
-    ports:
-      - "8545:8545"
     networks:
       - suzoo_net
-    volumes:
-      - suzoo_ganache_data:/data
+    ports:
+      - "8545:8545"
+    command: ganache-cli -h 0.0.0.0
+    # Ganache 提供區塊鏈本地節點，已開放 8545 埠供外部（如前端）連接
 
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
-    command: daemon
+    networks:
+      - suzoo_net
     ports:
-      - "5001:5001"
-      - "8080:8080"
+      - "4001:4001"   # 用於 IPFS 節點間通訊
+      - "5001:5001"   # 用於本地 API 控制
+      - "8080:8080"   # 用於提供 HTTP Gateway 服務
     volumes:
-      - suzoo_ipfs_data:/data/ipfs
-    networks:
-      - suzoo_net
+      - ipfs_data:/data/ipfs
 
-  suzoo_fastapi:
-    build:
-      context: ./fastapi
-      dockerfile: Dockerfile
-    container_name: suzoo_fastapi
-    depends_on:
-      - suzoo_postgres
-      - suzoo_ganache
-      - suzoo_ipfs
-    env_file:
-      - .env
-    expose:
-      - "8000"
-    networks:
-      - suzoo_net
-
-  suzoo_express:
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    container_name: suzoo_express
-    depends_on:
-      - suzoo_postgres
-      - suzoo_ganache
-      - suzoo_ipfs
-      - suzoo_fastapi
-    env_file:
-      - .env
-    expose:
-      - "3000"
-    networks:
-      - suzoo_net
-
-  suzoo_react:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: suzoo_react
-    depends_on:
-      - suzoo_express
-      - suzoo_fastapi
-    env_file:
-      - .env
-    expose:
-      - "3000"
-    ports:
-      - "3001:3000"
-    networks:
-      - suzoo_net
-
-  suzoo_nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: suzoo_nginx
-    depends_on:
-      - suzoo_react
-      - suzoo_express
-      - suzoo_fastapi
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
+# 使用自訂的 Docker 網路，確保所有服務容器皆能互相溝通
 networks:
   suzoo_net:
-    driver: bridge
+    external: true
 
+# 定義命名卷供資料永久化儲存
 volumes:
-  suzoo_db_data:
-  suzoo_ipfs_data:
-  suzoo_ganache_data:
+  postgres_data:
+  ipfs_data:
