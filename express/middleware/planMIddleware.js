@@ -3,39 +3,35 @@
  * 根據用戶 plan 檢查上傳 / API 次數限制
  ********************************************************************/
 const { User } = require('../models');
+// 請確保您有 express/config/plans.js 或類似檔案
 const plans = require('../config/plans');
 
 function planMiddleware(action) {
   return async (req, res, next) => {
     try {
-      const userId = req.user.userId; // 假設您在 authMiddleware 已將 userId 存在 req.user 中
+      // 取出 userId (假設事先透過 authMiddleware 解析JWT)
+      const userId = req.user.userId;
       const user = await User.findByPk(userId);
       if (!user) {
         return res.status(403).json({ error: '使用者不存在' });
       }
 
-      // 取得當前用戶的方案配置，若找不到則用 free
+      // 取得當前用戶的方案設定
       const planConfig = plans[user.plan] || plans['free'];
       if (!planConfig) {
-        return res.status(400).json({ error: '無效方案' });
+        return res.status(400).json({ error: '無效的 plan' });
       }
 
-      // 針對不同 action 執行方案限制檢查
       if (action === 'upload') {
-        // 假設 user 資料庫中有 uploadVideos / uploadImages 欄位
-        if (
-          user.uploadVideos >= planConfig.uploadLimit &&
-          user.uploadImages >= planConfig.uploadLimitImages
-        ) {
-          return res.status(403).json({ error: '已達上傳次數限制，請升級方案' });
+        // 檢查上傳次數 (示例)
+        if (user.uploadVideos >= planConfig.uploadLimit) {
+          return res.status(403).json({ error: '已達上傳次數限制' });
         }
       } else if (action === 'api') {
-        // if (user.apiCallsUsed >= planConfig.apiLimit) {
-        //   return res.status(403).json({ error: '已達 API 次數限制，請升級方案' });
-        // }
+        // 若要檢查API次數可自行加
+        // if (user.apiCalls >= planConfig.apiLimit) ...
       }
 
-      // 若限制檢查通過，繼續後續流程
       return next();
     } catch (err) {
       console.error('[planMiddleware] error:', err);
