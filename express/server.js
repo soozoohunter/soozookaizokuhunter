@@ -1,7 +1,7 @@
 /********************************************************************
  * server.js (最終整合版)
  * - 載入 .env
- * - 連 PostgreSQL (Sequelize)，自動建表 (alter: false)
+ * - 連 PostgreSQL (Sequelize)，自動建表
  * - 啟動 Express，載入區塊鏈服務
  * - 掛載所有路由 (authRouter, /api/*, /admin/*, 健康檢查等)
  * - 自動呼叫 createDefaultAdmin 建管理員帳號
@@ -15,7 +15,7 @@ const cors = require('cors');
 const { sequelize } = require('./models'); // Sequelize index
 const { createDefaultAdmin } = require('./createDefaultAdmin');
 
-// 初始化區塊鏈服務 (確保能連線到 Ganache/私有鏈)
+// 初始化區塊鏈服務 (確保能連線 Ganache/私有鏈)
 const blockchainService = require('./services/blockchainService');
 // blockchainService 內部會讀取 .env 的 BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS 等
 // 啟動時會自動建立 Web3 與合約實例
@@ -23,15 +23,15 @@ const blockchainService = require('./services/blockchainService');
 const authController = require('./controllers/authController');
 
 // === 路由 ===
-const authRouter = require('./routes/auth');          // /auth prefix => authController
+const authRouter = require('./routes/auth');   // /auth prefix => /auth/register, /auth/login
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const trademarkRoutes = require('./routes/trademarkRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 
-// 新增：管理員路由
+// 新增：管理員路由 => /admin/*
 const adminUsersRouter = require('./routes/adminUsers'); 
-// 確保您已建立 routes/adminUsers.js 並實作對應 API
+// 確保你已建立 routes/adminUsers.js，並貼上上面最終整合版本
 
 // 建立 Express App
 const app = express();
@@ -47,7 +47,7 @@ app.get('/health', (req, res) => {
   );
 });
 
-// 1) 使用 /auth prefix => /auth/register & /auth/login
+// 1) /auth prefix => /auth/register & /auth/login
 app.use('/auth', authRouter);
 
 // 2) 其餘 /api/... 路徑
@@ -57,19 +57,18 @@ app.use('/api/trademarks', trademarkRoutes);
 app.use('/api/payment', paymentRoutes);
 // app.use('/api/infringement', infringementRoutes); // 如有需要
 
-// 3) 針對管理員的後台路由 => /admin/... 
+// 3) 管理員後台路由 => /admin/... 
 app.use('/admin', adminUsersRouter);
 
-// 若您也想直接在 server.js 綁定 /auth/register ...
+// 也可直接在 server.js 綁定
 app.post('/auth/register', authController.register);
 app.post('/auth/login', authController.login);
 
-// Sequelize 同步後自動建預設管理員
+// Sequelize 同步後，自動建預設管理員
 sequelize.sync({ alter: false })
   .then(async () => {
     console.log('All tables synced!');
 
-    // 若專案需要自動建立預設管理員，則呼叫 createDefaultAdmin
     if (createDefaultAdmin) {
       await createDefaultAdmin();
       console.log('[server.js] Default admin check done.');
