@@ -1,19 +1,19 @@
-# 修正：執行 npm install 並安裝缺少的 web3 套件
 FROM node:18
+
 WORKDIR /app
 
-# 複製套件定義並安裝依賴
+
 COPY package*.json ./
+
+# 安裝依賴(包含 web3)
+# 如果您已將 "web3" 加入 package.json 的 dependencies，這一條 RUN 就會自動安裝
+# 若尚未加入，可手動: RUN npm install && npm install web3
 RUN npm install
 
-# 確保安裝 web3 套件，以避免 "Cannot find module 'web3'" 錯誤
-RUN npm install web3
-
-# 複製應用程式原始碼
+# 複製整個 express 原始碼
 COPY . .
 
-# 如果有需要，開放 Express 所使用的埠號（預設 3000）
+# 預設由 server.js 或 app.js 等檔案啟動
 EXPOSE 3000
 
-# 啟動 Express 應用（假設 package.json 定義了 start 腳本）
-CMD ["npm", "start"]
+CMD ["npm", "run", "start"]
