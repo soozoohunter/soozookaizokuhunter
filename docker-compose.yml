@@ -107,8 +107,9 @@ services:
       - .env
     expose:
       - "3000"
+    # 這裡將外部埠改為3001, 避免衝突
     ports:
-      - "3001:3000"  # 外部端口改為3001避免與其他服務衝突
+      - "3001:3000"
     networks:
       - suzoo_net
 
@@ -127,9 +128,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # 重點：確定把 /etc/letsencrypt/live/suzookaizokuhunter.com 
+    # 掛載到容器 /etc/letsencrypt/live/suzookaizokuhunter.com
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
     restart: unless-stopped
