@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -10,7 +10,7 @@ export default function App() {
   let userRole = '';
   if (token) {
     try {
-      const decoded = jwt_decode(token);
+      const decoded = jwtDecode(token);
       userRole = decoded.role;
     } catch (e) {
       console.error('Invalid token', e);
@@ -95,3 +95,4 @@ const navLinkStyle = {
   border: '1px solid #ff6f00',
   borderRadius: '4px'
 };
+
