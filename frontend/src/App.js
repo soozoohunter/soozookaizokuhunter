@@ -35,13 +35,12 @@ export default function App() {
 
       {showBanner && (
         <section style={{ textAlign: 'center', padding: '3rem', backgroundColor: '#1c1c1c', borderBottom: '4px solid #ff6f00' }}>
-          <h1 style={{ fontSize: '3rem', color: '#ff6f00' }}>捍衛你的智慧財產權，自動且即刻。</h1>
-          <p style={{ fontSize: '1.2rem', marginTop: '1rem', lineHeight: '1.6' }}>
-            結合區塊鏈與AI智慧技術，24小時全天候掃描並追蹤全球侵權行為，
+          <h1 style={{ fontSize: '2.3rem', color: '#ff6f00', fontFamily: '"Montserrat", sans-serif' }}>
+            Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
+          </h1>
+          <p style={{ fontSize: '0.95rem', color: '#ccc', marginTop: '1rem', lineHeight: '1.5' }}>
+            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，24小時全方位掃描並追蹤全球侵權行為，
             為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
-          </p>
-          <p style={{ fontSize: '1.1rem', color: '#ccc', marginTop: '1rem' }}>
-            Protect your intellectual property with blockchain-powered evidence and AI infringement detection, providing indisputable protection worldwide.
           </p>
         </section>
       )}
