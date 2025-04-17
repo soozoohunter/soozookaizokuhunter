@@ -1,9 +1,13 @@
-// src/Register.js
+/***************************************************************
+ * src/Register.js
+ * 保留你原先的 UI 佈局與文案；欄位對應 User model
+ ***************************************************************/
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-// ----------- styled-components 設計 -----------
+// styled-components (保持不動)
 const Container = styled.div`
   min-height: 100vh;
   background: #000;
@@ -98,17 +102,17 @@ const SwitchText = styled.p`
   color: #fff;
 `;
 
-// ----------- 主元件 -----------
+// 主元件
 function Register() {
   const navigate = useNavigate();
 
-  // 使用單一 form 狀態管理所有欄位（含序號及社群/電商帳號）
+  // 跟後端對應：role, serialNumber, userName, email, password...
   const [form, setForm] = useState({
     email: '',
     userName: '',
     password: '',
     confirmPassword: '',
-    role: '',
+    role: '', // 後端model是string, 預設 'user' 也行。UI讓使用者選: copyright/trademark/both
     serialNumber: '',
     IG: '',
     FB: '',
@@ -122,7 +126,6 @@ function Register() {
     Taobao: ''
   });
 
-  // 單一錯誤訊息（顯示前端或後端失敗原因）
   const [error, setError] = useState('');
 
   // 監聽表單輸入
@@ -131,69 +134,62 @@ function Register() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // helper：檢查至少填寫一項社群/電商帳號
+  // helper：檢查至少填寫一項社群
   const hasOneSocial = () => {
     const { IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao } = form;
     return (
-      IG.trim() ||
-      FB.trim() ||
-      YouTube.trim() ||
-      TikTok.trim() ||
-      Shopee.trim() ||
-      Ruten.trim() ||
-      Yahoo.trim() ||
-      Amazon.trim() ||
-      eBay.trim() ||
-      Taobao.trim()
+      IG.trim() || FB.trim() || YouTube.trim() || TikTok.trim() ||
+      Shopee.trim() || Ruten.trim() || Yahoo.trim() || Amazon.trim() ||
+      eBay.trim() || Taobao.trim()
     );
   };
 
-  // 表單提交
+  // 送出表單
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 前端必填驗證
-    if (
-      !form.email.trim() ||
-      !form.userName.trim() ||
-      !form.password ||
-      !form.confirmPassword
-    ) {
+    // 必填檢查
+    if (!form.email.trim() || !form.userName.trim() ||
+        !form.password || !form.confirmPassword) {
       setError('必填欄位未填 / Required fields are missing');
       return;
     }
 
-    // 密碼一致檢查
+    // 密碼一致
     if (form.password !== form.confirmPassword) {
       setError('密碼不一致 / Passwords do not match');
       return;
     }
 
-    // 角色必選
+    // 角色必填
     if (!form.role) {
       setError('請選擇角色 / Select a role');
       return;
     }
 
-    // 至少填寫一項社群/電商帳號
+    // 至少填寫一項社群
     if (!hasOneSocial()) {
       setError('請至少提供一項社群或電商帳號 / Provide at least one social/e-commerce account');
       return;
     }
 
     try {
-      // 向後端發送註冊請求 (若後端路徑為 /api/auth/register 請自行修改)
+      // 呼叫後端 /auth/register
       const res = await fetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // 後端需要的屬性：排除 confirmPassword
+          // 後端只需要 serialNumber, role, userName, email, password, 
+          // 以及可以把社群資訊自己存(這裡只是示範, 需後端整合socialBinding)
           email: form.email.trim(),
           userName: form.userName.trim(),
           password: form.password,
           role: form.role,
           serialNumber: form.serialNumber.trim(),
+
+          // 如果後端要把多個社群欄位串起來, 可在後端 authController 
+          // or register logic 進行合併。此處先直接傳遞:
           IG: form.IG.trim(),
           FB: form.FB.trim(),
           YouTube: form.YouTube.trim(),
@@ -209,19 +205,18 @@ function Register() {
 
       const data = await res.json();
       if (!res.ok) {
-        // 後端返回錯誤，如有自訂 message，則顯示
         throw new Error(
           data.message ||
-          '註冊失敗，請確認資料或稍後再試 / Registration failed, please check your data and try again.'
+          '註冊失敗，請確認資料或稍後再試 / Registration failed.'
         );
       }
 
-      // 若註冊成功，後端可能回傳 token
+      // 若成功，後端或許回傳 token
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
 
-      // 也可在此導向登入頁，或顯示成功訊息
+      // 導向登入或顯示成功訊息
       navigate('/login');
     } catch (err) {
       setError(err.message);
@@ -233,8 +228,7 @@ function Register() {
     <Container>
       <FormWrapper onSubmit={handleSubmit}>
         <Title>註冊 / Register</Title>
-
-        {/* 顯示錯誤訊息 */}
+        
         {error && <ErrorText>{error}</ErrorText>}
 
         {/* Email */}
@@ -311,7 +305,7 @@ function Register() {
           onChange={handleChange}
         />
 
-        {/* Social/E-commerce Accounts */}
+        {/* Social/E-commerce */}
         <Label>社群/電商帳號（至少填寫一項） / Social/E-commerce Accounts (at least one)</Label>
         <Input
           type="text"
