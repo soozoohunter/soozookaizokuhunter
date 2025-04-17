@@ -1,25 +1,20 @@
-// routes/uploadRoutes.js
+// express/routes/uploadRoutes.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-
-// 驗證 JWT
 const authMiddleware = require('../middleware/authMiddleware');
-
-// 檢查用戶 Plan (方案限制)
+// 需注意檔名 planMiddleware.js
 const planMiddleware = require('../middleware/planMiddleware');
-
-// 上傳檔案邏輯
 const uploadController = require('../controllers/uploadController');
 
-// 設定 Multer：使用本地暫存 (uploads/)
+// Multer - 暫存目錄
 const upload = multer({ dest: 'uploads/' });
 
 // POST /api/upload
 router.post(
   '/',
   authMiddleware,
-  planMiddleware('upload'),
+  planMiddleware('upload'),  // 執行方案檢查
   upload.single('file'),
   uploadController.uploadFile
 );
