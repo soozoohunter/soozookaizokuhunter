@@ -41,7 +41,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       unique: false, // 若需唯一可改 true
     },
-    // 社群/電商綁定資訊 (optional) - 用字串儲存
+    // 社群/電商綁定資訊 (optional)
     socialBinding: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -53,7 +53,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false,
     },
   }, {
-    // Hooks
     hooks: {
       // 建立使用者前自動雜湊
       beforeCreate: async (user, options) => {
@@ -62,16 +61,10 @@ module.exports = (sequelize, DataTypes) => {
           user.password = await bcrypt.hash(user.password, salt);
         }
       },
-      // 若要在更新密碼時雜湊，可再加 beforeUpdate
-      // beforeUpdate: async (user, options) => { ... }
+      // 若要在更新密碼時也加密，可在 beforeUpdate
     },
-    // 其他 Model 設定
-    // tableName: 'users', // 若要自訂資料表名稱
-    // underscored: true,  // 若要使用下劃線
+    // 其他設定如 tableName, underscored 等可放此
   });
-
-  // 可在此定義關聯
-  // User.associate = models => { ... };
 
   return User;
 };
