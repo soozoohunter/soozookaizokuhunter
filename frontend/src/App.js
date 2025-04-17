@@ -15,8 +15,19 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'Roboto, sans-serif', backgroundColor: '#101010', color: '#e0e0e0', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+
       <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #444', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link to="/" style={{ color: '#ff6f00', fontSize: '1.5rem', textDecoration: 'none', fontWeight: 'bold' }}>速誅侵權獵人 SUZOO IP Guard</Link>
+
+        {/* 加入 Logo 圖片 */}
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img
+            src="/logo0.jpg"
+            alt="Logo"
+            style={{ height: '60px', width: 'auto', marginRight: '1rem' }}
+          />
+          <span style={{ color: '#ff6f00', fontSize: '1.5rem', fontWeight: 'bold' }}>速誅侵權獵人 SUZOO IP Guard</span>
+        </Link>
+
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           {!isLoggedIn ? (
