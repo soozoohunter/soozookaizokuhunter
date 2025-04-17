@@ -2,6 +2,7 @@
 const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
+  // 以 define(...) 的方式直接回傳 Model
   const User = sequelize.define('User', {
     // 電子郵件
     email: {
@@ -23,7 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    // 角色：預設 'user'，可為 'admin' 方便後台
+    // 角色：預設 'user'，可為 'admin'
     role: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -55,7 +56,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     hooks: {
       // 建立使用者前自動雜湊
-      beforeCreate: async (user, options) => {
+      async beforeCreate(user) {
         if (user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
