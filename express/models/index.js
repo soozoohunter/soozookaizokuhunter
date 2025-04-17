@@ -22,7 +22,7 @@ const sequelize = new Sequelize(DB_URL, {
 // 匯入 Model，注意要把 `DataTypes` 一併傳給工廠函式
 const User = require('./User')(sequelize, DataTypes);
 const File = require('./File')(sequelize, DataTypes);
-// 若有更多 Model（如 Payment、Infringement 等）也在此匯入
+// 若有更多 Model（如 Payment、Infringement 等）也可在此匯入
 
 // 建立關聯
 User.hasMany(File, { foreignKey: 'user_id', as: 'files' });
