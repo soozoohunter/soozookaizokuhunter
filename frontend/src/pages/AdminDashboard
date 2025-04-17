@@ -1,392 +1,359 @@
+// src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';  // 假設使用 react-router 進行導覽
+import { useNavigate } from 'react-router-dom';
 
-function AdminDashboard() {
+export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [newUser, setNewUser] = useState({
     email: '',
     userName: '',
     password: '',
-    role: 'user',         // 新增帳號預設角色為 user，可讓管理員改選
-    plan: 'free',         // 新增帳號預設方案為 free，可讓管理員改選
+    role: 'user',
+    plan: 'free',
     serialNumber: '',
     socialBinding: ''
-    // 付款狀態預設不在此表單，新增後可由編輯來調整
   });
+
   const [editUserId, setEditUserId] = useState(null);
-  const [editData, setEditData] = useState({
-    email: '',
-    userName: '',
-    role: '',
-    plan: '',
-    serialNumber: '',
-    socialBinding: '',
-    isPaid: false        // 編輯付款狀態（是否已付款）
-  });
+  const [editData, setEditData] = useState({});
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 檢查管理員 JWT 權杖是否存在且角色是否為 admin，若無則導向登入頁
     const token = localStorage.getItem('token');
     if (!token) {
       alert('未登入或權限不足');
-      navigate('/login');  // 導回登入頁（或首頁）
-      return;
-    }
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));  // 解碼 JWT payload
-      if (!payload.role || payload.role !== 'admin') {
-        alert('非管理員無法訪問此頁面');
-        navigate('/');  // 導回首頁或適當頁面
-        return;
-      }
-    } catch (e) {
-      console.error('JWT 解析失敗', e);
       navigate('/login');
       return;
     }
-    // 若通過驗證，載入使用者列表
-    fetchUsers(token);
-  }, []);
-
-  const fetchUsers = (token) => {
-    setLoading(true);
-    setError('');
+    // 讀取使用者列表
     fetch('/admin/users', {
-      method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
+      headers: { Authorization: 'Bearer ' + token }
     })
       .then(res => {
-        if (!res.ok) {
-          if (res.status === 401) {
-            throw new Error('未授權的存取（請確認擁有管理員權限）');
-          } else {
-            throw new Error('載入使用者列表失敗');
-          }
+        if(!res.ok) {
+          throw new Error('無法取得使用者清單，可能未登入或權限不足');
         }
         return res.json();
       })
-      .then(data => {
-        setUsers(data);
+      .then(data => setUsers(data))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [navigate]);
+
+  // helper：更新表單輸入
+  const handleChange = setter => e => {
+    setter(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  // helper：發送 API
+  const handleSubmit = (method, url, data, onSuccess) => {
+    const token = localStorage.getItem('token');
+    fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: method === 'GET' || method === 'DELETE' ? null : JSON.stringify(data)
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('操作失敗');
+        }
+        // 若是DELETE，後端回204 no content，不需解析JSON
+        return method === 'DELETE' ? {} : res.json();
       })
-      .catch(err => {
-        console.error(err);
-        setError(err.message);
-      })
-      .finally(() => {
-        setLoading(false);
+      .then(onSuccess)
+      .catch(err => alert(err));
+  };
+
+  // 新增使用者
+  const handleAddUser = () => {
+    if(!newUser.email || !newUser.userName || !newUser.password) {
+      alert('Email, userName, password 為必填');
+      return;
+    }
+    handleSubmit('POST', '/admin/users', newUser, (createdUser) => {
+      setUsers([...users, createdUser]);
+      setShowAddForm(false);
+      setNewUser({
+        email: '',
+        userName: '',
+        password: '',
+        role: 'user',
+        plan: 'free',
+        serialNumber: '',
+        socialBinding: ''
       });
+    });
   };
 
-  const handleAddChange = (e) => {
-    const { name, value } = e.target;
-    setNewUser(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({ ...prev, [name]: value }));
-  };
-
+  // 編輯模式：開始編輯
   const startEdit = (user) => {
     setEditUserId(user.id);
-    setEditData({
-      email: user.email,
-      userName: user.userName,
-      role: user.role,
-      plan: user.plan,
-      serialNumber: user.serialNumber || '',
-      socialBinding: user.socialBinding || '',
-      isPaid: user.isPaid !== undefined ? user.isPaid : true  // 若後端提供 isPaid，預設填入，沒有則預設 true
-    });
+    setEditData({...user});
   };
 
+  // 取消編輯
   const cancelEdit = () => {
     setEditUserId(null);
-    // 清空編輯表單資料
-    setEditData({
-      email: '',
-      userName: '',
-      role: '',
-      plan: '',
-      serialNumber: '',
-      socialBinding: '',
-      isPaid: false
+    setEditData({});
+  };
+
+  // 儲存編輯
+  const saveEdit = (userId) => {
+    handleSubmit('PUT', `/admin/users/${userId}`, editData, (updated) => {
+      setUsers(users.map(u => u.id === userId ? updated : u));
+      cancelEdit();
     });
   };
 
-  const submitEdit = (id) => {
-    // 確認必要欄位不為空
-    if (!editData.email || !editData.userName || !editData.role || !editData.plan) {
-      alert('請填寫所有必填欄位');
-      return;
-    }
-    const token = localStorage.getItem('token');
-    fetch(`/admin/users/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify(editData)
-    })
-      .then(res => {
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error('找不到使用者');
-          } else if (res.status === 400) {
-            return res.json().then(err => { throw new Error(err.message || '更新失敗'); });
-          } else if (res.status === 401) {
-            throw new Error('未授權');
-          } else {
-            throw new Error('更新使用者失敗');
-          }
-        }
-        return res.json();
-      })
-      .then(updatedUser => {
-        // 更新前端使用者列表資料
-        setUsers(prevUsers => prevUsers.map(u => (u.id === id ? updatedUser : u)));
-        cancelEdit();
-      })
-      .catch(err => {
-        console.error(err);
-        alert(err.message);
-      });
-  };
-
-  const deleteUser = (id) => {
-    if (!window.confirm('確定要刪除此使用者嗎？')) {
-      return;
-    }
-    const token = localStorage.getItem('token');
-    fetch(`/admin/users/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
-    })
-      .then(res => {
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error('找不到使用者');
-          } else if (res.status === 401) {
-            throw new Error('未授權');
-          } else {
-            throw new Error('刪除失敗');
-          }
-        }
-        // 刪除成功，不需正文
-        // 更新前端列表
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== id));
-      })
-      .catch(err => {
-        console.error(err);
-        alert(err.message);
-      });
-  };
-
-  const submitNewUser = () => {
-    // 確認必要欄位不為空
-    if (!newUser.email || !newUser.userName || !newUser.password || !newUser.role || !newUser.plan) {
-      alert('請填寫所有必填欄位');
-      return;
-    }
-    const token = localStorage.getItem('token');
-    fetch('/admin/users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
-      },
-      body: JSON.stringify(newUser)
-    })
-      .then(res => {
-        if (!res.ok) {
-          if (res.status === 400) {
-            return res.json().then(err => { throw new Error(err.message || '新增失敗'); });
-          } else if (res.status === 401) {
-            throw new Error('未授權');
-          } else {
-            throw new Error('新增使用者失敗');
-          }
-        }
-        return res.json();
-      })
-      .then(createdUser => {
-        // 將新使用者加入列表並清空表單
-        setUsers(prevUsers => [...prevUsers, createdUser]);
-        setNewUser({
-          email: '',
-          userName: '',
-          password: '',
-          role: 'user',
-          plan: 'free',
-          serialNumber: '',
-          socialBinding: ''
-        });
-        setShowAddForm(false);
-      })
-      .catch(err => {
-        console.error(err);
-        alert(err.message);
-      });
+  // 刪除使用者
+  const deleteUser = (userId) => {
+    if(!window.confirm('確定要刪除該使用者嗎？')) return;
+    handleSubmit('DELETE', `/admin/users/${userId}`, {}, () => {
+      setUsers(users.filter(u => u.id !== userId));
+    });
   };
 
   return (
-    <div style={{ backgroundColor: '#000', color: '#fff', padding: '20px' }}>
-      <h2 style={{ color: '#fff' }}>使用者管理</h2>
-      {/* 顯示錯誤或載入狀態 */}
-      {error && <p style={{ color: 'red' }}>錯誤：{error}</p>}
-      {loading ? (
-        <p>載入中...</p>
-      ) : (
-        <div>
-          {/* 新增使用者表單切換 */}
-          {showAddForm ? (
-            <div style={{ marginBottom: '20px', padding: '10px', border: '1px solid red' }}>
-              <h3 style={{ color: '#fff' }}>新增使用者</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '300px' }}>
-                <input 
-                  name="email" 
-                  placeholder="電子郵件" 
-                  value={newUser.email} 
-                  onChange={handleAddChange} 
-                />
-                <input 
-                  name="userName" 
-                  placeholder="使用者名稱" 
-                  value={newUser.userName} 
-                  onChange={handleAddChange} 
-                />
-                <input 
-                  name="password" 
-                  type="password" 
-                  placeholder="密碼" 
-                  value={newUser.password} 
-                  onChange={handleAddChange} 
-                />
-                <select name="role" value={newUser.role} onChange={handleAddChange}>
-                  <option value="user">使用者</option>
-                  <option value="admin">管理員</option>
-                </select>
-                <select name="plan" value={newUser.plan} onChange={handleAddChange}>
-                  <option value="free">免費方案</option>
-                  <option value="premium">付費方案</option>
-                  {/* 可以根據實際方案選項增減 */}
-                </select>
-                <input 
-                  name="serialNumber" 
-                  placeholder="序號（選填）" 
-                  value={newUser.serialNumber} 
-                  onChange={handleAddChange} 
-                />
-                <input 
-                  name="socialBinding" 
-                  placeholder="社群帳號綁定（選填）" 
-                  value={newUser.socialBinding} 
-                  onChange={handleAddChange} 
-                />
-                <div>
-                  <button onClick={submitNewUser} style={{ backgroundColor: '#ff9900', color: '#000', marginRight: '8px', padding: '6px 12px', border: 'none', cursor: 'pointer' }}>新增</button>
-                  <button onClick={() => setShowAddForm(false)} style={{ backgroundColor: '#ccc', color: '#000', padding: '6px 12px', border: 'none', cursor: 'pointer' }}>取消</button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setShowAddForm(true)} style={{ backgroundColor: '#ff9900', color: '#000', marginBottom: '10px', padding: '8px 16px', border: 'none', cursor: 'pointer' }}>
-              新增使用者
-            </button>
-          )}
+    <div className="min-h-screen bg-gray-900 text-gray-200 p-8">
+      <h1 className="text-3xl font-bold text-orange-500 mb-6">使用者管理 / User Management</h1>
 
-          {/* 使用者列表表格 */}
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid red' }}>
-                <th style={{ border: '1px solid red', padding: '8px' }}>ID</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>電子郵件</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>使用者名稱</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>角色</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>方案</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>序號</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>社群綁定</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>付款狀態</th>
-                <th style={{ border: '1px solid red', padding: '8px' }}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  {editUserId === user.id ? (
-                    // 編輯模式的列：提供輸入欄位
-                    <>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.id}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <input name="email" value={editData.email} onChange={handleEditChange} />
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <input name="userName" value={editData.userName} onChange={handleEditChange} />
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <select name="role" value={editData.role} onChange={handleEditChange}>
-                          <option value="user">使用者</option>
-                          <option value="admin">管理員</option>
-                        </select>
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <select name="plan" value={editData.plan} onChange={handleEditChange}>
-                          <option value="free">免費方案</option>
-                          <option value="premium">付費方案</option>
-                        </select>
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <input name="serialNumber" value={editData.serialNumber} onChange={handleEditChange} />
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <input name="socialBinding" value={editData.socialBinding} onChange={handleEditChange} />
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <select name="isPaid" value={editData.isPaid ? 'true' : 'false'} onChange={e => setEditData(prev => ({ ...prev, isPaid: e.target.value === 'true' }))}>
-                          <option value="true">已付款</option>
-                          <option value="false">未付款</option>
-                        </select>
-                      </td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <button onClick={() => submitEdit(user.id)} style={{ backgroundColor: '#ff9900', color: '#000', marginRight: '4px', padding: '4px 8px', border: 'none', cursor: 'pointer' }}>儲存</button>
-                        <button onClick={cancelEdit} style={{ backgroundColor: '#ccc', color: '#000', padding: '4px 8px', border: 'none', cursor: 'pointer' }}>取消</button>
-                      </td>
-                    </>
-                  ) : (
-                    // 檢視模式的列：顯示文字與操作按鈕
-                    <>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.id}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.email}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.userName}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.role}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.plan}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.serialNumber || ''}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.socialBinding || ''}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>{user.isPaid ? '已付款' : '未付款'}</td>
-                      <td style={{ border: '1px solid red', padding: '8px' }}>
-                        <button onClick={() => startEdit(user)} style={{ backgroundColor: '#ff9900', color: '#000', marginRight: '4px', padding: '4px 8px', border: 'none', cursor: 'pointer' }}>編輯</button>
-                        <button onClick={() => deleteUser(user.id)} style={{ backgroundColor: '#ff9900', color: '#000', padding: '4px 8px', border: 'none', cursor: 'pointer' }}>刪除</button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {loading && <p>載入中...</p>}
+      {error && <p className="text-red-500">錯誤：{error}</p>}
+
+      <button
+        onClick={() => setShowAddForm(!showAddForm)}
+        className="bg-green-600 px-4 py-2 rounded mb-4"
+      >
+        {showAddForm ? '取消新增' : '新增使用者'}
+      </button>
+
+      {/* 新增表單 */}
+      {showAddForm && (
+        <div className="bg-gray-800 p-4 rounded mb-4 w-full max-w-xl">
+          <div className="flex flex-col space-y-2">
+            <input
+              name="email"
+              placeholder="Email"
+              value={newUser.email}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            />
+            <input
+              name="userName"
+              placeholder="UserName"
+              value={newUser.userName}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            />
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={newUser.password}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            />
+            <input
+              name="serialNumber"
+              placeholder="SerialNumber"
+              value={newUser.serialNumber}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            />
+            <input
+              name="socialBinding"
+              placeholder="SocialBinding"
+              value={newUser.socialBinding}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            />
+            <select
+              name="role"
+              value={newUser.role}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            >
+              <option value="user">使用者(user)</option>
+              <option value="admin">管理員(admin)</option>
+            </select>
+            <select
+              name="plan"
+              value={newUser.plan}
+              onChange={handleChange(setNewUser)}
+              className="p-2 m-1 rounded bg-gray-700"
+            >
+              <option value="free">免費(free)</option>
+              <option value="premium">付費(premium)</option>
+            </select>
+            <button
+              onClick={handleAddUser}
+              className="bg-orange-500 px-4 py-2 rounded mt-2"
+            >
+              送出新增
+            </button>
+          </div>
         </div>
       )}
+
+      <table className="w-full table-auto bg-gray-800">
+        <thead className="bg-gray-700">
+          <tr>
+            {['ID', 'Email', '使用者名稱', '角色', '方案', '付款狀態', '序號', '社群綁定', '操作'].map(h => (
+              <th key={h} className="p-2 border-b border-gray-600">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {users.map(user => {
+            const isEditing = editUserId === user.id;
+            return (
+              <tr key={user.id} className="hover:bg-gray-700">
+                <td className="p-2">{user.id}</td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <input
+                      name="email"
+                      value={editData.email || ''}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    />
+                  ) : (
+                    user.email
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <input
+                      name="userName"
+                      value={editData.userName || ''}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    />
+                  ) : (
+                    user.userName
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <select
+                      name="role"
+                      value={editData.role}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    >
+                      <option value="user">使用者</option>
+                      <option value="admin">管理員</option>
+                    </select>
+                  ) : (
+                    user.role
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <select
+                      name="plan"
+                      value={editData.plan}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    >
+                      <option value="free">免費</option>
+                      <option value="premium">付費</option>
+                    </select>
+                  ) : (
+                    user.plan
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <select
+                      name="isPaid"
+                      value={editData.isPaid}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    >
+                      <option value="true">已付款</option>
+                      <option value="false">未付款</option>
+                    </select>
+                  ) : (
+                    user.isPaid ? '已付款' : '未付款'
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <input
+                      name="serialNumber"
+                      value={editData.serialNumber || ''}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    />
+                  ) : (
+                    user.serialNumber
+                  )}
+                </td>
+                <td className="p-2">
+                  {isEditing ? (
+                    <input
+                      name="socialBinding"
+                      value={editData.socialBinding || ''}
+                      onChange={handleChange(setEditData)}
+                      className="bg-gray-600 rounded p-1"
+                    />
+                  ) : (
+                    user.socialBinding
+                  )}
+                </td>
+                <td className="p-2 space-x-2">
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={() => saveEdit(user.id)}
+                        className="bg-green-500 px-2 py-1 rounded"
+                      >
+                        儲存
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="bg-gray-500 px-2 py-1 rounded"
+                      >
+                        取消
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => startEdit(user)}
+                        className="bg-orange-500 px-2 py-1 rounded"
+                      >
+                        編輯
+                      </button>
+                      <button
+                        onClick={() => deleteUser(user.id)}
+                        className="bg-red-500 px-2 py-1 rounded"
+                      >
+                        刪除
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <footer className="mt-10 text-center text-sm text-gray-500">
+        為紀念我最深愛的曾李素珠奶奶
+      </footer>
     </div>
   );
 }
-
-export default AdminDashboard;
