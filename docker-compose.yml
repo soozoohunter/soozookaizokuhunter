@@ -128,7 +128,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      # 您的 suzoo.conf => /etc/nginx/conf.d/suzoo.conf
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      # SSL 憑證掛載
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
