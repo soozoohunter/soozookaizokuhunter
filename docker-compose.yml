@@ -109,7 +109,7 @@ services:
       - .env
     expose:
       - "3000"
-    # 若您想透過 http://HOST:3001 直接查看 React dev
+    # 若想在宿主機 http://HOST:3001 看到 React
     ports:
       - "3001:3000"
     networks:
@@ -131,7 +131,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 將您自訂的 Nginx 組態掛載進容器
+      # Nginx 組態檔
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       # 掛載 Let's Encrypt 憑證 (需確保宿主機該路徑存在)
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
