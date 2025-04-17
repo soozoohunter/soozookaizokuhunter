@@ -1,7 +1,4 @@
 services:
-  #############################
-  # 1) PostgreSQL
-  #############################
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -19,9 +16,6 @@ services:
       interval: 5s
       retries: 5
 
-  #############################
-  # 2) Ganache (ETH)
-  #############################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -38,9 +32,6 @@ services:
     volumes:
       - suzoo_ganache_data:/data
 
-  #############################
-  # 3) IPFS (Kubo)
-  #############################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -53,9 +44,6 @@ services:
     networks:
       - suzoo_net
 
-  #############################
-  # 4) FastAPI
-  #############################
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -72,9 +60,6 @@ services:
     networks:
       - suzoo_net
 
-  #############################
-  # 5) Express
-  #############################
   suzoo_express:
     build:
       context: ./express
@@ -92,9 +77,6 @@ services:
     networks:
       - suzoo_net
 
-  #############################
-  # 6) React (前端)
-  #############################
   suzoo_react:
     build:
       context: ./frontend
@@ -112,9 +94,6 @@ services:
     networks:
       - suzoo_net
 
-  #############################
-  # 7) Nginx (對外)
-  #############################
   suzoo_nginx:
     build:
       context: ./nginx
@@ -128,9 +107,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 您的 suzoo.conf => /etc/nginx/conf.d/suzoo.conf
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # SSL 憑證掛載
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
