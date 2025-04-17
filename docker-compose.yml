@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   suzoo_nginx:
     build: ./nginx
@@ -7,17 +5,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 確保 Nginx 加入 suzoo_net 網路，以能解析其他容器主機名稱
     networks:
       - suzoo_net
-    # 等待其他服務啟動後再啟動（確保 upstream 可解析）
     depends_on:
       - suzoo_express
       - suzoo_react
       - suzoo_fastapi
     volumes:
-      # 掛載主機上的 SSL 證書資料夾到容器內（唯讀）
-      # 請確認主機上該路徑存在 fullchain.pem 和 privkey.pem，否則 Nginx 將無法啟動
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
 
   suzoo_express:
@@ -25,17 +19,14 @@ services:
     container_name: suzoo_express
     networks:
       - suzoo_net
-    # 如 Express 需等待資料庫等服務，可在此指定相依服務
     depends_on:
       - suzoo_postgres
-    # 如需在開發環境直接訪問 Express，可考慮開放對外埠（例如 "3000:3000"），生產環境可省略
 
   suzoo_react:
-    build: ./react
+    build: ./frontend  # 修正這裡！
     container_name: suzoo_react
     networks:
       - suzoo_net
-    # 若 React 前端為開發模式，可視需要開放對外埠號；否則經由 Nginx 代理即可
 
   suzoo_fastapi:
     build: ./fastapi
@@ -51,9 +42,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=<你的資料庫使用者>
-      - POSTGRES_PASSWORD=<你的資料庫密碼>
-      - POSTGRES_DB=<你的資料庫名稱>
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
 
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
@@ -63,7 +54,6 @@ services:
     ports:
       - "8545:8545"
     command: ganache-cli -h 0.0.0.0
-    # Ganache 提供區塊鏈本地節點，已開放 8545 埠供外部（如前端）連接
 
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
@@ -71,18 +61,16 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "4001:4001"   # 用於 IPFS 節點間通訊
-      - "5001:5001"   # 用於本地 API 控制
-      - "8080:8080"   # 用於提供 HTTP Gateway 服務
+      - "4001:4001"
+      - "5001:5001"
+      - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
 
-# 使用自訂的 Docker 網路，確保所有服務容器皆能互相溝通
 networks:
   suzoo_net:
     external: true
 
-# 定義命名卷供資料永久化儲存
 volumes:
   postgres_data:
   ipfs_data:
