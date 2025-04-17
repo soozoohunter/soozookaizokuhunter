@@ -1,19 +1,19 @@
-# express/Dockerfile
-
-FROM node:18-alpine
-
+# 修正：執行 npm install 並安裝缺少的 web3 套件
+FROM node:18
 WORKDIR /app
 
-# 複製 package.json / package-lock.json 並安裝依賴
+# 複製套件定義並安裝依賴
 COPY package*.json ./
-# 使用 --omit=dev 避免安裝 devDependencies
-RUN npm install --omit=dev
+RUN npm install
 
-# 複製整個專案源碼
+# 確保安裝 web3 套件，以避免 "Cannot find module 'web3'" 錯誤
+RUN npm install web3
+
+# 複製應用程式原始碼
 COPY . .
 
-# 對外暴露 3000 埠
+# 如果有需要，開放 Express 所使用的埠號（預設 3000）
 EXPOSE 3000
 
-# 指定啟動指令，假設您的主程式為 server.js
-CMD ["node", "server.js"]
+# 啟動 Express 應用（假設 package.json 定義了 start 腳本）
+CMD ["npm", "start"]
