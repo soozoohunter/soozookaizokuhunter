@@ -1,59 +1,41 @@
-// express/middleware/planUploadLimitCheck.js
-const User = require('../models/User');
+/********************************************************************
+ * middleware/planUploadLimitCheck.js
+ * 依 "BASIC / ADVANCED / PRO / ENTERPRISE" 不同的計畫檢查使用者上傳次數
+ ********************************************************************/
+const { User } = require('../models');
+const plans = require('../config/plans'); // 同樣從 plans.js 讀取
 
 module.exports = async function (req, res, next) {
   try {
+    // 假設在 authMiddleware 已經把 userId 放進 req.user
     const user = await User.findByPk(req.user.userId || req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // define usage limit by plan
-    const plan = user.plan || 'BASIC';
-    let maxVideo = 3, maxImage = 10;
-    let allowDMCA = false;
+    // 讀取資料庫中的 plan，可能是 'BASIC','ADVANCED','PRO','ENTERPRISE'
+    const planKey = user.plan || 'BASIC';
+    const planConfig = plans[planKey] || plans['BASIC'];
 
-    switch (plan) {
-      case 'BASIC':
-        maxVideo = 3;   // 首月免費
-        maxImage = 10;
-        allowDMCA = false;
-        break;
-      case 'ADVANCED':
-        maxVideo = 10;
-        maxImage = 25;
-        allowDMCA = true;
-        break;
-      case 'PRO':
-        maxVideo = 20;
-        maxImage = 50;
-        allowDMCA = true;
-        break;
-      case 'ENTERPRISE':
-        maxVideo = 9999;
-        maxImage = 9999;
-        allowDMCA = true;
-        break;
-      default:
-        // fallback
-        maxVideo = 3;
-        maxImage = 10;
-        allowDMCA = false;
-    }
+    // 取出對應數值
+    const maxVideo = planConfig.maxVideo || 3;
+    const maxImage = planConfig.maxImage || 10;
+    const allowDMCA = planConfig.allowDMCA || false;
 
-    // example usage
+    // 檢查上傳次數
     if (user.uploadVideos > maxVideo) {
-      return res.status(403).json({ error:`影片已達上限(${maxVideo})` });
+      return res.status(403).json({ error: `影片已達上限(${maxVideo})` });
     }
     if (user.uploadImages > maxImage) {
-      return res.status(403).json({ error:`圖片已達上限(${maxImage})` });
+      return res.status(403).json({ error: `圖片已達上限(${maxImage})` });
     }
 
-    // 存 allowDMCA 供後續路由檢查
+    // 將 allowDMCA 等資訊存到 req.userPlan 供後續使用
     req.userPlan = { allowDMCA, maxVideo, maxImage };
-    next();
-  } catch(e) {
+
+    return next();
+  } catch (e) {
     console.error('[planUploadLimitCheck] error:', e);
-    return res.status(500).json({ error:e.message });
+    return res.status(500).json({ error: e.message });
   }
 };
