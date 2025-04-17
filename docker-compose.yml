@@ -1,6 +1,6 @@
 services:
   ####################################################################
-  # 1) PostgreSQL
+  # 1) PostgreSQL (資料庫)
   ####################################################################
   suzoo_postgres:
     image: postgres:15-alpine
@@ -73,6 +73,7 @@ services:
       - "8000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ####################################################################
   # 5) Express (Node.js)
@@ -93,6 +94,7 @@ services:
       - "3000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ####################################################################
   # 6) React (前端)
@@ -109,14 +111,14 @@ services:
       - .env
     expose:
       - "3000"
-    # 若想在宿主機 http://HOST:3001 看到 React
     ports:
       - "3001:3000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ####################################################################
-  # 7) Nginx (對外)
+  # 7) Nginx (對外, SSL)
   ####################################################################
   suzoo_nginx:
     build:
@@ -131,17 +133,14 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # Nginx 組態檔
+      # 挂载自訂 Nginx 配置
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # 掛載 Let's Encrypt 憑證 (需確保宿主機該路徑存在)
+      # 挂载 Let's Encrypt 憑證 (注意宿主機要有 fullchain.pem & privkey.pem)
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
     restart: unless-stopped
 
-######################################################################
-# Docker networks & volumes
-######################################################################
 networks:
   suzoo_net:
     driver: bridge
