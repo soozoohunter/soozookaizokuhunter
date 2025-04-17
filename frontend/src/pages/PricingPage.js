@@ -87,7 +87,7 @@ export default function PricingPage() {
       <section style={styles.section}>
         <h2 style={styles.orangeText}>IP Litigation 智慧財產訴訟</h2>
         <p style={styles.desc}>
-          <strong>Copyright/Trademark Infringement</strong>: NT$999/case<br />
+          <strong>Copyright/Trademark Infringement</strong>: NT$9,999/case<br />
           (Upon winning, platform retains 20%, 80% returned to rights owner)
         </p>
         <p style={styles.desc}>
