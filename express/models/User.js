@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true,
       validate: {
-        isEmail: true  // 驗證格式為 Email
+        isEmail: true // 驗證格式為 Email
       }
     },
     // 用戶名
@@ -23,25 +23,25 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // 角色：預設 'user'，可為 'admin' 做後台管理
+    // 角色：預設 'user'，可為 'admin' 方便後台
     role: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user'
     },
-    // 會員方案 (plan)，預設 'free' 或 'BASIC'
+    // 會員方案 (plan)，預設 'free'
     plan: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'free'
     },
-    // 序號（可選）
+    // 序號 (optional)
     serialNumber: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: false // 若您需唯一可改 true，但您原先寫unique: true也行
+      unique: false // 若需唯一可改 true
     },
-    // 社群/電商綁定資訊（可選）
+    // 社群/電商綁定資訊 (optional) - 用字串儲存
     socialBinding: {
       type: DataTypes.STRING,
       allowNull: true
@@ -53,24 +53,22 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false
     }
   }, {
-    // 模型選項
     hooks: {
-      // 建立使用者前自動執行密碼加密
+      // 建立使用者前自動雜湊 (若你在 Router 已經手動雜湊，也可省略)
       beforeCreate: async (user, options) => {
         if (user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         }
       },
-      // 若有更新密碼需求，可在 beforeUpdate 中 similarly 雜湊
+      // 若要在更新密碼時也加密，可在 beforeUpdate
       // beforeUpdate: async (user, options) => { ... }
-    },
-    // 如果要使用下劃線命名，可以加 underscored: true
-    // underscored: true,
+    }
+    // underscored: true, // 如果要使用下劃線
   });
 
-  // 可定義模型關聯 (associations)
-  // 例如： User.associate = (models) => { ... };
+  // 可定義關聯
+  // User.associate = models => { ... };
 
   return User;
 };
