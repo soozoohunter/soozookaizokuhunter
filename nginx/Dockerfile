@@ -1,6 +1,3 @@
-FROM nginx:stable
-
+FROM nginx:latest
 COPY suzoo.conf /etc/nginx/conf.d/suzoo.conf
-
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
+EXPOSE 80 443
