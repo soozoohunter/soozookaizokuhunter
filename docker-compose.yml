@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   #############################
   # 1) PostgreSQL
@@ -108,7 +110,7 @@ services:
     expose:
       - "3000"
     ports:
-      - "3000:3000"
+      - "3001:3000"  # 外部端口改為3001避免與其他服務衝突
     networks:
       - suzoo_net
 
