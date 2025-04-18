@@ -1,7 +1,9 @@
+// frontend/src/App.js
+
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// 注意：jwtDecode 一般是從 'jwt-decode' 引入，而不是 { jwtDecode }
-import jwtDecode from 'jwt-decode';
+// ★ 改為具名匯出 → { decode as jwtDecode }
+import { decode as jwtDecode } from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -26,6 +28,17 @@ export default function App() {
     window.location.href = '/';
   };
 
+  // 導覽列連結樣式
+  const navLinkStyle = {
+    margin: '0 1rem',
+    color: '#e0e0e0',
+    textDecoration: 'none',
+    fontWeight: '500',
+    padding: '0.5rem 1rem',
+    border: '1px solid #ff6f00',
+    borderRadius: '4px'
+  };
+
   return (
     <div style={{
       fontFamily: 'Roboto, sans-serif',
@@ -43,8 +56,16 @@ export default function App() {
         alignItems: 'center'
       }}>
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-          <img src="/logo0.jpg" alt="Logo" style={{ height: '60px', width: 'auto', marginRight: '1rem' }} />
-          <span style={{ color: '#ff6f00', fontSize: '1.5rem', fontWeight: 'bold' }}>
+          <img
+            src="/logo0.jpg"
+            alt="Logo"
+            style={{ height: '60px', width: 'auto', marginRight: '1rem' }}
+          />
+          <span style={{
+            color: '#ff6f00',
+            fontSize: '1.5rem',
+            fontWeight: 'bold'
+          }}>
             速誅侵權獵人 SUZOO IP Guard
           </span>
         </Link>
@@ -122,13 +143,3 @@ export default function App() {
     </div>
   );
 }
-
-const navLinkStyle = {
-  margin: '0 1rem',
-  color: '#e0e0e0',
-  textDecoration: 'none',
-  fontWeight: '500',
-  padding: '0.5rem 1rem',
-  border: '1px solid #ff6f00',
-  borderRadius: '4px'
-};
