@@ -1,6 +1,7 @@
 // frontend/src/auth.js
 
-import { default as jwtDecode } from "jwt-decode";  // 正确导入 jwtDecode
+// 正确导入 jwtDecode：默认导出
+import jwtDecode from "jwt-decode";
 
 // Helper 函数：检查 JWT 是否过期
 function isTokenExpired(token) {
@@ -21,7 +22,6 @@ async function login(email, password) {
     body: JSON.stringify({ email, password })
   });
   if (!response.ok) {
-    // 提取错误信息（如果后端有返回）
     const errorData = await response.json().catch(() => ({}));
     const errorMsg = errorData.message || "Login failed";
     throw new Error(errorMsg);
@@ -60,7 +60,7 @@ function getAuthHeader() {
   return token ? { "Authorization": "Bearer " + token } : {};
 }
 
-// 导出 auth 对象，包含登录/登出等方法
+// 导出 auth 对象
 const auth = {
   login,
   logout,
