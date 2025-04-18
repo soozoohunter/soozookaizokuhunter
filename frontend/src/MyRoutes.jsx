@@ -1,4 +1,4 @@
-// src/MyRoutes.jsx
+// frontend/src/MyRoutes.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
