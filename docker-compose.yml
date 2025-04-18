@@ -118,7 +118,7 @@ services:
     restart: unless-stopped
 
   ####################################################################
-  # 7) Nginx (對外, SSL)
+  # 7) Nginx (對外)
   ####################################################################
   suzoo_nginx:
     build:
@@ -133,9 +133,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 挂载自訂 Nginx 配置
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # 挂载 Let's Encrypt 憑證 (注意宿主機要有 fullchain.pem & privkey.pem)
+      # 若您有 Let's Encrypt 憑證 => 挂載
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
