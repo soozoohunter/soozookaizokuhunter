@@ -1,28 +1,37 @@
-# 建置階段（Build Stage）
-FROM node:18-alpine AS builder
+# frontend/Dockerfile
+
+########################
+# 1) Builder Stage
+########################
+FROM node:16-alpine AS builder
+
 WORKDIR /app
 
-# 1. 刪除可能存在的 node_modules 目錄和 package-lock.json，避免快取衝突
-RUN rm -rf node_modules package-lock.json
-
-# 2. 複製相依性檔案並安裝依賴（包含指定版本的 jwt-decode@3.1.2）
+# 先複製 package.json 和 package-lock.json
 COPY package*.json ./
-RUN npm install jwt-decode@3.1.2 && npm install
 
-# 3. 複製應用程式原始碼並執行前端建置（React build）
+# ★ 在此鎖定 jwt-decode 版本（確保為 4.x）
+RUN npm install jwt-decode@4.0.0
+
+# 再安裝其他依賴
+RUN npm install
+
+# 複製剩餘前端程式碼
 COPY . .
+
+# 正式編譯
 RUN npm run build
 
-# 執行階段（Production Stage）
-FROM node:18-alpine
-WORKDIR /app
+########################
+# 2) Production Stage
+########################
+FROM nginx:alpine
 
-# 4. 從建置階段複製編譯後的前端靜態資源
-COPY --from=builder /app/build ./build
+# 直接將 build 出來的靜態檔部署到 Nginx 預設靜態目錄
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# 安裝 serve 套件供生產環境使用
-RUN npm install -g serve
+# 若您有自訂 Nginx 配置，可放在 /etc/nginx/conf.d/*.conf
+# 但通常 docker-compose 會掛載 suzoo.conf，這裡就不再重複
 
-# 容器啟動應用：使用 serve 提供編譯出的前端頁面
-EXPOSE 3000
-CMD ["serve", "-s", "build", "-l", "3000"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
