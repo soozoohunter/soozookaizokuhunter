@@ -1,5 +1,5 @@
 /********************************************************************
- * middleware/planMiddleware.js (Enterprise-Ready Version)
+ * middleware/planMiddleware.js (Enterprise-Ready)
  * 根據用戶 plan 檢查上傳 / API 次數限制
  ********************************************************************/
 const { User } = require('../models');
@@ -31,23 +31,20 @@ function planMiddleware(action) {
             error: '已達上傳次數限制，請升級方案'
           });
         }
-
-        // 若要回傳剩餘次數
+        // 計算剩餘次數 (可在 controller 中拿 req.usageLeft)
         const videosLeft = planConfig.uploadLimit - user.uploadVideos;
         const imagesLeft = planConfig.uploadLimitImages - user.uploadImages;
         req.usageLeft = {
           videos: videosLeft < 0 ? 0 : videosLeft,
           images: imagesLeft < 0 ? 0 : imagesLeft
         };
-
         console.log(`[planMiddleware] Plan=${user.plan}, videosLeft=${videosLeft}, imagesLeft=${imagesLeft}`);
 
       } else if (action === 'api') {
         // if (user.apiCallsUsed >= planConfig.apiLimit) {
-        //   return res.status(403).json({ error: 'API 次數已達上限，請升級方案' });
+        //   return res.status(403).json({ error: '已達 API 次數限制' });
         // }
       }
-
       return next();
     } catch (err) {
       console.error('[planMiddleware] error:', err);
