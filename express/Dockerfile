@@ -2,7 +2,7 @@ FROM node:18
 
 WORKDIR /app
 
-# 先複製 package*.json，以安裝依賴 (包含 joi)
+# 先複製 package*.json，以安裝依賴
 COPY package*.json ./
 
 RUN npm install
