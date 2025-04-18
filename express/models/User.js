@@ -3,56 +3,46 @@ const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    // 電子郵件
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
       validate: { isEmail: true }
     },
-    // 用戶名
     userName: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
-    // 密碼（哈希儲存）
     password: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // 角色：預設 'user'，可為 'admin'
     role: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user'
     },
-    // 會員方案 (plan)
     plan: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'free'
     },
-    // 序號 (optional)
     serialNumber: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // 社群/電商綁定資訊 (optional) - 用字串儲存
     socialBinding: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // 是否已付款
     isPaid: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false
     }
   }, {
-    // 如果您想在資料表上使用特定名稱
     tableName: 'users',
-    // 如果不需要 timestamps，可關閉
     // timestamps: false,
     hooks: {
       async beforeCreate(user) {
@@ -61,11 +51,9 @@ module.exports = (sequelize, DataTypes) => {
           user.password = await bcrypt.hash(user.password, salt);
         }
       }
-      // 若需 beforeUpdate 雜湊密碼也可加
     }
   });
 
-  // 如果有關聯，可在這裡定義
   // User.associate = (models) => { ... }
 
   return User;
