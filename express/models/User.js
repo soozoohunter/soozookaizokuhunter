@@ -2,70 +2,72 @@
 const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
-  // 以 define(...) 的方式直接回傳 Model
   const User = sequelize.define('User', {
-    // 電子郵件
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      validate: {
-        isEmail: true, // 驗證格式為 Email
-      },
+      validate: { isEmail: true }
     },
-    // 用戶名
     userName: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
+      unique: true
     },
-    // 密碼（哈希儲存）
     password: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: false
     },
-    // 角色：預設 'user'，可為 'admin'
     role: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'user',
+      defaultValue: 'user'
     },
-    // 會員方案 (plan)，預設 'free'
     plan: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'free',
+      defaultValue: 'free'
     },
-    // 序號 (optional)
     serialNumber: {
       type: DataTypes.STRING,
-      allowNull: true,
-      unique: false, // 若需唯一可改 true
+      allowNull: true
     },
-    // 社群/電商綁定資訊 (optional)
     socialBinding: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true
     },
-    // 是否已付款
     isPaid: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
-      defaultValue: false,
-    },
+      defaultValue: false
+    }
   }, {
+    tableName: 'Users',
+    timestamps: true,
     hooks: {
-      // 建立使用者前自動雜湊
-      async beforeCreate(user) {
+      beforeCreate: async user => {
         if (user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         }
-      },
-      // 若要在更新密碼時也加密，可在 beforeUpdate
-    },
-    // 其他設定如 tableName, underscored 等可放此
+      }
+      // 若要在更新密碼時也雜湊，可加 beforeUpdate
+    }
   });
+
+  User.associate = models => {
+    User.hasMany(models.File, {
+      as: 'files',
+      foreignKey: 'user_id',
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    });
+  };
 
   return User;
 };
