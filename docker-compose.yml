@@ -107,6 +107,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      # 若您要在 Docker build 時立即鎖定 jwt-decode 版本，可加 build args：
+      # args:
+      #   JWT_DECODE_VERSION: "4.0.0"
     container_name: suzoo_react
     depends_on:
       - suzoo_express
@@ -116,7 +119,7 @@ services:
     expose:
       - "3000"
     ports:
-      - "3001:3000"  # 外部看前端可改3001
+      - "3001:3000"  # 視需要對外
     networks:
       - suzoo_net
     healthcheck:
@@ -141,7 +144,6 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # SSL 憑證: 確保主機端有 /etc/letsencrypt/live/suzookaizokuhunter.com
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
     networks:
       - suzoo_net
