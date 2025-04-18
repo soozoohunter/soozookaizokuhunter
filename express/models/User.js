@@ -63,11 +63,12 @@ module.exports = (sequelize, DataTypes) => {
         }
       },
       // 若要在更新密碼時也加密，可加 beforeUpdate
-      // async beforeUpdate(user) { ... }
     },
     // underscored: true, // 如果要使用下劃線
   });
 
-  // 如果需要在此定義關聯，也可以使用 User.associate = ...
+  // 可在此定義關聯，如:
+  // User.associate = (models) => { ... }
+
   return User;
 };
