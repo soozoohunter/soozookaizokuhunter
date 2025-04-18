@@ -1,10 +1,7 @@
 services:
-  ########################################
-  # 1) PostgreSQL
-  ########################################
   suzoo_postgres:
     image: postgres:15-alpine
-    container_name: suzoo_postgres
+    # remove container_name: suzoo_postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -14,23 +11,11 @@ services:
       - suzoo_db_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -h localhost || exit 1"]
-      interval: 5s
-      retries: 5
 
-  ########################################
-  # 2) Ganache (ETH 私有鏈)
-  ########################################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
-    container_name: suzoo_ganache
-    command: >
-      ganache-cli
-      --host 0.0.0.0
-      --port 8545
-      --accounts 5
-      --defaultBalanceEther 100
+    # remove container_name: suzoo_ganache
+    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
@@ -38,12 +23,9 @@ services:
     volumes:
       - suzoo_ganache_data:/data
 
-  ########################################
-  # 3) IPFS (Kubo)
-  ########################################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
-    container_name: suzoo_ipfs
+    # remove container_name: suzoo_ipfs
     command: daemon
     ports:
       - "5001:5001"
@@ -53,14 +35,11 @@ services:
     networks:
       - suzoo_net
 
-  ########################################
-  # 4) FastAPI
-  ########################################
   suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
-    container_name: suzoo_fastapi
+    # remove container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
@@ -71,19 +50,12 @@ services:
       - "8000"
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 10s
-      retries: 5
 
-  ########################################
-  # 5) Express (後端)
-  ########################################
   suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
-    container_name: suzoo_express
+    # remove container_name: suzoo_express
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
@@ -95,22 +67,12 @@ services:
       - "3000"
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
-      interval: 10s
-      retries: 5
 
-  ########################################
-  # 6) React (前端)
-  ########################################
   suzoo_react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      # 若您要在 Docker build 時立即鎖定 jwt-decode 版本，可加 build args：
-      # args:
-      #   JWT_DECODE_VERSION: "4.0.0"
-    container_name: suzoo_react
+    # remove container_name: suzoo_react
     depends_on:
       - suzoo_express
       - suzoo_fastapi
@@ -119,22 +81,15 @@ services:
     expose:
       - "3000"
     ports:
-      - "3001:3000"  # 視需要對外
+      - "3001:3000"
     networks:
       - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
-      interval: 10s
-      retries: 5
 
-  ########################################
-  # 7) Nginx (對外: 80/443)
-  ########################################
   suzoo_nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    container_name: suzoo_nginx
+    # remove container_name: suzoo_nginx
     depends_on:
       - suzoo_react
       - suzoo_express
@@ -144,15 +99,10 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # ★ 改為整個 /etc/letsencrypt
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
-      interval: 10s
-      retries: 5
 
 networks:
   suzoo_net:
