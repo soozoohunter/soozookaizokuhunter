@@ -2,8 +2,16 @@
  * models/index.js
  * Sequelize 初始化 + 匯出 Model
  ********************************************************************/
-const { Sequelize } = require('sequelize');
+'use strict';
+
+const fs = require('fs');
 const path = require('path');
+const Sequelize = require('sequelize');
+
+// 當前檔名(如 index.js)
+const basename = path.basename(__filename);
+
+// 載入 .env
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 // 從環境變數或 .env 載入資料庫連線資訊
@@ -16,18 +24,36 @@ const sequelize = new Sequelize(DB_URL, {
   dialect: 'postgres', // 明確指定方言
 });
 
-// 匯入 Model
-const User = require('./User')(sequelize);
-const File = require('./File')(sequelize);
-// 如果有 Payment / Infringement Model, 亦可在這裡繼續 import
+const db = {};
 
-// 建立關聯 (User 1 - n File)
-User.hasMany(File, { foreignKey: 'user_id', as: 'files' });
-File.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
+// 讀取 models 目錄下所有 *.js，但排除 index.js 本身
+fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&           // 排除隱藏檔
+      file !== basename &&                // 排除 index.js 自己
+      file.slice(-3) === '.js'            // 只讀取 .js 檔
+    );
+  })
+  .forEach(file => {
+    // 依序載入並執行「(sequelize, Sequelize.DataTypes) => {...}」
+    const model = require(path.join(__dirname, file))(
+      sequelize,
+      Sequelize.DataTypes
+    );
+    db[model.name] = model;
+  });
+
+// 若有關聯 (associate)
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
 // 匯出
-module.exports = {
-  sequelize,
-  User,
-  File,
-};
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+
+module.exports = db;
