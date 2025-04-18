@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ v4.x: import { jwtDecode } from 'jwt-decode'
+// ★ 這裡就是 v4.x 的正確寫法
 import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
