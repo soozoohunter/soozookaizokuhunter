@@ -1,68 +1,57 @@
 // frontend/src/auth.js
 
-// 以 named import 拿到 decode，再重新命名為 jwtDecode
-import { decode as jwtDecode } from 'jwt-decode';
+// 從 jwt-decode 裡面用 named import 取出 jwtDecode
+import { jwtDecode } from 'jwt-decode';
 
 /**
  * 檢查 JWT 是否過期
  * @param {string} token 
- * @returns {boolean} true 表示已過期或解析失敗
+ * @returns {boolean} 過期或解析失敗回傳 true
  */
 export function isTokenExpired(token) {
   try {
     const decoded = jwtDecode(token);
-    return decoded.exp && (decoded.exp * 1000 < Date.now());
+    return decoded.exp && decoded.exp * 1000 < Date.now();
   } catch (e) {
     return true;
   }
 }
 
 /**
- * 登入函數：呼叫後端 API 進行登入
- * @param {string} email 使用者 Email
- * @param {string} password 使用者密碼
- * @returns {Promise<object>} 後端返回的 JSON 資料 (包含 token)
+ * 登入：呼叫後端 /api/auth/login，拿到 token 後存入 localStorage
+ * @param {string} email 
+ * @param {string} password 
+ * @returns {Promise<object>} 後端回傳 JSON（包含 token）
  */
 export async function login(email, password) {
-  // 若您有自定義環境變數，可放在 process.env.REACT_APP_API_BASE_URL
-  const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const API_BASE = process.env.REACT_APP_API_BASE_URL || '';
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || "Login failed");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Login failed');
   }
-
-  const data = await response.json();
+  const data = await res.json();
   if (data.token) {
-    localStorage.setItem("token", data.token);
+    localStorage.setItem('token', data.token);
   }
   return data;
 }
 
-/**
- * 登出函數：清除本地保存的 JWT
- */
+/** 登出：清除 localStorage 中的 token */
 export function logout() {
-  localStorage.removeItem("token");
+  localStorage.removeItem('token');
 }
 
-/**
- * 取得目前保存的 JWT
- * @returns {string|null}
- */
+/** 取得目前的 JWT（或 null） */
 export function getToken() {
-  return localStorage.getItem("token");
+  return localStorage.getItem('token');
 }
 
-/**
- * 取得當前使用者資訊（從 JWT 解碼）
- * @returns {object|null}
- */
+/** 解碼 JWT，回傳 payload 物件（或 null） */
 export function getUser() {
   const token = getToken();
   if (!token) return null;
@@ -73,24 +62,20 @@ export function getUser() {
   }
 }
 
-/**
- * 取得 Authorization Header，供需驗證的 API 請求使用
- * @returns {object} { Authorization: 'Bearer xxx' } 或 {}
- */
+/** 取得帶 Bearer 的 Authorization header */
 export function getAuthHeader() {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * 可選：匯出所有方法的集合
- */
+/** （可選）一次 export 所有方法 */
 const auth = {
+  isTokenExpired,
   login,
   logout,
   getToken,
   getUser,
   getAuthHeader,
-  isTokenExpired
 };
+
 export default auth;
