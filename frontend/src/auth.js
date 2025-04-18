@@ -1,73 +1,64 @@
 // frontend/src/auth.js
 
-// 正确导入 jwtDecode：默认导出
+// 正确的默认导入 jwt-decode（不要用命名导入，也不要用大括号）
 import jwtDecode from "jwt-decode";
 
 // Helper 函数：检查 JWT 是否过期
-function isTokenExpired(token) {
+export function isTokenExpired(token) {
   try {
     const decoded = jwtDecode(token);
     return decoded.exp && decoded.exp * 1000 < Date.now();
-  } catch (e) {
+  } catch {
     return true;
   }
 }
 
 // 登录函数：调用后端 API 进行登录，成功则将 JWT 保存
-async function login(email, password) {
+export async function login(email, password) {
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
+  const resp = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const errorMsg = errorData.message || "Login failed";
-    throw new Error(errorMsg);
+  if (!resp.ok) {
+    const errJson = await resp.json().catch(() => ({}));
+    throw new Error(errJson.message || "Login failed");
   }
-  const data = await response.json();
-  if (data.token) {
-    localStorage.setItem("token", data.token);
+  const { token, ...rest } = await resp.json();
+  if (token) {
+    localStorage.setItem("token", token);
   }
-  return data;
+  return { token, ...rest };
 }
 
-// 登出函数：清除本地保存的 JWT
-function logout() {
+// 登出：清除本地 JWT
+export function logout() {
   localStorage.removeItem("token");
 }
 
-// 取得当前保存的 JWT（可能为 null）
-function getToken() {
+// 获取当前存储的 JWT
+export function getToken() {
   return localStorage.getItem("token");
 }
 
-// 取得当前用户信息（从 JWT 解码），若无效则返回 null
-function getUser() {
+// 从 JWT 解出用户信息
+export function getUser() {
   const token = getToken();
   if (!token) return null;
   try {
     return jwtDecode(token);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
-// 取得 Authorization Header，供需验证的 API 请求使用
-function getAuthHeader() {
+// 构造 Authorization header
+export function getAuthHeader() {
   const token = getToken();
-  return token ? { "Authorization": "Bearer " + token } : {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// 导出 auth 对象
-const auth = {
-  login,
-  logout,
-  getToken,
-  getUser,
-  getAuthHeader,
-  isTokenExpired
-};
-
+// 默认导出一个合集（可选）
+const auth = { login, logout, getToken, getUser, getAuthHeader, isTokenExpired };
 export default auth;
