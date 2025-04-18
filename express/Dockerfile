@@ -1,19 +1,23 @@
-# Node.js Alpine 版
+# express/Dockerfile
+
 FROM node:18-alpine
 
-# 設定工作目錄
 WORKDIR /app
 
-# 先複製 package.json / package-lock.json，安裝 production 相依（不安裝 devDependencies）
+# 複製 package.json / package-lock.json 並安裝依賴
 COPY package*.json ./
-RUN npm install --omit=dev \
-    && npm install web3
 
-# 複製其餘原始碼
+# 安裝所有依賴 (包含 web3)
+RUN npm install
+
+# 若 package.json 中尚無 web3，可手動補一行：
+# RUN npm install web3
+
+# 複製 Express 專案程式碼
 COPY . .
 
-# 對外暴露應用埠
+# 對外暴露 3000 埠
 EXPOSE 3000
 
-# 啟動 Express 應用
-CMD ["npm", "start"]
+# 指定啟動指令 (假設您的主程式為 server.js)
+CMD ["node", "server.js"]
