@@ -1,36 +1,60 @@
 /********************************************************************
  * models/index.js
- * Sequelize 初始化 + 匯出 Model
+ * Sequelize 初始化 + 動態載入並匯出所有 Model
  ********************************************************************/
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+const Sequelize = require('sequelize');
 
-// 同時匯入 Sequelize 與 DataTypes
-const { Sequelize, DataTypes } = require('sequelize');
+const env = process.env.NODE_ENV || 'development';
+const configPath = path.resolve(__dirname, '..', 'config', 'config.json');
+let cfg = {};
 
-const DB_URL =
-  process.env.DATABASE_URL ||
-  `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}` +
-  `@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
+if (fs.existsSync(configPath)) {
+  cfg = require(configPath)[env];
+} else {
+  // fallback to environment variables
+  cfg = {
+    database: process.env.POSTGRES_DB,
+    username: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT,
+    dialect: process.env.DB_DIALECT || 'postgres'
+  };
+}
 
-// 建立 Sequelize 實例
-const sequelize = new Sequelize(DB_URL, {
-  dialect: 'postgres',
-  logging: false, // 需求可改 true
+// if you have a single DATABASE_URL env var:
+if (cfg.use_env_variable) {
+  cfg = Object.assign(cfg, { url: process.env[cfg.use_env_variable] });
+}
+
+const sequelize = cfg.url
+  ? new Sequelize(cfg.url, cfg)
+  : new Sequelize(cfg.database, cfg.username, cfg.password, cfg);
+
+const db = {};
+const basename = path.basename(__filename);
+
+// 動態載入同目錄下所有模型
+fs.readdirSync(__dirname)
+  .filter(f => f.indexOf('.') !== 0 && f !== basename && f.slice(-3) === '.js')
+  .forEach(f => {
+    const modelDef = require(path.join(__dirname, f));
+    const model = typeof modelDef === 'function'
+      ? modelDef(sequelize, Sequelize.DataTypes)
+      : modelDef;
+    db[model.name] = model;
+  });
+
+// 執行各模型的 associate (若有定義)
+Object.keys(db).forEach(name => {
+  if (db[name].associate) {
+    db[name].associate(db);
+  }
 });
 
-// 匯入 Model，注意要把 `DataTypes` 一併傳給工廠函式
-const User = require('./User')(sequelize, DataTypes);
-const File = require('./File')(sequelize, DataTypes);
-// 若有更多 Model（如 Payment、Infringement 等）也可在此匯入
-
-// 建立關聯
-User.hasMany(File, { foreignKey: 'user_id', as: 'files' });
-File.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
-
-// 匯出
-module.exports = {
-  sequelize,
-  User,
-  File,
-};
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
+module.exports = db;
