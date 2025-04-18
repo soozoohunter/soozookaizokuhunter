@@ -2,16 +2,13 @@
 const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
-  // 定義 User Model
   const User = sequelize.define('User', {
     // 電子郵件
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
-      validate: {
-        isEmail: true // 驗證格式為 Email
-      }
+      validate: { isEmail: true }
     },
     // 用戶名
     userName: {
@@ -24,13 +21,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // 角色：預設 'user'，可為 'admin' 方便後台
+    // 角色：預設 'user'，可為 'admin'
     role: {
       type: DataTypes.STRING,
       allowNull: false,
       defaultValue: 'user'
     },
-    // 會員方案 (plan)，預設 'free'
+    // 會員方案 (plan)
     plan: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -39,8 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     // 序號 (optional)
     serialNumber: {
       type: DataTypes.STRING,
-      allowNull: true,
-      unique: false // 若需唯一可改 true
+      allowNull: true
     },
     // 社群/電商綁定資訊 (optional) - 用字串儲存
     socialBinding: {
@@ -54,20 +50,22 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false
     }
   }, {
+    // 如果您想在資料表上使用特定名稱
+    tableName: 'users',
+    // 如果不需要 timestamps，可關閉
+    // timestamps: false,
     hooks: {
-      // 建立使用者前自動雜湊 (若已在其他地方雜湊可省略)
       async beforeCreate(user) {
         if (user.password) {
           const salt = await bcrypt.genSalt(10);
           user.password = await bcrypt.hash(user.password, salt);
         }
-      },
-      // 若要在更新密碼時也加密，可加 beforeUpdate
-    },
-    // underscored: true, // 如果要使用下劃線
+      }
+      // 若需 beforeUpdate 雜湊密碼也可加
+    }
   });
 
-  // 可在此定義關聯，如:
+  // 如果有關聯，可在這裡定義
   // User.associate = (models) => { ... }
 
   return User;
