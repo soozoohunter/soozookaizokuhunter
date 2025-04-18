@@ -1,25 +1,18 @@
-/********************************************************************
- * server.js
- * - 載入 .env
- * - 連 PostgreSQL (Sequelize)，自動建表
- * - 啟動 Express
- * - 掛載所有路由
- * - (若有需要) createDefaultAdmin 建管理員帳號
- * - 最後開始監聽
- ********************************************************************/
+'use strict';
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
 
-// ★ 載入 models/index.js 裡的 db 物件
-const db = require('./models'); 
-// 若有需要可引入 createDefaultAdmin、區塊鏈服務等
-// const { createDefaultAdmin } = require('./createDefaultAdmin'); 
-// const blockchainService = require('./services/blockchainService'); // ex.
+// 載入 models/index.js
+const db = require('./models');
 
-// 中介軟體與路由
+// 如果有需要可載入 createDefaultAdmin、blockchainService 等
+// const { createDefaultAdmin } = require('./createDefaultAdmin');
+// const blockchainService = require('./services/blockchainService');
+
+// 路由
 const authMiddleware = require('./middleware/authMiddleware');
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
@@ -36,26 +29,17 @@ app.get('/health', (req, res) => {
   res.send(`Express server healthy - DB: ${process.env.POSTGRES_DB}`);
 });
 
-// ========================
 // 路由掛載
-// ========================
-// 例如:
 // app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
-// app.use('/api/trademarks', trademarkRoutes);
-// app.use('/api/payment', paymentRoutes);
 
-// ========================
-// 同步 Sequelize，啟動 Express
-// ========================
+// 同步資料表 & 啟動 Express
 db.sequelize.sync({ alter: false })
   .then(async () => {
     console.log('[server.js] All tables synced!');
 
-    // 如果您有 createDefaultAdmin，要在此執行
-    // if (createDefaultAdmin) {
-    //   await createDefaultAdmin();
-    // }
+    // 若有預設管理員邏輯
+    // if (createDefaultAdmin) await createDefaultAdmin();
 
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, '0.0.0.0', () => {
