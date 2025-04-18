@@ -1,19 +1,25 @@
 // frontend/src/auth.js
 
-// 使用 default import 來引入 jwt-decode
-import jwtDecode from "jwt-decode";
+// 以具名匯入方式拿到 'decode' 函數，並重新命名為 jwtDecode
+import { decode as jwtDecode } from 'jwt-decode';
 
-// Helper 函數：檢查 JWT 是否過期
+/**
+ * 檢查 JWT 是否過期
+ * @param {string} token 
+ * @returns {boolean} true 表示已過期或解析失敗
+ */
 export function isTokenExpired(token) {
   try {
     const decoded = jwtDecode(token);
-    return decoded.exp && decoded.exp * 1000 < Date.now();
+    // 若有 exp 欄位，檢查是否已超時
+    return decoded.exp && (decoded.exp * 1000 < Date.now());
   } catch (e) {
+    // 無法解析 token
     return true;
   }
 }
 
-// 登入函數：呼叫後端 API 進行登入，成功則將 JWT 保存
+// 登入函數：呼叫後端 API 進行登入
 export async function login(email, password) {
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
   const response = await fetch(`${API_BASE}/api/auth/login`, {
@@ -21,13 +27,10 @@ export async function login(email, password) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const errorMsg = errorData.message || "Login failed";
-    throw new Error(errorMsg);
+    throw new Error(errorData.message || "Login failed");
   }
-
   const data = await response.json();
   if (data.token) {
     localStorage.setItem("token", data.token);
@@ -62,6 +65,12 @@ export function getAuthHeader() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// 可選：匯出所有方法的集合
-const auth = { login, logout, getToken, getUser, getAuthHeader, isTokenExpired };
-export default auth;
+// 若需要可再匯出一個預設
+export default {
+  login,
+  logout,
+  getToken,
+  getUser,
+  getAuthHeader,
+  isTokenExpired
+};
