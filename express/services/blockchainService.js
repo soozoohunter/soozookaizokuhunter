@@ -1,22 +1,26 @@
 // services/blockchainService.js
 
+'use strict';
 require('dotenv').config();  // 確保讀取 .env 設定
 
 const Web3 = require('web3');
-const { BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS } = process.env;
+const {
+  BLOCKCHAIN_RPC_URL,
+  BLOCKCHAIN_PRIVATE_KEY,
+  CONTRACT_ADDRESS
+} = process.env;
 
 // 環境變數檢查
 if (!BLOCKCHAIN_RPC_URL || !BLOCKCHAIN_PRIVATE_KEY || !CONTRACT_ADDRESS) {
   throw new Error('缺少區塊鏈相關的環境變數設定 (.env)');
 }
 
-// 初始化 Web3 與區塊鏈連線
-const web3 = new Web3(BLOCKCHAIN_RPC_URL);
+// 使用 HttpProvider 明確初始化
+const web3 = new Web3(new Web3.providers.HttpProvider(BLOCKCHAIN_RPC_URL));
 
 // 從私鑰取得錢包帳戶並加入 web3 錢包管理
 const account = web3.eth.accounts.privateKeyToAccount(BLOCKCHAIN_PRIVATE_KEY);
 web3.eth.accounts.wallet.add(account);
-// 設定預設發送交易的帳戶
 web3.eth.defaultAccount = account.address;
 
 // 定義合約 ABI（需與實際部署的合約介面一致）
@@ -42,51 +46,48 @@ const contractABI = [
     "type": "function"
   }
 ];
-// 使用合約 ABI 和位址初始化合約物件
 const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
 
 /**
  * 將使用者資料寫入區塊鏈合約。
- * @param {Object} user 包含使用者資訊的物件（userName, email, serialNumber, ig, fb, ... 等欄位）
- * @returns {Promise<string>} 回傳交易的雜湊值 (transaction hash)
+ * @param {Object} user 包含使用者資訊的物件
+ * @returns {Promise<string>} 回傳交易的雜湊值
  */
 async function storeUserOnChain(user) {
-  const { userName, email, serialNumber, ig, fb, youtube, tiktok, shopee, ruten, ebay, amazon, taobao } = user;
-  try {
-    // 準備交易資料: 呼叫合約的 storeUser 方法
-    const tx = contract.methods.storeUser(
-      userName, 
-      email, 
-      serialNumber, 
-      ig || '', 
-      fb || '', 
-      youtube || '', 
-      tiktok || '', 
-      shopee || '', 
-      ruten || '', 
-      ebay || '', 
-      amazon || '', 
-      taobao || ''
-    );
+  const tx = contract.methods.storeUser(
+    user.userName,
+    user.email,
+    user.serialNumber || '',
+    user.ig || '',
+    user.fb || '',
+    user.youtube || '',
+    user.tiktok || '',
+    user.shopee || '',
+    user.ruten || '',
+    user.ebay || '',
+    user.amazon || '',
+    user.taobao || ''
+  );
 
-    // 估算所需的 gas 值
-    const gas = await tx.estimateGas({ from: account.address });
-    // 獲取目前網路建議的 gas price
-    const gasPrice = await web3.eth.getGasPrice();
+  const gas     = await tx.estimateGas({ from: account.address });
+  const gasPrice = await web3.eth.getGasPrice();
+  const receipt = await tx.send({ from: account.address, gas, gasPrice });
 
-    // 使用錢包帳戶發送交易（自動簽署）
-    const receipt = await tx.send({ 
-      from: account.address, 
-      gas, 
-      gasPrice 
-    });
-
-    console.log(`Blockchain Tx successful: ${receipt.transactionHash}`);
-    return receipt.transactionHash;
-  } catch (err) {
-    console.error('Error in storeUserOnChain:', err);
-    throw err;
-  }
+  console.log(`Blockchain Tx successful: ${receipt.transactionHash}`);
+  return receipt.transactionHash;
 }
 
-module.exports = { storeUserOnChain };
+/**
+ * 查詢指定地址的以太餘額（Wei）
+ * @param {string} address 以太坊地址
+ * @returns {Promise<string>} 以 Wei 為單位的餘額字串
+ */
+async function getBalance(address) {
+  return await web3.eth.getBalance(address);
+}
+
+module.exports = {
+  web3,
+  storeUserOnChain,
+  getBalance
+};
