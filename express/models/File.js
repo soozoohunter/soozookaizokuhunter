@@ -2,18 +2,15 @@
 
 module.exports = (sequelize, DataTypes) => {
   const File = sequelize.define('File', {
-    // ★ 將原先的 filename 與 snippet 的 fileName 統一為 fileName
+    // 針對檔案基本資訊
     fileName: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // ★ 新增 filePath 欄位
     filePath: {
       type: DataTypes.STRING,
       allowNull: false
     },
-
-    // ★ 從原先 snippet 保留
     fingerprint: {
       type: DataTypes.STRING(64)
     },
@@ -34,13 +31,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
     },
-
-    // ★ 關聯到 user_id
+    // 關聯到 user
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users',  // 注意：這裡參考的是資料庫內的 "Users" 表
+        model: 'users', // DB 裡的 users 表
         key: 'id'
       },
       onUpdate: 'CASCADE',
@@ -51,7 +47,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false
   });
 
-  // 關聯設定
+  // 定義關聯
   File.associate = models => {
     File.belongsTo(models.User, { as: 'owner', foreignKey: 'user_id' });
   };
