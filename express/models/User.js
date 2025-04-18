@@ -3,11 +3,6 @@ const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true
-    },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -47,8 +42,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: false
     }
   }, {
-    tableName: 'Users',
-    timestamps: true,
     hooks: {
       beforeCreate: async user => {
         if (user.password) {
@@ -56,17 +49,11 @@ module.exports = (sequelize, DataTypes) => {
           user.password = await bcrypt.hash(user.password, salt);
         }
       }
-      // 若要在更新密碼時也雜湊，可加 beforeUpdate
     }
   });
 
   User.associate = models => {
-    User.hasMany(models.File, {
-      as: 'files',
-      foreignKey: 'user_id',
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE'
-    });
+    User.hasMany(models.File, { as: 'files', foreignKey: 'user_id', onDelete: 'CASCADE' });
   };
 
   return User;
