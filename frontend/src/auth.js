@@ -1,9 +1,9 @@
 // frontend/src/auth.js
 
-// 正确的默认导入 jwt-decode（不要用命名导入，也不要用大括号）
-import jwtDecode from "jwt-decode";
+// 使用 require 引入 jwt-decode，避免默认导出报错
+const jwtDecode = require("jwt-decode");
 
-// Helper 函数：检查 JWT 是否过期
+// Helper: 检查 JWT 是否过期
 export function isTokenExpired(token) {
   try {
     const decoded = jwtDecode(token);
@@ -13,7 +13,7 @@ export function isTokenExpired(token) {
   }
 }
 
-// 登录函数：调用后端 API 进行登录，成功则将 JWT 保存
+// 登录：调用后端，拿到 token 后存入 localStorage
 export async function login(email, password) {
   const API_BASE = process.env.REACT_APP_API_BASE_URL || "";
   const resp = await fetch(`${API_BASE}/api/auth/login`, {
@@ -22,27 +22,27 @@ export async function login(email, password) {
     body: JSON.stringify({ email, password }),
   });
   if (!resp.ok) {
-    const errJson = await resp.json().catch(() => ({}));
-    throw new Error(errJson.message || "Login failed");
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.message || "Login failed");
   }
-  const { token, ...rest } = await resp.json();
-  if (token) {
-    localStorage.setItem("token", token);
+  const data = await resp.json();
+  if (data.token) {
+    localStorage.setItem("token", data.token);
   }
-  return { token, ...rest };
+  return data;
 }
 
-// 登出：清除本地 JWT
+// 登出：清除 token
 export function logout() {
   localStorage.removeItem("token");
 }
 
-// 获取当前存储的 JWT
+// 获取当前 token
 export function getToken() {
   return localStorage.getItem("token");
 }
 
-// 从 JWT 解出用户信息
+// 从 token 解出用户信息
 export function getUser() {
   const token = getToken();
   if (!token) return null;
