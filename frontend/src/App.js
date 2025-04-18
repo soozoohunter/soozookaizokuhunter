@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ 改為具名匯出 → { decode as jwtDecode }
-import { decode as jwtDecode } from 'jwt-decode';
+// ★ v4.x: import { jwtDecode } from 'jwt-decode'
+import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -14,7 +14,7 @@ export default function App() {
   if (token) {
     try {
       const decoded = jwtDecode(token);
-      userRole = decoded.role;
+      userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token', e);
     }
