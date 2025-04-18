@@ -144,7 +144,8 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
+      # ★ 改為整個 /etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
     restart: unless-stopped
