@@ -3,7 +3,7 @@
  * - 讀取 .env（若無則使用 fallback）
  * - 連 PostgreSQL (Sequelize) 並同步資料表
  * - 啟動 Express
- * - 掛載所有路由 (auth, upload, membership)
+ * - 掛載所有路由 (auth, upload, membership, admin)
  * - 提供健康檢查 /api/health
  * - 在 production 模式時，提供 React 靜態檔 (../frontend/build)
  */
@@ -59,6 +59,7 @@ app.use(express.urlencoded({ extended: true }));
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const membershipRoutes = require('./routes/membership');
+const adminRoutes = require('./routes/admin'); // ★ 新增：管理員路由
 
 //---------------------
 // 健康檢查 /api/health
@@ -68,11 +69,16 @@ app.get('/api/health', (req, res) => {
 });
 
 //---------------------
-// 掛載路由
+// 掛載一般路由
 //---------------------
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/membership', membershipRoutes);
+
+//---------------------
+// 管理員後台路由 (不帶 /api)，以符合您前端 fetch('/admin/users')
+//---------------------
+app.use('/admin', adminRoutes);
 
 //---------------------
 // 若在 production 中，提供 React build
