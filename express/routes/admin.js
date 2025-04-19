@@ -1,7 +1,7 @@
 /********************************************************************
  * routes/admin.js
- * - 管理員登入 (POST /api/admin/login)
- * - 使用者管理 (GET/POST/PUT/DELETE /api/admin/users[/:id])
+ * - 管理員登入 (POST /admin/login)
+ * - 使用者管理 (GET/POST/PUT/DELETE /admin/users[/:id])
  *   僅允許 admin 角色可操作
  ********************************************************************/
 const express = require('express');
@@ -10,11 +10,12 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { User } = require('../models'); // Sequelize User Model
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 /** =========================
  * 1) 管理員登入
- * POST /api/admin/login
+ * POST /admin/login
  * body: { email, password }
  * ========================= */
 router.post('/login', async (req, res) => {
@@ -58,7 +59,7 @@ function authAdminMiddleware(req, res, next) {
   const token = authHeader.replace(/^Bearer\s/, '').trim();
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    if (!decoded.role || decoded.role !== 'admin') {
+    if (decoded.role !== 'admin') {
       return res.status(403).json({ error: '存取被拒絕：僅限管理員' });
     }
     req.user = decoded;
@@ -69,16 +70,15 @@ function authAdminMiddleware(req, res, next) {
   }
 }
 
-// 保護以下所有路由
-router.use(authAdminMiddleware);
+// 保護以下所有 /admin/users 路由
+router.use('/users', authAdminMiddleware);
 
 /** =========================
- * 3) GET /api/admin/users
+ * 3) GET /admin/users
  * 取得全部使用者清單 (只限admin)
  * ========================= */
 router.get('/users', async (req, res) => {
   try {
-    // 只排除 password 欄位
     const users = await User.findAll({
       attributes: { exclude: ['password'] }
     });
@@ -90,7 +90,7 @@ router.get('/users', async (req, res) => {
 });
 
 /** =========================
- * 4) POST /api/admin/users
+ * 4) POST /admin/users
  * 新增使用者 (只限admin)
  * body: { email, userName, password, role, plan, ... }
  * ========================= */
@@ -110,7 +110,7 @@ router.post('/users', async (req, res) => {
     // bcrypt 雜湊
     const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 預設 plan, role, serialNumber, socialBinding
+    // 預設 plan, role
     const finalRole = role || 'user';
     const finalPlan = plan || 'free';
 
@@ -124,12 +124,9 @@ router.post('/users', async (req, res) => {
       serialNumber: serialNumber || null,
       socialBinding: socialBinding || null
     });
-    // 回傳更新後清單或只回傳建立的那筆
-    // 這邊回傳所有使用者清單，以符合前端「更新後重新顯示最新清單」的需求
-    const allUsers = await User.findAll({
-      attributes: { exclude: ['password'] }
-    });
-    return res.status(201).json(allUsers);
+
+    // 回傳單筆 or 所有使用者
+    return res.status(201).json(newUser); // 只回傳「新增那筆」給前端
   } catch (err) {
     console.error('[POST /admin/users Error]:', err);
     return res.status(500).json({ error: '無法新增使用者' });
@@ -137,7 +134,7 @@ router.post('/users', async (req, res) => {
 });
 
 /** =========================
- * 5) PUT /api/admin/users/:id
+ * 5) PUT /admin/users/:id
  * 編輯指定使用者
  * ========================= */
 router.put('/users/:id', async (req, res) => {
@@ -155,7 +152,6 @@ router.put('/users/:id', async (req, res) => {
     if (socialBinding !== undefined) updateFields.socialBinding = socialBinding;
     if (isPaid !== undefined) updateFields.isPaid = isPaid;
 
-    // 若沒要更新任何欄位
     if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({ error: '未提供任何更新欄位' });
     }
@@ -173,13 +169,11 @@ router.put('/users/:id', async (req, res) => {
       }
     }
 
-    // 執行更新
     const [count] = await User.update(updateFields, { where: { id: userId } });
     if (count === 0) {
       return res.status(404).json({ error: '找不到此使用者，或無法更新' });
     }
 
-    // 回傳更新後的使用者（排除 password）
     const updatedUser = await User.findByPk(userId, {
       attributes: { exclude: ['password'] }
     });
@@ -191,7 +185,7 @@ router.put('/users/:id', async (req, res) => {
 });
 
 /** =========================
- * 6) DELETE /api/admin/users/:id
+ * 6) DELETE /admin/users/:id
  * 刪除使用者
  * ========================= */
 router.delete('/users/:id', async (req, res) => {
@@ -201,7 +195,7 @@ router.delete('/users/:id', async (req, res) => {
     if (deletedCount === 0) {
       return res.status(404).json({ error: '找不到該使用者' });
     }
-    return res.status(204).send();
+    return res.sendStatus(204); // 204 no content
   } catch (err) {
     console.error('[DELETE /admin/users/:id Error]:', err);
     return res.status(500).json({ error: '刪除使用者失敗' });
