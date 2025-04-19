@@ -1,3 +1,4 @@
+// frontend/src/pages/PricingPage.js
 import React from 'react';
 
 export default function PricingPage() {
@@ -130,11 +131,25 @@ const styles = {
   desc: { marginTop: '1rem', lineHeight: '1.5' },
   planGrid: { display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' },
   ctaArea: { textAlign: 'center', marginTop: '3rem' },
-  ctaBtn: { backgroundColor: '#ff6f00', color: '#fff', padding: '0.75rem 2rem', border: 'none', borderRadius: '5px', fontSize: '1rem', cursor: 'pointer' }
+  ctaBtn: {
+    backgroundColor: '#ff6f00',
+    color: '#fff',
+    padding: '0.75rem 2rem',
+    border: 'none',
+    borderRadius: '5px',
+    fontSize: '1rem',
+    cursor: 'pointer'
+  }
 };
 
 const cardStyles = {
-  card: { border: '2px solid #ff6f00', borderRadius: '8px', padding: '1rem', backgroundColor: '#161b22', width: '240px' },
+  card: {
+    border: '2px solid #ff6f00',
+    borderRadius: '8px',
+    padding: '1rem',
+    backgroundColor: '#161b22',
+    width: '240px'
+  },
   planName: { color: '#ff6f00', margin: '0 0 0.5rem', fontSize: '1.5rem' },
   price: { fontWeight: 'bold', margin: '0.5rem 0' },
   list: { margin: '1rem 0', textAlign: 'left', paddingLeft: '1rem' },
