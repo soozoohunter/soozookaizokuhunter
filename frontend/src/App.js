@@ -1,15 +1,12 @@
-// frontend/src/App.js
-
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ 這裡就是 v4.x 的正確寫法
+// ★ 確認 jwt-decode v4.x import 用法
 import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 解析 JWT 取得使用者角色
   let userRole = '';
   if (token) {
     try {
@@ -28,7 +25,6 @@ export default function App() {
     window.location.href = '/';
   };
 
-  // 導覽列連結樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
