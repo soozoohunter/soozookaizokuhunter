@@ -4,7 +4,6 @@ services:
   ########################################
   suzoo_postgres:
     image: postgres:15-alpine
-    # 不指定 container_name，讓 Compose 自動取名
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -14,8 +13,6 @@ services:
       - suzoo_db_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
-    # 如果要對外開放 Postgres port，可自行加 "5432:5432"
-    # 也可保留 internal-only
 
   ########################################
   # 2) Ganache (ETH 私有鏈)
@@ -30,10 +27,10 @@ services:
       --defaultBalanceEther 100
     ports:
       - "8545:8545"
-    networks:
-      - suzoo_net
     volumes:
       - suzoo_ganache_data:/data
+    networks:
+      - suzoo_net
 
   ########################################
   # 3) IPFS (Kubo)
@@ -71,6 +68,7 @@ services:
   # 5) Express (後端)
   ########################################
   suzoo_express:
+    container_name: suzoo_express
     build:
       context: ./express
       dockerfile: Dockerfile
@@ -101,7 +99,7 @@ services:
     expose:
       - "3000"
     ports:
-      - "3001:3000"  # 對外顯示 React 的預設埠
+      - "3001:3000"  # 對外顯示 React
     networks:
       - suzoo_net
 
@@ -121,7 +119,6 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # 掛載整個 /etc/letsencrypt
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
