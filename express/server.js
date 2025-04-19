@@ -13,6 +13,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const db = require('./models'); // <-- Sequelize 初始化
 
 //---------------------
 // 讀取環境變數 + fallback
@@ -20,7 +21,7 @@ const path = require('path');
 const DB_URL = process.env.DATABASE_URL
   || 'postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo';
 
-const JWT_SECRET = process.env.JWT_SECRET 
+const JWT_SECRET = process.env.JWT_SECRET
   || 'ZmVkOWY4ZDItNWU3MC00NDM5LW';
 
 const IPFS_API_URL = process.env.IPFS_API_URL
@@ -38,15 +39,19 @@ const SSL_CERT_KEY_PATH = process.env.SSL_CERT_KEY_PATH
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
   || '71dbbf39f7msh794002260b4e71bp1025e2jsn652998e0f81a';
 
-const EMAIL_USER = process.env.EMAIL_USER 
+const EMAIL_USER = process.env.EMAIL_USER
   || 'jeffqqm@gmail.com';
 
-// ...其餘環境變數可同理列出 (Cloudinary, etc.)
+// 其他環境變數可依需求列出
+// ...
 
 //---------------------
-// 載入 Sequelize
+// 建立 Express App
 //---------------------
-const db = require('./models');
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 //---------------------
 // 路由
@@ -55,20 +60,11 @@ const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const membershipRoutes = require('./routes/membership');
 
-const app = express();
-
-//---------------------
-// Middleware
-//---------------------
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 //---------------------
 // 健康檢查 /api/health
 //---------------------
 app.get('/api/health', (req, res) => {
-  res.send('OK'); // 只要回應 OK
+  res.send('OK');
 });
 
 //---------------------
@@ -79,19 +75,18 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/membership', membershipRoutes);
 
 //---------------------
-// 提供 React build (若 NODE_ENV=production)
+// 若在 production 中，提供 React build
 //---------------------
 if (process.env.NODE_ENV === 'production') {
   const staticPath = path.join(__dirname, '../frontend/build');
   app.use(express.static(staticPath));
-  // 任何未匹配路徑都回傳 index.html
   app.get('*', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });
 }
 
 //---------------------
-// 同步 Sequelize
+// 同步 Sequelize + 啟動
 //---------------------
 db.sequelize
   .sync({ alter: false })
@@ -108,7 +103,7 @@ db.sequelize
       console.log('Using SSL_CERT_KEY_PATH =', SSL_CERT_KEY_PATH);
       console.log('Using RAPIDAPI_KEY =', RAPIDAPI_KEY);
       console.log('Using EMAIL_USER =', EMAIL_USER);
-      // ...可視需求console更多
+      // ...可視需求再 console 更多
     });
   })
   .catch((err) => {
