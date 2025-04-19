@@ -7,7 +7,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { User } = require('../models');
+const { User } = require('../models'); // Sequelize Model
 const chain = require('../utils/chain');
 
 // JWT秘鑰設定
@@ -42,13 +42,16 @@ router.post('/register', async (req, res) => {
   const { email, userName, password, role } = value;
 
   try {
+    // 檢查重複 Email
     const exist = await User.findOne({ where: { email } });
     if (exist) {
       return res.status(400).json({ message: '此 Email 已被註冊' });
     }
 
+    // 雜湊密碼
     const hashedPwd = await bcrypt.hash(password, 10);
 
+    // 建立新用戶
     const newUser = await User.create({
       email,
       userName,
@@ -57,6 +60,7 @@ router.post('/register', async (req, res) => {
       plan: 'BASIC'
     });
 
+    // (可選) 區塊鏈紀錄
     try {
       await chain.writeCustomRecord('REGISTER', JSON.stringify({ email, userName, role }));
     } catch (e) {
@@ -70,7 +74,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 登入路由
+// 登入路由 (Email + Password)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -88,6 +92,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
+    // 簽發 JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email, plan: user.plan, role: user.role },
       JWT_SECRET,
@@ -101,7 +106,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 透過使用者名稱登入 (可選)
+// 透過 userName + password 登入 (可選)
 router.post('/loginByUserName', async (req, res) => {
   try {
     const { userName, password } = req.body;
@@ -119,6 +124,7 @@ router.post('/loginByUserName', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
+    // 簽發 JWT
     const token = jwt.sign(
       { userId: user.id, userName: user.userName, plan: user.plan, role: user.role },
       JWT_SECRET,
