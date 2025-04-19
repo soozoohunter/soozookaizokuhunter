@@ -1,206 +1,249 @@
-/**
- * express/server.js (整合後單一版本)
+/********************************************************************
+ * express/routes/auth.js
  *
- * - 讀取 .env（若無則使用 fallback）
- * - 連 PostgreSQL (Sequelize) 並同步資料表
- * - （可選）同時初始化 pg 原生 Client + Ethereum Blockchain
- * - 啟動 Express
- * - 掛載所有路由 (auth, upload, membership, admin)
- * - 提供健康檢查 /api/health
- * - 在 production 模式時，提供 React 靜態檔 (../frontend/build)
- */
-
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-
+ * 完整整合：
+ *   1) 註冊 (POST /register)
+ *   2) 單一路由 (POST /login) => 同時支援 email 或 userName + password
+ *   3) (可選) loginByUserName (若仍需沿用)
+ *
+ * 使用 Sequelize + PostgreSQL (User.findOne / User.create)
+ * 區塊鏈記錄 => chain.writeCustomRecord(...) (可自行擴充)
+ * 
+ * 在 server.js / app.js 中掛載:
+ *   const authRoutes = require('./routes/auth');
+ *   app.use('/auth', authRoutes);
+ *
+ * 最終端點:
+ *   POST /auth/register
+ *   POST /auth/login
+ *   POST /auth/loginByUserName  (可選)
+ ********************************************************************/
 const express = require('express');
-const cors = require('cors');
-const path = require('path');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const Joi = require('joi');
+const { User } = require('../models'); // Sequelize Model (User)
+const chain = require('../utils/chain'); // (可選) 區塊鏈寫入函式
 
-// 1) Sequelize 初始化
-const db = require('./models'); // <-- 包含 Sequelize 實例
-const { sequelize } = db;       // 也可 db.sequelize
+// 讀取 JWT 秘鑰
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-// 2) 可選：pg 原生 Client (若您確實要用到 app.js 原生查詢)
-const { Client } = require('pg');
+/* ------------------ 1) Joi 驗證規則 ------------------ */
 
-// 3) 可選：ethers, blockchain
-const { ethers } = require('ethers');
-
-//---------------------
-// 讀取環境變數 + fallback
-//---------------------
-const {
-  DATABASE_URL,
-  POSTGRES_HOST,
-  POSTGRES_PORT,
-  POSTGRES_USER,
-  POSTGRES_PASSWORD,
-  POSTGRES_DB,
-  NODE_ENV,
-  JWT_SECRET,
-  IPFS_API_URL,
-  BLOCKCHAIN_RPC_URL,
-  BLOCKCHAIN_PRIVATE_KEY,
-  CONTRACT_ADDRESS,
-  SSL_CERT_PATH,
-  SSL_CERT_KEY_PATH,
-  RAPIDAPI_KEY,
-  EMAIL_USER
-} = process.env;
-
-// 預設 fallback
-const DB_URL = DATABASE_URL
-  || 'postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo';
-
-//---------------------
-// 可選：初始化 pg 原生 client (來自原 app.js)
-//---------------------
-let rawClient = null;
-if (POSTGRES_HOST && POSTGRES_USER && POSTGRES_DB) {
-  rawClient = new Client({
-    host: POSTGRES_HOST,
-    port: POSTGRES_PORT,
-    user: POSTGRES_USER,
-    password: POSTGRES_PASSWORD,
-    database: POSTGRES_DB
-  });
-  rawClient.connect()
-    .then(() => {
-      console.log('Raw pg client: connected to PostgreSQL');
-      // 如果您確實想用 raw query 建表，可在這邊執行
-      const sql = `
-        CREATE TABLE IF NOT EXISTS users_raw (
-          id SERIAL PRIMARY KEY,
-          username VARCHAR(255) UNIQUE NOT NULL,
-          password_hash VARCHAR(255) NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        );`;
-      return rawClient.query(sql);
-    })
-    .then(() => {
-      console.log("'users_raw' table ensured (for raw pg demo)");
-    })
-    .catch(err => {
-      console.error("Raw pg client init error:", err);
-    });
-} else {
-  console.log('Raw pg client is disabled (missing POSTGRES_ env?).');
-}
-
-//---------------------
-// 可選：Ethereum 區塊鏈初始化
-//---------------------
-let provider = null;
-let wallet = null;
-let contract = null;
-function initBlockchain() {
-  if (BLOCKCHAIN_RPC_URL && BLOCKCHAIN_PRIVATE_KEY && CONTRACT_ADDRESS) {
-    try {
-      provider = new ethers.providers.JsonRpcProvider(BLOCKCHAIN_RPC_URL);
-      wallet = new ethers.Wallet(BLOCKCHAIN_PRIVATE_KEY, provider);
-      const abi = [
-        {
-          "inputs":[{"name":"username","type":"string"}],
-          "name":"registerUser",
-          "outputs":[],
-          "stateMutability":"nonpayable",
-          "type":"function"
-        }
-      ];
-      contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
-      console.log("Blockchain contract interface ready");
-    } catch(e) {
-      console.error("ETH init error:", e);
-    }
-  } else {
-    console.log("Blockchain config not complete, skip init.");
-  }
-}
-
-// (示範) 區塊鏈上鏈函式
-async function registerUserOnChain(username) {
-  if (!contract) return null;
-  try {
-    const tx = await contract.registerUser(username);
-    const receipt = await tx.wait();
-    return receipt.transactionHash;
-  } catch (e) {
-    console.error("registerUserOnChain error:", e);
-    return null;
-  }
-}
-
-//---------------------
-// 建立 Express App
-//---------------------
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-//---------------------
-// 路由
-//---------------------
-const authRoutes = require('./routes/auth');
-const uploadRoutes = require('./routes/upload');
-const membershipRoutes = require('./routes/membership');
-const adminRoutes = require('./routes/admin'); // ★ 新增：管理員路由
-
-//---------------------
-// 健康檢查 /api/health
-//---------------------
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', mode: NODE_ENV || 'development' });
+// 註冊用 (含 role 與社群欄位)
+// ★ role 改為 optional；若前端未傳 => 後端預設 'user'
+const registerSchema = Joi.object({
+  email: Joi.string().email().required(),
+  userName: Joi.string().required(),
+  password: Joi.string().required(),
+  confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
+  role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin')
+            .optional(),  // 前端可不傳，後端預設 'user'
+  IG: Joi.string().allow(''),
+  FB: Joi.string().allow(''),
+  YouTube: Joi.string().allow(''),
+  TikTok: Joi.string().allow(''),
+  Shopee: Joi.string().allow(''),
+  Ruten: Joi.string().allow(''),
+  Yahoo: Joi.string().allow(''),
+  Amazon: Joi.string().allow(''),
+  eBay: Joi.string().allow(''),
+  Taobao: Joi.string().allow('')
 });
 
-//---------------------
-// 掛載一般路由
-//---------------------
-app.use('/api/auth', authRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/membership', membershipRoutes);
+// 單一路由 login => 同時支援 email 或 userName (擇一) + password
+// 透過 xor('email','userName')
+const loginSchema = Joi.object({
+  email: Joi.string().email(),
+  userName: Joi.string(),
+  password: Joi.string().required()
+}).xor('email', 'userName');
 
-//---------------------
-// 管理員後台路由 (不帶 /api)，對應前端 fetch('/admin/...')
-//---------------------
-app.use('/admin', adminRoutes);
 
-//---------------------
-// 若在 production 中，提供 React build
-//---------------------
-if (NODE_ENV === 'production') {
-  const staticPath = path.join(__dirname, '../frontend/build');
-  app.use(express.static(staticPath));
-  // 任何未知路徑都回傳前端 index.html
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(staticPath, 'index.html'));
-  });
-}
+/* ------------------ 2) 註冊路由 (POST /register) ------------------ */
+router.post('/register', async (req, res) => {
+  try {
+    // (A) Joi 驗證表單
+    const { error, value } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
 
-//---------------------
-// 同步 Sequelize + 啟動
-//---------------------
-sequelize
-  .sync({ alter: false })
-  .then(() => {
-    console.log('[server.js] PostgreSQL + Sequelize synced!');
-    // 初始化區塊鏈
-    initBlockchain();
+    // (B) 解構 + 正規化
+    let {
+      email,
+      userName,
+      password,
+      role, // optional
+      IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+    } = value;
+    email = email.trim().toLowerCase();
 
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Express server listening on port ${PORT}`);
-      console.log('Using DB_URL =', DB_URL);
-      console.log('Using JWT_SECRET =', JWT_SECRET || 'No JWT Secret?');
-      console.log('Using IPFS_API_URL =', IPFS_API_URL);
-      console.log('Using BLOCKCHAIN_RPC_URL =', BLOCKCHAIN_RPC_URL);
-      console.log('Using SSL_CERT_PATH =', SSL_CERT_PATH);
-      console.log('Using SSL_CERT_KEY_PATH =', SSL_CERT_KEY_PATH);
-      console.log('Using RAPIDAPI_KEY =', RAPIDAPI_KEY);
-      console.log('Using EMAIL_USER =', EMAIL_USER);
-      console.log('MODE =', NODE_ENV);
+    // (C) 檢查 Email 是否已被註冊
+    const existEmail = await User.findOne({ where: { email } });
+    if (existEmail) {
+      return res.status(400).json({ message: '此 Email 已被註冊' });
+    }
+
+    // (D) 檢查 userName 是否已使用
+    const existUserName = await User.findOne({ where: { userName } });
+    if (existUserName) {
+      return res.status(400).json({ message: '使用者名稱已被使用' });
+    }
+
+    // (E) bcrypt 雜湊
+    const hashedPwd = await bcrypt.hash(password, 10);
+
+    // (F) 若 role 不合法 (或未傳), 預設 'user'
+    if (!role || !['admin','user','copyright','trademark','both'].includes(role)) {
+      role = 'user';
+    }
+
+    // (G) 建立用戶 (plan='BASIC' 為示範，您可自行改)
+    const newUser = await User.create({
+      email,
+      userName,
+      password: hashedPwd,
+      role,
+      plan: 'BASIC',
+      // 若要存 IG,FB,Shopee... 到同一欄位 => JSON.stringify
+      socialBinding: JSON.stringify({
+        IG, FB, YouTube, TikTok, Shopee,
+        Ruten, Yahoo, Amazon, eBay, Taobao
+      })
     });
-  })
-  .catch((err) => {
-    console.error('[server.js] sync error:', err);
-  });
+
+    // (H) (可選) 區塊鏈紀錄
+    try {
+      await chain.writeCustomRecord(
+        'REGISTER',
+        JSON.stringify({ email, userName, role })
+      );
+    } catch (chainErr) {
+      console.error('[Register => blockchain error]', chainErr);
+    }
+
+    // (I) 回傳
+    return res.status(201).json({
+      message: '註冊成功',
+      role: newUser.role
+    });
+
+  } catch (err) {
+    console.error('[Register Error]', err);
+    // 針對 Sequelize Unique Constraint
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      const field = err.errors?.[0]?.path;
+      let msg = '資料重複無法使用';
+      if (field === 'email') {
+        msg = '此 Email 已被註冊';
+      } else if (field === 'userName') {
+        msg = '使用者名稱已被使用';
+      }
+      return res.status(400).json({ message: msg });
+    }
+    return res.status(500).json({ message: '註冊失敗，請稍後再試' });
+  }
+});
+
+
+/* ------------------ 3) 單一路由 /login (POST) ------------------
+   同時支援 email+password 或 userName+password
+   預設 token 有效期 1 小時
+---------------------------------------------------------------- */
+router.post('/login', async (req, res) => {
+  try {
+    // (A) Joi 驗證
+    const { error, value } = loginSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    let { email, userName, password } = value;
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
+
+    // (B) 找出使用者 => email 或 userName
+    let user;
+    if (email) {
+      user = await User.findOne({ where: { email } });
+    } else {
+      user = await User.findOne({ where: { userName } });
+    }
+
+    if (!user) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
+    }
+
+    // (C) bcrypt compare
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
+    }
+
+    // (D) 簽發 JWT
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        userName: user.userName,
+        plan: user.plan,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // (E) 回傳
+    return res.json({ message: '登入成功', token });
+  } catch (err) {
+    console.error('[Login Error]', err);
+    return res.status(500).json({ message: '登入失敗，請稍後再試' });
+  }
+});
+
+
+/* ------------------ 4) (可選) /loginByUserName (POST) ------------------
+   若您確定沒其他程式用到，可刪除此段避免重複功能。
+----------------------------------------------------------------------- */
+router.post('/loginByUserName', async (req, res) => {
+  try {
+    const { userName, password } = req.body;
+    if (!userName || !password) {
+      return res.status(400).json({ message: '請提供使用者名稱及密碼' });
+    }
+
+    const user = await User.findOne({ where: { userName } });
+    if (!user) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
+    }
+
+    // JWT (24h)
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        userName: user.userName,
+        plan: user.plan,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return res.json({ message: '登入成功！', token });
+  } catch (err) {
+    console.error('[loginByUserName Error]', err);
+    return res.status(500).json({ message: '伺服器錯誤，請稍後再試' });
+  }
+});
+
+
+/* ------------------ 匯出路由 ------------------ */
+module.exports = router;
