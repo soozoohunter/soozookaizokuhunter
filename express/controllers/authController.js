@@ -1,125 +1,164 @@
 /**
  * express/controllers/authController.js
- * - 註冊 / 登入，不再包含商標/著作權欄位
- * - 僅允許 role='admin' 或 'user'；若前端不傳 role，就預設 'user'
+ * - 單一路由 /login 同時支援 email or userName + password
+ * - 註冊時不包含商標 / 著作權欄位
  */
+const Joi = require('joi');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');  // 由 ../models/index.js 匯出
+const { User } = require('../models'); // 由 ../models/index.js 匯出
+const chain = require('../utils/chain');
 
-// 註冊新使用者
+const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+
+/* ---------- Joi Schema ---------- */
+// registerSchema：保留您現有欄位 (email, userName, password, confirmPassword, role, IG, FB ...)
+const registerSchema = Joi.object({
+  email: Joi.string().email().required(),
+  userName: Joi.string().required(),
+  password: Joi.string().required(),
+  confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
+  // 角色若前端沒傳就用後端預設
+  role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin').optional(),
+  // 以下社群欄位全可 optional
+  IG: Joi.string().allow(''),
+  FB: Joi.string().allow(''),
+  YouTube: Joi.string().allow(''),
+  TikTok: Joi.string().allow(''),
+  Shopee: Joi.string().allow(''),
+  Ruten: Joi.string().allow(''),
+  Yahoo: Joi.string().allow(''),
+  Amazon: Joi.string().allow(''),
+  eBay: Joi.string().allow(''),
+  Taobao: Joi.string().allow('')
+});
+
+// loginSchema：xor('email', 'userName') -> email 或 userName 其一 + password
+const loginSchema = Joi.object({
+  email: Joi.string().email(),
+  userName: Joi.string(),
+  password: Joi.string().required()
+}).xor('email', 'userName');
+
+/* ---------- Controller ---------- */
+
+// ★ 註冊
 exports.register = async (req, res) => {
   try {
-    // 前端若不再傳 role，則可拿掉 role 參數
-    const {
+    const { error, value } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    let {
       email,
       userName,
       password,
       confirmPassword,
-      role, // 可能沒傳，若不需要可刪
-      serialNumber,
-      socialBinding
-    } = req.body;
+      role,
+      IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+    } = value;
 
-    // 1. 後端再次驗證必要欄位是否齊全
-    if (!email || !userName || !password || !confirmPassword) {
-      return res.status(400).json({ message: '必填欄位未填 / Required fields missing' });
+    email = email.trim().toLowerCase(); // normalize email
+
+    // 1) 檢查 email 是否已存在
+    const existEmail = await User.findOne({ where: { email } });
+    if (existEmail) {
+      return res.status(400).json({ message: '此 Email 已被註冊' });
     }
 
-    // 2. 確認密碼與確認密碼是否一致
-    if (password !== confirmPassword) {
-      return res.status(400).json({ message: '密碼不一致 / Passwords do not match' });
+    // 2) 檢查 userName 是否已存在
+    const existUser = await User.findOne({ where: { userName } });
+    if (existUser) {
+      return res.status(400).json({ message: '使用者名稱已被使用' });
     }
 
-    // 3. 設定角色 (若未提供就預設'user')
-    let finalRole = role;
-    if (!finalRole || (finalRole !== 'admin' && finalRole !== 'user')) {
-      finalRole = 'user'; // 強制 'user'
-    }
+    // 3) bcrypt hash
+    const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 4. 處理序號欄位：空字串轉為 null，避免唯一性衝突
-    let finalSerial = serialNumber;
-    if (typeof finalSerial === 'string' && finalSerial.trim() === '') {
-      finalSerial = null;
-    }
+    // 4) 預設 role = 'user' (若前端沒傳 or 傳了奇怪)
+    let finalRole = (role === 'admin' || role === 'user') ? role : 'user';
 
-    // 5. 建立使用者
+    // 5) 建立 user (預設 plan='BASIC')
     const newUser = await User.create({
       email,
       userName,
-      password, // 會由 Model Hook 進行 bcrypt
+      password: hashedPwd,
       role: finalRole,
-      serialNumber: finalSerial,
-      socialBinding
+      plan: 'BASIC',
+      // 若您想把 IG, FB, ... 存進 DB 的 socialBinding，可以 JSON.stringify
+      socialBinding: JSON.stringify({ IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao })
     });
 
-    // 6. （可選）呼叫區塊鏈 / IPFS
+    // 6) (可選) 區塊鏈紀錄
+    try {
+      await chain.writeCustomRecord('REGISTER', JSON.stringify({ email, userName, role: finalRole }));
+    } catch (chainErr) {
+      console.error('[Register => blockchain error]', chainErr);
+    }
 
-    // 7. 簽發 JWT
-    const token = jwt.sign(
-      { id: newUser.id, role: newUser.role },
-      process.env.JWT_SECRET || 'default_jwt_secret',
-      { expiresIn: '7d' }
-    );
-
-    // 8. 回傳
-    return res.status(201).json({
-      message: '註冊成功 / Registration successful',
-      token
-    });
-
+    // 7) 回傳
+    return res.status(201).json({ message: '註冊成功', role: newUser.role });
   } catch (err) {
-    // 捕捉 Sequelize UNIQUE 錯誤
+    console.error('[Register Error]', err);
     if (err.name === 'SequelizeUniqueConstraintError') {
-      const field = err.errors?.[0]?.path;
-      let message = '資料重複無法使用 / Duplicate field value';
+      const field = err.errors && err.errors[0] && err.errors[0].path;
+      let message = '資料重複無法使用';
       if (field === 'email') {
-        message = '電子郵件已被使用 / Email already in use';
+        message = '此 Email 已被註冊';
       } else if (field === 'userName') {
-        message = '用戶名已被使用 / Username already in use';
-      } else if (field === 'serialNumber') {
-        message = '序號已被使用 / Serial number already in use';
+        message = '使用者名稱已被使用';
       }
       return res.status(400).json({ message });
     }
-    // 其他錯誤
-    console.error('[Register Error]', err);
-    return res.status(500).json({ message: '伺服器錯誤，請稍後再試 / Server error, please try later' });
+    return res.status(500).json({ message: '註冊失敗，請稍後再試' });
   }
 };
 
-// 使用者登入
+// ★ 登入 (同一路由，可 email or userName 搭配 password)
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: '請提供 email 與密碼 / Provide email & password' });
+    const { error, value } = loginSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
     }
 
-    const user = await User.findOne({ where: { email } });
+    let { email, userName, password } = value;
+    if (email) email = email.trim().toLowerCase();
+
+    // 1) 找出使用者
+    let user;
+    if (email) {
+      user = await User.findOne({ where: { email } });
+    } else if (userName) {
+      user = await User.findOne({ where: { userName } });
+    }
     if (!user) {
-      return res.status(401).json({ message: '電子郵件或密碼錯誤 / Incorrect email or password' });
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 比對 bcrypt
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: '電子郵件或密碼錯誤 / Incorrect email or password' });
+    // 2) bcrypt compare
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 簽發 JWT
+    // 3) 簽發 JWT (24h 有效)
     const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET || 'default_jwt_secret',
-      { expiresIn: '7d' }
+      {
+        userId: user.id,
+        email: user.email,
+        userName: user.userName,
+        plan: user.plan,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
     );
 
-    return res.json({
-      message: '登入成功 / Login successful',
-      token
-    });
+    return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
-    return res.status(500).json({ message: '伺服器錯誤，請稍後再試 / Server error, please try later' });
+    return res.status(500).json({ message: '登入失敗，請稍後再試' });
   }
 };
