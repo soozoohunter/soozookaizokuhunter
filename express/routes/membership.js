@@ -3,13 +3,14 @@ require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User } = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
+// 簡易 JWT 驗證 (不改您原先語法)
 function authMiddleware(req, res, next){
   try {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/,'');
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/, '');
     if(!token) {
       return res.status(401).json({ error:'未登入' });
     }
@@ -25,7 +26,7 @@ function authMiddleware(req, res, next){
 // GET /membership => 查看會員資料
 router.get('/', authMiddleware, async(req,res)=>{
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const user = await User.findByPk(userId);
     if(!user) {
       return res.status(404).json({ error:'使用者不存在' });
@@ -49,15 +50,16 @@ router.get('/', authMiddleware, async(req,res)=>{
   }
 });
 
-// POST /membership/upgrade => 升級 (傳入 targetPlan=PRO or ENTERPRISE)
+// POST /membership/upgrade => 升級 (支援 ADVANCED / PRO / ENTERPRISE)
 router.post('/upgrade', authMiddleware, async(req,res)=>{
   try {
-    const userId = req.user.id;
-    const { targetPlan } = req.body; // e.g. PRO / ENTERPRISE
+    const userId = req.user.userId;
+    const { targetPlan } = req.body; // e.g. ADVANCED / PRO / ENTERPRISE
     if(!targetPlan) {
       return res.status(400).json({ error:'缺少 targetPlan' });
     }
-    if(!['PRO','ENTERPRISE'].includes(targetPlan)){
+    // 與前端 PricingPage: BASIC / ADVANCED / PRO / ENTERPRISE
+    if(!['ADVANCED','PRO','ENTERPRISE'].includes(targetPlan)){
       return res.status(400).json({ error:'無效的方案' });
     }
 
@@ -69,7 +71,7 @@ router.post('/upgrade', authMiddleware, async(req,res)=>{
     await user.save();
 
     return res.json({
-      message:'已升級為 '+ targetPlan +' 方案',
+      message:`已升級為 ${targetPlan} 方案`,
       plan: user.plan
     });
   } catch(e){
