@@ -1,5 +1,3 @@
-// express/models/index.js
-
 'use strict';
 
 const path = require('path');
@@ -8,27 +6,29 @@ const { Sequelize } = require('sequelize');
 
 // 從環境或 .env 取得連線字串
 const DB_URL = process.env.DATABASE_URL ||
-  `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}` +
-  `@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
+  `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}`
+  + `@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
 
 // 建立 Sequelize 實例
 const sequelize = new Sequelize(DB_URL, {
   dialect: 'postgres',
-  logging: false,  // 看需求要不要印 SQL log
+  logging: false, // 可視需求調整
 });
 
-// 手動匯入各個 Model
+// ★ 手動匯入各個 Model
 const User = require('./User')(sequelize, Sequelize.DataTypes);
+// 若有其他 Model, ex:
 const File = require('./File')(sequelize, Sequelize.DataTypes);
 
-// 若有其他 Model，如 Payment、Infringement...
+// 若有 Payment, Infringement, etc.
 // const Payment = require('./Payment')(sequelize, Sequelize.DataTypes);
 
 // 建立關聯
 User.hasMany(File, { foreignKey: 'user_id', as: 'files' });
 File.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
 
-// 匯出
+// 若有 Payment, Infringement, etc. 也可在此做關聯
+
 module.exports = {
   sequelize,
   User,
