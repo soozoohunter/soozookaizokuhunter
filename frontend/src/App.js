@@ -1,7 +1,8 @@
+// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ 改用 default import：import jwtDecode from 'jwt-decode'
-import jwtDecode from 'jwt-decode';
+// ★ 使用具名匯出: import { jwtDecode } from 'jwt-decode'
+import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -10,7 +11,7 @@ export default function App() {
   let userRole = '';
   if (token) {
     try {
-      // 直接使用 jwtDecode(token)
+      // 直接呼叫 jwtDecode(token)
       const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
