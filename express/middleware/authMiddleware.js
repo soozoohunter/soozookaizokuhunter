@@ -21,14 +21,12 @@ module.exports = function authMiddleware(req, res, next) {
   }
 
   try {
-    // 3. 驗證 JWT，若過期或簽名不符，會拋出錯誤進入 catch
+    // 3. 驗證 JWT
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // 4. 檢查使用者是否具備管理員資格
+    // 4. 檢查使用者是否具備管理員資格 (可選)
     const userEmail = decoded.email;
     const userRole = decoded.role;
-    // 符合下列兩種情況之一即可：
-    // (A) role=admin  (B) email in [ 'jeffqqm@gmail.com', 'zacyao88@icloud.com' ]
     const isAdmin = (userRole === 'admin');
     const isAllowedEmail =
       userEmail === 'jeffqqm@gmail.com' ||
@@ -38,11 +36,10 @@ module.exports = function authMiddleware(req, res, next) {
       return res.status(403).json({ message: '禁止存取：您的帳號無權限執行此操作' }); // 403
     }
 
-    // 通過驗證與權限檢查
-    req.user = decoded; // 可以在後續路由取得 req.user
+    // 通過
+    req.user = decoded;
     next();
   } catch (err) {
-    // JWT 驗證失敗或過期
     console.error('[authMiddleware] 驗證失敗：', err);
     return res.status(401).json({ message: '身份驗證失敗：無效的 Token' });
   }
