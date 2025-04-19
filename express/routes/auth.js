@@ -1,37 +1,44 @@
 /********************************************************************
  * express/routes/auth.js
- * 
+ *
  * 完整整合：
  *   1) 註冊 (POST /register)
  *   2) 單一路由 (POST /login) => 同時支援 email 或 userName + password
  *   3) (可選) loginByUserName (若您暫時仍需沿用)
- * 
+ *
  * 使用 Sequelize + PostgreSQL (User.findOne / User.create)
  * 區塊鏈記錄 => chain.writeCustomRecord(...) (可自行擴充)
+ * 
+ * 路由掛載:
+ *   app.use('/auth', require('./routes/auth'));
+ * 最終路徑:
+ *   POST /auth/register
+ *   POST /auth/login
+ *   POST /auth/loginByUserName (可選)
  ********************************************************************/
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { User } = require('../models'); // Sequelize Model
-const chain = require('../utils/chain');
+const { User } = require('../models'); // Sequelize Model (User)
+const chain = require('../utils/chain'); // (可選) 區塊鏈寫入函式
 
-// JWT秘鑰
+// 讀取 JWT 秘鑰
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-/* ------------------ Joi 驗證規則 ------------------ */
+/* ------------------ 1) Joi 驗證規則 ------------------ */
 
 // 註冊用 (含 role 與社群欄位)
+// 調整：role 改為 .optional()，若前端未傳則後端預設 'user'
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   userName: Joi.string().required(),
   password: Joi.string().required(),
   confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
-  // role：可為 copyright / trademark / both / user / admin
-  // 若前端一定會傳，就維持 .required()
-  // 若希望前端可不傳，可改 .optional()
-  role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin').required(),
+  // role 可為 copyright / trademark / both / user / admin；改為 optional
+  role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin').optional(),
+  // 以下社群 / 電商欄位全可 optional
   IG: Joi.string().allow(''),
   FB: Joi.string().allow(''),
   YouTube: Joi.string().allow(''),
@@ -44,8 +51,7 @@ const registerSchema = Joi.object({
   Taobao: Joi.string().allow('')
 });
 
-// 單一路由 login => 同時支援 email 或 userName
-// 透過 xor('email','userName') => email 與 userName 擇一即可
+// 單一路由 login => 同時支援 email 或 userName (擇一) + password
 const loginSchema = Joi.object({
   email: Joi.string().email(),
   userName: Joi.string(),
@@ -53,82 +59,115 @@ const loginSchema = Joi.object({
 }).xor('email', 'userName');
 
 
-/* ------------------ 1) 註冊路由 (POST /register) ------------------ */
+/* ------------------ 2) 註冊路由 (POST /register) ------------------ */
 router.post('/register', async (req, res) => {
   try {
-    // 1. Joi 驗證
+    // (A) Joi 驗證表單
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    // 解構
-    const {
+    // (B) 解構
+    let {
       email,
       userName,
       password,
-      role
-      // 其餘 IG, FB, Shopee... 若您要存 DB，可自行擴充
+      role, // optional，若沒給就後端預設 'user'
+      IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
     } = value;
 
-    // 2. 檢查是否已有相同 Email
+    // email 正規化
+    email = email.trim().toLowerCase();
+
+    // (C) 檢查 Email 是否已被註冊
     const existEmail = await User.findOne({ where: { email } });
     if (existEmail) {
       return res.status(400).json({ message: '此 Email 已被註冊' });
     }
 
-    // 3. bcrypt 雜湊密碼
+    // (D) 檢查 userName 是否已被使用
+    const existUserName = await User.findOne({ where: { userName } });
+    if (existUserName) {
+      return res.status(400).json({ message: '使用者名稱已被使用' });
+    }
+
+    // (E) bcrypt 雜湊
     const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 4. 建立新用戶 (plan='BASIC' 預設)
+    // (F) 若 role 不合法 (或未傳), 預設 user
+    if (!role || !['admin','user','copyright','trademark','both'].includes(role)) {
+      role = 'user';
+    }
+
+    // (G) 新增用戶 (plan='BASIC'為範例；可自行改)
     const newUser = await User.create({
       email,
       userName,
       password: hashedPwd,
       role,
-      plan: 'BASIC'
-      // 若要存社群欄位，可存至 socialBinding 欄位
-      // socialBinding: JSON.stringify({ IG, FB, YouTube, ... })
+      plan: 'BASIC',
+      // 若要把 IG, FB, Shopee... 存一個欄位, 可 JSON.stringify
+      socialBinding: JSON.stringify({
+        IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+      })
     });
 
-    // 5. (可選) 區塊鏈紀錄
+    // (H) (可選) 區塊鏈寫入
     try {
-      await chain.writeCustomRecord('REGISTER', JSON.stringify({ email, userName, role }));
-    } catch (e) {
-      console.error('[Register => blockchain error]', e);
+      await chain.writeCustomRecord(
+        'REGISTER',
+        JSON.stringify({ email, userName, role })
+      );
+    } catch (chainErr) {
+      console.error('[Register => blockchain error]', chainErr);
     }
 
-    // 6. 回傳
+    // (I) 回傳
     return res.status(201).json({
       message: '註冊成功',
       role: newUser.role
     });
   } catch (err) {
     console.error('[Register Error]', err);
+    // Sequelize Unique Constraint
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      const field = err.errors?.[0]?.path;
+      let msg = '資料重複無法使用';
+      if (field === 'email') {
+        msg = '此 Email 已被註冊';
+      } else if (field === 'userName') {
+        msg = '使用者名稱已被使用';
+      }
+      return res.status(400).json({ message: msg });
+    }
     return res.status(500).json({ message: '註冊失敗，請稍後再試' });
   }
 });
 
 
-/* ------------------ 2) 單一路由 /login (POST) ------------------
+/* ------------------ 3) 單一路由 /login (POST) ------------------
    同時支援 email+password 或 userName+password
-   預設 Token 有效期 1 小時
-------------------------------------------------------- */
+   預設 token 有效期 1 小時
+---------------------------------------------------------------- */
 router.post('/login', async (req, res) => {
   try {
-    // 1. Joi 驗證
+    // (A) Joi 驗證
     const { error, value } = loginSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
     let { email, userName, password } = value;
+    if (email) {
+      email = email.trim().toLowerCase();
+    }
 
-    // 2. 二擇一 => email 或 userName
+    // (B) 找出使用者 => email 或 userName
     let user;
     if (email) {
       user = await User.findOne({ where: { email } });
-    } else if (userName) {
+    } else {
       user = await User.findOne({ where: { userName } });
     }
 
@@ -136,13 +175,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 3. bcrypt compare
+    // (C) bcrypt compare
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 4. 簽發 JWT
+    // (D) 簽發 JWT
     const token = jwt.sign(
       {
         userId: user.id,
@@ -155,7 +194,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    // 5. 回傳
+    // (E) 回傳
     return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
@@ -164,8 +203,8 @@ router.post('/login', async (req, res) => {
 });
 
 
-/* ------------------ 3) (可選) /loginByUserName (POST) ------------------
-   若您確定沒其他程式用到，可刪此避免重複。
+/* ------------------ 4) (可選) /loginByUserName (POST) ------------------
+   若您確定沒其他程式用到，可刪除此段避免重複功能。
 ----------------------------------------------------------------------- */
 router.post('/loginByUserName', async (req, res) => {
   try {
@@ -186,7 +225,12 @@ router.post('/loginByUserName', async (req, res) => {
 
     // JWT (24h)
     const token = jwt.sign(
-      { userId: user.id, userName: user.userName, plan: user.plan, role: user.role },
+      {
+        userId: user.id,
+        userName: user.userName,
+        plan: user.plan,
+        role: user.role
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
