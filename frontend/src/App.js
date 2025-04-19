@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ 確認 jwt-decode v4.x import 用法
-import { jwtDecode } from 'jwt-decode';
+// ★ 改用 default import：import jwtDecode from 'jwt-decode'
+import jwtDecode from 'jwt-decode';
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -10,6 +10,7 @@ export default function App() {
   let userRole = '';
   if (token) {
     try {
+      // 直接使用 jwtDecode(token)
       const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
