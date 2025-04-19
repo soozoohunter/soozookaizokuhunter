@@ -1,13 +1,11 @@
 'use strict';
-const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
     email: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
-      validate: { isEmail: true }
+      unique: true
     },
     userName: {
       type: DataTypes.STRING,
@@ -20,13 +18,19 @@ module.exports = (sequelize, DataTypes) => {
     },
     role: {
       type: DataTypes.STRING,
-      allowNull: false,
       defaultValue: 'user'
     },
     plan: {
       type: DataTypes.STRING,
-      allowNull: false,
       defaultValue: 'free'
+    },
+    uploadImages: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
+    },
+    uploadVideos: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0
     },
     serialNumber: {
       type: DataTypes.STRING,
@@ -38,23 +42,13 @@ module.exports = (sequelize, DataTypes) => {
     },
     isPaid: {
       type: DataTypes.BOOLEAN,
-      allowNull: false,
       defaultValue: false
     }
   }, {
     tableName: 'users',
-    hooks: {
-      async beforeCreate(user) {
-        if (user.password) {
-          const salt = await bcrypt.genSalt(10);
-          user.password = await bcrypt.hash(user.password, salt);
-        }
-      }
-    }
+    timestamps: true // createdAt, updatedAt
   });
 
-  // 若有需要可在這裡定義關聯
-  // User.associate = (models) => { ... }
-
+  // 若有 hooks: { beforeCreate: ... }，可加
   return User;
 };
