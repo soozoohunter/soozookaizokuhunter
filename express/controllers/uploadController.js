@@ -3,7 +3,7 @@
  * 負責接收上傳檔案 -> fingerprint -> IPFS / blockchain -> DB
  ********************************************************************/
 const fs = require('fs');
-const { File, User } = require('../models');
+const { File, User } = require('../models'); // Sequelize
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
 const fingerprintService = require('../services/fingerprintService');
@@ -20,7 +20,7 @@ const uploadController = {
       const filePath = req.file.path;
       const fileBuffer = fs.readFileSync(filePath);
 
-      // 計算指紋
+      // 計算指紋 (SHA256 or MD5, 由 fingerprintService 自行決定)
       const fingerprint = fingerprintService.sha256(fileBuffer);
 
       // (可選) 上傳到 IPFS
@@ -39,7 +39,7 @@ const uploadController = {
         console.error('區塊鏈 storeRecord 失敗:', e.message);
       }
 
-      // 寫入 DB
+      // 建立 File 記錄
       const newFile = await File.create({
         user_id: userId,
         filename: req.file.originalname,
