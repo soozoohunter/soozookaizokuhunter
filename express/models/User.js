@@ -43,7 +43,6 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: 'users',
-    // timestamps: false,
     hooks: {
       async beforeCreate(user) {
         if (user.password) {
@@ -54,6 +53,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   });
 
+  // 若有需要可在這裡定義關聯
   // User.associate = (models) => { ... }
 
   return User;
