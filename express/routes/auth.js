@@ -1,6 +1,9 @@
 /********************************************************************
  * express/routes/auth.js
- * 完整整合：註冊+登入 (含Joi驗證、區塊鏈紀錄、JWT、bcryptjs)
+ * 完整整合：
+ *   1) 註冊 (register)
+ *   2) 單一路由 /login => 同時支援 email 或 userName + password
+ *   3) (可選) loginByUserName (保留以防您已使用)
  ********************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -10,16 +13,18 @@ const Joi = require('joi');
 const { User } = require('../models'); // Sequelize Model
 const chain = require('../utils/chain');
 
-// JWT秘鑰設定
+// JWT秘鑰
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-// Joi驗證schema
+/* ------------------ Joi 驗證規則 ------------------ */
+
+// 註冊用 (含 role 與社群欄位)
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   userName: Joi.string().required(),
   password: Joi.string().required(),
   confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
-  role: Joi.string().valid('copyright', 'trademark', 'both').required(),
+  role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin').required(),
   IG: Joi.string().allow(''),
   FB: Joi.string().allow(''),
   YouTube: Joi.string().allow(''),
@@ -32,26 +37,36 @@ const registerSchema = Joi.object({
   Taobao: Joi.string().allow('')
 });
 
-// 註冊路由
+// 單一路由 login => 同時支援 email 或 userName
+// 注意 xor('email','userName')，表示必須擇一
+const loginSchema = Joi.object({
+  email: Joi.string().email(),
+  userName: Joi.string(),
+  password: Joi.string().required()
+}).xor('email', 'userName');
+
+
+/* ------------------ 註冊 ------------------ */
 router.post('/register', async (req, res) => {
-  const { error, value } = registerSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ message: error.details[0].message });
-  }
-
-  const { email, userName, password, role } = value;
-
   try {
+    // Joi 驗證
+    const { error, value } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const { email, userName, password, role } = value;
+
     // 檢查重複 Email
     const exist = await User.findOne({ where: { email } });
     if (exist) {
       return res.status(400).json({ message: '此 Email 已被註冊' });
     }
 
-    // 雜湊密碼
+    // bcrypt 雜湊密碼
     const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 建立新用戶
+    // 建立新用戶 (預設 plan: 'BASIC')
     const newUser = await User.create({
       email,
       userName,
@@ -74,19 +89,34 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// 登入路由 (Email + Password)
+
+/* ------------------ 單一路由 /login ------------------
+   同時支援 email+password 或 userName+password
+   (若您想省略 loginByUserName，僅保留此路由即可)
+------------------------------------------------------- */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: '缺少 email 或 password' });
+    // Joi 驗證
+    const { error, value } = loginSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
     }
 
-    const user = await User.findOne({ where: { email } });
+    let { email, userName, password } = value;
+
+    // 二選一 => email 或 userName
+    let user;
+    if (email) {
+      user = await User.findOne({ where: { email } });
+    } else if (userName) {
+      user = await User.findOne({ where: { userName } });
+    }
+
     if (!user) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
+    // bcrypt compare
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
@@ -94,19 +124,27 @@ router.post('/login', async (req, res) => {
 
     // 簽發 JWT
     const token = jwt.sign(
-      { userId: user.id, email: user.email, plan: user.plan, role: user.role },
+      {
+        userId: user.id,
+        email: user.email,
+        userName: user.userName,
+        plan: user.plan,
+        role: user.role
+      },
       JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    return res.json({ token });
+    return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
     return res.status(500).json({ message: '登入失敗，請稍後再試' });
   }
 });
 
-// 透過 userName + password 登入 (可選)
+
+/* ------------------ (可選) loginByUserName ------------------
+   若您確定已無使用，可刪除此路由以避免重複。 */
 router.post('/loginByUserName', async (req, res) => {
   try {
     const { userName, password } = req.body;
@@ -137,5 +175,6 @@ router.post('/loginByUserName', async (req, res) => {
     return res.status(500).json({ message: '伺服器錯誤，請稍後再試' });
   }
 });
+
 
 module.exports = router;
