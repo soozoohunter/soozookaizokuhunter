@@ -1,25 +1,53 @@
-const User = require('../models/userModel');
+/**
+ * controllers/membershipController.js
+ * 若您習慣將 membership 邏輯提取到 controller
+ */
+const { User } = require('../models');
 
-// Get current user's membership status (requires auth middleware to set req.user)
 exports.getStatus = async (req, res) => {
   try {
-    // Find the user in the database (to get latest info)
-    const user = await User.findById(req.user.userId).select('email userName role plan');
+    const user = await User.findByPk(req.user.userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ error:'使用者不存在' });
     }
-    // Return user membership info
     return res.json({
-      success: true,
-      data: {
-        email: user.email,
-        userName: user.userName,
-        role: user.role,
-        plan: user.plan
-      }
+      email: user.email,
+      userName: user.userName,
+      plan: user.plan,
+      uploadVideos: user.uploadVideos,
+      uploadImages: user.uploadImages
+      // ...
     });
   } catch (err) {
     console.error('Error fetching membership status:', err);
-    return res.status(500).json({ success: false, message: 'Server error retrieving membership status' });
+    return res.status(500).json({ error:'Server error retrieving membership' });
+  }
+};
+
+exports.upgradePlan = async (req, res) => {
+  try {
+    const { targetPlan } = req.body;
+    if(!targetPlan) {
+      return res.status(400).json({ error:'缺少 targetPlan' });
+    }
+    // 新增 ADVANCED
+    if(!['ADVANCED','PRO','ENTERPRISE'].includes(targetPlan)){
+      return res.status(400).json({ error:'無效的方案' });
+    }
+
+    const user = await User.findByPk(req.user.userId);
+    if(!user){
+      return res.status(404).json({ error:'使用者不存在' });
+    }
+
+    user.plan = targetPlan;
+    await user.save();
+    return res.json({
+      message:`已升級為 ${targetPlan} 方案`,
+      plan: user.plan
+    });
+  } catch (err) {
+    console.error('[upgradePlan]', err);
+    return res.status(500).json({ error:'Server error upgrading plan' });
   }
 };
