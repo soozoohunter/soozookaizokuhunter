@@ -92,7 +92,6 @@ router.get('/users', async (req, res) => {
 /** =========================
  * 4) POST /admin/users
  * 新增使用者 (只限admin)
- * body: { email, userName, password, role, plan, ... }
  * ========================= */
 router.post('/users', async (req, res) => {
   try {
@@ -107,14 +106,10 @@ router.post('/users', async (req, res) => {
       return res.status(400).json({ error: '此 Email 已被使用' });
     }
 
-    // bcrypt 雜湊
     const hashedPwd = await bcrypt.hash(password, 10);
-
-    // 預設 plan, role
     const finalRole = role || 'user';
     const finalPlan = plan || 'free';
 
-    // 建立
     const newUser = await User.create({
       email,
       userName,
@@ -124,9 +119,7 @@ router.post('/users', async (req, res) => {
       serialNumber: serialNumber || null,
       socialBinding: socialBinding || null
     });
-
-    // 回傳單筆 or 所有使用者
-    return res.status(201).json(newUser); // 只回傳「新增那筆」給前端
+    return res.status(201).json(newUser);
   } catch (err) {
     console.error('[POST /admin/users Error]:', err);
     return res.status(500).json({ error: '無法新增使用者' });
@@ -142,7 +135,6 @@ router.put('/users/:id', async (req, res) => {
     const userId = req.params.id;
     const { email, userName, role, plan, serialNumber, socialBinding, isPaid } = req.body;
 
-    // 收集要更新的欄位
     const updateFields = {};
     if (email !== undefined) updateFields.email = email;
     if (userName !== undefined) updateFields.userName = userName;
@@ -156,7 +148,6 @@ router.put('/users/:id', async (req, res) => {
       return res.status(400).json({ error: '未提供任何更新欄位' });
     }
 
-    // 檢查 email 衝突
     if (updateFields.email) {
       const conflict = await User.findOne({
         where: {
@@ -195,7 +186,7 @@ router.delete('/users/:id', async (req, res) => {
     if (deletedCount === 0) {
       return res.status(404).json({ error: '找不到該使用者' });
     }
-    return res.sendStatus(204); // 204 no content
+    return res.sendStatus(204);
   } catch (err) {
     console.error('[DELETE /admin/users/:id Error]:', err);
     return res.status(500).json({ error: '刪除使用者失敗' });
