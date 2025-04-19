@@ -5,15 +5,15 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 // 外層 Layout (App)
 import App from './App';
 
-// 各子頁面 (若檔名或路徑不同，請依實際情況調整)
+// 各子頁面
 import Home from './pages/Home';         
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PricingPage from './pages/PricingPage';
 import PaymentPage from './pages/PaymentPage';
-// 如果需要 /upload、/dashboard 等，也可在此處引入
-// import UploadPage from './pages/UploadPage';
-// import Dashboard from './pages/Dashboard';
+
+// Admin 頁面
+import AdminDashboard from './pages/AdminDashboard';
 
 export default function MyRoutes() {
   return (
@@ -30,10 +30,8 @@ export default function MyRoutes() {
           <Route path="pricing" element={<PricingPage />} />
           <Route path="payment" element={<PaymentPage />} />
 
-          {/* 若需要可再加 /upload, /dashboard, etc.
-             <Route path="upload" element={<UploadPage />} /> 
-             <Route path="dashboard" element={<Dashboard />} />
-          */}
+          {/* 管理員頁面: /admin */}
+          <Route path="admin" element={<AdminDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>
