@@ -1,38 +1,32 @@
 'use strict';
-
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
-const { Sequelize } = require('sequelize');
+const { Sequelize, DataTypes } = require('sequelize');
 
-// 從環境或 .env 取得連線字串
-const DB_URL = process.env.DATABASE_URL ||
-  `postgres://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}`
-  + `@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
+//---------------------
+// 環境變數 + fallback
+//---------------------
+const DB_URL = process.env.DATABASE_URL 
+  || 'postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo';
 
-// 建立 Sequelize 實例
 const sequelize = new Sequelize(DB_URL, {
   dialect: 'postgres',
-  logging: false, // 可視需求調整
+  logging: false
 });
 
-// ★ 手動匯入各個 Model
-const User = require('./User')(sequelize, Sequelize.DataTypes);
-// 若有其他 Model, ex:
-const File = require('./File')(sequelize, Sequelize.DataTypes);
+// 載入 Model
+const User = require('./User')(sequelize, DataTypes);
+const File = require('./File')(sequelize, DataTypes);
 
-// 若有 Payment, Infringement, etc.
-// const Payment = require('./Payment')(sequelize, Sequelize.DataTypes);
+// 若有更多 Model (ex. Payment, Infringement) 也可在這裡 require
 
 // 建立關聯
 User.hasMany(File, { foreignKey: 'user_id', as: 'files' });
 File.belongsTo(User, { foreignKey: 'user_id', as: 'owner' });
 
-// 若有 Payment, Infringement, etc. 也可在此做關聯
-
+// 匯出
 module.exports = {
   sequelize,
   User,
-  File,
-  // Payment,
-  // Infringement,
+  File
 };
