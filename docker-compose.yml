@@ -1,7 +1,10 @@
 services:
+  ########################################
+  # 1) PostgreSQL
+  ########################################
   suzoo_postgres:
     image: postgres:15-alpine
-    # remove container_name: suzoo_postgres
+    # 不指定 container_name，讓 Compose 自動取名
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -11,11 +14,20 @@ services:
       - suzoo_db_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
+    # 如果要對外開放 Postgres port，可自行加 "5432:5432"
+    # 也可保留 internal-only
 
+  ########################################
+  # 2) Ganache (ETH 私有鏈)
+  ########################################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
-    # remove container_name: suzoo_ganache
-    command: ganache-cli --host 0.0.0.0 --port 8545 --accounts 5 --defaultBalanceEther 100
+    command: >
+      ganache-cli
+      --host 0.0.0.0
+      --port 8545
+      --accounts 5
+      --defaultBalanceEther 100
     ports:
       - "8545:8545"
     networks:
@@ -23,9 +35,11 @@ services:
     volumes:
       - suzoo_ganache_data:/data
 
+  ########################################
+  # 3) IPFS (Kubo)
+  ########################################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
-    # remove container_name: suzoo_ipfs
     command: daemon
     ports:
       - "5001:5001"
@@ -35,11 +49,13 @@ services:
     networks:
       - suzoo_net
 
+  ########################################
+  # 4) FastAPI
+  ########################################
   suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
-    # remove container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
@@ -51,11 +67,13 @@ services:
     networks:
       - suzoo_net
 
+  ########################################
+  # 5) Express (後端)
+  ########################################
   suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # remove container_name: suzoo_express
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
@@ -68,11 +86,13 @@ services:
     networks:
       - suzoo_net
 
+  ########################################
+  # 6) React (前端)
+  ########################################
   suzoo_react:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    # remove container_name: suzoo_react
     depends_on:
       - suzoo_express
       - suzoo_fastapi
@@ -81,15 +101,17 @@ services:
     expose:
       - "3000"
     ports:
-      - "3001:3000"
+      - "3001:3000"  # 對外顯示 React 的預設埠
     networks:
       - suzoo_net
 
+  ########################################
+  # 7) Nginx (對外: 80/443)
+  ########################################
   suzoo_nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    # remove container_name: suzoo_nginx
     depends_on:
       - suzoo_react
       - suzoo_express
@@ -99,6 +121,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      # 掛載整個 /etc/letsencrypt
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo_net
