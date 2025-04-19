@@ -1,9 +1,13 @@
 /********************************************************************
  * express/routes/auth.js
+ * 
  * 完整整合：
- *   1) 註冊 (register)
- *   2) 單一路由 /login => 同時支援 email 或 userName + password
- *   3) (可選) loginByUserName (保留以防您已使用)
+ *   1) 註冊 (POST /register)
+ *   2) 單一路由 (POST /login) => 同時支援 email 或 userName + password
+ *   3) (可選) loginByUserName (若您暫時仍需沿用)
+ * 
+ * 使用 Sequelize + PostgreSQL (User.findOne / User.create)
+ * 區塊鏈記錄 => chain.writeCustomRecord(...) (可自行擴充)
  ********************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -24,6 +28,9 @@ const registerSchema = Joi.object({
   userName: Joi.string().required(),
   password: Joi.string().required(),
   confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
+  // role：可為 copyright / trademark / both / user / admin
+  // 若前端一定會傳，就維持 .required()
+  // 若希望前端可不傳，可改 .optional()
   role: Joi.string().valid('copyright', 'trademark', 'both', 'user', 'admin').required(),
   IG: Joi.string().allow(''),
   FB: Joi.string().allow(''),
@@ -38,7 +45,7 @@ const registerSchema = Joi.object({
 });
 
 // 單一路由 login => 同時支援 email 或 userName
-// 注意 xor('email','userName')，表示必須擇一
+// 透過 xor('email','userName') => email 與 userName 擇一即可
 const loginSchema = Joi.object({
   email: Joi.string().email(),
   userName: Joi.string(),
@@ -46,43 +53,56 @@ const loginSchema = Joi.object({
 }).xor('email', 'userName');
 
 
-/* ------------------ 註冊 ------------------ */
+/* ------------------ 1) 註冊路由 (POST /register) ------------------ */
 router.post('/register', async (req, res) => {
   try {
-    // Joi 驗證
+    // 1. Joi 驗證
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { email, userName, password, role } = value;
+    // 解構
+    const {
+      email,
+      userName,
+      password,
+      role
+      // 其餘 IG, FB, Shopee... 若您要存 DB，可自行擴充
+    } = value;
 
-    // 檢查重複 Email
-    const exist = await User.findOne({ where: { email } });
-    if (exist) {
+    // 2. 檢查是否已有相同 Email
+    const existEmail = await User.findOne({ where: { email } });
+    if (existEmail) {
       return res.status(400).json({ message: '此 Email 已被註冊' });
     }
 
-    // bcrypt 雜湊密碼
+    // 3. bcrypt 雜湊密碼
     const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 建立新用戶 (預設 plan: 'BASIC')
+    // 4. 建立新用戶 (plan='BASIC' 預設)
     const newUser = await User.create({
       email,
       userName,
       password: hashedPwd,
       role,
       plan: 'BASIC'
+      // 若要存社群欄位，可存至 socialBinding 欄位
+      // socialBinding: JSON.stringify({ IG, FB, YouTube, ... })
     });
 
-    // (可選) 區塊鏈紀錄
+    // 5. (可選) 區塊鏈紀錄
     try {
       await chain.writeCustomRecord('REGISTER', JSON.stringify({ email, userName, role }));
     } catch (e) {
       console.error('[Register => blockchain error]', e);
     }
 
-    return res.status(201).json({ message: '註冊成功', role: newUser.role });
+    // 6. 回傳
+    return res.status(201).json({
+      message: '註冊成功',
+      role: newUser.role
+    });
   } catch (err) {
     console.error('[Register Error]', err);
     return res.status(500).json({ message: '註冊失敗，請稍後再試' });
@@ -90,13 +110,13 @@ router.post('/register', async (req, res) => {
 });
 
 
-/* ------------------ 單一路由 /login ------------------
+/* ------------------ 2) 單一路由 /login (POST) ------------------
    同時支援 email+password 或 userName+password
-   (若您想省略 loginByUserName，僅保留此路由即可)
+   預設 Token 有效期 1 小時
 ------------------------------------------------------- */
 router.post('/login', async (req, res) => {
   try {
-    // Joi 驗證
+    // 1. Joi 驗證
     const { error, value } = loginSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
@@ -104,7 +124,7 @@ router.post('/login', async (req, res) => {
 
     let { email, userName, password } = value;
 
-    // 二選一 => email 或 userName
+    // 2. 二擇一 => email 或 userName
     let user;
     if (email) {
       user = await User.findOne({ where: { email } });
@@ -116,13 +136,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // bcrypt compare
+    // 3. bcrypt compare
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 簽發 JWT
+    // 4. 簽發 JWT
     const token = jwt.sign(
       {
         userId: user.id,
@@ -135,6 +155,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    // 5. 回傳
     return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
@@ -143,8 +164,9 @@ router.post('/login', async (req, res) => {
 });
 
 
-/* ------------------ (可選) loginByUserName ------------------
-   若您確定已無使用，可刪除此路由以避免重複。 */
+/* ------------------ 3) (可選) /loginByUserName (POST) ------------------
+   若您確定沒其他程式用到，可刪此避免重複。
+----------------------------------------------------------------------- */
 router.post('/loginByUserName', async (req, res) => {
   try {
     const { userName, password } = req.body;
@@ -162,7 +184,7 @@ router.post('/loginByUserName', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 簽發 JWT
+    // JWT (24h)
     const token = jwt.sign(
       { userId: user.id, userName: user.userName, plan: user.plan, role: user.role },
       JWT_SECRET,
@@ -177,4 +199,5 @@ router.post('/loginByUserName', async (req, res) => {
 });
 
 
+/* ------------------ 匯出路由 ------------------ */
 module.exports = router;
