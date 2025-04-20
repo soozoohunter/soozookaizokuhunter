@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 // ★ 使用具名匯出: import { jwtDecode } from 'jwt-decode'
@@ -69,10 +68,16 @@ export default function App() {
         </Link>
 
         <nav>
+          {/* 既有 Pricing */}
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
+          {/* ★ 新增 Contact Us */}
+          <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
+
+          {/* 若已登入且role=admin => Admin Dashboard */}
           {isLoggedIn && userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
           )}
+
           {isLoggedIn ? (
             <>
               <Link to="/payment" style={navLinkStyle}>Payment</Link>
