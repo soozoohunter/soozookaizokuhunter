@@ -22,7 +22,7 @@ export default function Register() {
   });
   const [error, setError] = useState('');
 
-  // 檢查是否填寫至少一個社群/電商平台
+  // 簡單判斷是否填寫至少一個社群/電商
   const hasOnePlatform = () => {
     const {
       IG, FB, YouTube, TikTok,
@@ -35,33 +35,30 @@ export default function Register() {
     );
   };
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setError('');
 
-    // 必填欄位檢查
+    // 前端基本檢查
     if (!form.email.trim() || !form.userName.trim() ||
         !form.password || !form.confirmPassword) {
-      setError('Required fields are missing / 必填欄位未填');
+      setError('必填欄位未填 (Required fields missing)');
       return;
     }
-    // 密碼一致性
     if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match / 密碼不一致');
+      setError('密碼不一致 (Passwords do not match)');
       return;
     }
-    // 至少一項社群/電商
     if (!hasOnePlatform()) {
-      setError('Please provide at least one social/e-commerce account / 請至少填寫一個社群或電商帳號');
+      setError('請至少填寫一個社群/電商帳號');
       return;
     }
 
-    // 發送至後端
     try {
       const resp = await fetch('/auth/register', {
         method: 'POST',
@@ -69,32 +66,28 @@ export default function Register() {
         body: JSON.stringify(form)
       });
       const data = await resp.json();
-
       if (!resp.ok) {
-        throw new Error(data.error || 'Registration failed / 註冊失敗');
+        throw new Error(data.message || data.error || '註冊失敗');
       }
 
-      alert('Registration successful! Your info is now on the blockchain / 註冊成功，已上鏈');
+      alert('註冊成功 / Registration successful!');
       navigate('/login');
     } catch (err) {
       setError(err.message);
     }
   };
 
-  // 動態判斷是否顯示「PlatformAlert」
+  // 動態顯示提醒
   const showPlatformAlert = !hasOnePlatform();
 
   return (
     <Container>
       <FormWrapper onSubmit={handleSubmit}>
         <Title>Register / 註冊</Title>
-        {error && <ErrorText>{error}</ErrorText>}
+        {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        {/* Email欄位 (可用於登入) */}
-        <Label>
-          Email 
-          <InfoNote>// You can use your email to log in</InfoNote>
-        </Label>
+        {/* Email */}
+        <Label>Email</Label>
         <Input
           name="email"
           type="email"
@@ -103,19 +96,17 @@ export default function Register() {
           onChange={handleChange}
         />
 
-        {/* Username欄位 (亦可用於登入) */}
-        <Label>
-          Username 
-          <InfoNote>// You can also use your username to log in / 您也可使用此帳號登入</InfoNote>
-        </Label>
+        {/* Username */}
+        <Label>Username</Label>
         <Input
           name="userName"
           type="text"
-          placeholder="Enter your username"
+          placeholder="Enter username"
           value={form.userName}
           onChange={handleChange}
         />
 
+        {/* Password */}
         <Label>Password</Label>
         <Input
           name="password"
@@ -125,6 +116,7 @@ export default function Register() {
           onChange={handleChange}
         />
 
+        {/* Confirm */}
         <Label>Confirm Password</Label>
         <Input
           name="confirmPassword"
@@ -134,177 +126,126 @@ export default function Register() {
           onChange={handleChange}
         />
 
-        <Notice>
-          We strongly encourage you to fill in your social media and e-commerce accounts
-          so our system can record proof of “originality” on the blockchain.<br/>
-          為確保您的作品能在全球著作權法下證明「原創性」，建議您填寫以下帳號，
-          以便在區塊鏈上完成不可竄改的紀錄，未來如遇侵權爭議時可立即舉證。
-        </Notice>
-
-        {/* 若尚未填寫任何社群/電商 => 顯示紅框警示 */}
+        <NoteBox>
+          為確保「原創性」證明，請至少填寫一個社群/電商帳號。<br/>
+          (At least one social/e-commerce account is recommended for blockchain originality proof.)
+        </NoteBox>
         {showPlatformAlert && (
-          <PlatformAlert>
-            <strong>Heads up!</strong> You haven’t entered any social or e-commerce accounts yet. 
-            <br/>
-            <span style={{ fontSize:'0.85rem' }}>
-              請至少填寫一個社群 / 電商帳號，否則無法進行「原創性」上鏈證明
-            </span>
-          </PlatformAlert>
+          <AlertBox>
+            尚未填寫任何平台帳號 / No social/ecom account yet!
+          </AlertBox>
         )}
 
-        {/* 社群平台區塊 */}
-        <BlockTitleSocial>Social Media Platforms / 社群平台</BlockTitleSocial>
-        <Input name="IG" placeholder="Instagram" value={form.IG} onChange={handleChange} />
-        <Input name="FB" placeholder="Facebook" value={form.FB} onChange={handleChange} />
-        <Input name="YouTube" placeholder="YouTube" value={form.YouTube} onChange={handleChange} />
-        <Input name="TikTok" placeholder="TikTok" value={form.TikTok} onChange={handleChange} />
+        {/* 社群平台 */}
+        <Subtitle>社群平台 / Social Media</Subtitle>
+        <Input name="IG" placeholder="Instagram" onChange={handleChange} />
+        <Input name="FB" placeholder="Facebook" onChange={handleChange} />
+        <Input name="YouTube" placeholder="YouTube" onChange={handleChange} />
+        <Input name="TikTok" placeholder="TikTok" onChange={handleChange} />
 
-        {/* 電商平台區塊 */}
-        <BlockTitleEcom>E-Commerce Platforms / 電商平台</BlockTitleEcom>
-        <Input name="Shopee" placeholder="Shopee" value={form.Shopee} onChange={handleChange} />
-        <Input name="Ruten" placeholder="Ruten Auction" value={form.Ruten} onChange={handleChange} />
-        <Input name="Yahoo" placeholder="Yahoo Auction" value={form.Yahoo} onChange={handleChange} />
-        <Input name="Amazon" placeholder="Amazon Store" value={form.Amazon} onChange={handleChange} />
-        <Input name="eBay" placeholder="eBay Seller" value={form.eBay} onChange={handleChange} />
-        <Input name="Taobao" placeholder="Taobao / Tmall" value={form.Taobao} onChange={handleChange} />
+        {/* 電商平台 */}
+        <Subtitle>電商平台 / E-Commerce</Subtitle>
+        <Input name="Shopee" placeholder="Shopee" onChange={handleChange} />
+        <Input name="Ruten" placeholder="Ruten Auction" onChange={handleChange} />
+        <Input name="Yahoo" placeholder="Yahoo Auction" onChange={handleChange} />
+        <Input name="Amazon" placeholder="Amazon Store" onChange={handleChange} />
+        <Input name="eBay" placeholder="eBay Seller" onChange={handleChange} />
+        <Input name="Taobao" placeholder="Taobao / Tmall" onChange={handleChange} />
 
-        <Button type="submit">Register / 註冊</Button>
+        <Button type="submit">註冊 / Register</Button>
 
         <SwitchText>
-          Already have an account?{' '}
-          <Link to="/login" style={{ color:'#FFD700' }}>
-            Login
-          </Link>
+          已有帳號？ <Link to="/login" style={{ color:'#FFD700' }}>登入 / Login</Link>
         </SwitchText>
       </FormWrapper>
     </Container>
   );
 }
 
-/* ================= Styled Components ================= */
-
+/* ================== styled components ================== */
 const Container = styled.div`
-  min-height: 100vh;
   background: #000;
+  min-height: 100vh;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   color: #fff;
 `;
-
 const FormWrapper = styled.form`
   width: 90%;
   max-width: 480px;
-  padding: 2rem;
-  background: #101010;
   border: 2px solid #ff6f00;
+  padding: 2rem;
   border-radius: 8px;
+  background: #101010;
 `;
-
 const Title = styled.h1`
   color: #FFD700;
   text-align: center;
-  margin-bottom: 1.5rem;
-  text-shadow: 0 0 8px #FFD700;
+  margin-bottom: 1rem;
 `;
-
 const Label = styled.label`
   margin-top: 1rem;
-  font-weight: bold;
   display: block;
+  font-weight: bold;
 `;
-
-const InfoNote = styled.span`
-  display: inline-block;
-  margin-left: 6px;
-  font-size: 0.7rem;
-  color: #999;
-`;
-
 const Input = styled.input`
   width: 100%;
-  background: #000;
-  color: #fff;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #FFA500;
   border-radius: 4px;
-  margin-bottom: 0.6rem;
-  padding: 0.5rem;
-  font-size: 1rem;
+  background: #000;
+  color: #fff;
   &:focus {
     outline: none;
     border-color: #FFA500;
     box-shadow: 0 0 6px #FFA500;
   }
 `;
-
-const ErrorText = styled.p`
-  color: red;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-`;
-
-// 顯示「原創性」填寫建議
-const Notice = styled.div`
-  background: rgba(255,165,0,0.15);
-  border: 1px dashed #FFA500;
-  padding: 0.8rem;
-  margin-top: 1.2rem;
-  margin-bottom: 1.2rem;
-  color: #FFD700;
-  font-size: 0.9rem;
-  line-height: 1.4;
-`;
-
-// ★ 新增：若尚未填寫任何平台 => 顯示此紅框
-const PlatformAlert = styled.div`
-  background: rgba(255,0,0,0.15);
-  border: 1px dashed red;
-  color: #ff6666;
-  padding: 0.8rem;
-  margin-bottom: 1.2rem;
-  font-size: 0.9rem;
-  line-height: 1.4;
-`;
-
-const BlockTitleSocial = styled.h2`
-  font-size: 1.15rem;
+const Subtitle = styled.h3`
+  margin-top: 1.5rem;
   color: #FFA500;
-  margin-top: 1.6rem;
-  margin-bottom: 0.5rem;
   border-bottom: 1px dashed #FFA500;
   padding-bottom: 0.3rem;
 `;
-
-const BlockTitleEcom = styled.h2`
-  font-size: 1.15rem;
-  color: #FF9500;
-  margin-top: 1.6rem;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px dashed #FF9500;
-  padding-bottom: 0.3rem;
-`;
-
 const Button = styled.button`
   width: 100%;
+  margin-top: 1.2rem;
   padding: 0.6rem 1rem;
-  margin-top: 1rem;
   background: #000;
-  color: #FFD700;
   border: 2px solid #FFA500;
   border-radius: 4px;
-  font-size: 1.1rem;
+  color: #FFD700;
   font-weight: bold;
-  text-shadow: 0 0 4px #FFD700;
   cursor: pointer;
-  &:hover, &:focus {
-    outline: none;
-    box-shadow: 0 0 8px #FFA500;
+  &:hover {
+    box-shadow: 0 0 6px #FFA500;
   }
 `;
-
 const SwitchText = styled.p`
   text-align: center;
   margin-top: 1rem;
   font-size: 0.9rem;
-  color: #fff;
+`;
+const ErrorMsg = styled.div`
+  color: red;
+  margin-bottom: 1rem;
+`;
+const NoteBox = styled.div`
+  background: rgba(255,165,0,0.1);
+  border: 1px dashed #FFA500;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #FFD700;
+  font-size: 0.9rem;
+`;
+const AlertBox = styled.div`
+  background: rgba(255,0,0,0.1);
+  border: 1px dashed red;
+  color: #ff6666;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
 `;
