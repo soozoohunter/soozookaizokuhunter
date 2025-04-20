@@ -1,5 +1,6 @@
 /**
  * express/routes/auth.js
+ *
  * - POST /auth/register => 同時寫 DB 與區塊鏈
  * - POST /auth/login    => email or userName
  */
@@ -8,7 +9,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { User } = require('../models');
+const { User } = require('../models'); // Sequelize
 const { registerUserOnBlockchain } = require('../services/blockchainService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -19,7 +20,8 @@ const registerSchema = Joi.object({
   userName: Joi.string().required(),
   password: Joi.string().required(),
   confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
-  role: Joi.string().valid('admin','user','copyright','trademark','both').optional(),
+  role: Joi.string().valid('admin','user','copyright','trademark','both')
+           .optional(),
   IG: Joi.string().allow(''),
   FB: Joi.string().allow(''),
   YouTube: Joi.string().allow(''),
@@ -38,9 +40,10 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 }).xor('email','userName');
 
-/* ---------- 2) POST /register ---------- */
+/* ---------- 2) [POST] /register ---------- */
 router.post('/register', async (req, res) => {
   try {
+    // Joi驗證
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ error: error.details[0].message });
@@ -56,9 +59,9 @@ router.post('/register', async (req, res) => {
       Ruten, Yahoo, Amazon, eBay, Taobao
     } = value;
 
-    // 簡單檢查
+    // 檢查密碼一致
     if (password !== confirmPassword) {
-      return res.status(400).json({ error: '密碼不一致' });
+      return res.status(400).json({ error: '密碼與確認密碼不一致' });
     }
 
     // 正規化 email
@@ -82,11 +85,11 @@ router.post('/register', async (req, res) => {
       role = 'user';
     }
 
-    // ★ 產生序號 (您可改為 date + uuid)
+    // 生成序號 (ex: 20250421-xxxxx)
     const dateStr = new Date().toISOString().replace(/[-:.T]/g, '').slice(0,8);
-    const serialNumber = `${dateStr}-${Math.floor(Math.random()*100000)}`;
+    const serialNumber = `${dateStr}-${Math.floor(Math.random() * 100000)}`;
 
-    // 先建 DB
+    // 先建 DB user
     let newUser;
     try {
       newUser = await User.create({
@@ -95,16 +98,18 @@ router.post('/register', async (req, res) => {
         password: hashedPwd,
         role,
         plan: 'BASIC',
-        // 將社群/電商帳號 JSON 化存
-        socialBinding: JSON.stringify({ IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao }),
-        serialNumber
+        serialNumber,
+        socialBinding: JSON.stringify({
+          IG, FB, YouTube, TikTok,
+          Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+        })
       });
     } catch (dbErr) {
       console.error('[DB create error]', dbErr);
-      return res.status(500).json({ error: '無法建立使用者' });
+      return res.status(500).json({ error: '資料庫錯誤，無法建立使用者' });
     }
 
-    // 呼叫區塊鏈 registerUserOnBlockchain
+    // 呼叫區塊鏈
     try {
       await registerUserOnBlockchain(
         userName,
@@ -114,12 +119,12 @@ router.post('/register', async (req, res) => {
       );
     } catch (chainErr) {
       console.error('[Chain Error]', chainErr);
-      // 上鏈失敗 => rollback
+      // 區塊鏈失敗 => rollback
       await newUser.destroy();
       return res.status(500).json({ error: '區塊鏈寫入失敗，註冊未完成' });
     }
 
-    return res.status(201).json({ message: '註冊成功(已上鏈)' });
+    return res.status(201).json({ message: '註冊成功 (已寫入區塊鏈)' });
   } catch (err) {
     console.error('[Register Error]', err);
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -132,11 +137,11 @@ router.post('/register', async (req, res) => {
       }
       return res.status(400).json({ error: msg });
     }
-    return res.status(500).json({ error: '註冊失敗' });
+    return res.status(500).json({ error: '註冊失敗，請稍後再試' });
   }
 });
 
-/* ---------- 3) POST /login ---------- */
+/* ---------- 3) [POST] /login ---------- */
 router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
@@ -145,6 +150,7 @@ router.post('/login', async (req, res) => {
     }
     const { email, userName, password } = value;
 
+    // 依 email or userName 查
     let user;
     if (email) {
       user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
@@ -155,6 +161,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: '帳號或密碼錯誤' });
     }
 
+    // bcrypt compare
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({ error: '帳號或密碼錯誤' });
@@ -169,14 +176,14 @@ router.post('/login', async (req, res) => {
       plan: user.plan
     }, JWT_SECRET, { expiresIn: '24h' });
 
-    res.json({ message: '登入成功', token });
+    return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[Login Error]', err);
     return res.status(500).json({ error: '伺服器錯誤，請稍後再試' });
   }
 });
 
-/* ---------- 4) 可選 /auth/loginByUserName ---------- */
+/* ---------- 4) (可選) [POST] /loginByUserName ---------- */
 router.post('/loginByUserName', async (req, res) => {
   try {
     const { userName, password } = req.body;
@@ -193,7 +200,7 @@ router.post('/loginByUserName', async (req, res) => {
     }
     // JWT
     const token = jwt.sign({ userId: user.id, userName, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ message: '登入成功', token });
+    return res.json({ message: '登入成功', token });
   } catch (err) {
     console.error('[loginByUserName Error]', err);
     return res.status(500).json({ error: '伺服器錯誤' });
