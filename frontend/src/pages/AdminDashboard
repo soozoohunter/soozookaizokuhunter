@@ -1,9 +1,8 @@
 /***************************************************************
  * src/pages/AdminDashboard.jsx
  * 功能：管理員檢視 / 新增 / 編輯 / 刪除 使用者
- * 保留原有 UI 與樣式 className，不動你的 Tailwind 介面
+ * 保留您的 Tailwind UI 介面
  ***************************************************************/
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,8 +18,8 @@ export default function AdminDashboard() {
     email: '',
     userName: '',
     password: '',
-    role: 'user',         // 預設 user
-    plan: 'free',         // 預設 free
+    role: 'user',  // 預設 user
+    plan: 'free',  // 預設 free
     serialNumber: '',
     socialBinding: ''
   });
@@ -73,7 +72,7 @@ export default function AdminDashboard() {
         if (!res.ok) {
           throw new Error('操作失敗');
         }
-        // DELETE 204 no content => 不需 parse
+        // DELETE 204 => 不需 parse
         return (method === 'DELETE') ? {} : res.json();
       })
       .then(onSuccess)
@@ -299,10 +298,10 @@ export default function AdminDashboard() {
                       name="isPaid"
                       value={String(editData.isPaid)}
                       onChange={e => {
-                        // 下拉回傳字串，需要轉成boolean
-                        setEditData(prev => ({ 
-                          ...prev, 
-                          isPaid: (e.target.value === 'true') 
+                        // 下拉回傳字串，需要轉成 boolean
+                        setEditData(prev => ({
+                          ...prev,
+                          isPaid: (e.target.value === 'true')
                         }));
                       }}
                       className="bg-gray-600 rounded p-1"
