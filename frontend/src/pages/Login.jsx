@@ -1,151 +1,44 @@
-// src/Login.js
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-// ----------- styled-components 設計 -----------
-const Container = styled.div`
-  min-height: 100vh;
-  background: #000; 
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #fff; /* default text color white */
-`;
-
-const FormWrapper = styled.form`
-  width: 90%;
-  max-width: 400px;
-  padding: 2rem;
-`;
-
-const Title = styled.h1`
-  color: #FFD700; /* yellow title text */
-  text-align: center;
-  margin-bottom: 1.5rem;
-  text-shadow: 0 0 8px #FFD700; /* glow effect for title */
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 1rem;
-  background: #000;
-  color: #fff;
-  border: 1px solid
-    ${props => (props.error ? 'red' : '#FFA500')};
-  border-radius: 4px;
-  font-size: 1rem;
-
-  &:focus {
-    outline: none;
-    border-color: ${props => (props.error ? 'red' : '#FFA500')};
-    box-shadow: 0 0 6px ${props => (props.error ? 'red' : '#FFA500')};
-  }
-
-  &::placeholder {
-    color: #999;
-  }
-`;
-
-const Button = styled.button`
-  width: 100%;
-  padding: 0.6rem 1rem;
-  background: #000;
-  color: #FFD700;
-  font-size: 1.1rem;
-  font-weight: bold;
-  border: 2px solid #FFA500;
-  border-radius: 4px;
-  cursor: pointer;
-  text-shadow: 0 0 4px #FFD700;
-  /* Add a slight glow on hover/focus for the button */
-  &:hover,
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 8px #FFA500;
-  }
-`;
-
-const ErrorText = styled.p`
-  color: red;
-  font-size: 0.9rem;
-  margin: -0.8rem 0 1rem 0; 
-`;
-
-const SwitchText = styled.p`
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: #fff;
-`;
-
-// ----------- 主元件 -----------
-function Login() {
+export default function Login() {
   const navigate = useNavigate();
+  const [identifier, setIdentifier] = useState(''); // email or userName
+  const [password, setPassword] = useState('');
+  const [errMsg, setErrMsg] = useState('');
 
-  // 單一 form 狀態管理 (userName、password)
-  const [form, setForm] = useState({
-    userName: '',
-    password: ''
-  });
-
-  // 單一錯誤訊息
-  const [error, setError] = useState('');
-
-  // 監聽表單輸入
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  // 表單提交
-  const handleSubmit = async (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault();
-    setError('');
+    setErrMsg('');
 
-    // 前端基本驗證：欄位必填
-    if (!form.userName.trim() || !form.password) {
-      setError('請輸入使用者名稱與密碼 / Please enter username and password');
-      return;
+    // 若含 '@' => 視為 email，否則 userName
+    let payload;
+    if (identifier.includes('@')) {
+      payload = { email: identifier.trim().toLowerCase(), password };
+    } else {
+      payload = { userName: identifier.trim(), password };
     }
 
     try {
-      // 呼叫後端登入 API (若後端是 /api/auth/login, 請自行調整)
-      const res = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: form.userName.trim(),
-          password: form.password
-        })
+      const resp = await fetch('/auth/login', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        // 若後端回傳非 200, 拋錯顯示
-        throw new Error(
-          data.message ||
-            '登入失敗，請確認帳號密碼 / Login failed, please check your credentials'
-        );
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.message || data.error || 'Login failed');
       }
 
-      // 登入成功，若有 token 就存到 localStorage
+      // 成功 => 儲存 token
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
-
-      // 可在此導向首頁或 /upload ...
+      alert('登入成功 / Login successful');
       navigate('/');
     } catch (err) {
-      setError(err.message);
-      console.error('Login error:', err);
+      setErrMsg(err.message);
     }
   };
 
@@ -153,48 +46,96 @@ function Login() {
     <Container>
       <FormWrapper onSubmit={handleSubmit}>
         <Title>登入 / Login</Title>
+        {errMsg && <ErrorText>{errMsg}</ErrorText>}
 
-        {/* 使用者名稱 */}
-        <Label htmlFor="userName">使用者名稱 / Username</Label>
+        <Label>帳號 (Email 或 使用者名稱)</Label>
         <Input
-          id="userName"
-          name="userName"
-          type="text"
-          placeholder="請輸入使用者名稱 / Enter username"
-          value={form.userName}
-          onChange={handleChange}
-          // 若 error 與 form.userName 為空，則顯示紅框
-          error={!!error && !form.userName.trim()}
+          placeholder="Enter email or username"
+          value={identifier}
+          onChange={e=>setIdentifier(e.target.value)}
         />
 
-        {/* 密碼 */}
-        <Label htmlFor="password">密碼 / Password</Label>
+        <Label>密碼 / Password</Label>
         <Input
-          id="password"
-          name="password"
           type="password"
-          placeholder="請輸入密碼 / Enter password"
-          value={form.password}
-          onChange={handleChange}
-          // 若 error 與 form.password 為空，則顯示紅框
-          error={!!error && !form.password}
+          placeholder="Enter password"
+          value={password}
+          onChange={e=>setPassword(e.target.value)}
         />
-
-        {/* 顯示錯誤訊息 */}
-        {error && <ErrorText>{error}</ErrorText>}
 
         <Button type="submit">登入 / Login</Button>
 
-        {/* 底部切換連結 */}
         <SwitchText>
-          沒有帳號？{' '}
-          <Link to="/register" style={{ color: '#FFD700' }}>
-            註冊 / Register
-          </Link>
+          尚未註冊？
+          <Link to="/register" style={{ color:'#FFD700', marginLeft:'6px' }}>註冊 / Register</Link>
         </SwitchText>
       </FormWrapper>
     </Container>
   );
 }
 
-export default Login;
+/* ============ styled-components ============ */
+const Container = styled.div`
+  background: #000;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
+
+const FormWrapper = styled.form`
+  width: 90%;
+  max-width: 400px;
+  background: #101010;
+  border: 2px solid #ff6f00;
+  border-radius: 8px;
+  padding: 2rem;
+`;
+const Title = styled.h1`
+  color: #FFD700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+`;
+const Label = styled.label`
+  margin-top: 1rem;
+  font-weight: bold;
+  display: block;
+`;
+const Input = styled.input`
+  width: 100%;
+  margin-bottom: 0.8rem;
+  padding: 0.5rem;
+  border: 1px solid #FFA500;
+  border-radius: 4px;
+  background: #000;
+  color: #fff;
+  &:focus {
+    outline: none;
+    border-color: #FFA500;
+    box-shadow: 0 0 6px #FFA500;
+  }
+`;
+const Button = styled.button`
+  width: 100%;
+  padding: 0.6rem 1rem;
+  margin-top: 1rem;
+  background: #000;
+  border: 2px solid #FFA500;
+  border-radius: 4px;
+  color: #FFD700;
+  font-weight: bold;
+  cursor: pointer;
+  &:hover {
+    box-shadow: 0 0 6px #FFA500;
+  }
+`;
+const ErrorText = styled.div`
+  color: red;
+  margin-bottom: 1rem;
+`;
+const SwitchText = styled.p`
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+`;
