@@ -1,38 +1,57 @@
 /********************************************************************
- * createDefaultAdmin.js
- *
- * 在伺服器啟動時，自動檢查是否有 jeffqqm@gmail.com 的帳號，
- * 若無，則建立一個預設 admin 帳戶，方便您在前端以此帳密登入。
+ * express/createDefaultAdmin.js
+ * - 在伺服器啟動後檢查是否已有 admin
+ * - 若無 => 建立預設 admin, 同時寫入區塊鏈
  ********************************************************************/
 const bcrypt = require('bcryptjs');
-const { User } = require('./models'); // 與 server.js 同層 => ./models
+const { User } = require('./models');
+const { registerUserOnBlockchain } = require('./services/blockchainService');
 
-// 預設管理員資訊
 const DEFAULT_ADMIN_EMAIL = 'jeffqqm@gmail.com';
 const DEFAULT_ADMIN_PASSWORD = 'Zack967988';
-const DEFAULT_ADMIN_USERNAME = 'zacyao1005';  // 小寫 zacyao1005
+const DEFAULT_ADMIN_USERNAME = 'zacyao1005';
 const DEFAULT_ADMIN_ROLE = 'admin';
 
 async function createDefaultAdmin() {
   try {
-    // 檢查是否已存在指定 email 的用戶
     const existing = await User.findOne({ where: { email: DEFAULT_ADMIN_EMAIL } });
     if (existing) {
-      console.log(`[createDefaultAdmin] 已存在管理員帳號 ${DEFAULT_ADMIN_EMAIL}，跳過建立。`);
+      console.log(`[createDefaultAdmin] Admin ${DEFAULT_ADMIN_EMAIL} already exists.`);
       return;
     }
-    // 尚無此用戶 → 建立一個
     const hashed = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
-    await User.create({
+
+    // 產生序號
+    const dateStr = new Date().toISOString().replace(/[-:.T]/g, '').slice(0,8);
+    const serialNumber = `${dateStr}-${Math.floor(Math.random()*100000)}`;
+
+    // 先建 DB
+    const newAdmin = await User.create({
       email: DEFAULT_ADMIN_EMAIL,
-      password: hashed,
       userName: DEFAULT_ADMIN_USERNAME,
+      password: hashed,
       role: DEFAULT_ADMIN_ROLE,
-      plan: 'BASIC'
+      plan: 'BASIC',
+      serialNumber
     });
-    console.log(`[createDefaultAdmin] 已建立管理員帳號: email=${DEFAULT_ADMIN_EMAIL}, 密碼=${DEFAULT_ADMIN_PASSWORD}, role=${DEFAULT_ADMIN_ROLE}`);
+
+    // 呼叫區塊鏈
+    try {
+      const txHash = await registerUserOnBlockchain(
+        DEFAULT_ADMIN_USERNAME,
+        DEFAULT_ADMIN_ROLE,
+        serialNumber,
+        {}
+      );
+      console.log(`[createDefaultAdmin] Admin onChain => ${txHash}`);
+    } catch (chainErr) {
+      console.error('[createDefaultAdmin] Chain Error => rollback', chainErr);
+      await newAdmin.destroy();
+    }
+
+    console.log(`[createDefaultAdmin] Created admin user => ${DEFAULT_ADMIN_EMAIL}`);
   } catch (err) {
-    console.error('[createDefaultAdmin] 建立預設管理員錯誤：', err);
+    console.error('[createDefaultAdmin] error:', err);
   }
 }
 
