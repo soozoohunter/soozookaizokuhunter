@@ -16,7 +16,7 @@ function AdminLogin() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');  // 清空先前的錯誤訊息
+    setError('');
     try {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
@@ -25,12 +25,9 @@ function AdminLogin() {
       });
       if (res.ok) {
         const data = await res.json();
-        // 將 JWT 保存到瀏覽器 (簡單起見使用 localStorage)
         localStorage.setItem('token', data.token);
-        // 導向管理儀表板頁面
         navigate('/admin/dashboard');
       } else {
-        // 資格不符 (帳號不存在、密碼錯誤或非 admin 身份)
         setError('登入失敗：帳號或密碼不正確');
       }
     } catch (err) {
@@ -45,18 +42,22 @@ function AdminLogin() {
       <form onSubmit={handleLogin}>
         <div className="mb-3">
           <label className="form-label">Email</label>
-          <input 
-            type="email" className="form-control" 
-            value={email} onChange={(e) => setEmail(e.target.value)} 
-            required 
+          <input
+            type="email"
+            className="form-control"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
           />
         </div>
         <div className="mb-3">
           <label className="form-label">密碼</label>
-          <input 
-            type="password" className="form-control" 
-            value={password} onChange={(e) => setPassword(e.target.value)} 
-            required 
+          <input
+            type="password"
+            className="form-control"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
           />
         </div>
         {error && <div className="text-danger mb-3">{error}</div>}
