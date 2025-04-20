@@ -106,7 +106,7 @@ export default function Register() {
         {/* Username欄位 (亦可用於登入) */}
         <Label>
           Username 
-          <InfoNote>// You can also use your username to log in</InfoNote>
+          <InfoNote>// You can also use your username to log in / 您也可使用此帳號登入</InfoNote>
         </Label>
         <Input
           name="userName"
