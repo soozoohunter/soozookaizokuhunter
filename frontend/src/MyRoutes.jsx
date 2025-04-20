@@ -1,4 +1,3 @@
-// frontend/src/MyRoutes.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
@@ -6,14 +5,13 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
 
 // 各子頁面
-import Home from './pages/Home';         
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PricingPage from './pages/PricingPage';
 import PaymentPage from './pages/PaymentPage';
-
-// Admin 頁面
 import AdminDashboard from './pages/AdminDashboard';
+import ContactUsPage from './pages/ContactUsPage'; // ★ 新增
 
 export default function MyRoutes() {
   return (
@@ -29,6 +27,9 @@ export default function MyRoutes() {
           <Route path="register" element={<Register />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="payment" element={<PaymentPage />} />
+
+          {/* 新增 Contact Us 路由：/contact */}
+          <Route path="contact" element={<ContactUsPage />} />
 
           {/* 管理員頁面: /admin */}
           <Route path="admin" element={<AdminDashboard />} />
