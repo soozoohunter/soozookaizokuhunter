@@ -25,13 +25,13 @@ app.get('/health', (req, res) => {
   res.send('Express OK');
 });
 
-// 掛載 /auth
+// /auth
 app.use('/auth', authRoutes);
-// 若有其他路由：
+// 其他路由可自行加上
 // app.use('/api/upload', uploadRoutes);
-// app.use('/api/membership', membershipRoutes);
 
-sequelize.sync({ alter: false })
+sequelize
+  .sync({ alter: false })
   .then(() => {
     console.log('[server.js] Sequelize synced.');
     const PORT = process.env.PORT || 3000;
