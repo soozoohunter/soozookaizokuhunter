@@ -1,35 +1,48 @@
-/********************************************************************
- * services/blockchainService.js
- ********************************************************************/
+/**
+ * express/services/blockchainService.js
+ * - 整合您的區塊鏈邏輯 (ethers + Ganache)
+ * - registerUserOnBlockchain(...) 寫入合約
+ */
 require('dotenv').config();
-const Web3 = require('web3');
+const { ethers } = require('ethers');
 
-const { BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS } = process.env;
+// 從 .env 載入
+const {
+  BLOCKCHAIN_RPC_URL,      // e.g. http://suzoo_ganache:8545
+  BLOCKCHAIN_PRIVATE_KEY,  // e.g. 0x012345...
+  CONTRACT_ADDRESS         // e.g. 0x590CC0a45103883...
+} = process.env;
 
-if (!BLOCKCHAIN_RPC_URL || !BLOCKCHAIN_PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  throw new Error('缺少區塊鏈設定：請確認 .env 裡 BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS');
-}
+// 建立 provider + wallet + contract
+const provider = new ethers.providers.JsonRpcProvider(BLOCKCHAIN_RPC_URL);
+const wallet = new ethers.Wallet(BLOCKCHAIN_PRIVATE_KEY, provider);
 
-const web3 = new Web3(new Web3.providers.HttpProvider(BLOCKCHAIN_RPC_URL));
-const account = web3.eth.accounts.privateKeyToAccount(BLOCKCHAIN_PRIVATE_KEY);
-web3.eth.accounts.wallet.add(account);
-web3.eth.defaultAccount = account.address;
-
-// 依您合約實際 ABI
+// ★ 您的合約 ABI（請貼上實際 JSON）
 const contractABI = [
-  // ...
+  /* TODO: 在此處貼上智慧合約 ABI 內容（JSON 陣列） */
 ];
-const contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, wallet);
 
-async function storeUserOnChain(user) {
-  const { userName, email, serialNumber } = user;
-  const tx = contract.methods.storeUser(userName, email, serialNumber);
-  const gas = await tx.estimateGas({ from: account.address });
-  const gasPrice = await web3.eth.getGasPrice();
+/**
+ * registerUserOnBlockchain
+ * @param {string} userName - 用戶名稱
+ * @param {string} role - 用戶角色
+ * @param {string} serialNumber - 產生或自定的序號
+ * @param {object} accountsObj - { IG, FB, Shopee ... }
+ */
+async function registerUserOnBlockchain(userName, role, serialNumber, accountsObj) {
+  try {
+    const accountsJson = JSON.stringify(accountsObj);
 
-  const receipt = await tx.send({ from: account.address, gas, gasPrice });
-  console.log(`Tx hash: ${receipt.transactionHash}`);
-  return receipt.transactionHash;
+    // 假設合約函數：registerUser(userName, role, accountsJson, serialNumber)
+    const tx = await contract.registerUser(userName, role, accountsJson, serialNumber);
+    await tx.wait(); // 等待上鏈
+    console.log('[blockchainService] Tx success:', tx.hash);
+    return tx.hash;
+  } catch (err) {
+    console.error('[blockchainService] registerUserOnBlockchain error:', err);
+    throw err;
+  }
 }
 
-module.exports = { storeUserOnChain };
+module.exports = { registerUserOnBlockchain };
