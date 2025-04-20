@@ -9,12 +9,10 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./models'); // index.js
+const { sequelize } = require('./models'); // index.js or DB init
 
 // 路由
 const authRoutes = require('./routes/auth');
-// const uploadRoutes = require('./routes/upload');
-// const membershipRoutes = require('./routes/membership');
 
 const app = express();
 app.use(cors());
@@ -25,10 +23,11 @@ app.get('/health', (req, res) => {
   res.send('Express OK');
 });
 
-// /auth
+// 掛載 /auth 路由
 app.use('/auth', authRoutes);
-// 其他路由可自行加上
-// app.use('/api/upload', uploadRoutes);
+
+// 可選其他路由
+// app.use('/api/upload', ...)
 
 sequelize
   .sync({ alter: false })
