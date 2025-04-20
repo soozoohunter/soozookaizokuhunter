@@ -220,21 +220,75 @@ function Register() {
           onChange={handleChange}
         />
 
-        {/* 顯示「社群 / 電商帳號」區域，加強顏色 & 字體大小 */}
+        {/* ==== 社群平台 ==== */}
         <Label style={{ color: '#FFA500', fontSize: '1.1rem', marginTop:'1.5rem' }}>
-          社群 / 電商帳號 (至少一項)
+          社群平台（至少一項）
         </Label>
+        <Input
+          name="IG"
+          placeholder="IG 帳號"
+          value={form.IG}
+          onChange={handleChange}
+        />
+        <Input
+          name="FB"
+          placeholder="Facebook 帳號"
+          value={form.FB}
+          onChange={handleChange}
+        />
+        <Input
+          name="YouTube"
+          placeholder="YouTube 帳號"
+          value={form.YouTube}
+          onChange={handleChange}
+        />
+        <Input
+          name="TikTok"
+          placeholder="TikTok 帳號"
+          value={form.TikTok}
+          onChange={handleChange}
+        />
 
-        <Input name="IG" placeholder="IG 帳號" onChange={handleChange} />
-        <Input name="FB" placeholder="FB 帳號" onChange={handleChange} />
-        <Input name="YouTube" placeholder="YouTube" onChange={handleChange} />
-        <Input name="TikTok" placeholder="TikTok" onChange={handleChange} />
-        <Input name="Shopee" placeholder="蝦皮" onChange={handleChange} />
-        <Input name="Ruten" placeholder="露天拍賣" onChange={handleChange} />
-        <Input name="Yahoo" placeholder="Yahoo拍賣" onChange={handleChange} />
-        <Input name="Amazon" placeholder="Amazon" onChange={handleChange} />
-        <Input name="eBay" placeholder="eBay" onChange={handleChange} />
-        <Input name="Taobao" placeholder="淘寶" onChange={handleChange} />
+        {/* ==== 電商平台 ==== */}
+        <Label style={{ color: '#FFA500', fontSize: '1.1rem', marginTop:'1.5rem' }}>
+          電商平台（至少一項）
+        </Label>
+        <Input
+          name="Shopee"
+          placeholder="蝦皮"
+          value={form.Shopee}
+          onChange={handleChange}
+        />
+        <Input
+          name="Ruten"
+          placeholder="露天拍賣"
+          value={form.Ruten}
+          onChange={handleChange}
+        />
+        <Input
+          name="Yahoo"
+          placeholder="Yahoo拍賣"
+          value={form.Yahoo}
+          onChange={handleChange}
+        />
+        <Input
+          name="Amazon"
+          placeholder="Amazon"
+          value={form.Amazon}
+          onChange={handleChange}
+        />
+        <Input
+          name="eBay"
+          placeholder="eBay"
+          value={form.eBay}
+          onChange={handleChange}
+        />
+        <Input
+          name="Taobao"
+          placeholder="淘寶"
+          value={form.Taobao}
+          onChange={handleChange}
+        />
 
         <Button type="submit">註冊 / Register</Button>
 
