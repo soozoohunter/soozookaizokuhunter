@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-// ★ 使用具名匯出: import { jwtDecode } from 'jwt-decode'
 import { jwtDecode } from 'jwt-decode';
 
 export default function App() {
@@ -10,16 +9,15 @@ export default function App() {
   let userRole = '';
   if (token) {
     try {
-      // 直接呼叫 jwtDecode(token)
       const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
-      console.error('Invalid token', e);
+      console.error('Invalid token decode', e);
     }
   }
 
   const location = useLocation();
-  const showBanner = location.pathname === '/';
+  const showBanner = (location.pathname === '/');
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -45,6 +43,7 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column'
     }}>
+      {/* 頂部導覽列 */}
       <header style={{
         padding: '1rem 2rem',
         borderBottom: '1px solid #444',
@@ -68,12 +67,11 @@ export default function App() {
         </Link>
 
         <nav>
-          {/* 既有 Pricing */}
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
-          {/* ★ 新增 Contact Us */}
+          {/* 新增 Contact Us */}
           <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
 
-          {/* 若已登入且role=admin => Admin Dashboard */}
+          {/* 僅在 role='admin' 顯示 Admin Dashboard */}
           {isLoggedIn && userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
           )}
@@ -97,6 +95,7 @@ export default function App() {
         </nav>
       </header>
 
+      {/* 首頁橫幅 (只在 path='/' 顯示) */}
       {showBanner && (
         <section style={{
           textAlign: 'center',
@@ -117,16 +116,18 @@ export default function App() {
             marginTop: '1rem',
             lineHeight: '1.5'
           }}>
-            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，24小時全方位掃描並追蹤全球侵權行為，
-            為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
+            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI技術，24小時自動掃描並追蹤全球任何侵權行為，
+            為你的影音、圖像、文字與商標提供具法律效力的證據與自動保護。
           </p>
         </section>
       )}
 
+      {/* 主要內容 */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
+      {/* 頁尾 */}
       <footer style={{
         textAlign: 'center',
         padding: '1rem',
