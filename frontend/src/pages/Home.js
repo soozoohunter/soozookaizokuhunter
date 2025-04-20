@@ -1,4 +1,3 @@
-// src/pages/Home.js (完整優化文案及UI)
 import React from 'react';
 
 export default function Home() {
@@ -7,40 +6,44 @@ export default function Home() {
       <div style={styles.banner}>
 
         {/* 主標題 */}
-        <h1 style={styles.mainTitle}>世界首創 🇹🇼 從臺灣出發<br/>區塊鏈智慧財產權即時保護平台</h1>
+        <h1 style={styles.mainTitle}>
+          {/* 若想分行可用 <br/> */}
+          First in Taiwan: Blockchain-powered<br/>IP Rights Protection
+        </h1>
 
-        {/* 中文介紹文字 */}
-        <p style={styles.desc}>
-          您的原創作品是否飽受抄襲與侵權困擾？<br/>
-          我們透過<strong>區塊鏈動態指紋技術與AI智慧侵權爬蟲</strong>，
-          全天候<em>24小時即時監測全球網路</em>，
-          迅速鎖定侵權行為，並啟動DMCA法律程序，
-          <strong>全面守護您的著作權與商標權。</strong><br/><br/>
-
-          無論是短影音、圖片、文字或品牌商標，
-          我們皆能即刻建立不可篡改的區塊鏈原創證明，
-          結合強大的法律資源與支援，
-          在<strong>24小時內</strong>，迅速將侵權作品下架，
-          全方位保障您的智慧財產權。
-        </p>
-
-        {/* 英文介紹文字 */}
+        {/* 英文介紹文字 (先) */}
         <p style={styles.desc}>
           Tired of copyright infringement? <br/>
-          Our pioneering platform uses <strong>Blockchain Dynamic Fingerprinting</strong> and
-          <strong>AI-driven infringement detection</strong> to monitor the web <em>24/7</em>,
+          Our pioneering platform harnesses <strong>Blockchain Dynamic Fingerprinting</strong>
+          and <strong>AI-driven infringement detection</strong> to monitor the web <em>24/7</em>,
           swiftly initiating DMCA actions and providing robust legal protection.
           <br/><br/>
           Whether it's videos, images, text, or trademarks,
           we instantly generate blockchain-certified originality proofs,
-          removing infringing content from markets within <strong>24 hours</strong>—
-          ensuring unbeatable global IP protection.
+          removing infringing content from marketplaces within <strong>24 hours</strong>—
+          ensuring unbeatable global IP defense.
+        </p>
+
+        {/* 中文介紹文字 (後) */}
+        <p style={styles.desc}>
+          您是否飽受抄襲與侵權之苦？<br/>
+          我們結合<strong>區塊鏈動態指紋技術</strong>與
+          <strong>AI 智慧侵權爬蟲</strong>，
+          全天候<em>24小時監測全球網路</em>，
+          迅速鎖定侵權行為並啟動 DMCA 法律程序，
+          <strong>全面守護您的著作權與商標權</strong>。<br/><br/>
+
+          無論是短影音、圖片、文字或品牌商標，
+          我們皆能即時建立不可竄改的區塊鏈原創證明，
+          結合強大的法律資源，
+          在 <strong>24 小時內</strong> 強制移除侵權內容，
+          為您的智慧財產權提供全方位保障。
         </p>
 
         {/* 紀念文字 */}
         <p style={styles.memorialText}>
-          為紀念我最深愛的曾李素珠奶奶<br/>
-          In memory of my beloved grandmother Tseng Li Su-Chu,<br />
+          In memory of my beloved grandmother, Tseng Li Su-Chu.<br/>
+          為紀念我最深愛的 曾李素珠 阿嬤。<br/>
           Thank you for your endless love and inspiration.
         </p>
 
@@ -49,7 +52,7 @@ export default function Home() {
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
         >
-          查看保護方案 / Explore Plans
+          Explore Plans / 查看保護方案
         </button>
 
         {/* 公司資訊 */}
