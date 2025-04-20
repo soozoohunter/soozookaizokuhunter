@@ -1,7 +1,8 @@
 /********************************************************************
  * express/createDefaultAdmin.js
- * - 在伺服器啟動後檢查是否已有 admin
- * - 若無 => 建立預設 admin, 同時寫入區塊鏈
+ *
+ * 在伺服器啟動後檢查是否已有 admin
+ * 若無 => 建立預設 admin, 同時寫入區塊鏈 (Web3 版本)
  ********************************************************************/
 const bcrypt = require('bcryptjs');
 const { User } = require('./models');
@@ -19,9 +20,10 @@ async function createDefaultAdmin() {
       console.log(`[createDefaultAdmin] Admin ${DEFAULT_ADMIN_EMAIL} already exists.`);
       return;
     }
+
     const hashed = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 10);
 
-    // 產生序號
+    // 生成序號
     const dateStr = new Date().toISOString().replace(/[-:.T]/g, '').slice(0,8);
     const serialNumber = `${dateStr}-${Math.floor(Math.random()*100000)}`;
 
