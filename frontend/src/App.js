@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
