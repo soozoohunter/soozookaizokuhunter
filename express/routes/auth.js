@@ -1,16 +1,16 @@
 /********************************************************************
  * express/routes/auth.js
  *
- * - POST /register => 註冊
- * - POST /login    => 同時支援 email 或 userName + password
- * - (可選) POST /loginByUserName => 若專案歷史需求
+ * - POST /auth/register => 註冊 (同時檢查 email/userName + bcrypt 雜湊)
+ * - POST /auth/login    => 同時支援 email or userName + password
+ * - (可選) POST /auth/loginByUserName => 若專案歷史需求
  ********************************************************************/
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
-const { User } = require('../models'); // ★ './models' 若同層
+const { User } = require('../models'); // './models' 或依您實際位置
 // const chain = require('../utils/chain'); // 如果需要區塊鏈紀錄可引入
 
 // JWT 秘鑰
@@ -18,14 +18,16 @@ const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
 /* ------------------ 1) Joi 驗證 (註冊 / 登入) ------------------ */
 
-// 註冊表單 (不含著作權/商標欄位, role 可選)
+// 註冊表單
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
   userName: Joi.string().required(),
   password: Joi.string().required(),
   confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
   role: Joi.string().valid('admin','user','copyright','trademark','both')
-           .optional(), // 若不傳 => 預設 user
+           .optional(), // 若不傳 => 預設 'user'
+
+  // 允許空字串 (鼓勵填寫，但不強制)
   IG: Joi.string().allow(''),
   FB: Joi.string().allow(''),
   YouTube: Joi.string().allow(''),
@@ -43,12 +45,12 @@ const loginSchema = Joi.object({
   email: Joi.string().email(),
   userName: Joi.string(),
   password: Joi.string().required()
-}).xor('email','userName'); // 二擇一必填
+}).xor('email','userName');
 
-/* ------------------ 2) POST /register ------------------ */
+/* ------------------ 2) POST /auth/register ------------------ */
 router.post('/register', async (req, res) => {
   try {
-    // (A) Joi 驗證
+    // 1) Joi 驗證
     const { error, value } = registerSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
@@ -58,10 +60,13 @@ router.post('/register', async (req, res) => {
       email,
       userName,
       password,
+      confirmPassword,
       role,
-      IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+      IG, FB, YouTube, TikTok, Shopee,
+      Ruten, Yahoo, Amazon, eBay, Taobao
     } = value;
 
+    // email 正規化
     email = email.trim().toLowerCase();
 
     // 檢查重複 email
@@ -84,13 +89,13 @@ router.post('/register', async (req, res) => {
       role = 'user';
     }
 
-    // 建立
+    // 建立用戶 (plan 可自行調整)
     const newUser = await User.create({
       email,
       userName,
       password: hashedPwd,
       role,
-      plan: 'BASIC', // 您可自行改
+      plan: 'BASIC',
       socialBinding: JSON.stringify({
         IG, FB, YouTube, TikTok, Shopee,
         Ruten, Yahoo, Amazon, eBay, Taobao
@@ -100,8 +105,8 @@ router.post('/register', async (req, res) => {
     // (可選) 區塊鏈紀錄
     // try {
     //   await chain.writeCustomRecord('REGISTER', JSON.stringify({ email, userName, role }));
-    // } catch (e) {
-    //   console.error('[Register => blockchain error]', e);
+    // } catch (errChain) {
+    //   console.error('[Register => blockchain error]', errChain);
     // }
 
     return res.status(201).json({
@@ -125,10 +130,9 @@ router.post('/register', async (req, res) => {
   }
 });
 
-/* ------------------ 3) POST /login (email 或 userName) ------------------ */
+/* ------------------ 3) POST /auth/login ------------------ */
 router.post('/login', async (req, res) => {
   try {
-    // 驗證
     const { error, value } = loginSchema.validate(req.body);
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
@@ -136,6 +140,7 @@ router.post('/login', async (req, res) => {
 
     const { email, userName, password } = value;
     let user;
+    // 依 email / userName 找人
     if (email) {
       user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
     } else {
@@ -145,12 +150,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
+    // 比對密碼
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
-    // 簽發 JWT
+    // 簽發 JWT (1h)
     const token = jwt.sign(
       {
         userId: user.id,
@@ -170,7 +176,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/* ------------------ 4) (可選) loginByUserName ------------------ */
+/* ------------------ 4) (可選) /auth/loginByUserName ------------------ */
 router.post('/loginByUserName', async (req, res) => {
   try {
     const { userName, password } = req.body;
@@ -188,6 +194,7 @@ router.post('/loginByUserName', async (req, res) => {
       return res.status(400).json({ message: '帳號或密碼錯誤' });
     }
 
+    // JWT => 24h
     const token = jwt.sign(
       {
         userId: user.id,
