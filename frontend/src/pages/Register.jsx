@@ -2,69 +2,91 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
+// 與 Login 頁面風格相似的暗色背景 + 橘色重點
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #121212; 
+  color: #ffffff;
+`;
+
 const FormContainer = styled.div`
-  max-width: 600px;
-  margin: 2rem auto;
-  padding: 2rem;
-  border: 2px solid #ff6f00;
-  border-radius: 15px;
-  background-color: #fffbea;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #1e1e1e; 
+  padding: 2rem 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 450px;
+  border: 2px solid #ff6f00; /* 橘色外框 */
+`;
+
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #FFD700; /* 金色文字 */
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+`;
+
+const StyledLabel = styled.label`
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.9rem;
+  color: #ffa500; /* 橘字 */
+`;
+
+const StyledInput = styled.input`
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+  background-color: #2c2c2c;
+  border: 1px solid #444;
+  border-radius: 4px;
 `;
 
 const Section = styled.div`
-  border: 1px solid #ffcc70;
+  border: 1px solid #ff6f00;
   padding: 1rem;
   margin-bottom: 1rem;
-  border-radius: 10px;
-  background-color: #fffdf5;
+  border-radius: 6px;
+  background-color: #2c2c2c;
 `;
 
 const SectionTitle = styled.h3`
   margin: 0 0 0.5rem 0;
-  color: #f59e0b;
-`;
-
-const FormLabel = styled.label`
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 0.75rem;
-  font-weight: bold;
-  color: #d97706;
-`;
-
-const FormInput = styled.input`
-  padding: 0.5rem;
-  margin-top: 0.25rem;
+  color: #ffd700;
   font-size: 1rem;
-  border-radius: 5px;
-  border: 1px solid #fcd34d;
 `;
 
 const HintText = styled.p`
   text-align: center;
-  font-size: 0.9rem;
-  color: #d97706;
+  font-size: 0.85rem;
+  color: #fca503;
   margin: 1rem 0;
 `;
 
-const ErrorText = styled.p`
+const ErrorMsg = styled.p`
   color: red;
   text-align: center;
   margin-bottom: 1rem;
+  font-size: 0.9rem;
 `;
 
 const SubmitButton = styled.button`
-  background-color: #f97316;
-  color: white;
   padding: 0.75rem;
   font-size: 1rem;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: #f97316; /* 橘色按鈕 */
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
-  width: 100%;
-  margin-top: 1rem;
-
+  margin-top: 0.5rem;
   &:hover {
     background-color: #ea580c;
   }
@@ -72,9 +94,10 @@ const SubmitButton = styled.button`
 
 export default function Register() {
   const navigate = useNavigate();
-  const [error, setError] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const [formData, setFormData] = useState({
+  // 統一放入一個物件中
+  const [form, setForm] = useState({
     email: '',
     username: '',
     password: '',
@@ -91,238 +114,224 @@ export default function Register() {
     eBay: ''
   });
 
-  // onChange handler
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  // onSubmit
-  const handleSubmit = async (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault();
-    setError('');
+    setErrorMsg('');
 
-    // 1) 前端檢查必填欄位: email, username, password, confirmPassword
-    if (!formData.email.trim() || !formData.username.trim() || !formData.password || !formData.confirmPassword) {
-      setError('必填欄位未填 (Please fill in all required fields)');
-      return;
+    // 1) 前端檢查必填
+    if (!form.email.trim() || !form.username.trim() 
+        || !form.password || !form.confirmPassword) {
+      return setErrorMsg('必填欄位未填 (Please fill in all required fields)');
     }
     // 2) 密碼一致
-    if (formData.password !== formData.confirmPassword) {
-      setError('兩次輸入的密碼不一致 (Passwords do not match)');
-      return;
+    if (form.password !== form.confirmPassword) {
+      return setErrorMsg('兩次輸入的密碼不一致 (Passwords do not match)');
     }
-    // 3) 至少有一個社群/電商欄位
-    const {
-      IG, FB, YouTube, TikTok,
-      Shopee, Ruten, Yahoo, Amazon, Taobao, eBay
-    } = formData;
+    // 3) 至少一個社群/電商欄位
+    const { IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, Taobao, eBay } = form;
     const accounts = [IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, Taobao, eBay];
     const hasAccount = accounts.some(acc => acc.trim() !== '');
     if (!hasAccount) {
-      setError('請至少填寫一個社群或電商帳號 (At least one social/e-commerce account)');
-      return;
+      return setErrorMsg('請至少填寫一個社群或電商帳號 (At least one social/e-commerce account)');
     }
 
     // 呼叫後端 /auth/register
     try {
       const resp = await fetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(formData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
       });
       const data = await resp.json();
+
       if (!resp.ok) {
-        // 註冊失敗 (後端 4xx or 5xx)
-        setError(data.message || '註冊失敗 (Registration failed)');
+        setErrorMsg(data.message || '註冊失敗 (Registration failed)');
       } else {
         alert(data.message || '註冊成功 (Registration successful)');
         navigate('/login');
       }
     } catch (err) {
       console.error(err);
-      setError('無法連接伺服器 (Cannot connect to server)');
+      setErrorMsg('無法連接伺服器 (Cannot connect to server)');
     }
   };
 
   return (
-    <FormContainer>
-      <h2 style={{ color: '#f97316', textAlign: 'center' }}>
-        用戶註冊 / User Registration
-      </h2>
+    <PageWrapper>
+      <FormContainer>
+        <Title>用戶註冊 / Register</Title>
 
-      {error && <ErrorText>{error}</ErrorText>}
+        {errorMsg && <ErrorMsg>{errorMsg}</ErrorMsg>}
 
-      <form onSubmit={handleSubmit}>
-
-        {/* 基本欄位 */}
-        <FormLabel>
-          電子郵件 Email
-          <FormInput
-            type="email"
-            name="email"
-            placeholder="輸入電子郵件 (Enter your email)"
-            value={formData.email}
+        <StyledForm onSubmit={handleSubmit}>
+          {/* Email */}
+          <StyledLabel>電子郵件 Email</StyledLabel>
+          <StyledInput 
+            name="email" 
+            type="email" 
+            placeholder="Enter your email" 
+            value={form.email}
             onChange={handleChange}
             required
           />
-        </FormLabel>
 
-        <FormLabel>
-          用戶名稱 Username
-          <FormInput
-            type="text"
+          {/* Username */}
+          <StyledLabel>用戶名稱 Username</StyledLabel>
+          <StyledInput 
             name="username"
-            placeholder="輸入用戶名稱 (Enter a username)"
-            value={formData.username}
+            type="text"
+            placeholder="Enter username"
+            value={form.username}
             onChange={handleChange}
             required
           />
-        </FormLabel>
 
-        <FormLabel>
-          密碼 Password
-          <FormInput
-            type="password"
+          {/* Password */}
+          <StyledLabel>密碼 Password</StyledLabel>
+          <StyledInput 
             name="password"
-            placeholder="輸入密碼 (Enter a password)"
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
-        </FormLabel>
-
-        <FormLabel>
-          確認密碼 Confirm Password
-          <FormInput
             type="password"
-            name="confirmPassword"
-            placeholder="再次輸入密碼 (Re-enter the password)"
-            value={formData.confirmPassword}
+            placeholder="Enter password"
+            value={form.password}
             onChange={handleChange}
             required
           />
-        </FormLabel>
 
-        {/* 社群平台帳號區域 */}
-        <Section>
-          <SectionTitle>社群平台帳號 (Social Accounts)</SectionTitle>
-          <FormLabel>
-            Instagram
-            <FormInput
-              type="text"
-              name="IG"
-              placeholder="Instagram 帳號 (optional)"
-              value={formData.IG}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            Facebook
-            <FormInput
-              type="text"
-              name="FB"
-              placeholder="Facebook 帳號 (optional)"
-              value={formData.FB}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            YouTube
-            <FormInput
-              type="text"
-              name="YouTube"
-              placeholder="YouTube 帳號 (optional)"
-              value={formData.YouTube}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            TikTok
-            <FormInput
-              type="text"
-              name="TikTok"
-              placeholder="TikTok 帳號 (optional)"
-              value={formData.TikTok}
-              onChange={handleChange}
-            />
-          </FormLabel>
-        </Section>
+          {/* Confirm */}
+          <StyledLabel>確認密碼 Confirm Password</StyledLabel>
+          <StyledInput 
+            name="confirmPassword"
+            type="password"
+            placeholder="Re-enter password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            required
+          />
 
-        <HintText>
-          提供社群與電商帳號能證明原創性，確保你的內容受區塊鏈保護。<br/>
-          (Providing social & e-commerce accounts helps prove originality on the blockchain.)
-        </HintText>
+          {/* 社群平台 */}
+          <Section>
+            <SectionTitle>社群平台 / Social Accounts</SectionTitle>
+            <StyledLabel>
+              Instagram
+              <StyledInput 
+                name="IG"
+                type="text"
+                placeholder="Instagram (optional)"
+                value={form.IG}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              Facebook
+              <StyledInput 
+                name="FB"
+                type="text"
+                placeholder="Facebook (optional)"
+                value={form.FB}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              YouTube
+              <StyledInput 
+                name="YouTube"
+                type="text"
+                placeholder="YouTube (optional)"
+                value={form.YouTube}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              TikTok
+              <StyledInput 
+                name="TikTok"
+                type="text"
+                placeholder="TikTok (optional)"
+                value={form.TikTok}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+          </Section>
 
-        {/* 電商平台帳號區域 */}
-        <Section>
-          <SectionTitle>電商平台帳號 (E-Commerce Accounts)</SectionTitle>
-          <FormLabel>
-            Shopee
-            <FormInput
-              type="text"
-              name="Shopee"
-              placeholder="Shopee 帳號 (optional)"
-              value={formData.Shopee}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            Ruten
-            <FormInput
-              type="text"
-              name="Ruten"
-              placeholder="Ruten 露天拍賣 (optional)"
-              value={formData.Ruten}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            Yahoo
-            <FormInput
-              type="text"
-              name="Yahoo"
-              placeholder="Yahoo 拍賣帳號 (optional)"
-              value={formData.Yahoo}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            Amazon
-            <FormInput
-              type="text"
-              name="Amazon"
-              placeholder="Amazon 帳號 (optional)"
-              value={formData.Amazon}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            Taobao
-            <FormInput
-              type="text"
-              name="Taobao"
-              placeholder="Taobao / Tmall (optional)"
-              value={formData.Taobao}
-              onChange={handleChange}
-            />
-          </FormLabel>
-          <FormLabel>
-            eBay
-            <FormInput
-              type="text"
-              name="eBay"
-              placeholder="eBay 帳號 (optional)"
-              value={formData.eBay}
-              onChange={handleChange}
-            />
-          </FormLabel>
-        </Section>
+          <HintText>
+            提供社群與電商帳號能證明原創性，確保你的內容受區塊鏈保護。<br/>
+            (Providing social & e-commerce accounts helps prove originality on the blockchain.)
+          </HintText>
 
-        <SubmitButton type="submit">
-          提交註冊 / Submit Registration
-        </SubmitButton>
-      </form>
-    </FormContainer>
+          {/* 電商平台 */}
+          <Section>
+            <SectionTitle>電商平台 / E-Commerce Accounts</SectionTitle>
+            <StyledLabel>
+              Shopee
+              <StyledInput
+                name="Shopee"
+                type="text"
+                placeholder="Shopee (optional)"
+                value={form.Shopee}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              Ruten
+              <StyledInput
+                name="Ruten"
+                type="text"
+                placeholder="Ruten (optional)"
+                value={form.Ruten}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              Yahoo
+              <StyledInput
+                name="Yahoo"
+                type="text"
+                placeholder="Yahoo Auction (optional)"
+                value={form.Yahoo}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              Amazon
+              <StyledInput
+                name="Amazon"
+                type="text"
+                placeholder="Amazon (optional)"
+                value={form.Amazon}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              Taobao
+              <StyledInput
+                name="Taobao"
+                type="text"
+                placeholder="Taobao/Tmall (optional)"
+                value={form.Taobao}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+            <StyledLabel>
+              eBay
+              <StyledInput
+                name="eBay"
+                type="text"
+                placeholder="eBay (optional)"
+                value={form.eBay}
+                onChange={handleChange}
+              />
+            </StyledLabel>
+          </Section>
+
+          <SubmitButton type="submit">
+            提交註冊 / Submit
+          </SubmitButton>
+        </StyledForm>
+      </FormContainer>
+    </PageWrapper>
   );
 }
