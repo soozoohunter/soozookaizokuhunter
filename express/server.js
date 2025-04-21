@@ -1,18 +1,13 @@
-/**
- * express/server.js
- * - 讀取 .env
- * - 連接 PostgreSQL (Sequelize)
- * - 啟動 Express
- * - 掛載路由 (auth, etc.)
- */
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./models'); // index.js or DB init
+const { sequelize } = require('./models');
 
 // 路由
 const authRoutes = require('./routes/auth');
+const uploadRoutes = require('./routes/upload');
+const infringementRoutes = require('./routes/infringement');
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 app.use(cors());
@@ -23,12 +18,13 @@ app.get('/health', (req, res) => {
   res.send('Express OK');
 });
 
-// 掛載 /auth 路由
+// 掛載路由
 app.use('/auth', authRoutes);
+app.use('/upload', uploadRoutes);
+app.use('/infringement', infringementRoutes);
+app.use('/contact', contactRoutes);
 
-// 可選其他路由
-// app.use('/api/upload', ...)
-
+// Sequelize 同步
 sequelize
   .sync({ alter: false })
   .then(() => {
