@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     tableName: 'files',
-    timestamps: true // createdAt, updatedAt
+    timestamps: true
   });
 
   return File;
