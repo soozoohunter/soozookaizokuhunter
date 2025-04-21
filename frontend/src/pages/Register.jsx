@@ -2,24 +2,25 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-// 與 Login 頁面風格相似的暗色背景 + 橘色重點
+// 全頁面深色背景
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #121212; 
+  background-color: #121212;
   color: #ffffff;
 `;
 
+// 外層容器：橘色邊框、二次深色背景
 const FormContainer = styled.div`
-  background-color: #1e1e1e; 
+  background-color: #1e1e1e;
   padding: 2rem 2.5rem;
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: 450px;
-  border: 2px solid #ff6f00; /* 橘色外框 */
+  max-width: 520px; /* 調整寬度稍大些，避免感覺擠 */
+  border: 2px solid #ff6f00; 
 `;
 
 const Title = styled.h2`
@@ -34,14 +35,16 @@ const StyledForm = styled.form`
 `;
 
 const StyledLabel = styled.label`
-  margin: 0.5rem 0 0.25rem;
+  display: flex;
+  flex-direction: column;
+  color: #ffa500; 
   font-size: 0.9rem;
-  color: #ffa500; /* 橘字 */
 `;
 
 const StyledInput = styled.input`
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
   padding: 0.5rem 0.75rem;
-  margin-bottom: 1rem;
   font-size: 1rem;
   color: #ffffff;
   background-color: #2c2c2c;
@@ -49,10 +52,11 @@ const StyledInput = styled.input`
   border-radius: 4px;
 `;
 
+// 區塊 (社群平台 / 電商平台)
 const Section = styled.div`
   border: 1px solid #ff6f00;
   padding: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   border-radius: 6px;
   background-color: #2c2c2c;
 `;
@@ -61,6 +65,13 @@ const SectionTitle = styled.h3`
   margin: 0 0 0.5rem 0;
   color: #ffd700;
   font-size: 1rem;
+`;
+
+// 二欄式排版
+const GridTwoCols = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem; 
 `;
 
 const HintText = styled.p`
@@ -82,7 +93,7 @@ const SubmitButton = styled.button`
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
-  background-color: #f97316; /* 橘色按鈕 */
+  background-color: #f97316; 
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -96,7 +107,6 @@ export default function Register() {
   const navigate = useNavigate();
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 統一放入一個物件中
   const [form, setForm] = useState({
     email: '',
     username: '',
@@ -122,9 +132,9 @@ export default function Register() {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1) 前端檢查必填
-    if (!form.email.trim() || !form.username.trim() 
-        || !form.password || !form.confirmPassword) {
+    // 1) 必填：email, username, password, confirmPassword
+    if (!form.email.trim() || !form.username.trim() ||
+        !form.password || !form.confirmPassword) {
       return setErrorMsg('必填欄位未填 (Please fill in all required fields)');
     }
     // 2) 密碼一致
@@ -139,11 +149,10 @@ export default function Register() {
       return setErrorMsg('請至少填寫一個社群或電商帳號 (At least one social/e-commerce account)');
     }
 
-    // 呼叫後端 /auth/register
     try {
       const resp = await fetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify(form)
       });
       const data = await resp.json();
@@ -171,9 +180,9 @@ export default function Register() {
           {/* Email */}
           <StyledLabel>電子郵件 Email</StyledLabel>
           <StyledInput 
-            name="email" 
-            type="email" 
-            placeholder="Enter your email" 
+            name="email"
+            type="email"
+            placeholder="Enter your email"
             value={form.email}
             onChange={handleChange}
             required
@@ -215,46 +224,48 @@ export default function Register() {
           {/* 社群平台 */}
           <Section>
             <SectionTitle>社群平台 / Social Accounts</SectionTitle>
-            <StyledLabel>
-              Instagram
-              <StyledInput 
-                name="IG"
-                type="text"
-                placeholder="Instagram (optional)"
-                value={form.IG}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              Facebook
-              <StyledInput 
-                name="FB"
-                type="text"
-                placeholder="Facebook (optional)"
-                value={form.FB}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              YouTube
-              <StyledInput 
-                name="YouTube"
-                type="text"
-                placeholder="YouTube (optional)"
-                value={form.YouTube}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              TikTok
-              <StyledInput 
-                name="TikTok"
-                type="text"
-                placeholder="TikTok (optional)"
-                value={form.TikTok}
-                onChange={handleChange}
-              />
-            </StyledLabel>
+            <GridTwoCols>
+              <StyledLabel>
+                Instagram (optional)
+                <StyledInput 
+                  name="IG"
+                  type="text"
+                  placeholder="Instagram"
+                  value={form.IG}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                Facebook (optional)
+                <StyledInput 
+                  name="FB"
+                  type="text"
+                  placeholder="Facebook"
+                  value={form.FB}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                YouTube (optional)
+                <StyledInput 
+                  name="YouTube"
+                  type="text"
+                  placeholder="YouTube"
+                  value={form.YouTube}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                TikTok (optional)
+                <StyledInput 
+                  name="TikTok"
+                  type="text"
+                  placeholder="TikTok"
+                  value={form.TikTok}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+            </GridTwoCols>
           </Section>
 
           <HintText>
@@ -265,66 +276,68 @@ export default function Register() {
           {/* 電商平台 */}
           <Section>
             <SectionTitle>電商平台 / E-Commerce Accounts</SectionTitle>
-            <StyledLabel>
-              Shopee
-              <StyledInput
-                name="Shopee"
-                type="text"
-                placeholder="Shopee (optional)"
-                value={form.Shopee}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              Ruten
-              <StyledInput
-                name="Ruten"
-                type="text"
-                placeholder="Ruten (optional)"
-                value={form.Ruten}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              Yahoo
-              <StyledInput
-                name="Yahoo"
-                type="text"
-                placeholder="Yahoo Auction (optional)"
-                value={form.Yahoo}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              Amazon
-              <StyledInput
-                name="Amazon"
-                type="text"
-                placeholder="Amazon (optional)"
-                value={form.Amazon}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              Taobao
-              <StyledInput
-                name="Taobao"
-                type="text"
-                placeholder="Taobao/Tmall (optional)"
-                value={form.Taobao}
-                onChange={handleChange}
-              />
-            </StyledLabel>
-            <StyledLabel>
-              eBay
-              <StyledInput
-                name="eBay"
-                type="text"
-                placeholder="eBay (optional)"
-                value={form.eBay}
-                onChange={handleChange}
-              />
-            </StyledLabel>
+            <GridTwoCols>
+              <StyledLabel>
+                Shopee (optional)
+                <StyledInput
+                  name="Shopee"
+                  type="text"
+                  placeholder="Shopee"
+                  value={form.Shopee}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                Ruten (optional)
+                <StyledInput
+                  name="Ruten"
+                  type="text"
+                  placeholder="Ruten"
+                  value={form.Ruten}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                Yahoo Auction (optional)
+                <StyledInput
+                  name="Yahoo"
+                  type="text"
+                  placeholder="Yahoo Auction"
+                  value={form.Yahoo}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                Amazon (optional)
+                <StyledInput
+                  name="Amazon"
+                  type="text"
+                  placeholder="Amazon"
+                  value={form.Amazon}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                Taobao/Tmall (optional)
+                <StyledInput
+                  name="Taobao"
+                  type="text"
+                  placeholder="Taobao/Tmall"
+                  value={form.Taobao}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+              <StyledLabel>
+                eBay (optional)
+                <StyledInput
+                  name="eBay"
+                  type="text"
+                  placeholder="eBay"
+                  value={form.eBay}
+                  onChange={handleChange}
+                />
+              </StyledLabel>
+            </GridTwoCols>
           </Section>
 
           <SubmitButton type="submit">
