@@ -10,35 +10,35 @@ const chain = require('../utils/chain');
 const { uploadToIPFS } = require('../services/ipfsService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest:'uploads/' });
 
-// JWT 驗證中介
+// JWT 驗證
 function authMiddleware(req, res, next) {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s*/, '');
     if (!token) throw new Error('缺少 Token');
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
-    next();
+    return next();
   } catch(e){
-    return res.status(401).json({ error:e.message });
+    return res.status(401).json({ error:'Token 無效' });
   }
 }
 
 router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   try {
     const user = await User.findByPk(req.user.userId);
-    if (!user) return res.status(404).json({ error:'用戶不存在' });
+    if (!user) return res.status(404).json({ error:'找不到使用者' });
     if (!req.file) return res.status(400).json({ error:'沒有上傳任何檔案' });
 
-    // 讀取檔案 => 指紋
+    // 計算 Fingerprint
     const buffer = fs.readFileSync(req.file.path);
     const fingerprint = crypto.createHash('sha256').update(buffer).digest('hex');
 
     let ipfsHash = null;
     let txHash = null;
 
-    // IPFS 上傳
+    // IPFS
     try {
       ipfsHash = await uploadToIPFS(buffer);
     } catch(ipfsErr) {
@@ -49,11 +49,11 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt.transactionHash;
-    } catch(chainErr){
+    } catch(chainErr) {
       console.error('[storeRecord Error]', chainErr);
     }
 
-    // 寫入 DB
+    // 建立 File 紀錄
     const newFile = await File.create({
       filename: req.file.originalname,
       fingerprint,
