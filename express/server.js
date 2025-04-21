@@ -13,18 +13,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 健康檢查
+// 健康檢查端點
 app.get('/health', (req, res) => {
   res.send('Express OK');
 });
 
-// 掛載路由
+// 路由掛載
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/infringement', infringementRoutes);
 app.use('/contact', contactRoutes);
 
-// Sequelize 同步
+// DB 同步
 sequelize
   .sync({ alter: false })
   .then(() => {
