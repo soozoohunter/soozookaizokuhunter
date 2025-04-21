@@ -8,7 +8,7 @@ const { User } = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
-// Joi：註冊
+// Joi: 註冊
 const registerSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),
   userName: Joi.string().min(3).max(30).trim().required(),
@@ -26,13 +26,14 @@ const registerSchema = Joi.object({
   Taobao: Joi.string().allow('')
 });
 
-// Joi：登入 => 同時支援 email 或 userName
+// Joi: 登入 => email or userName
 const loginSchema = Joi.object({
   email: Joi.string().email().trim().lowercase(),
   userName: Joi.string().trim(),
   password: Joi.string().required()
 }).or('email','userName');
 
+// POST /auth/register
 router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body, { abortEarly:false });
@@ -46,52 +47,49 @@ router.post('/register', async (req, res) => {
       Ruten, Yahoo, Amazon, eBay, Taobao
     } = value;
 
-    // 檢查重複
     email = email.trim().toLowerCase();
-    const existEmail = await User.findOne({ where:{ email } });
-    if (existEmail) {
-      return res.status(400).json({ message: '此 Email 已被註冊' });
-    }
-    const existUser = await User.findOne({ where:{ userName } });
-    if (existUser) {
-      return res.status(400).json({ message: '使用者名稱已被使用' });
-    }
 
-    // bcrypt
+    // 檢查重複
+    const existEmail = await User.findOne({ where:{ email } });
+    if (existEmail) return res.status(400).json({ message:'此 Email 已被註冊' });
+    const existUser = await User.findOne({ where:{ userName } });
+    if (existUser) return res.status(400).json({ message:'使用者名稱已被使用' });
+
+    // bcrypt 雜湊
     const hashedPwd = await bcrypt.hash(password, 10);
 
-    // 建立用戶
+    // 建立使用者
     await User.create({
       email,
       userName,
       password: hashedPwd,
-      plan: 'BASIC', // 可自行決定
+      plan:'BASIC',
       socialBinding: JSON.stringify({
-        IG, FB, YouTube, TikTok,
-        Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+        IG, FB, YouTube, TikTok, Shopee,
+        Ruten, Yahoo, Amazon, eBay, Taobao
       })
     });
 
-    return res.status(201).json({ message: '註冊成功' });
-  } catch (err) {
+    return res.status(201).json({ message:'註冊成功' });
+  } catch(err) {
     console.error('[Register Error]', err);
-    if (err.name === 'SequelizeUniqueConstraintError') {
+    if (err.name==='SequelizeUniqueConstraintError') {
       const field = err.errors?.[0]?.path;
-      if (field === 'email') return res.status(400).json({ message:'此 Email 已被註冊' });
-      if (field === 'userName') return res.status(400).json({ message:'使用者名稱已被使用' });
+      if (field==='email') return res.status(400).json({ message:'此 Email 已被註冊' });
+      if (field==='userName') return res.status(400).json({ message:'使用者名稱已被使用' });
       return res.status(400).json({ message:'資料重複無法使用' });
     }
     return res.status(500).json({ message:'註冊失敗' });
   }
 });
 
+// POST /auth/login
 router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body, { abortEarly:false });
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
-
     const { email, userName, password } = value;
     let user;
     if (email) {
@@ -117,7 +115,7 @@ router.post('/login', async (req, res) => {
     }, JWT_SECRET, { expiresIn:'24h' });
 
     return res.json({ message:'登入成功', token });
-  } catch (err) {
+  } catch(err) {
     console.error('[Login Error]', err);
     return res.status(500).json({ message:'登入失敗' });
   }
