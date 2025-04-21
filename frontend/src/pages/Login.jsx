@@ -28,7 +28,7 @@ export default function Login() {
       });
       const data = await resp.json();
       if (!resp.ok) {
-        throw new Error(data.message || data.error || 'Login failed');
+        throw new Error(data.message || '登入失敗 (Login failed)');
       }
 
       // 成功 => 儲存 token
@@ -67,7 +67,9 @@ export default function Login() {
 
         <SwitchText>
           尚未註冊？
-          <Link to="/register" style={{ color:'#FFD700', marginLeft:'6px' }}>註冊 / Register</Link>
+          <Link to="/register" style={{ color:'#FFD700', marginLeft:'6px' }}>
+            註冊 / Register
+          </Link>
         </SwitchText>
       </FormWrapper>
     </Container>
