@@ -6,7 +6,7 @@ const Web3EthAccounts = require('web3-eth-accounts');
 const { BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS } = process.env;
 
 if (!BLOCKCHAIN_RPC_URL || !BLOCKCHAIN_PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.warn('[chain.js] 區塊鏈相關 .env 參數未完整設定');
+  console.warn('[chain.js] 區塊鏈環境變數設定不足');
 }
 
 const privateKey = BLOCKCHAIN_PRIVATE_KEY.startsWith('0x')
@@ -15,7 +15,6 @@ const privateKey = BLOCKCHAIN_PRIVATE_KEY.startsWith('0x')
 const account = new Web3EthAccounts().privateKeyToAccount(privateKey);
 const fromAddress = account.address;
 
-// 基本 RPC
 async function rpcCall(method, params=[]) {
   const payload = { jsonrpc:'2.0', id:1, method, params };
   const resp = await axios.post(BLOCKCHAIN_RPC_URL, payload, {
@@ -27,32 +26,20 @@ async function rpcCall(method, params=[]) {
   return resp.data.result;
 }
 
-async function getNonce(address) {
-  return rpcCall('eth_getTransactionCount', [address, 'pending']);
-}
-async function getGasPrice() {
-  return rpcCall('eth_gasPrice', []);
-}
-async function estimateGas(from, to, data) {
-  return rpcCall('eth_estimateGas', [{ from, to, data }]);
-}
-async function sendRawTransaction(rawTx) {
-  return rpcCall('eth_sendRawTransaction', [rawTx]);
-}
-async function waitForReceipt(txHash, timeoutMs=15000, intervalMs=1000) {
+async function waitForReceipt(txHash, timeoutMs=15000, pollMs=1000) {
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const receipt = await rpcCall('eth_getTransactionReceipt', [txHash]);
+  while ((Date.now() - start) < timeoutMs) {
+    const receipt = await rpcCall('eth_getTransactionReceipt',[txHash]);
     if (receipt) return receipt;
-    await new Promise(r => setTimeout(r, intervalMs));
+    await new Promise(r=>setTimeout(r, pollMs));
   }
-  throw new Error(`Tx ${txHash} not mined within ${timeoutMs}ms`);
+  throw new Error(`Transaction ${txHash} not mined within ${timeoutMs}ms`);
 }
 
-// storeRecord => 將檔案 fingerprint + ipfsHash 存鏈上
+// storeRecord
 async function storeRecord(fingerprint, ipfsHash='') {
   try {
-    // 合約函式 => storeRecord(string fingerprint, string ipfsHash)
+    // encode storeRecord(string,string)
     const data = Web3EthAbi.encodeFunctionCall({
       name:'storeRecord',
       type:'function',
@@ -62,11 +49,15 @@ async function storeRecord(fingerprint, ipfsHash='') {
       ]
     }, [fingerprint, ipfsHash]);
 
-    const nonce = await getNonce(fromAddress);
-    const gasPrice = await getGasPrice();
-    const gasLimit = await estimateGas(fromAddress, CONTRACT_ADDRESS, data);
-    const chainIdHex = await rpcCall('eth_chainId', []);
-    const chainId = parseInt(chainIdHex, 16);
+    const nonce = await rpcCall('eth_getTransactionCount',[fromAddress,'pending']);
+    const gasPrice = await rpcCall('eth_gasPrice',[]);
+    const gas = await rpcCall('eth_estimateGas',[{
+      from:fromAddress,
+      to:CONTRACT_ADDRESS,
+      data
+    }]);
+    const chainIdHex = await rpcCall('eth_chainId',[]);
+    const chainId = parseInt(chainIdHex,16);
 
     const txParams = {
       from: fromAddress,
@@ -74,13 +65,12 @@ async function storeRecord(fingerprint, ipfsHash='') {
       value:'0x0',
       data,
       nonce,
-      gas: gasLimit,
+      gas,
       gasPrice,
       chainId
     };
-
     const signed = await account.signTransaction(txParams);
-    const txHash = await sendRawTransaction(signed.rawTransaction);
+    const txHash = await rpcCall('eth_sendRawTransaction',[signed.rawTransaction]);
     const receipt = await waitForReceipt(txHash);
     return receipt;
   } catch(e){
