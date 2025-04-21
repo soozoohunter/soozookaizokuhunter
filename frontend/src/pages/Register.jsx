@@ -1,12 +1,54 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-export default function Register() {
+const FormContainer = styled.div`
+  max-width: 500px;
+  margin: 2rem auto;
+  padding: 1rem;
+`;
+
+const Section = styled.div`
+  border: 1px solid #ccc;
+  padding: 1rem;
+  margin-bottom: 1rem;
+`;
+
+const SectionTitle = styled.h3`
+  margin: 0 0 0.5rem 0;
+`;
+
+const FormLabel = styled.label`
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+`;
+
+const FormInput = styled.input`
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  font-size: 1rem;
+`;
+
+const HintText = styled.p`
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin: 1rem 0;
+`;
+
+const ErrorText = styled.p`
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+`;
+
+const Register = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
     email: '',
-    userName: '',
+    username: '',
     password: '',
     confirmPassword: '',
     IG: '',
@@ -17,242 +59,232 @@ export default function Register() {
     Ruten: '',
     Yahoo: '',
     Amazon: '',
-    eBay: '',
-    Taobao: ''
+    Taobao: '',
+    eBay: ''
   });
   const [error, setError] = useState('');
 
-  // 檢查是否至少填一個社群/電商欄位
-  function hasOnePlatform() {
-    const {
-      IG, FB, YouTube, TikTok,
-      Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
-    } = form;
-    return (
-      IG.trim() ||
-      FB.trim() ||
-      YouTube.trim() ||
-      TikTok.trim() ||
-      Shopee.trim() ||
-      Ruten.trim() ||
-      Yahoo.trim() ||
-      Amazon.trim() ||
-      eBay.trim() ||
-      Taobao.trim()
-    );
-  }
-
+  // 通用的輸入變更處理器
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 必填欄位檢查
-    if (!form.email.trim() || !form.userName.trim() || !form.password || !form.confirmPassword) {
-      return setError('必填欄位未填 (Required fields missing)');
+    // 前端驗證：確認密碼一致，至少一個社群/電商帳號
+    if (formData.password !== formData.confirmPassword) {
+      setError('兩次輸入的密碼不一致 (Passwords do not match)');
+      return;
     }
-    if (form.password !== form.confirmPassword) {
-      return setError('密碼不一致 (Passwords do not match)');
-    }
-    if (!hasOnePlatform()) {
-      return setError('請至少填寫一個社群/電商帳號');
+    // 檢查至少填寫一個平台帳號
+    const {
+      IG, FB, YouTube, TikTok,
+      Shopee, Ruten, Yahoo, Amazon, Taobao, eBay
+    } = formData;
+    const socialAccounts = [IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, Taobao, eBay];
+    const hasAccount = socialAccounts.some(acc => acc && acc.trim() !== '');
+    if (!hasAccount) {
+      setError('請提供至少一個社群或電商平台帳號 (At least one social or e-commerce account is required)');
+      return;
     }
 
     try {
-      const resp = await fetch('/auth/register', {
+      // 發送 POST 請求到後端 API
+      const response = await fetch('/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify(formData)
       });
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        throw new Error(data.message || '註冊失敗');
+      const data = await response.json().catch(() => ({}));  // 確保 JSON parse 不出錯
+      if (!response.ok) {
+        // 後端返回錯誤，顯示錯誤訊息
+        setError(data.message || '發生未知錯誤 (An unknown error occurred)');
+      } else {
+        // 註冊成功，導向登入頁面
+        alert(data.message || '註冊成功，請登入 (Registration successful, please log in)');
+        navigate('/login');
       }
-
-      alert('註冊成功 / Registration successful!');
-      navigate('/login');
     } catch (err) {
-      setError(err.message);
+      // 處理網絡或其他錯誤
+      console.error('Registration error:', err);
+      setError('無法連接伺服器，請稍後再試 (Cannot connect to server, please try again later)');
     }
   };
 
-  const showPlatformAlert = !hasOnePlatform();
-
   return (
-    <Container>
-      <FormWrapper onSubmit={handleSubmit}>
-        <Title>Register / 註冊</Title>
-        {error && <ErrorMsg>{error}</ErrorMsg>}
+    <FormContainer>
+      <h2>用戶註冊 / User Registration</h2>
+      {error && <ErrorText>{error}</ErrorText>}
+      <form onSubmit={handleSubmit}>
+        {/* 基本資訊欄位 */}
+        <FormLabel>
+          電子郵件 Email
+          <FormInput 
+            type="email" 
+            name="email" 
+            placeholder="輸入電子郵件 (Enter your email)" 
+            value={formData.email} 
+            onChange={handleChange} 
+            required 
+          />
+        </FormLabel>
+        <FormLabel>
+          用戶名稱 Username
+          <FormInput 
+            type="text" 
+            name="username" 
+            placeholder="輸入用戶名稱 (Enter a username)" 
+            value={formData.username} 
+            onChange={handleChange} 
+            required 
+          />
+        </FormLabel>
+        <FormLabel>
+          密碼 Password
+          <FormInput 
+            type="password" 
+            name="password" 
+            placeholder="請輸入密碼 (Enter a password)" 
+            value={formData.password} 
+            onChange={handleChange} 
+            required 
+          />
+        </FormLabel>
+        <FormLabel>
+          確認密碼 Confirm Password
+          <FormInput 
+            type="password" 
+            name="confirmPassword" 
+            placeholder="再次輸入密碼 (Re-enter the password)" 
+            value={formData.confirmPassword} 
+            onChange={handleChange} 
+            required 
+          />
+        </FormLabel>
 
-        <Label>Email</Label>
-        <Input
-          name="email"
-          type="email"
-          placeholder="Enter your email"
-          value={form.email}
-          onChange={handleChange}
-        />
+        {/* 社群平台帳號區域 */}
+        <Section>
+          <SectionTitle>社群平台帳號 Social Accounts</SectionTitle>
+          <FormLabel>
+            Instagram
+            <FormInput 
+              type="text" 
+              name="IG" 
+              placeholder="Instagram 帳號 (optional)" 
+              value={formData.IG} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            Facebook
+            <FormInput 
+              type="text" 
+              name="FB" 
+              placeholder="Facebook 帳號 (optional)" 
+              value={formData.FB} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            YouTube
+            <FormInput 
+              type="text" 
+              name="YouTube" 
+              placeholder="YouTube 頻道或帳號 (optional)" 
+              value={formData.YouTube} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            TikTok
+            <FormInput 
+              type="text" 
+              name="TikTok" 
+              placeholder="TikTok 帳號 (optional)" 
+              value={formData.TikTok} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+        </Section>
 
-        <Label>Username</Label>
-        <Input
-          name="userName"
-          type="text"
-          placeholder="Enter your username"
-          value={form.userName}
-          onChange={handleChange}
-        />
+        {/* 提示文字：鼓勵多平台 */}
+        <HintText>
+          提供多個社群或電商帳號有助於建立信任度  
+          (Providing multiple social/e-commerce accounts helps build trust)
+        </HintText>
 
-        <Label>Password</Label>
-        <Input
-          name="password"
-          type="password"
-          placeholder="Enter password"
-          value={form.password}
-          onChange={handleChange}
-        />
+        {/* 電商平台帳號區域 */}
+        <Section>
+          <SectionTitle>電商平台帳號 E-Commerce Accounts</SectionTitle>
+          <FormLabel>
+            Shopee
+            <FormInput 
+              type="text" 
+              name="Shopee" 
+              placeholder="Shopee 商店帳號 (optional)" 
+              value={formData.Shopee} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            露天拍賣 Ruten
+            <FormInput 
+              type="text" 
+              name="Ruten" 
+              placeholder="露天拍賣帳號 (optional)" 
+              value={formData.Ruten} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            Yahoo拍賣 Yahoo
+            <FormInput 
+              type="text" 
+              name="Yahoo" 
+              placeholder="Yahoo 拍賣帳號 (optional)" 
+              value={formData.Yahoo} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            Amazon
+            <FormInput 
+              type="text" 
+              name="Amazon" 
+              placeholder="Amazon 賣家帳號 (optional)" 
+              value={formData.Amazon} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            淘寶 Taobao
+            <FormInput 
+              type="text" 
+              name="Taobao" 
+              placeholder="淘寶帳號 (optional)" 
+              value={formData.Taobao} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+          <FormLabel>
+            eBay
+            <FormInput 
+              type="text" 
+              name="eBay" 
+              placeholder="eBay 帳號 (optional)" 
+              value={formData.eBay} 
+              onChange={handleChange} 
+            />
+          </FormLabel>
+        </Section>
 
-        <Label>Confirm Password</Label>
-        <Input
-          name="confirmPassword"
-          type="password"
-          placeholder="Re-enter password"
-          value={form.confirmPassword}
-          onChange={handleChange}
-        />
-
-        {/* 提示欄位：填寫社群/電商帳號的重要性 */}
-        <NoteBox>
-          為了區塊鏈「原創性」證明，請至少填寫一個社群/電商帳號，
-          以便我們能在智慧合約中綁定您的多平台證明。
-        </NoteBox>
-
-        {showPlatformAlert && (
-          <AlertBox>
-            尚未填寫任何平台帳號 / No social/ecom account yet!
-          </AlertBox>
-        )}
-
-        {/* 社群平台 */}
-        <Label>IG</Label>
-        <Input name="IG" placeholder="Instagram" onChange={handleChange} />
-        <Label>FB</Label>
-        <Input name="FB" placeholder="Facebook" onChange={handleChange} />
-        <Label>YouTube</Label>
-        <Input name="YouTube" placeholder="YouTube" onChange={handleChange} />
-        <Label>TikTok</Label>
-        <Input name="TikTok" placeholder="TikTok" onChange={handleChange} />
-
-        {/* 電商平台 */}
-        <Label>Shopee</Label>
-        <Input name="Shopee" placeholder="Shopee" onChange={handleChange} />
-        <Label>Ruten</Label>
-        <Input name="Ruten" placeholder="Ruten Auction" onChange={handleChange} />
-        <Label>Yahoo</Label>
-        <Input name="Yahoo" placeholder="Yahoo Auction" onChange={handleChange} />
-        <Label>Amazon</Label>
-        <Input name="Amazon" placeholder="Amazon Store" onChange={handleChange} />
-        <Label>eBay</Label>
-        <Input name="eBay" placeholder="eBay Seller" onChange={handleChange} />
-        <Label>Taobao</Label>
-        <Input name="Taobao" placeholder="Taobao / Tmall" onChange={handleChange} />
-
-        <Button type="submit">註冊 / Register</Button>
-        <SwitchText>
-          已有帳號？{' '}
-          <Link to="/login" style={{ color: '#FFD700' }}>
-            登入 / Login
-          </Link>
-        </SwitchText>
-      </FormWrapper>
-    </Container>
+        <button type="submit">提交註冊 Submit</button>
+      </form>
+    </FormContainer>
   );
-}
+};
 
-/* ========== styled-components ========== */
-
-const Container = styled.div`
-  background: #000;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-`;
-
-const FormWrapper = styled.form`
-  width: 90%;
-  max-width: 480px;
-  background: #101010;
-  border: 2px solid #ff6f00;
-  border-radius: 8px;
-  padding: 2rem;
-`;
-
-const Title = styled.h1`
-  color: #FFD700;
-  text-align: center;
-  margin-bottom: 1.5rem;
-`;
-
-const Label = styled.label`
-  margin-top: 1rem;
-  display: block;
-  font-weight: bold;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  margin-bottom: 0.75rem;
-  padding: 0.5rem;
-  border: 1px solid #FFA500;
-  border-radius: 4px;
-  background: #000;
-  color: #fff;
-`;
-
-const NoteBox = styled.div`
-  background: rgba(255,165,0,0.1);
-  border: 1px dashed #FFA500;
-  padding: 0.8rem;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  color: #FFD700;
-  font-size: 0.9rem;
-`;
-
-const AlertBox = styled.div`
-  background: rgba(255,0,0,0.1);
-  border: 1px dashed red;
-  color: #ff6666;
-  padding: 0.8rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-`;
-
-const ErrorMsg = styled.div`
-  color: red;
-  margin-bottom: 1rem;
-`;
-
-const Button = styled.button`
-  width: 100%;
-  margin-top: 1.2rem;
-  padding: 0.6rem 1rem;
-  background: #000;
-  border: 2px solid #FFA500;
-  border-radius: 4px;
-  color: #FFD700;
-  font-weight: bold;
-  cursor: pointer;
-`;
-
-const SwitchText = styled.p`
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-`;
+export default Register;
