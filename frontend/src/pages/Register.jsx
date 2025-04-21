@@ -22,29 +22,41 @@ export default function Register() {
   });
   const [error, setError] = useState('');
 
-  // 檢查是否填至少一個社群/電商
+  // 檢查是否至少填一個社群/電商欄位
   function hasOnePlatform() {
+    const {
+      IG, FB, YouTube, TikTok,
+      Shopee, Ruten, Yahoo, Amazon, eBay, Taobao
+    } = form;
     return (
-      form.IG.trim() || form.FB.trim() || form.YouTube.trim() ||
-      form.TikTok.trim() || form.Shopee.trim() || form.Ruten.trim() ||
-      form.Yahoo.trim() || form.Amazon.trim() || form.eBay.trim() || form.Taobao.trim()
+      IG.trim() ||
+      FB.trim() ||
+      YouTube.trim() ||
+      TikTok.trim() ||
+      Shopee.trim() ||
+      Ruten.trim() ||
+      Yahoo.trim() ||
+      Amazon.trim() ||
+      eBay.trim() ||
+      Taobao.trim()
     );
   }
 
-  const handleChange = e => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!form.email.trim() || !form.userName.trim() ||
-        !form.password || !form.confirmPassword) {
-      return setError('必填欄位未填');
+    // 必填欄位檢查
+    if (!form.email.trim() || !form.userName.trim() || !form.password || !form.confirmPassword) {
+      return setError('必填欄位未填 (Required fields missing)');
     }
     if (form.password !== form.confirmPassword) {
-      return setError('密碼不一致');
+      return setError('密碼不一致 (Passwords do not match)');
     }
     if (!hasOnePlatform()) {
       return setError('請至少填寫一個社群/電商帳號');
@@ -52,17 +64,19 @@ export default function Register() {
 
     try {
       const resp = await fetch('/auth/register', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       });
       const data = await resp.json();
+
       if (!resp.ok) {
         throw new Error(data.message || '註冊失敗');
       }
-      alert('註冊成功！');
+
+      alert('註冊成功 / Registration successful!');
       navigate('/login');
-    } catch(err) {
+    } catch (err) {
       setError(err.message);
     }
   };
@@ -87,7 +101,8 @@ export default function Register() {
         <Label>Username</Label>
         <Input
           name="userName"
-          placeholder="Enter username"
+          type="text"
+          placeholder="Enter your username"
           value={form.userName}
           onChange={handleChange}
         />
@@ -110,38 +125,46 @@ export default function Register() {
           onChange={handleChange}
         />
 
+        {/* 提示欄位：填寫社群/電商帳號的重要性 */}
         <NoteBox>
-          為確保「原創性」證明，請至少填寫一個社群/電商帳號。
+          為了區塊鏈「原創性」證明，請至少填寫一個社群/電商帳號，
+          以便我們能在智慧合約中綁定您的多平台證明。
         </NoteBox>
+
         {showPlatformAlert && (
-          <AlertBox>尚未填寫任何平台帳號</AlertBox>
+          <AlertBox>
+            尚未填寫任何平台帳號 / No social/ecom account yet!
+          </AlertBox>
         )}
 
+        {/* 社群平台 */}
         <Label>IG</Label>
-        <Input name="IG" onChange={handleChange}/>
+        <Input name="IG" placeholder="Instagram" onChange={handleChange} />
         <Label>FB</Label>
-        <Input name="FB" onChange={handleChange}/>
+        <Input name="FB" placeholder="Facebook" onChange={handleChange} />
         <Label>YouTube</Label>
-        <Input name="YouTube" onChange={handleChange}/>
+        <Input name="YouTube" placeholder="YouTube" onChange={handleChange} />
         <Label>TikTok</Label>
-        <Input name="TikTok" onChange={handleChange}/>
+        <Input name="TikTok" placeholder="TikTok" onChange={handleChange} />
+
+        {/* 電商平台 */}
         <Label>Shopee</Label>
-        <Input name="Shopee" onChange={handleChange}/>
+        <Input name="Shopee" placeholder="Shopee" onChange={handleChange} />
         <Label>Ruten</Label>
-        <Input name="Ruten" onChange={handleChange}/>
+        <Input name="Ruten" placeholder="Ruten Auction" onChange={handleChange} />
         <Label>Yahoo</Label>
-        <Input name="Yahoo" onChange={handleChange}/>
+        <Input name="Yahoo" placeholder="Yahoo Auction" onChange={handleChange} />
         <Label>Amazon</Label>
-        <Input name="Amazon" onChange={handleChange}/>
+        <Input name="Amazon" placeholder="Amazon Store" onChange={handleChange} />
         <Label>eBay</Label>
-        <Input name="eBay" onChange={handleChange}/>
+        <Input name="eBay" placeholder="eBay Seller" onChange={handleChange} />
         <Label>Taobao</Label>
-        <Input name="Taobao" onChange={handleChange}/>
+        <Input name="Taobao" placeholder="Taobao / Tmall" onChange={handleChange} />
 
         <Button type="submit">註冊 / Register</Button>
         <SwitchText>
-          已有帳號？
-          <Link to="/login" style={{ color:'#FFD700' }}>
+          已有帳號？{' '}
+          <Link to="/login" style={{ color: '#FFD700' }}>
             登入 / Login
           </Link>
         </SwitchText>
@@ -150,161 +173,86 @@ export default function Register() {
   );
 }
 
-/* styled-components... (略) */
+/* ========== styled-components ========== */
 
-### (3) `frontend/src/pages/Login.jsx`
+const Container = styled.div`
+  background: #000;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
 
-```jsx
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import styled from 'styled-components';
+const FormWrapper = styled.form`
+  width: 90%;
+  max-width: 480px;
+  background: #101010;
+  border: 2px solid #ff6f00;
+  border-radius: 8px;
+  padding: 2rem;
+`;
 
-export default function Login() {
-  const navigate = useNavigate();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [errMsg, setErrMsg] = useState('');
+const Title = styled.h1`
+  color: #FFD700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+`;
 
-  const handleSubmit = async e => {
-    e.preventDefault();
-    setErrMsg('');
+const Label = styled.label`
+  margin-top: 1rem;
+  display: block;
+  font-weight: bold;
+`;
 
-    if (!identifier.trim() || !password) {
-      return setErrMsg('請輸入帳號(Email或UserName) + 密碼');
-    }
+const Input = styled.input`
+  width: 100%;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid #FFA500;
+  border-radius: 4px;
+  background: #000;
+  color: #fff;
+`;
 
-    let payload;
-    if (identifier.includes('@')) {
-      payload = { email: identifier.trim().toLowerCase(), password };
-    } else {
-      payload = { userName: identifier.trim(), password };
-    }
+const NoteBox = styled.div`
+  background: rgba(255,165,0,0.1);
+  border: 1px dashed #FFA500;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #FFD700;
+  font-size: 0.9rem;
+`;
 
-    try {
-      const resp = await fetch('/auth/login', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.message || '登入失敗');
-      }
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
-      alert('登入成功');
-      navigate('/');
-    } catch (err) {
-      setErrMsg(err.message);
-    }
-  };
+const AlertBox = styled.div`
+  background: rgba(255,0,0,0.1);
+  border: 1px dashed red;
+  color: #ff6666;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+`;
 
-  return (
-    <Container>
-      <FormWrapper onSubmit={handleSubmit}>
-        <Title>登入 / Login</Title>
-        {errMsg && <ErrorText>{errMsg}</ErrorText>}
+const ErrorMsg = styled.div`
+  color: red;
+  margin-bottom: 1rem;
+`;
 
-        <Label>帳號 (Email 或 UserName)</Label>
-        <Input
-          placeholder="example@mail.com 或 userName"
-          value={identifier}
-          onChange={e=>setIdentifier(e.target.value)}
-        />
+const Button = styled.button`
+  width: 100%;
+  margin-top: 1.2rem;
+  padding: 0.6rem 1rem;
+  background: #000;
+  border: 2px solid #FFA500;
+  border-radius: 4px;
+  color: #FFD700;
+  font-weight: bold;
+  cursor: pointer;
+`;
 
-        <Label>密碼</Label>
-        <Input
-          type="password"
-          placeholder="請輸入密碼"
-          value={password}
-          onChange={e=>setPassword(e.target.value)}
-        />
-
-        <Button type="submit">登入 / Login</Button>
-        <SwitchText>
-          尚未註冊？
-          <Link to="/register" style={{ color:'#FFD700' }}>註冊 / Register</Link>
-        </SwitchText>
-      </FormWrapper>
-    </Container>
-  );
-}
-
-/* styled-components... (略) */
-
-### (4) `frontend/src/pages/UploadPage.jsx`
-
-```jsx
-import React, { useState } from 'react';
-
-export default function UploadPage() {
-  const [file, setFile] = useState(null);
-  const [msg, setMsg] = useState('');
-  const [title, setTitle] = useState('');
-
-  const token = localStorage.getItem('token');
-  if (!token) {
-    return (
-      <div style={{ textAlign:'center', color:'#fff', marginTop:'2rem' }}>
-        <h2>尚未登入</h2>
-        <p>請先登入後再使用</p>
-      </div>
-    );
-  }
-
-  const doUpload = async() => {
-    if (!file) {
-      alert('尚未選擇檔案');
-      return;
-    }
-    setMsg('');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('title', title);
-
-      const resp = await fetch('/upload', {
-        method:'POST',
-        headers:{ 'Authorization':'Bearer ' + token },
-        body: formData
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || data.message || '上傳失敗');
-      }
-      setMsg(`上傳成功: fingerprint=${data.fingerprint}, ipfsHash=${data.ipfsHash || '無'}, txHash=${data.txHash || '無'}`);
-    } catch(e){
-      setMsg(`上傳錯誤: ${e.message}`);
-    }
-  };
-
-  return (
-    <div style={{ padding:'2rem', color:'#fff' }}>
-      <h2>上傳檔案 (影片 / 圖片)</h2>
-      <div style={{ marginBottom:'1rem' }}>
-        <label>作品標題: </label>
-        <input
-          value={title}
-          onChange={e=>setTitle(e.target.value)}
-          style={{ marginLeft:'8px', padding:'6px' }}
-        />
-      </div>
-      <div style={{ marginBottom:'1rem' }}>
-        <label>選擇檔案: </label>
-        <input
-          type="file"
-          onChange={e=> setFile(e.target.files[0])}
-        />
-      </div>
-      <button onClick={doUpload} style={{
-        backgroundColor:'#ff1c1c',
-        color:'#fff',
-        padding:'0.5rem 1rem',
-        border:'none',
-        borderRadius:'4px'
-      }}>上傳</button>
-      {msg && <p style={{ marginTop:'1rem', color:'yellow' }}>{msg}</p>}
-    </div>
-  );
-}
+const SwitchText = styled.p`
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+`;
