@@ -1,4 +1,5 @@
 // frontend/src/App.js
+
 import React from 'react';
 import {
   BrowserRouter,
@@ -10,24 +11,26 @@ import {
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
-// ★ 原本就有的頁面
+// 主要頁面
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
-import LoginPage from './pages/Login';
-import RegisterPage from './pages/Register';
-import Payment from './pages/Payment';
+import LoginPage from './pages/Login';        // 若您已有 Login.jsx
+import RegisterPage from './pages/Register';  // 若您已有 Register.jsx
+import Payment from './pages/Payment'; 
 import PaymentSuccess from './pages/PaymentSuccess';
 
-// ★ 新增：ProtectNow 四步驟頁面
+// 4-Step Protect 流程
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 
+// ★ 新增：Contact Us 頁面，避免點擊時白屏
+import ContactPage from './pages/Contact';
+
 function RootLayout() {
-  // 判斷 token
+  // 範例：抓 token、判斷 userRole
   const token = localStorage.getItem('token');
-  const isLoggedIn = !!token;
   let userRole = '';
   if (token) {
     try {
@@ -38,14 +41,17 @@ function RootLayout() {
     }
   }
 
+  // 是否顯示首頁 Banner
   const location = useLocation();
-  const showBanner = (location.pathname === '/');
+  const showBanner = location.pathname === '/';
 
+  // 登出
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/';
   };
 
+  // 導覽列按鈕樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
@@ -58,41 +64,29 @@ function RootLayout() {
 
   return (
     <div style={styles.container}>
-      {/* === 頂部 Header === */}
       <header style={styles.header}>
-        <Link to="/" style={{ display:'flex', alignItems:'center', textDecoration:'none' }}>
-          {/* 台灣國旗 */}
-          <img 
-            src="/tw_flag.png" 
-            alt="TaiwanFlag" 
-            style={{ height:'30px', marginRight:'8px' }} 
-          />
-          {/* 您原本的 Unicorn/Logo */}
-          <img 
-            src="/logo0.jpg" 
-            alt="Logo" 
-            style={{ height:'60px', marginRight:'1rem' }} 
-          />
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <img src="/logo0.jpg" alt="Logo" style={{ height: '60px', marginRight: '1rem' }} />
           <span style={styles.logoText}>速誅侵權獵人 SUZOO IP Guard</span>
         </Link>
-
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
-          {/* ProtectNow -> step1 */}
+          {/* ProtectNow 四步驟 => Step1 */}
           <Link to="/protect/step1" style={navLinkStyle}>ProtectNow</Link>
-          
-          {/* Admin Dashboard */}
-          {isLoggedIn && userRole === 'admin' && (
+
+          {/* 如果 userRole=admin => Admin Dashboard */}
+          {userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
           )}
 
-          {isLoggedIn ? (
+          {/* 登入/登出 */}
+          {token ? (
             <>
               <Link to="/payment" style={navLinkStyle}>Payment</Link>
-              <button 
-                onClick={handleLogout} 
-                style={{ ...navLinkStyle, border:'none', background:'none' }}
+              <button
+                onClick={handleLogout}
+                style={{ ...navLinkStyle, border: 'none', background: 'none' }}
               >
                 Logout
               </button>
@@ -106,19 +100,17 @@ function RootLayout() {
         </nav>
       </header>
 
-      {/* === 首頁 Banner 區塊 (只在 path='/' 顯示) === */}
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.</h1>
           <p style={styles.bannerDesc}>
-            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI技術，
-            24小時全方位掃描並追蹤全球侵權行為，
-            為你的原創影音、圖像、文字與商標提供最有力的法律證據與自動保護。
+            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
+            24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。
           </p>
         </section>
       )}
 
-      <main style={{ padding:'2rem', flex:1 }}>
+      <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
@@ -126,7 +118,7 @@ function RootLayout() {
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
           <br />
-          <span style={{ fontSize:'0.8rem', opacity:0.85 }}>
+          <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
             In loving memory of my beloved grandmother, Tseng Li Su-Chu.
             <br />
             by Ka!KaiShield 凱盾
@@ -144,9 +136,12 @@ export default function App() {
         <Route element={<RootLayout />}>
           {/* 首頁 */}
           <Route index element={<HomePage />} />
-          {/* Pricing, Contact, Admin... */}
+          {/* Contact */}
+          <Route path="contact" element={<ContactPage />} />
+          {/* Pricing */}
           <Route path="pricing" element={<PricingPage />} />
-          {/* ProtectNow 四步驟 */}
+
+          {/* ProtectNow 4-step flow */}
           <Route path="protect">
             <Route path="step1" element={<ProtectStep1 />} />
             <Route path="step2" element={<ProtectStep2 />} />
