@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   ################################################
   # 1) PostgreSQL
@@ -93,7 +95,7 @@ services:
   suzoo_react:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile   # 見下方 Dockerfile 示例
     container_name: suzoo_react
     depends_on:
       - suzoo_express
@@ -102,10 +104,9 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 若您想於 http://<伺服器IP或域名>:3001/ 測試 React，可保留以下:
+    # 開放3001=>容器3000, 方便測試
     ports:
       - "3001:3000"
-    # 如果只想透過 Nginx 對外，則可自行刪除上行
     restart: unless-stopped
 
   ################################################
@@ -126,7 +127,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 確定只掛載 suzoo.conf，而非 default.conf
+      # 挂載自訂 suzoo.conf (確保不再有 default.conf)
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
