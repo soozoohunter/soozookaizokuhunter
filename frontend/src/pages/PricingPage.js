@@ -1,17 +1,19 @@
-// frontend/src/pages/PricingPage.js
 import React from 'react';
 
 export default function PricingPage() {
   return (
     <div style={styles.container}>
+      {/* 頂部標題、簡介 */}
       <header style={styles.header}>
         <h1 style={styles.title}>Plans & Pricing 方案與定價</h1>
         <p style={styles.subtitle}>
-          Secure your copyrights and trademarks effortlessly with our "Blockchain + AI Infringement Detection" system.<br />
+          Secure your copyrights and trademarks effortlessly with our "Blockchain + AI Infringement Detection" system.
+          <br />
           透過區塊鏈與AI智慧侵權偵測，輕鬆保護您的著作權與商標權。
         </p>
       </header>
 
+      {/* (A) 著作權保護方案 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Copyright Protection 著作權保護方案</h2>
         <div style={styles.planGrid}>
@@ -40,7 +42,7 @@ export default function PricingPage() {
               'DMCA takedown enabled',
               'Blockchain certificate download'
             ]}
-            remark="(Recommended for Individuals 個人推薦方案)"
+            remark="(Recommended for Individuals 個人推薦)"
           />
 
           <PlanCard
@@ -55,7 +57,7 @@ export default function PricingPage() {
               'Blockchain certificate download',
               'AI Content Value Prediction (coming soon)'
             ]}
-            remark="(For Professional Creators 專業創作者方案)"
+            remark="(For Professional Creators 專業創作者)"
           />
 
           <PlanCard
@@ -74,6 +76,125 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* (B) 新增：彈性功能付費 */}
+      <section style={styles.section}>
+        <h2 style={styles.orangeText}>Flexible Pay-Per-Feature 彈性功能付費</h2>
+        <p style={styles.desc}>
+          Not sure yet? Start with a <strong>Free Trial</strong> – no account required,
+          see how we detect potential infringements, and pay only when unlocking advanced services.
+          <br />
+          （若您還在考慮，可先用免費試用；真的需要進階服務，再單次付費解鎖即可）
+        </p>
+        <div style={styles.planGrid}>
+          <PlanCard
+            planName="FREE TRIAL"
+            monthlyPrice="NT$0"
+            annualPrice="—"
+            details={[
+              '1 content upload',
+              'Blockchain certificate preview (locked)',
+              'Basic infringement scan (locked)'
+            ]}
+            remark="(Anonymous trial 無需帳號)"
+          />
+          <PlanCard
+            planName="Certificate Download"
+            monthlyPrice="NT$99/item"
+            annualPrice="—"
+            details={[
+              'Full PDF certificate',
+              'Blockchain timestamp proof',
+              'One-time fee per content'
+            ]}
+            remark="(隨時付費解鎖)"
+          />
+          <PlanCard
+            planName="Infringement Scan"
+            monthlyPrice="NT$99/item"
+            annualPrice="—"
+            details={[
+              'AI scanning result',
+              'Detailed usage report',
+              'One-time fee per content'
+            ]}
+            remark="(隨時付費啟用)"
+          />
+          <PlanCard
+            planName="DMCA Takedown"
+            monthlyPrice="NT$299/case"
+            annualPrice="—"
+            details={[
+              'Official DMCA notice',
+              'Faster takedown support',
+              'One-time fee per infringement'
+            ]}
+            remark="(有侵權時可單次付費)"
+          />
+          <PlanCard
+            planName="Legal Support"
+            monthlyPrice="NT$9,990/case"
+            annualPrice="—"
+            details={[
+              'IP legal consultation',
+              'Full lawsuit assistance',
+              '80% settlement returned'
+            ]}
+            remark="(大規模侵權可付費)"
+          />
+        </div>
+      </section>
+
+      {/* (C) 新增：Subscription Plans 訂閱方案 */}
+      <section style={styles.section}>
+        <h2 style={styles.orangeText}>Subscription Plans 訂閱方案</h2>
+        <p style={styles.desc}>
+          For power users or businesses who need continuous protection, consider our monthly/annual subscriptions that
+          bundle multiple certificate downloads, unlimited scans, and priority DMCA/legal coverage.
+        </p>
+        <div style={styles.planGrid}>
+          <PlanCard
+            planName="ADVANCED+"
+            monthlyPrice="NT$1,490/month"
+            annualPrice="NT$14,900/year (save 2 months)"
+            details={[
+              'Up to 8 total uploads per month',
+              'Unlimited AI scans',
+              'DMCA takedown included',
+              'Certificate downloads included',
+              'Priority email support'
+            ]}
+            remark="(適合經常上傳+掃描的個人創作者)"
+          />
+          <PlanCard
+            planName="PRO+"
+            monthlyPrice="NT$3,990/month"
+            annualPrice="NT$39,900/year (save 2 months)"
+            details={[
+              'Up to 20 total uploads per month',
+              'Unlimited AI scanning & alerts',
+              'Priority DMCA takedown',
+              'Blockchain certificates unlimited',
+              '24/7 chat support'
+            ]}
+            remark="(專業攝影師、影音工作室)"
+          />
+          <PlanCard
+            planName="ENTERPRISE+"
+            monthlyPrice="Custom"
+            annualPrice="Custom"
+            details={[
+              'Unlimited uploads',
+              'Real-time AI detection',
+              'Dedicated account manager',
+              'Full legal coverage & DMCA takedown',
+              'Team collaboration features'
+            ]}
+            remark="(大型企業客製方案)"
+          />
+        </div>
+      </section>
+
+      {/* (D) 商標服務 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Trademark Services 商標服務</h2>
         <p style={styles.desc}>
@@ -85,10 +206,12 @@ export default function PricingPage() {
         </p>
       </section>
 
+      {/* (E) 智財訴訟 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>IP Litigation 智慧財產訴訟</h2>
         <p style={styles.desc}>
-          <strong>Copyright/Trademark Infringement</strong>: NT$9,999/case<br />
+          <strong>Copyright/Trademark Infringement</strong>: NT$9,999/case
+          <br />
           (Upon winning, platform retains 20%, 80% returned to rights owner)
         </p>
         <p style={styles.desc}>
@@ -96,6 +219,7 @@ export default function PricingPage() {
         </p>
       </section>
 
+      {/* 結尾 CTA */}
       <div style={styles.ctaArea}>
         <button style={styles.ctaBtn} onClick={() => window.location.href='/payment'}>
           Subscribe & Secure Your IP Now 立即訂閱並保護您的智慧財產
@@ -105,6 +229,7 @@ export default function PricingPage() {
   );
 }
 
+/* 您的 PlanCard 元件 */
 function PlanCard({ planName, monthlyPrice, annualPrice, details, remark }) {
   return (
     <div style={cardStyles.card}>
@@ -129,7 +254,13 @@ const styles = {
   section: { marginTop: '3rem' },
   orangeText: { color: '#ff6f00', borderBottom: '2px solid #ff6f00', display: 'inline-block' },
   desc: { marginTop: '1rem', lineHeight: '1.5' },
-  planGrid: { display: 'flex', justifyContent: 'center', gap: '1.5rem', flexWrap: 'wrap' },
+  planGrid: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1.5rem',
+    flexWrap: 'wrap',
+    marginTop: '1.5rem'
+  },
   ctaArea: { textAlign: 'center', marginTop: '3rem' },
   ctaBtn: {
     backgroundColor: '#ff6f00',

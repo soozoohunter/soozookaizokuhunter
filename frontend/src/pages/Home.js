@@ -3,6 +3,7 @@ import React from 'react';
 export default function Home() {
   return (
     <div style={styles.container}>
+      {/* ====== 原本整個大區塊 (banner) ====== */}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
           The World’s First 🇹🇼 Blockchain-Powered IP Protection Platform
@@ -45,10 +46,19 @@ export default function Home() {
           </p>
         </div>
       </div>
+
+      {/* ====== 新增：在原本 banner 下方，補充您要顯示的段落 ====== */}
+      <div style={styles.addonSection}>
+        <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard</h2>
+        <p style={styles.addonDesc}>
+          Home Page content here... (您可自行擴充)
+        </p>
+      </div>
     </div>
   );
 }
 
+/* 原先的 style + 新增 styles.addonSection, styles.welcomeTitle, styles.addonDesc */
 const styles = {
   container: {
     backgroundColor: '#0d1117',
@@ -98,5 +108,27 @@ const styles = {
     fontSize: '0.9rem',
     color: '#8b949e',
     lineHeight: '1.6'
+  },
+
+  /* 新增區段: 顯示 "Welcome to SUZOO..." + "Home Page content here..." */
+  addonSection: {
+    marginTop: '2rem',
+    padding: '2rem',
+    backgroundColor: '#101010',
+    borderRadius: '8px'
+  },
+  welcomeTitle: {
+    fontSize: '1.6rem',
+    fontWeight: 'bold',
+    marginBottom: '1rem',
+    color: '#ff6f00',
+    textAlign: 'center'
+  },
+  addonDesc: {
+    fontSize: '1rem',
+    lineHeight: '1.6',
+    margin: '0 auto',
+    maxWidth: '600px',
+    textAlign: 'center'
   }
 };
