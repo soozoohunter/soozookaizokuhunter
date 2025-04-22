@@ -1,13 +1,10 @@
 // frontend/src/pages/ProtectStep1.jsx
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProtectStep1() {
   const navigate = useNavigate();
-  // 檔案
   const [file, setFile] = useState(null);
-  // 基本人資訊
   const [realName, setRealName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -20,8 +17,7 @@ export default function ProtectStep1() {
     }
   };
 
-  const handleNext = () => {
-    // 基本檢查
+  const handleNext = async () => {
     if (!file) {
       setError('請上傳檔案');
       return;
@@ -32,20 +28,23 @@ export default function ProtectStep1() {
     }
     setError('');
 
-    // TODO: 您可在此呼叫後端 API, 上傳檔案 + 使用者資訊, 先暫存
-    // e.g. const formData = new FormData(); ... fetch('/api/protect/step1', ...)
+    // TODO: 在這裡串接後端 API
+    // const formData = new FormData();
+    // formData.append('file', file);
+    // formData.append('realName', realName);
+    // formData.append('phone', phone);
+    // ...
+    // await fetch('/api/protect/step1', { method:'POST', body: formData });
 
-    // 成功後跳 Step2
     navigate('/protect/step2');
   };
 
   return (
-    <div style={styles.container}>
-      <h2 style={{ color:'#ff6f00' }}>Step 1: Upload & User Info</h2>
-
+    <div style={{ color:'#fff', padding:'2rem' }}>
+      <h2 style={{ color:'#ff6f00' }}>Step 1: Upload & Info</h2>
       <div style={{ marginBottom:'1rem' }}>
-        <label>上傳您的作品檔案:</label><br/>
-        <input type="file" onChange={handleFileChange} style={{ color:'#fff' }}/>
+        <label>上傳作品檔案:</label><br/>
+        <input type="file" onChange={handleFileChange} />
       </div>
 
       <div style={{ marginBottom:'1rem' }}>
@@ -53,7 +52,7 @@ export default function ProtectStep1() {
         <input
           style={styles.input}
           value={realName}
-          onChange={e => setRealName(e.target.value)}
+          onChange={e=>setRealName(e.target.value)}
         />
       </div>
       <div style={{ marginBottom:'1rem' }}>
@@ -61,7 +60,7 @@ export default function ProtectStep1() {
         <input
           style={styles.input}
           value={phone}
-          onChange={e => setPhone(e.target.value)}
+          onChange={e=>setPhone(e.target.value)}
         />
       </div>
       <div style={{ marginBottom:'1rem' }}>
@@ -69,7 +68,7 @@ export default function ProtectStep1() {
         <input
           style={styles.input}
           value={address}
-          onChange={e => setAddress(e.target.value)}
+          onChange={e=>setAddress(e.target.value)}
         />
       </div>
       <div style={{ marginBottom:'1rem' }}>
@@ -78,7 +77,7 @@ export default function ProtectStep1() {
           style={styles.input}
           type="email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={e=>setEmail(e.target.value)}
         />
       </div>
 
@@ -90,14 +89,10 @@ export default function ProtectStep1() {
 }
 
 const styles = {
-  container: {
-    color:'#fff', padding:'2rem'
-  },
   input: {
-    width:'300px',
-    padding:'0.5rem',
-    marginTop:'0.25rem',
-    marginBottom:'0.5rem'
+    width:'280px',
+    margin:'0.5rem 0',
+    padding:'0.5rem'
   },
   btn: {
     marginTop:'1rem',
@@ -105,7 +100,7 @@ const styles = {
     color:'#fff',
     border:'none',
     borderRadius:'4px',
-    padding:'0.75rem 1.5rem',
+    padding:'0.6rem 1.2rem',
     cursor:'pointer'
   }
 };
