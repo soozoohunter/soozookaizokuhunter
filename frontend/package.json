@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "private": true,
 
-  // 在根域名部署時，可設為 "."
-  // 若您想指定絕對路徑，可改為 "https://suzookaizokuhunter.com"
+
   "homepage": "https://suzookaizokuhunter.com",
 
   "dependencies": {
