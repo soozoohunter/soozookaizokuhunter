@@ -5,35 +5,16 @@ import { useSearchParams } from 'react-router-dom';
 
 export default function Payment() {
   const [searchParams] = useSearchParams();
-  const item = searchParams.get('item') || 'unknown';
+  const item = searchParams.get('item') || 'certificate';
   const price = searchParams.get('price') || '99';
 
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  const [showBank, setShowBank] = useState(false);
 
-  const handlePay = async () => {
+  // 使用者點擊「Confirm & Pay」後，直接顯示銀行帳號
+  const handlePay = () => {
     setError('');
-    setSuccessMsg('');
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('尚未登入，請先登入才能付款');
-      return;
-    }
-
-    // 這裡可串接銀行API或第三方金流，如需人工匯款，可直接顯示提示:
-    try {
-      // ★ 模擬流程：提示使用者「請匯款後提供末五碼」
-      //   您也可彈跳視窗或寫進DB
-      setSuccessMsg(
-        '請匯款至「遠東國際商業銀行 (代號 805)，帳號 00200400371797」， ' +
-        '匯款完成後請來信或私訊客服告知末五碼，我們將立即啟用服務。'
-      );
-      // 若要跳轉成功頁:
-      // navigate('/payment/success');
-    } catch (err) {
-      setError(`付款失敗：${err.message}`);
-    }
+    setShowBank(true);
   };
 
   return (
@@ -42,23 +23,44 @@ export default function Payment() {
       <p>Item: {item}</p>
       <p>Price: NT${price}</p>
 
-      {error && <p style={{ color:'red' }}>{error}</p>}
-      {successMsg && <p style={{ color:'limegreen', maxWidth:'400px', margin:'1rem auto' }}>{successMsg}</p>}
+      {error && (
+        <p style={{ color:'red' }}>
+          {error}
+        </p>
+      )}
 
-      <button
-        onClick={handlePay}
-        style={{
-          marginTop:'1rem',
-          backgroundColor:'#ff6f00',
-          color:'#fff',
-          border:'none',
-          borderRadius:'4px',
-          padding:'0.75rem 1.5rem',
-          cursor:'pointer'
-        }}
-      >
-        Confirm & Pay
-      </button>
+      {/* 若尚未顯示銀行帳號 => 顯示 Confirm & Pay 按鈕 */}
+      {!showBank ? (
+        <button
+          onClick={handlePay}
+          style={{
+            marginTop:'1rem',
+            backgroundColor:'#ff6f00',
+            color:'#fff',
+            border:'none',
+            borderRadius:'4px',
+            padding:'0.75rem 1.5rem',
+            cursor:'pointer'
+          }}
+        >
+          Confirm & Pay
+        </button>
+      ) : (
+        // 已點擊 -> 顯示銀行資訊
+        <div style={{ marginTop:'2rem', color:'#ff6f00', fontWeight:'bold' }}>
+          <p>請匯款至以下帳號：</p>
+          <p>
+            遠東國際商業銀行 (代號 805)<br/>
+            戶名：姚勝德<br/>
+            帳號：00200400371797
+          </p>
+          <p style={{ color:'#fff', marginTop:'1rem', fontSize:'0.9rem' }}>
+            匯款後請記下末五碼並聯繫我們 (Email / Phone)，
+            <br />
+            一經確認即完成購買流程，感謝支持！
+          </p>
+        </div>
+      )}
     </div>
   );
 }
