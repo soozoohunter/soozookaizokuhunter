@@ -1,12 +1,8 @@
 # 使用體積更小的 Alpine 版 Nginx
-FROM nginx:stable-alpine
+FROM nginx:alpine
 
-# 複製自訂設定
-COPY suzoo.conf /etc/nginx/conf.d/suzoo.conf
+# 移除預設設定檔
+RUN rm /etc/nginx/conf.d/default.conf
 
-# 健康檢查：確認 Nginx 回應
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost/ || exit 1
-
-# 以上都準備好後，以非 daemon 模式啟動 Nginx（容器前景執行）
-CMD ["nginx", "-g", "daemon off;"]
+# 直接拷貝自訂配置（如果您沒有用 volumes，也可在這裡 COPY）
+# 這裡不另做 rename，保持您原先的 suzoo.conf
