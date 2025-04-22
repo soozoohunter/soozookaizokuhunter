@@ -77,7 +77,7 @@ services:
       - "3000"
     restart: unless-stopped
 
-  # ★★★ 新的 Frontend (React+Nginx) ★★★
+  # Frontend (React + Nginx)
   suzoo_frontend:
     build:
       context: ./frontend
@@ -95,7 +95,7 @@ services:
       - "443:443"
     volumes:
       - /etc/letsencrypt:/etc/nginx/certs:ro
-    restart: unless-stopped
+    restart: always
 
 networks:
   suzoo_net:
