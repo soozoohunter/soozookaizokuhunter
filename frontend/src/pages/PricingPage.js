@@ -1,5 +1,3 @@
-// frontend/src/pages/PricingPage.js
-
 import React from 'react';
 
 export default function PricingPage() {
@@ -9,12 +7,13 @@ export default function PricingPage() {
       <header style={styles.header}>
         <h1 style={styles.title}>Plans & Pricing 方案與定價</h1>
         <p style={styles.subtitle}>
-          Secure your copyrights and trademarks effortlessly with our "Blockchain + AI Infringement Detection" system.<br />
+          Secure your copyrights and trademarks effortlessly with our "Blockchain + AI Infringement Detection" system.
+          <br />
           透過區塊鏈與AI智慧侵權偵測，輕鬆保護您的著作權與商標權。
         </p>
       </header>
 
-      {/* (A) 原本第一段: 著作權保護方案 */}
+      {/* (A) 著作權保護方案 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Copyright Protection 著作權保護方案</h2>
         <div style={styles.planGrid}>
@@ -43,7 +42,7 @@ export default function PricingPage() {
               'DMCA takedown enabled',
               'Blockchain certificate download'
             ]}
-            remark="(Recommended for Individuals 個人推薦方案)"
+            remark="(Recommended for Individuals 個人推薦)"
           />
 
           <PlanCard
@@ -58,7 +57,7 @@ export default function PricingPage() {
               'Blockchain certificate download',
               'AI Content Value Prediction (coming soon)'
             ]}
-            remark="(For Professional Creators 專業創作者方案)"
+            remark="(For Professional Creators 專業創作者)"
           />
 
           <PlanCard
@@ -77,16 +76,15 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* === 新增 1: 彈性功能付費 === */}
+      {/* (B) 新增：彈性功能付費 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Flexible Pay-Per-Feature 彈性功能付費</h2>
         <p style={styles.desc}>
-          Not sure yet? Start with a <strong>Free Trial</strong> – 
-          no account required, see how we detect potential infringements, and pay 
-          only when unlocking advanced services. <br/>
-          （若您還在考慮，可先用免費試用；真的需要進階服務，再做單次付費解鎖即可）
+          Not sure yet? Start with a <strong>Free Trial</strong> – no account required,
+          see how we detect potential infringements, and pay only when unlocking advanced services.
+          <br />
+          （若您還在考慮，可先用免費試用；真的需要進階服務，再單次付費解鎖即可）
         </p>
-
         <div style={styles.planGrid}>
           <PlanCard
             planName="FREE TRIAL"
@@ -146,13 +144,12 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* === 新增 2: 訂閱方案 (持續監控/DMCA/AI) === */}
+      {/* (C) 新增：Subscription Plans 訂閱方案 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Subscription Plans 訂閱方案</h2>
         <p style={styles.desc}>
-          For power users or businesses who need continuous protection, 
-          consider our monthly/annual subscriptions that bundle multiple 
-          certificate downloads, unlimited scans, and priority DMCA/legal coverage.
+          For power users or businesses who need continuous protection, consider our monthly/annual subscriptions that
+          bundle multiple certificate downloads, unlimited scans, and priority DMCA/legal coverage.
         </p>
         <div style={styles.planGrid}>
           <PlanCard
@@ -197,7 +194,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* (B) 原本第二段: 商標服務 */}
+      {/* (D) 商標服務 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>Trademark Services 商標服務</h2>
         <p style={styles.desc}>
@@ -209,11 +206,12 @@ export default function PricingPage() {
         </p>
       </section>
 
-      {/* (C) 原本第三段: 智財訴訟 */}
+      {/* (E) 智財訴訟 */}
       <section style={styles.section}>
         <h2 style={styles.orangeText}>IP Litigation 智慧財產訴訟</h2>
         <p style={styles.desc}>
-          <strong>Copyright/Trademark Infringement</strong>: NT$9,999/case<br />
+          <strong>Copyright/Trademark Infringement</strong>: NT$9,999/case
+          <br />
           (Upon winning, platform retains 20%, 80% returned to rights owner)
         </p>
         <p style={styles.desc}>
@@ -231,7 +229,7 @@ export default function PricingPage() {
   );
 }
 
-/* 您原本的 PlanCard 不變；只要同一支檔案裡存在即可 */
+/* 您的 PlanCard 元件 */
 function PlanCard({ planName, monthlyPrice, annualPrice, details, remark }) {
   return (
     <div style={cardStyles.card}>
@@ -248,7 +246,6 @@ function PlanCard({ planName, monthlyPrice, annualPrice, details, remark }) {
   );
 }
 
-// 保留您原先 styles，不刪任何屬性；同時確保新增段落亦能共用
 const styles = {
   container: { backgroundColor: '#0d1117', color: '#c9d1d9', minHeight: '100vh', padding: '3rem' },
   header: { textAlign: 'center', marginBottom: '2rem' },
@@ -257,12 +254,12 @@ const styles = {
   section: { marginTop: '3rem' },
   orangeText: { color: '#ff6f00', borderBottom: '2px solid #ff6f00', display: 'inline-block' },
   desc: { marginTop: '1rem', lineHeight: '1.5' },
-  planGrid: { 
-    display: 'flex', 
-    justifyContent: 'center', 
-    gap: '1.5rem', 
-    flexWrap: 'wrap', 
-    marginTop: '1.5rem' 
+  planGrid: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '1.5rem',
+    flexWrap: 'wrap',
+    marginTop: '1.5rem'
   },
   ctaArea: { textAlign: 'center', marginTop: '3rem' },
   ctaBtn: {
