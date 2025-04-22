@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# 複製整個前端專案 (src, public, 等檔案)
+# 複製整個前端專案 (src, public, etc.)
 COPY . .
 
 # 執行 React build
@@ -22,10 +22,10 @@ FROM nginx:alpine
 # 移除預設配置
 RUN rm /etc/nginx/conf.d/default.conf || true
 
-# 複製自訂 Nginx 設定 (確定 suzoo.conf 與 Dockerfile 同層)
+# 複製自訂 Nginx 設定 (與 Dockerfile 同層)
 COPY suzoo.conf /etc/nginx/conf.d/default.conf
 
-# 複製React編譯後結果
+# 複製 React 編譯後結果
 COPY --from=build /app/build /usr/share/nginx/html
 
 EXPOSE 80
