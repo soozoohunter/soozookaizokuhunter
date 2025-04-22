@@ -8,8 +8,9 @@ import {
   useLocation
 } from 'react-router-dom';
 
-// ◆ 這裡使用 require() 搭配 CommonJS 載入，可解決 "does not contain a default export" 錯誤
-const jwtDecode = require('jwt-decode');
+// ===== 修正：使用 CommonJS require + 兼容 default =====
+const rawJwtDecode = require('jwt-decode');
+const jwtDecode = rawJwtDecode.default || rawJwtDecode;
 
 // ★ 引入您自己的頁面組件 (若有不同檔名請自行調整)
 import HomePage from './pages/Home';
@@ -25,11 +26,11 @@ function RootLayout() {
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 2) 如果有 token 就 decode，拿到 userRole
+  // 2) 如果有 token，就 decode，拿到 userRole
   let userRole = '';
   if (token) {
     try {
-      // 透過 require 的方式，jwtDecode 就是一個函式，可直接呼叫
+      // 透過 require + default 兼容方式，呼叫 jwtDecode(token)
       const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
