@@ -102,10 +102,10 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 若您想透過 http://localhost:3001 直接檢測 React，可保留:
+    # 若您想於 http://<伺服器IP或域名>:3001/ 測試 React，可保留以下:
     ports:
       - "3001:3000"
-    # 如果只想透過 Nginx 對外，可自行移除上行
+    # 如果只想透過 Nginx 對外，則可自行刪除上行
     restart: unless-stopped
 
   ################################################
@@ -126,6 +126,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      # 確定只掛載 suzoo.conf，而非 default.conf
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     restart: unless-stopped
