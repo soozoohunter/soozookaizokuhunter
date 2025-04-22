@@ -1,3 +1,5 @@
+// express/routes/payment.js
+
 const express = require('express');
 const router = express.Router();
 
@@ -24,7 +26,7 @@ router.post('/pay', async (req, res) => {
   }
 
   try {
-    // 範例: 匿名 user => user_id=null
+    // 範例: 匿名 user => user_id=null, upload_id=null
     const userId = null;
     const uploadId = null;
 
