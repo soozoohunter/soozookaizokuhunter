@@ -87,7 +87,7 @@ export default function Payment() {
           <p>請匯款至以下帳號：</p>
           <p>
             遠東國際商業銀行 (代號 805)<br/>
-            戶名：XXXXXXX<br/>
+            戶名：姚勝德<br/>
             帳號：00200400371797
           </p>
           <p style={{ color:'#fff', marginTop:'1rem', fontSize:'0.9rem' }}>
