@@ -1,16 +1,8 @@
-import React from 'react';
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Link,
-  Outlet,
-  useLocation
-} from 'react-router-dom';
+// frontend/src/App.js
 
-// ===== 修正：使用 CommonJS require + 兼容 default =====
-const rawJwtDecode = require('jwt-decode');
-const jwtDecode = rawJwtDecode.default || rawJwtDecode;
+import React from 'react';
+import { BrowserRouter, Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
+import jwt_decode from 'jwt-decode'; // ← 改用 ES import
 
 // ★ 引入您自己的頁面組件 (若有不同檔名請自行調整)
 import HomePage from './pages/Home';
@@ -20,7 +12,9 @@ import TryProtectDetails from './pages/TryProtectDetails';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
-// ================== Layout：含導覽列、Banner、Footer ==================
+/* ------------------------------------------------------------------
+   RootLayout：含導覽列、Banner、Footer
+   ------------------------------------------------------------------ */
 function RootLayout() {
   // 1) 檢查是否有 token
   const token = localStorage.getItem('token');
@@ -30,8 +24,7 @@ function RootLayout() {
   let userRole = '';
   if (token) {
     try {
-      // 透過 require + default 兼容方式，呼叫 jwtDecode(token)
-      const decoded = jwtDecode(token);
+      const decoded = jwt_decode(token);
       userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token decode', e);
@@ -186,7 +179,7 @@ function RootLayout() {
         </section>
       )}
 
-      {/* ================== 主內容透過 <Outlet /> 呈現子頁面 ================== */}
+      {/* ================== 主內容：Outlet 呈現子頁面 ================== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
@@ -216,7 +209,9 @@ function RootLayout() {
   );
 }
 
-// ================== App：BrowserRouter + 巢狀路由 ==================
+/* ------------------------------------------------------------------
+   App：BrowserRouter + 巢狀路由
+   ------------------------------------------------------------------ */
 export default function App() {
   return (
     <BrowserRouter>
