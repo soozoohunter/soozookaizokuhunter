@@ -12,6 +12,8 @@ export default function Home() {
         </h1>
 
         <p style={styles.desc}>
+          We are a proudly Taiwanese (台灣) platform dedicated to safeguarding creators worldwide.
+          <br/><br/>
           Are you still risking losing your intellectual property due to inadequate proof of originality?
           Under international copyright law, failing to prove originality means losing your rights entirely—
           regardless of your creativity.<br/><br/>
@@ -31,7 +33,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* ★★★ 這裡改成「Hunter for Free / 免費試用」按鈕 ★★★ */}
+        {/* ★★★ 將此按鈕文字改為 "Hunter for Free / 免費試用" ★★★ */}
         <button
           onClick={() => window.location.href='/protect/step1'}
           style={{
