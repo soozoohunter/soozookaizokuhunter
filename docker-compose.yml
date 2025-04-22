@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   ########################################
   # 1) PostgreSQL
@@ -53,7 +55,7 @@ services:
   ########################################
   suzoo_fastapi:
     build:
-      context: ./backend_fastapi
+      context: ./fastapi  # ← 您實際的 fastapi 資料夾
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
@@ -73,7 +75,7 @@ services:
   ########################################
   suzoo_express:
     build:
-      context: ./backend_express
+      context: ./express  # ← 您實際的 express 資料夾
       dockerfile: Dockerfile
     container_name: suzoo_express
     depends_on:
@@ -92,7 +94,7 @@ services:
   ########################################
   suzoo_react:
     build:
-      context: ./frontend
+      context: ./frontend  # ← 您實際的 frontend 資料夾
       dockerfile: Dockerfile
     container_name: suzoo_react
     depends_on:
@@ -103,7 +105,7 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "3001:3000"  # 開發預設
+      - "3001:3000"
     restart: unless-stopped
 
   ########################################
@@ -111,7 +113,7 @@ services:
   ########################################
   suzoo_nginx:
     build:
-      context: ./nginx
+      context: ./nginx  # ← 您實際的 nginx 資料夾
       dockerfile: Dockerfile
     container_name: suzoo_nginx
     depends_on:
