@@ -1,9 +1,10 @@
 services:
   ########################################
-  # 1) PostgreSQL
+  # 1) PostgreSQL 資料庫
   ########################################
   suzoo_postgres:
     image: postgres:15-alpine
+    container_name: suzoo_postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -13,12 +14,14 @@ services:
       - suzoo_db_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ########################################
-  # 2) Ganache (ETH 私有鏈)
+  # 2) Ganache (ETH 私有鏈) - 可用於區塊鏈測試
   ########################################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
+    container_name: suzoo_ganache
     command: >
       ganache-cli
       --host 0.0.0.0
@@ -27,62 +30,62 @@ services:
       --defaultBalanceEther 100
     ports:
       - "8545:8545"
-    volumes:
-      - suzoo_ganache_data:/data
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ########################################
-  # 3) IPFS (Kubo)
+  # 3) IPFS (可選)
   ########################################
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
+    container_name: suzoo_ipfs
     command: daemon
     ports:
       - "5001:5001"
       - "8080:8080"
-    volumes:
-      - suzoo_ipfs_data:/data/ipfs
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   ########################################
-  # 4) FastAPI (侵權爬蟲)
+  # 4) FastAPI (處理檔案 + 區塊鏈存證)
   ########################################
   suzoo_fastapi:
     build:
-      context: ./fastapi
+      context: ./backend_fastapi
       dockerfile: Dockerfile
+    container_name: suzoo_fastapi
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
       - suzoo_ipfs
     env_file:
       - .env
-    expose:
-      - "8000"
     networks:
       - suzoo_net
+    expose:
+      - "8000"
+    restart: unless-stopped
 
   ########################################
-  # 5) Express (後端)
+  # 5) Express (付款流程 + 後台)
   ########################################
   suzoo_express:
-    container_name: suzoo_express
     build:
-      context: ./express
+      context: ./backend_express
       dockerfile: Dockerfile
+    container_name: suzoo_express
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache
-      - suzoo_ipfs
       - suzoo_fastapi
     env_file:
       - .env
-    expose:
-      - "3000"
     networks:
       - suzoo_net
+    expose:
+      - "3000"
+    restart: unless-stopped
 
   ########################################
   # 6) React (前端)
@@ -91,37 +94,38 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: suzoo_react
     depends_on:
       - suzoo_express
       - suzoo_fastapi
     env_file:
       - .env
-    expose:
-      - "3000"
-    ports:
-      - "3001:3000"  # 對外顯示 React
     networks:
       - suzoo_net
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
 
   ########################################
-  # 7) Nginx (對外: 80/443)
+  # 7) Nginx (對外: 80/443) - 可選
   ########################################
   suzoo_nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    container_name: suzoo_nginx
     depends_on:
       - suzoo_react
       - suzoo_express
       - suzoo_fastapi
+    networks:
+      - suzoo_net
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-    networks:
-      - suzoo_net
     restart: unless-stopped
 
 networks:
@@ -130,5 +134,3 @@ networks:
 
 volumes:
   suzoo_db_data:
-  suzoo_ipfs_data:
-  suzoo_ganache_data:
