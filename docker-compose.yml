@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   ########################################
   # 1) PostgreSQL
@@ -55,7 +53,7 @@ services:
   ########################################
   suzoo_fastapi:
     build:
-      context: ./fastapi  # ← 您實際的 fastapi 資料夾
+      context: ./fastapi
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
     depends_on:
@@ -71,11 +69,11 @@ services:
     restart: unless-stopped
 
   ########################################
-  # 5) Express (付款流程 + 後台)
+  # 5) Express (只使用 pg Pool)
   ########################################
   suzoo_express:
     build:
-      context: ./express  # ← 您實際的 express 資料夾
+      context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
     depends_on:
@@ -85,8 +83,12 @@ services:
       - .env
     networks:
       - suzoo_net
+    # ↓ 若只想讓 Nginx/React 呼叫，不用對外：
     expose:
       - "3000"
+    # ↓ 如果你也想讓外部直接訪問 Express，可改成:
+    # ports:
+    #   - "3002:3000"
     restart: unless-stopped
 
   ########################################
@@ -94,7 +96,7 @@ services:
   ########################################
   suzoo_react:
     build:
-      context: ./frontend  # ← 您實際的 frontend 資料夾
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: suzoo_react
     depends_on:
@@ -113,7 +115,7 @@ services:
   ########################################
   suzoo_nginx:
     build:
-      context: ./nginx  # ← 您實際的 nginx 資料夾
+      context: ./nginx
       dockerfile: Dockerfile
     container_name: suzoo_nginx
     depends_on:
