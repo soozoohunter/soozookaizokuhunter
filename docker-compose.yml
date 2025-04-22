@@ -1,6 +1,7 @@
+version: '3.8'
 services:
   ########################################
-  # 1) PostgreSQL 資料庫
+  # 1) PostgreSQL
   ########################################
   suzoo_postgres:
     image: postgres:15-alpine
@@ -17,7 +18,7 @@ services:
     restart: unless-stopped
 
   ########################################
-  # 2) Ganache (ETH 私有鏈) - 可用於區塊鏈測試
+  # 2) Ganache (ETH 私有鏈)
   ########################################
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
@@ -49,7 +50,7 @@ services:
     restart: unless-stopped
 
   ########################################
-  # 4) FastAPI (處理檔案 + 區塊鏈存證)
+  # 4) FastAPI (侵權檔案上傳 + 區塊鏈)
   ########################################
   suzoo_fastapi:
     build:
@@ -103,11 +104,11 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "3001:3000"
+      - "3001:3000"  # 開發預設
     restart: unless-stopped
 
   ########################################
-  # 7) Nginx (對外: 80/443) - 可選
+  # 7) Nginx (對外: 80/443)
   ########################################
   suzoo_nginx:
     build:
