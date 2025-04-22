@@ -38,36 +38,40 @@ GANACHE_URL = os.getenv("GANACHE_URL", "http://suzoo_ganache:8545")
 GANACHE_PRIV_KEY = os.getenv("GANACHE_PRIVATE_KEY", "")
 CONTRACT_ADDR = os.getenv("CONTRACT_ADDRESS", "")
 
-# === 連線 DB
+# === 連線資料庫 ===
 db_conn = None
 try:
     db_conn = psycopg2.connect(
-        host=DB_HOST, port=DB_PORT,
+        host=DB_HOST,
+        port=DB_PORT,
         dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD
+        user=DB_USER,
+        password=DB_PASSWORD
     )
     db_conn.autocommit = True
     print("[FastAPI] Connected to Postgres.")
 except Exception as e:
     print("[FastAPI] DB connect error:", e)
 
-# === Cloudinary
+# === Cloudinary ===
 cloudinary.config(
     cloud_name=CLOUD_NAME,
     api_key=CLOUD_API_KEY,
     api_secret=CLOUD_API_SECRET
 )
 
-# === Web3 (Ganache)
+# === Web3 (Ganache) ===
 w3 = Web3(Web3.HTTPProvider(GANACHE_URL))
-if w3.is_connected():
+
+# ★ 改用 w3.isConnected() 以相容舊版 Web3
+if w3.isConnected():
     print("[FastAPI] Ganache connected at", GANACHE_URL)
 else:
     print("[FastAPI] Ganache not connected:", GANACHE_URL)
 
 # 預設合約 ABI (可自行替換)
 contract = None
-if CONTRACT_ADDR and GANACHE_PRIV_KEY and w3.is_connected():
+if CONTRACT_ADDR and GANACHE_PRIV_KEY and w3.isConnected():
     try:
         abi = [
             {
@@ -86,7 +90,7 @@ if CONTRACT_ADDR and GANACHE_PRIV_KEY and w3.is_connected():
     except Exception as e:
         print("[FastAPI] Contract init error:", e)
 
-# === IPFS (可選)
+# === IPFS 連線 (可選) ===
 ipfs_client = None
 try:
     ipfs_client = ipfshttpclient.connect(IPFS_API_URL)
@@ -100,7 +104,7 @@ def storeRecordOnChain(fingerprint, ipfsHash):
         return None
     try:
         acct = w3.eth.account.from_key(GANACHE_PRIV_KEY)
-        nonce = w3.eth.get_transaction_count(acct.address)
+        nonce = w3.eth.getTransactionCount(acct.address)
         tx_data = contract.functions.storeRecord(fingerprint, ipfsHash).buildTransaction({
             'from': acct.address,
             'nonce': nonce,
@@ -109,7 +113,7 @@ def storeRecordOnChain(fingerprint, ipfsHash):
         })
         signed_tx = w3.eth.account.sign_transaction(tx_data, private_key=GANACHE_PRIV_KEY)
         tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+        w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
         return tx_hash.hex()
     except Exception as e:
         print("Blockchain storeRecord error:", e)
@@ -129,10 +133,10 @@ def generate_pdf_certificate(username, fingerprint, ipfs_cid, cloud_url, tx_hash
     pdf.cell(0,10,"SUZOO IP Guard - Blockchain Certificate", ln=1, align='C')
 
     pdf.set_font("Arial", size=12)
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
     txt = (
       f"Username: {username}\n"
-      f"Timestamp (UTC): {now}\n"
+      f"Timestamp (UTC): {now_str}\n"
       f"SHA256 Fingerprint: {fingerprint}\n"
       f"IPFS CID: {ipfs_cid}\n"
       f"Cloud URL: {cloud_url}\n"
@@ -150,10 +154,12 @@ def generate_pdf_certificate(username, fingerprint, ipfs_cid, cloud_url, tx_hash
 
 @app.get("/health")
 def health():
+    """健康檢查"""
     return {"status": "fastapi OK"}
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), authorization: str = Header(None)):
+    """上傳檔案 => IPFS => Cloudinary => Ganache => PDF => DB"""
     # 1) JWT 驗證
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing JWT")
@@ -169,7 +175,7 @@ async def upload_file(file: UploadFile = File(...), authorization: str = Header(
     if not data:
         raise HTTPException(status_code=400, detail="File empty")
 
-    # 3) 指紋
+    # 3) 指紋 (SHA-256)
     fingerprint = hashlib.sha256(data).hexdigest()
 
     # 4) IPFS
@@ -186,14 +192,14 @@ async def upload_file(file: UploadFile = File(...), authorization: str = Header(
         except Exception as e:
             print("IPFS error:", e)
 
-    # 5) Cloudinary
+    # 5) 上傳 Cloudinary
     cloud_url = None
     rtype = "image"
-    if file.content_type.startswith("video"):
+    if (file.content_type or "").startswith("video"):
         rtype = "video"
     try:
         upres = cloudinary.uploader.upload(data, resource_type=rtype)
-        cloud_url = upres["secure_url"]
+        cloud_url = upres.get("secure_url")
     except Exception as e:
         print("Cloudinary error:", e)
 
@@ -204,17 +210,25 @@ async def upload_file(file: UploadFile = File(...), authorization: str = Header(
     if contract:
         tx_hash = storeRecordOnChain(fingerprint, ipfs_cid or "")
 
-    # 8) PDF
-    pdf_url = generate_pdf_certificate(username, fingerprint, ipfs_cid or "-", cloud_url or "-", tx_hash or "-")
+    # 8) 產生 PDF
+    pdf_url = generate_pdf_certificate(
+        username, fingerprint,
+        ipfs_cid or "-",
+        cloud_url or "-",
+        tx_hash or "-"
+    )
 
-    # 9) DB
+    # 9) 寫 DB
     try:
         if db_conn:
             with db_conn.cursor() as cur:
                 cur.execute("""
-                INSERT INTO uploads(user_id, username, fingerprint, ipfs_cid, cloud_url, tx_hash, pdf_url)
-                VALUES(%s,%s,%s,%s,%s,%s,%s)
-                """,(user_id,username,fingerprint,ipfs_cid,cloud_url,tx_hash,pdf_url))
+                    INSERT INTO uploads(
+                      user_id, username, fingerprint, ipfs_cid,
+                      cloud_url, tx_hash, pdf_url
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (user_id, username, fingerprint, ipfs_cid, cloud_url, tx_hash, pdf_url))
     except Exception as e:
         print("DB insert error:", e)
 
