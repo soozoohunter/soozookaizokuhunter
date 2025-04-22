@@ -1,68 +1,75 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const Payment = require('../models/Payment');
-const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+// 可依需求擴充更多項目
+const SERVICE_PRICING = {
+  download_certificate: 99,
+  infringement_scan: 99,
+  dmca_submit: 299,
+  legal_support: 9990
+};
 
-function authMiddleware(req, res, next){
-  try {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/,'');
-    if(!token) return res.status(401).json({ error:'No token' });
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch(e){
-    return res.status(401).json({ error:'Invalid token' });
+// POST /api/pay => 建立付款(待審核)
+router.post('/pay', async (req, res) => {
+  const db = req.db; // 來自 server.js app.use((req,res,next)=>{req.db=db;...})
+  const { item, price } = req.body;
+
+  // 確認是否為合法項目
+  const cost = SERVICE_PRICING[item];
+  if (!cost) {
+    return res.status(400).json({ error: "Invalid item" });
   }
-}
+  if (Number(price) !== cost) {
+    return res.status(400).json({ error: "Price mismatch" });
+  }
 
-// 用戶提交匯款資訊
-router.post('/submit', authMiddleware, async (req, res)=>{
   try {
-    const { lastFive, amount, planWanted } = req.body;
-    if(!lastFive || !amount || !planWanted){
-      return res.status(400).json({ error:'後五碼、金額、方案不可空' });
-    }
+    // 範例: 匿名 user => user_id=null
+    const userId = null;
+    const uploadId = null;
 
-    const newPay = await Payment.create({
-      userId:req.user.id,
-      lastFive,
-      amount,
-      planWanted
-    });
-    return res.json({ message:'匯款資訊已提交，待審核', paymentId:newPay.id });
-  } catch(e){
-    res.status(500).json({ error:e.message });
+    const result = await db.query(`
+      INSERT INTO pending_payments
+        (user_id, upload_id, feature, amount, status, created_at)
+      VALUES ($1, $2, $3, $4, 'PENDING', NOW())
+      RETURNING id
+    `, [userId, uploadId, item, cost]);
+
+    const paymentId = result.rows[0].id;
+    return res.json({ success: true, paymentId });
+  } catch (err) {
+    console.error("[Payment] error:", err);
+    return res.status(500).json({ error: "Payment creation failed" });
   }
 });
 
-// 管理員審核
-router.post('/verify', async (req, res)=>{
+// 管理員審核 /api/admin/payments/:id/approve
+router.post('/admin/payments/:id/approve', async (req, res) => {
+  const db = req.db;
+  const paymentId = req.params.id;
+
   try {
-    const { paymentId, action } = req.body;  // 'APPROVE' or 'REJECT'
-    const pay = await Payment.findByPk(paymentId);
-    if(!pay) return res.status(404).json({ error:'Payment not found' });
+    const upd = await db.query(`
+      UPDATE pending_payments
+        SET status='APPROVED', approved_at=NOW()
+        WHERE id=$1
+        RETURNING *
+    `, [paymentId]);
 
-    if(action==='APPROVE'){
-      pay.status='APPROVED';
-      await pay.save();
-
-      // 幫該 user 升級
-      const user = await User.findByPk(pay.userId);
-      if(!user) return res.status(404).json({ error:'User not found' });
-      user.plan= pay.planWanted;
-      await user.save();
-
-      return res.json({ message:`已核准匯款，方案升級為 ${user.plan}`});
-    } else {
-      pay.status='REJECTED';
-      await pay.save();
-      return res.json({ message:'已標記為拒絕' });
+    if (upd.rowCount === 0) {
+      return res.status(404).json({ error: "No record found" });
     }
-  } catch(e){
-    res.status(500).json({ error:e.message });
+    const payment = upd.rows[0];
+
+    // 若需更新 trial_uploads (ex: has_paid_certificate=TRUE) 可在這裡做
+    // if (payment.feature === 'download_certificate') {
+    //   await db.query("UPDATE trial_uploads SET has_paid_certificate=TRUE WHERE id=$1", [payment.upload_id]);
+    // }
+
+    return res.json({ success: true, payment });
+  } catch (err) {
+    console.error("[Payment approve] error:", err);
+    return res.status(500).json({ error: "Approve payment failed" });
   }
 });
 
