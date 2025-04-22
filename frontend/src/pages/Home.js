@@ -12,7 +12,7 @@ export default function Home() {
         </h1>
 
         <p style={styles.desc}>
-          We are a proudly Taiwanese (台灣) platform dedicated to safeguarding creators worldwide.
+          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br/><br/>
           Are you still risking losing your intellectual property due to inadequate proof of originality?
           Under international copyright law, failing to prove originality means losing your rights entirely—
@@ -26,6 +26,7 @@ export default function Home() {
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
+        {/* 1) 既有「Get Protected Now / 立即保護你的著作」按鈕 */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
@@ -33,7 +34,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* ★★★ 將此按鈕文字改為 "Hunter for Free / 免費試用" ★★★ */}
+        {/* 2) 將原先的 ProtectNow 換成「Hunter for Free / 免費試用」 */}
         <button
           onClick={() => window.location.href='/protect/step1'}
           style={{
@@ -45,6 +46,7 @@ export default function Home() {
           Hunter for Free / 免費試用
         </button>
 
+        {/* 公司資料 */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider}/>
           <p style={styles.companyText}>
@@ -101,6 +103,7 @@ export default function Home() {
   );
 }
 
+/* Style objects */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
