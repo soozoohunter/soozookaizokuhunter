@@ -1,36 +1,36 @@
 #############################
-# 1) Builder Stage
+# 1) Builder Stage: Node 16
 #############################
-FROM node:16-alpine AS builder
+FROM node:16-alpine AS build
 WORKDIR /app
 
-# 複製 package.json、package-lock.json (若有)
-COPY package*.json ./
-RUN npm install
+# 複製相依檔並安裝依賴
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# 複製整個前端專案
+# 複製其餘前端程式碼並執行建置
 COPY . .
-
-# 確認有 "build" script
 RUN npm run build
 
 #############################
-# 2) Production Stage (Nginx)
+# 2) Production Stage: Nginx
 #############################
 FROM nginx:stable-alpine
 
-# 刪除預設 index
+# 移除 Nginx 預設設定
+RUN rm -f /etc/nginx/conf.d/default.conf
+# 刪除預設 www 根目錄檔案（若有）
 RUN rm -rf /usr/share/nginx/html/*
 
-# 從 builder 拷貝 build 出來的前端靜態檔案
-COPY --from=builder /app/build /usr/share/nginx/html
-
-# 複製自訂的 suzoo.conf（SSL + SPA fallback）
+# 複製自訂的 Nginx 設定檔 => 覆蓋 default.conf
 COPY suzoo.conf /etc/nginx/conf.d/default.conf
 
-# 開放 80, 443 埠
+# 從前一階段複製打包產生的前端靜態檔案到 Nginx 預設路徑
+COPY --from=build /app/build /usr/share/nginx/html
+
+# 對外開放 80, 443
 EXPOSE 80
 EXPOSE 443
 
-# 前台執行 Nginx
+# 使用預設的 nginx:stable-alpine 進行前台模式
 CMD ["nginx", "-g", "daemon off;"]
