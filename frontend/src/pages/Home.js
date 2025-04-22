@@ -1,20 +1,28 @@
+// frontend/src/pages/Home.js
+
 import React from 'react';
 
 export default function Home() {
   return (
     <div style={styles.container}>
-      {/* Enhanced banner section */}
       <div style={styles.banner}>
+        {/* ★ 左上大區塊：標題 + 行銷 */}
         <h1 style={styles.mainTitle}>
-          🇹🇼 THE WORLD'S ONLY Blockchain-Proven Originality Platform
+          THE WORLD'S ONLY Blockchain-Proven Originality Platform 🇹🇼
         </h1>
 
         <p style={styles.desc}>
-          Are you still risking losing your intellectual property due to inadequate proof of originality? Under international copyright law, failing to prove originality means losing your rights entirely—regardless of your creativity.
-          <br/><br/>
-          <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly: <strong>Blockchain Digital Fingerprint</strong> combined with <strong>AI Infringement Detection</strong> and rapid global legal actions.
-          <br/><br/>
-          <strong>Proving originality is notoriously challenging—but not anymore.</strong> We simplify complex copyright evidence into a single click. Connect your accounts, and the blockchain instantly becomes your undeniable proof of originality. 100% tamper-proof, globally recognized, and admissible in courts everywhere.
+          Are you still risking losing your intellectual property due to inadequate proof of originality? 
+          Under international copyright law, failing to prove originality means losing your rights entirely—regardless of your creativity.
+          <br /><br />
+          <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly: 
+          <strong> Blockchain Digital Fingerprint</strong> + <strong> AI Infringement Detection</strong> + 
+          Rapid global legal actions.
+          <br /><br />
+          <strong>Proving originality is notoriously challenging—but not anymore.</strong> 
+          We simplify complex copyright evidence into a single click. Connect your accounts, 
+          and the blockchain instantly becomes your undeniable proof of originality—100% tamper-proof, globally recognized, 
+          and admissible in courts everywhere.
         </p>
 
         <button
@@ -25,29 +33,29 @@ export default function Home() {
         </button>
 
         <button
-          onClick={() => window.location.href='/protect-now'}
+          onClick={() => window.location.href='/protect/step1'}
           style={{
             ...styles.enterBtn,
             marginLeft: '1rem',
             backgroundColor: '#FF5722'
           }}
         >
-          Protect Now / 立即試用
+          Free Trial / 免費試用
         </button>
 
         <div style={styles.companyInfo}>
-          <hr style={styles.divider}/>
+          <hr style={styles.divider} />
           <p style={styles.companyText}>
-            <strong>🇹🇼 Epic Global International Co., Ltd.</strong><br/>
-            凱盾全球國際股份有限公司<br/><br/>
-            <strong>Headquarters:</strong> 1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br/>
-            <strong>Taipei Office:</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road, Banqiao, New Taipei City<br/>
+            <strong>🇹🇼 Epic Global International Co., Ltd.</strong><br />
+            凱盾全球國際股份有限公司<br /><br />
+            <strong>Headquarters:</strong> 1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br />
+            <strong>Taipei Office:</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road, Banqiao, New Taipei City<br />
             <strong>Contact:</strong> +886 900-296-168 GM Zack Yao
           </p>
         </div>
       </div>
 
-      {/* New content section with aggressive marketing */}
+      {/* ★ 新增 aggressive marketing 區塊 */}
       <div style={styles.addonSection}>
         <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
@@ -60,16 +68,19 @@ export default function Home() {
           </summary>
           <div style={{ marginTop:'1rem', lineHeight:'1.6', fontSize:'0.95rem' }}>
             <p>
-              根據台灣與國際著作權法，「原創性證明」至關重要，尤其是在無登記制度下，創作者必須自行舉證作品之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗無疑。
+              根據台灣與國際著作權法，「原創性證明」至關重要，尤其是在無登記制度下，
+              創作者必須自行舉證作品之原創性與完成時間。無法有效舉證，就會在法律訴訟中幾乎必敗無疑。
             </p>
             <p>
-              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，輕鬆點擊即可完成原創認證，讓您在全球法庭上都能取得壓倒性的證明效力。
+              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，
+              輕鬆點擊即可完成原創認證，讓您在全球法庭都能取得壓倒性的證明效力。
             </p>
           </div>
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>全世界只有我們做得到！</strong> 台灣首創區塊鏈原創認證平台，全球唯一結合AI侵權偵測與即刻法律執行。別再猶豫，立刻加入我們，捍衛您的創意價值！
+          <strong>全世界只有我們做得到！</strong> 台灣首創區塊鏈原創認證平台，
+          全球唯一結合AI侵權偵測與即刻法律執行。別再猶豫，立刻加入我們，捍衛您的創意價值！
         </p>
       </div>
     </div>
