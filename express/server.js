@@ -1,18 +1,25 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./models'); 
+
+// 若您有 sequelize models
+const { sequelize } = require('./models');
+
+// 若您想用 pg Pool (db.js)
+const db = require('./db');
+
+// 引入您可能已有的路由 (auth, upload, contact…)
 const authRoutes = require('./routes/auth');
-// 可再載入其他路由，如 infringement, upload, contact...
+
+// 引入付款路由 (使用 pg Pool)
+const paymentsRouter = require('./routes/payments');
 
 const app = express();
 
-// ★ 啟用 CORS，針對前端網址設定
-// 在開發時可用 app.use(cors()) 全開
-// 也可指定 origin: 'http://localhost:3001' 或 真實網域
+// 啟用 CORS
 app.use(cors());
 
-// 解析 JSON 請求體
+// 解析 JSON 請求
 app.use(express.json());
 
 // 健康檢查
@@ -20,14 +27,24 @@ app.get('/health', (req, res) => {
   res.send('Express OK');
 });
 
-// 掛載認證路由 => /auth
+// 在進入路由前，把 pg Pool 附加到 req.db
+app.use((req, res, next) => {
+  req.db = db;
+  next();
+});
+
+// 1) 認證路由 (Sequelize)
 app.use('/auth', authRoutes);
 
-// (如需) app.use('/contact', contactRoutes);
-// (如需) app.use('/upload', uploadRoutes);
-// (如需) app.use('/infringement', infringementRoutes);
+// 2) 付款路由 (pg Pool)
+app.use('/api', paymentsRouter);
+
+// 3) 其他路由 (如: contactRoutes, uploadRoutes…)
+// app.use('/contact', contactRoutes);
+// app.use('/upload', uploadRoutes);
 // ...
 
+// 最後: Sequelize 同步並啟動
 sequelize
   .sync({ alter: false })
   .then(() => {
