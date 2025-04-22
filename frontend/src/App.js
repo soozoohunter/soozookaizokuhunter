@@ -1,10 +1,15 @@
-// frontend/src/App.js
-
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, Outlet, useLocation } from 'react-router-dom';
-import jwt_decode from 'jwt-decode'; // ← 改用 ES import
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Outlet,
+  useLocation
+} from 'react-router-dom';
+import jwt_decode from 'jwt-decode';
 
-// ★ 引入您自己的頁面組件 (若有不同檔名請自行調整)
+// ★ 頁面組件 (若檔名不同請自行調整)
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
 import TryProtect from './pages/TryProtect';
@@ -12,15 +17,13 @@ import TryProtectDetails from './pages/TryProtectDetails';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
-/* ------------------------------------------------------------------
-   RootLayout：含導覽列、Banner、Footer
-   ------------------------------------------------------------------ */
+// =============== Layout：含導覽列、Banner、Footer ===============
 function RootLayout() {
   // 1) 檢查是否有 token
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 2) 如果有 token，就 decode，拿到 userRole
+  // 2) 如果有 token，就 decode userRole
   let userRole = '';
   if (token) {
     try {
@@ -31,9 +34,9 @@ function RootLayout() {
     }
   }
 
-  // 3) 判斷當前路徑是否在 '/'，用於顯示首頁 Banner
+  // 3) 判斷目前路徑用於顯示首頁 Banner
   const location = useLocation();
-  const showBanner = (location.pathname === '/');
+  const showBanner = location.pathname === '/';
 
   // 4) 登出動作
   const handleLogout = () => {
@@ -63,7 +66,7 @@ function RootLayout() {
         flexDirection: 'column'
       }}
     >
-      {/* ================== 頂部 Header：LOGO + 導覽列 ================== */}
+      {/* ★ 頂部 Header：LOGO + 導覽列 */}
       <header
         style={{
           padding: '1rem 2rem',
@@ -73,7 +76,7 @@ function RootLayout() {
           alignItems: 'center'
         }}
       >
-        {/* 左側：LOGO 與系統名稱 */}
+        {/* 左側：LOGO + 系統名稱 */}
         <Link
           to="/"
           style={{
@@ -103,19 +106,18 @@ function RootLayout() {
           <Link to="/pricing" style={navLinkStyle}>
             Pricing
           </Link>
-          {/* 若有 /contact 頁面，可以這裡加 */}
           <Link to="/contact" style={navLinkStyle}>
             Contact Us
           </Link>
 
-          {/* 如果已登入且 role=admin，顯示 Admin Dashboard */}
+          {/* 若已登入且 role=admin，顯示 Admin Dashboard */}
           {isLoggedIn && userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>
               Admin Dashboard
             </Link>
           )}
 
-          {/* 若已登入 => 顯示 Payment 與 Logout；未登入 => 顯示 Login/Register */}
+          {/* 已登入 => 顯示 Payment / Logout；未登入 => Login / Register */}
           {isLoggedIn ? (
             <>
               <Link to="/payment" style={navLinkStyle}>
@@ -145,7 +147,7 @@ function RootLayout() {
         </nav>
       </header>
 
-      {/* ================== 首頁 Banner：只在 path='/' 時顯示 ================== */}
+      {/* ★ 首頁 Banner：只在 path='/' 時顯示 */}
       {showBanner && (
         <section
           style={{
@@ -179,12 +181,12 @@ function RootLayout() {
         </section>
       )}
 
-      {/* ================== 主內容：Outlet 呈現子頁面 ================== */}
+      {/* ★ 主內容：Outlet 呈現子頁面 */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
-      {/* ================== 頁尾 Footer ================== */}
+      {/* ★ 頁尾 Footer */}
       <footer
         style={{
           textAlign: 'center',
@@ -209,9 +211,7 @@ function RootLayout() {
   );
 }
 
-/* ------------------------------------------------------------------
-   App：BrowserRouter + 巢狀路由
-   ------------------------------------------------------------------ */
+// =============== App：BrowserRouter + 巢狀路由 ===============
 export default function App() {
   return (
     <BrowserRouter>
