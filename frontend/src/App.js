@@ -1,12 +1,28 @@
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Outlet,
+  useLocation
+} from 'react-router-dom';
+import jwtDecode from 'jwt-decode';
 
-export default function App() {
-  // 1) 檢查 Token，判斷是否登入 ＆ 取得使用者角色
+// ★ 各頁面 (您既有的檔案)
+import HomePage from './pages/Home';
+import PricingPage from './pages/PricingPage';
+import TryProtect from './pages/TryProtect';
+import TryProtectDetails from './pages/TryProtectDetails';
+import Payment from './pages/Payment';
+import PaymentSuccess from './pages/PaymentSuccess';
+
+function RootLayout() {
+  // 1) 檢查是否有 token
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
+  // 2) 如果有 token，解析 role
   let userRole = '';
   if (token) {
     try {
@@ -17,17 +33,17 @@ export default function App() {
     }
   }
 
-  // 2) 判斷當前是否在根路徑 '/'，以控制首頁 Banner 顯示
+  // 3) 判斷是否在根路徑，以顯示 Banner
   const location = useLocation();
   const showBanner = (location.pathname === '/');
 
-  // 3) 登出處理
+  // 4) 登出
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/';
   };
 
-  // 4) 導覽列 Link 的基本樣式
+  // 5) 導覽列樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
@@ -49,7 +65,7 @@ export default function App() {
         flexDirection: 'column'
       }}
     >
-      {/* ================== 頂部區域：LOGO + 導覽列 ================== */}
+      {/* =========== 頂部區域：LOGO + 導覽列 =========== */}
       <header
         style={{
           padding: '1rem 2rem',
@@ -89,18 +105,18 @@ export default function App() {
           <Link to="/pricing" style={navLinkStyle}>
             Pricing
           </Link>
-          {/* Contact Us 頁面：對應您在 MyRoutes.jsx 中的 <Route path="contact" ... /> */}
           <Link to="/contact" style={navLinkStyle}>
             Contact Us
           </Link>
 
-          {/* 若已登入且 role=admin，顯示 Admin Dashboard */}
+          {/* 若已登入且 role=admin，顯示 Admin */}
           {isLoggedIn && userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>
               Admin Dashboard
             </Link>
           )}
 
+          {/* 已登入 => Payment / Logout；未登入 => Login / Register */}
           {isLoggedIn ? (
             <>
               <Link to="/payment" style={navLinkStyle}>
@@ -130,7 +146,7 @@ export default function App() {
         </nav>
       </header>
 
-      {/* ================== 首頁 Banner：只在 path='/' 顯示 ================== */}
+      {/* =========== 首頁 Banner：只在 path='/' 顯示 =========== */}
       {showBanner && (
         <section
           style={{
@@ -164,12 +180,12 @@ export default function App() {
         </section>
       )}
 
-      {/* ================== 主內容區：Outlet 會渲染子頁面 (包含 /contact) ================== */}
+      {/* =========== 主內容：通過 <Outlet /> 渲染子路由頁面 =========== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
-      {/* ================== 頁尾 Footer ================== */}
+      {/* =========== 頁尾 Footer =========== */}
       <footer
         style={{
           textAlign: 'center',
@@ -191,5 +207,26 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// =========== App：BrowserRouter + 巢狀路由 ===========
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<RootLayout />}>
+          {/* index => path="/" */}
+          <Route index element={<HomePage />} />
+          <Route path="pricing" element={<PricingPage />} />
+          <Route path="try-protect" element={<TryProtect />} />
+          <Route path="try-protect/details" element={<TryProtectDetails />} />
+          <Route path="payment" element={<Payment />} />
+          <Route path="payment/success" element={<PaymentSuccess />} />
+
+          {/* contact, admin, login, register => 您可自行新增相同模式 */}
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
