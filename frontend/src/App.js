@@ -7,7 +7,8 @@ import {
   Outlet,
   useLocation
 } from 'react-router-dom';
-import jwtDecode from 'jwt-decode';
+// 改用 namespace import 来兼容 v4 的 ESM 输出：
+import * as jwtDecode from 'jwt-decode';
 
 // ★ 各頁面 (您既有的檔案)
 import HomePage from './pages/Home';
@@ -26,7 +27,10 @@ function RootLayout() {
   let userRole = '';
   if (token) {
     try {
-      const decoded = jwtDecode(token);
+      // namespace import 之后，需要这样调用：
+      const decoded = jwtDecode.default
+        ? jwtDecode.default(token)
+        : jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token decode', e);
@@ -35,7 +39,7 @@ function RootLayout() {
 
   // 3) 判斷是否在根路徑，以顯示 Banner
   const location = useLocation();
-  const showBanner = (location.pathname === '/');
+  const showBanner = location.pathname === '/';
 
   // 4) 登出
   const handleLogout = () => {
@@ -76,71 +80,38 @@ function RootLayout() {
         }}
       >
         {/* 左側：LOGO 與系統名稱 */}
-        <Link
-          to="/"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            textDecoration: 'none'
-          }}
-        >
+        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
           <img
             src="/logo0.jpg"
             alt="Logo"
             style={{ height: '60px', width: 'auto', marginRight: '1rem' }}
           />
-          <span
-            style={{
-              color: '#ff6f00',
-              fontSize: '1.5rem',
-              fontWeight: 'bold'
-            }}
-          >
+          <span style={{ color: '#ff6f00', fontSize: '1.5rem', fontWeight: 'bold' }}>
             速誅侵權獵人 SUZOO IP Guard
           </span>
         </Link>
 
         {/* 右側：導覽列按鈕 */}
         <nav>
-          <Link to="/pricing" style={navLinkStyle}>
-            Pricing
-          </Link>
-          <Link to="/contact" style={navLinkStyle}>
-            Contact Us
-          </Link>
-
-          {/* 若已登入且 role=admin，顯示 Admin */}
+          <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
+          <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
           {isLoggedIn && userRole === 'admin' && (
-            <Link to="/admin" style={navLinkStyle}>
-              Admin Dashboard
-            </Link>
+            <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
           )}
-
-          {/* 已登入 => Payment / Logout；未登入 => Login / Register */}
           {isLoggedIn ? (
             <>
-              <Link to="/payment" style={navLinkStyle}>
-                Payment
-              </Link>
+              <Link to="/payment" style={navLinkStyle}>Payment</Link>
               <button
                 onClick={handleLogout}
-                style={{
-                  ...navLinkStyle,
-                  border: 'none',
-                  background: 'none'
-                }}
+                style={{ ...navLinkStyle, border: 'none', background: 'none' }}
               >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" style={navLinkStyle}>
-                Login
-              </Link>
-              <Link to="/register" style={navLinkStyle}>
-                Register
-              </Link>
+              <Link to="/login" style={navLinkStyle}>Login</Link>
+              <Link to="/register" style={navLinkStyle}>Register</Link>
             </>
           )}
         </nav>
@@ -197,11 +168,9 @@ function RootLayout() {
         }}
       >
         <div>
-          為紀念我最深愛的 曾李素珠 阿嬤
-          <br />
-          <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            In loving memory of my beloved grandmother, Tseng Li Su-Chu.
-            <br />
+          為紀念我最深愛的 曾李素珠 阿嬤<br/>
+          <span style={{ fontSize: '0.8rem', opacity: '0.85' }}>
+            In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br/>
             by Ka!KaiShield 凱盾
           </span>
         </div>
@@ -216,15 +185,13 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<RootLayout />}>
-          {/* index => path="/" */}
           <Route index element={<HomePage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="try-protect" element={<TryProtect />} />
           <Route path="try-protect/details" element={<TryProtectDetails />} />
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
-
-          {/* contact, admin, login, register => 您可自行新增相同模式 */}
+          {/* contact, admin, login, register 可同理新增 */}
         </Route>
       </Routes>
     </BrowserRouter>
