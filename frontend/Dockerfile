@@ -15,20 +15,20 @@ COPY . .
 RUN npm run build
 
 #############################
-# 2) Production Stage
+# 2) Production Stage (Nginx)
 #############################
 FROM nginx:stable-alpine
 
-# 將 /usr/share/nginx/html 清空
+# 刪除預設 index
 RUN rm -rf /usr/share/nginx/html/*
 
-# 複製第一階段 build 出來的檔案至 /usr/share/nginx/html
+# 從 builder 拷貝 build 出來的前端靜態檔案
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# 複製自訂的 suzoo.conf => 覆蓋預設配置 (default.conf)
+# 複製自訂的 suzoo.conf（SSL + SPA fallback）
 COPY suzoo.conf /etc/nginx/conf.d/default.conf
 
-# 開放 80, 443
+# 開放 80, 443 埠
 EXPOSE 80
 EXPOSE 443
 
