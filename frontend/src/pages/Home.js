@@ -3,35 +3,36 @@ import React from 'react';
 export default function Home() {
   return (
     <div style={styles.container}>
-      {/* ====== 原本整個大區塊 (banner) ====== */}
+      {/* Enhanced banner section */}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
-          The World’s First 🇹🇼 Blockchain-Powered IP Protection Platform
+          THE WORLD'S ONLY Blockchain-Proven Originality Platform 🇹🇼
         </h1>
 
         <p style={styles.desc}>
-          In today’s digital age, every photo, video, or product listing you create could be
-          a valuable masterpiece. But with rampant plagiarism and unauthorized usage,
-          how can you ensure <strong>nobody steals your creativity</strong>? <br/><br/>
-
-          Our platform utilizes <strong>advanced blockchain fingerprinting</strong> and
-          <strong> AI-powered infringement crawlers</strong> to monitor the entire web 24/7.
-          Once an infringing case is detected, we instantly initiate DMCA takedown procedures
-          to safeguard your copyrights and trademarks.
+          Are you still risking losing your intellectual property due to inadequate proof of originality? Under international copyright law, failing to prove originality means losing your rights entirely—regardless of your creativity.
           <br/><br/>
-          <strong>Under global copyright laws</strong> — not just in Taiwan —
-          it is critical to demonstrate the <em>“originality”</em> of your work.
-          Failing to prove ownership could lead courts to rule that no valid copyright exists,
-          even if your content was clearly misused. That’s why, during registration,
-          we link your social media and e-commerce accounts on the blockchain, creating
-          an immutable record and <strong>irrefutable evidence</strong> of your authenticity.
+          <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly: <strong>Blockchain Digital Fingerprint</strong> combined with <strong>AI Infringement Detection</strong> and rapid global legal actions.
+          <br/><br/>
+          <strong>Proving originality is notoriously challenging—but not anymore.</strong> We simplify complex copyright evidence into a single click. Connect your accounts, and the blockchain instantly becomes your undeniable proof of originality. 100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
         >
-          Explore Plans / 查看保護方案
+          Get Protected Now / 立即保護你的著作
+        </button>
+
+        <button
+          onClick={() => window.location.href='/try-protect'}
+          style={{
+            ...styles.enterBtn,
+            marginLeft: '1rem',
+            backgroundColor: '#FF5722'
+          }}
+        >
+          Free Trial / 免費試用
         </button>
 
         <div style={styles.companyInfo}>
@@ -40,95 +41,124 @@ export default function Home() {
             <strong>🇹🇼 Epic Global International Co., Ltd.</strong><br/>
             凱盾全球國際股份有限公司<br/><br/>
             <strong>Headquarters:</strong> 1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br/>
-            <strong>Taipei Office:</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road,
-            Banqiao District, New Taipei City<br/>
+            <strong>Taipei Office:</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road, Banqiao, New Taipei City<br/>
             <strong>Contact:</strong> +886 900-296-168 GM Zack Yao
           </p>
         </div>
       </div>
 
-      {/* ====== 新增：在原本 banner 下方，補充您要顯示的段落 ====== */}
+      {/* New content section with aggressive marketing */}
       <div style={styles.addonSection}>
-        <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard</h2>
+        <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
-          Home Page content here... (您可自行擴充)
+          Every second counts—someone might be stealing your ideas right now!
+        </p>
+
+        <details style={styles.legalBlock}>
+          <summary style={{ cursor:'pointer', color:'#FF5722', marginBottom:'1rem' }}>
+            Understand Why "Proof of Originality" is Critical (點此展開)
+          </summary>
+          <div style={{ marginTop:'1rem', lineHeight:'1.6', fontSize:'0.95rem' }}>
+            <p>
+              根據台灣與國際著作權法，「原創性證明」至關重要，尤其是在無登記制度下，創作者必須自行舉證作品之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗無疑。
+            </p>
+            <p>
+              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，輕鬆點擊即可完成原創認證，讓您在全球法庭上都能取得壓倒性的證明效力。
+            </p>
+          </div>
+        </details>
+
+        <p style={styles.extraMarketing}>
+          <strong>全世界只有我們做得到！</strong> 台灣首創區塊鏈原創認證平台，全球唯一結合AI侵權偵測與即刻法律執行。別再猶豫，立刻加入我們，捍衛您的創意價值！
         </p>
       </div>
     </div>
   );
 }
 
-/* 原先的 style + 新增 styles.addonSection, styles.welcomeTitle, styles.addonDesc */
 const styles = {
   container: {
-    backgroundColor: '#0d1117',
-    color: '#c9d1d9',
+    backgroundColor: '#0a0f17',
+    color: '#f5faff',
     minHeight: '100vh',
-    margin: 0,
-    padding: '3rem',
-    fontFamily: 'Roboto, sans-serif'
+    padding: '4rem',
+    fontFamily: 'Inter, sans-serif'
   },
   banner: {
-    border: '2px solid #ff6f00',
-    borderRadius: '8px',
-    padding: '2.5rem',
-    background: '#161b22',
-    textAlign: 'center'
+    border: '3px solid #FF5722',
+    borderRadius: '12px',
+    padding: '3rem',
+    background: '#12181f',
+    textAlign: 'center',
+    boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
   mainTitle: {
-    fontSize: '2.4rem',
+    fontSize: '2.8rem',
     fontWeight: 'bold',
-    marginBottom: '1.5rem',
-    color: '#ff6f00'
+    marginBottom: '2rem',
+    color: '#FF5722'
   },
   desc: {
-    fontSize: '1rem',
-    lineHeight: '1.8',
-    color: '#e0e0e0',
-    margin: '1.5rem 0'
+    fontSize: '1.05rem',
+    lineHeight: '1.9',
+    color: '#c7d2da',
+    marginBottom: '2rem'
   },
   enterBtn: {
-    backgroundColor: '#ff6f00',
+    backgroundColor: '#FF5722',
     color: '#fff',
     border: 'none',
-    borderRadius: '6px',
-    padding: '0.75rem 1.5rem',
+    borderRadius: '8px',
+    padding: '0.8rem 2rem',
     cursor: 'pointer',
-    fontSize: '1rem'
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    transition: 'transform 0.2s',
   },
   companyInfo: {
-    marginTop: '2rem'
+    marginTop: '2.5rem',
   },
   divider: {
-    margin: '1rem auto',
-    width: '70%',
-    border: '1px solid #ff6f00'
+    margin: '2rem auto',
+    width: '60%',
+    border: '1px solid #FF5722'
   },
   companyText: {
-    fontSize: '0.9rem',
-    color: '#8b949e',
-    lineHeight: '1.6'
+    fontSize: '0.95rem',
+    color: '#b0bec5',
+    lineHeight: '1.7'
   },
-
-  /* 新增區段: 顯示 "Welcome to SUZOO..." + "Home Page content here..." */
   addonSection: {
-    marginTop: '2rem',
-    padding: '2rem',
-    backgroundColor: '#101010',
-    borderRadius: '8px'
+    marginTop: '3rem',
+    padding: '3rem',
+    backgroundColor: '#161d27',
+    borderRadius: '10px',
+    boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
+    textAlign: 'center'
   },
   welcomeTitle: {
-    fontSize: '1.6rem',
-    fontWeight: 'bold',
-    marginBottom: '1rem',
-    color: '#ff6f00',
-    textAlign: 'center'
+    fontSize: '2rem',
+    color: '#FF5722',
+    marginBottom: '1.2rem',
+    fontWeight: '700'
   },
   addonDesc: {
-    fontSize: '1rem',
-    lineHeight: '1.6',
-    margin: '0 auto',
-    maxWidth: '600px',
-    textAlign: 'center'
+    fontSize: '1.1rem',
+    color: '#eceff1',
+    marginBottom: '2rem'
+  },
+  legalBlock: {
+    marginTop: '2rem',
+    padding: '1.5rem',
+    backgroundColor: '#12181f',
+    border: '2px solid #FF5722',
+    borderRadius: '8px',
+    textAlign: 'left'
+  },
+  extraMarketing: {
+    marginTop: '2rem',
+    fontSize: '1.2rem',
+    color: '#ffd54f',
+    fontWeight: '600'
   }
 };
