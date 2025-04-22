@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
 
   ################################################
-  # 6) Frontend (改用多階段 Docker Build + Nginx)
+  # 6) Frontend (多階段Docker Build+Nginx)
   ################################################
   suzoo_frontend:
     build:
@@ -98,17 +98,15 @@ services:
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    # 若用於存放 .env 供前端 build 亦可:
     env_file:
       - .env
     networks:
       - suzoo_net
-    # 對外暴露 80,443
     ports:
       - "80:80"
       - "443:443"
-    # 需將 SSL 憑證掛載到容器 /etc/nginx/certs
     volumes:
+      # 將 SSL certs 掛載到 /etc/nginx/certs
       - /etc/letsencrypt:/etc/nginx/certs:ro
     restart: unless-stopped
 
