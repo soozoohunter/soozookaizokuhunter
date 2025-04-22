@@ -7,10 +7,11 @@ import {
   Outlet,
   useLocation
 } from 'react-router-dom';
-// 改用 namespace import 来兼容 v4 的 ESM 输出：
-import * as jwtDecode from 'jwt-decode';
 
-// ★ 各頁面 (您既有的檔案)
+// ◆ 這裡使用 require() 搭配 CommonJS 載入，可解決 "does not contain a default export" 錯誤
+const jwtDecode = require('jwt-decode');
+
+// ★ 引入您自己的頁面組件 (若有不同檔名請自行調整)
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
 import TryProtect from './pages/TryProtect';
@@ -18,36 +19,35 @@ import TryProtectDetails from './pages/TryProtectDetails';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
+// ================== Layout：含導覽列、Banner、Footer ==================
 function RootLayout() {
   // 1) 檢查是否有 token
   const token = localStorage.getItem('token');
   const isLoggedIn = !!token;
 
-  // 2) 如果有 token，解析 role
+  // 2) 如果有 token 就 decode，拿到 userRole
   let userRole = '';
   if (token) {
     try {
-      // namespace import 之后，需要这样调用：
-      const decoded = jwtDecode.default
-        ? jwtDecode.default(token)
-        : jwtDecode(token);
+      // 透過 require 的方式，jwtDecode 就是一個函式，可直接呼叫
+      const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token decode', e);
     }
   }
 
-  // 3) 判斷是否在根路徑，以顯示 Banner
+  // 3) 判斷當前路徑是否在 '/'，用於顯示首頁 Banner
   const location = useLocation();
-  const showBanner = location.pathname === '/';
+  const showBanner = (location.pathname === '/');
 
-  // 4) 登出
+  // 4) 登出動作
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/';
   };
 
-  // 5) 導覽列樣式
+  // 5) 導覽列的樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
@@ -69,7 +69,7 @@ function RootLayout() {
         flexDirection: 'column'
       }}
     >
-      {/* =========== 頂部區域：LOGO + 導覽列 =========== */}
+      {/* ================== 頂部 Header：LOGO + 導覽列 ================== */}
       <header
         style={{
           padding: '1rem 2rem',
@@ -80,44 +80,78 @@ function RootLayout() {
         }}
       >
         {/* 左側：LOGO 與系統名稱 */}
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+        <Link
+          to="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            textDecoration: 'none'
+          }}
+        >
           <img
             src="/logo0.jpg"
             alt="Logo"
             style={{ height: '60px', width: 'auto', marginRight: '1rem' }}
           />
-          <span style={{ color: '#ff6f00', fontSize: '1.5rem', fontWeight: 'bold' }}>
+          <span
+            style={{
+              color: '#ff6f00',
+              fontSize: '1.5rem',
+              fontWeight: 'bold'
+            }}
+          >
             速誅侵權獵人 SUZOO IP Guard
           </span>
         </Link>
 
         {/* 右側：導覽列按鈕 */}
         <nav>
-          <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
-          <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
+          <Link to="/pricing" style={navLinkStyle}>
+            Pricing
+          </Link>
+          {/* 若有 /contact 頁面，可以這裡加 */}
+          <Link to="/contact" style={navLinkStyle}>
+            Contact Us
+          </Link>
+
+          {/* 如果已登入且 role=admin，顯示 Admin Dashboard */}
           {isLoggedIn && userRole === 'admin' && (
-            <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
+            <Link to="/admin" style={navLinkStyle}>
+              Admin Dashboard
+            </Link>
           )}
+
+          {/* 若已登入 => 顯示 Payment 與 Logout；未登入 => 顯示 Login/Register */}
           {isLoggedIn ? (
             <>
-              <Link to="/payment" style={navLinkStyle}>Payment</Link>
+              <Link to="/payment" style={navLinkStyle}>
+                Payment
+              </Link>
               <button
                 onClick={handleLogout}
-                style={{ ...navLinkStyle, border: 'none', background: 'none' }}
+                style={{
+                  ...navLinkStyle,
+                  border: 'none',
+                  background: 'none'
+                }}
               >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" style={navLinkStyle}>Login</Link>
-              <Link to="/register" style={navLinkStyle}>Register</Link>
+              <Link to="/login" style={navLinkStyle}>
+                Login
+              </Link>
+              <Link to="/register" style={navLinkStyle}>
+                Register
+              </Link>
             </>
           )}
         </nav>
       </header>
 
-      {/* =========== 首頁 Banner：只在 path='/' 顯示 =========== */}
+      {/* ================== 首頁 Banner：只在 path='/' 時顯示 ================== */}
       {showBanner && (
         <section
           style={{
@@ -151,12 +185,12 @@ function RootLayout() {
         </section>
       )}
 
-      {/* =========== 主內容：通過 <Outlet /> 渲染子路由頁面 =========== */}
+      {/* ================== 主內容透過 <Outlet /> 呈現子頁面 ================== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
-      {/* =========== 頁尾 Footer =========== */}
+      {/* ================== 頁尾 Footer ================== */}
       <footer
         style={{
           textAlign: 'center',
@@ -168,9 +202,11 @@ function RootLayout() {
         }}
       >
         <div>
-          為紀念我最深愛的 曾李素珠 阿嬤<br/>
-          <span style={{ fontSize: '0.8rem', opacity: '0.85' }}>
-            In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br/>
+          為紀念我最深愛的 曾李素珠 阿嬤
+          <br />
+          <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
+            In loving memory of my beloved grandmother, Tseng Li Su-Chu.
+            <br />
             by Ka!KaiShield 凱盾
           </span>
         </div>
@@ -179,19 +215,27 @@ function RootLayout() {
   );
 }
 
-// =========== App：BrowserRouter + 巢狀路由 ===========
+// ================== App：BrowserRouter + 巢狀路由 ==================
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<RootLayout />}>
+          {/* 首頁 => '/' */}
           <Route index element={<HomePage />} />
+
+          {/* 定價頁 */}
           <Route path="pricing" element={<PricingPage />} />
+
+          {/* 免費試用頁 */}
           <Route path="try-protect" element={<TryProtect />} />
           <Route path="try-protect/details" element={<TryProtectDetails />} />
+
+          {/* 付款頁 */}
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
-          {/* contact, admin, login, register 可同理新增 */}
+
+          {/* 其他路由(如 contact, admin, login, register) 亦可加上 */}
         </Route>
       </Routes>
     </BrowserRouter>
