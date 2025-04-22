@@ -1,3 +1,5 @@
+// frontend/src/App.js
+
 import React from 'react';
 import {
   BrowserRouter,
@@ -9,7 +11,7 @@ import {
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
-// ★ 頁面組件 (若檔名不同請自行調整)
+// ★ 引入您自己的頁面組件 (若有不同檔名請自行調整)
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
 import TryProtect from './pages/TryProtect';
@@ -17,7 +19,10 @@ import TryProtectDetails from './pages/TryProtectDetails';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
-// =============== Layout：含導覽列、Banner、Footer ===============
+// 假設您已有此兩檔案 (若檔名不同，請調整):
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
+
 function RootLayout() {
   // 1) 檢查是否有 token
   const token = localStorage.getItem('token');
@@ -34,17 +39,17 @@ function RootLayout() {
     }
   }
 
-  // 3) 判斷目前路徑用於顯示首頁 Banner
+  // 3) 判斷目前路徑是否為 '/'
   const location = useLocation();
   const showBanner = location.pathname === '/';
 
-  // 4) 登出動作
+  // 4) 登出
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/';
   };
 
-  // 5) 導覽列的樣式
+  // 5) 導覽列樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
@@ -66,7 +71,7 @@ function RootLayout() {
         flexDirection: 'column'
       }}
     >
-      {/* ★ 頂部 Header：LOGO + 導覽列 */}
+      {/* =============== 頂部 Header：LOGO + 導覽列 =============== */}
       <header
         style={{
           padding: '1rem 2rem',
@@ -109,6 +114,10 @@ function RootLayout() {
           <Link to="/contact" style={navLinkStyle}>
             Contact Us
           </Link>
+          {/* 新增：免費試用連結 (Free Trial) → /try-protect */}
+          <Link to="/try-protect" style={navLinkStyle}>
+            Free Trial
+          </Link>
 
           {/* 若已登入且 role=admin，顯示 Admin Dashboard */}
           {isLoggedIn && userRole === 'admin' && (
@@ -117,7 +126,6 @@ function RootLayout() {
             </Link>
           )}
 
-          {/* 已登入 => 顯示 Payment / Logout；未登入 => Login / Register */}
           {isLoggedIn ? (
             <>
               <Link to="/payment" style={navLinkStyle}>
@@ -147,7 +155,7 @@ function RootLayout() {
         </nav>
       </header>
 
-      {/* ★ 首頁 Banner：只在 path='/' 時顯示 */}
+      {/* =============== 首頁 Banner (只在 path='/' 顯示) =============== */}
       {showBanner && (
         <section
           style={{
@@ -181,12 +189,12 @@ function RootLayout() {
         </section>
       )}
 
-      {/* ★ 主內容：Outlet 呈現子頁面 */}
+      {/* =============== 主內容：Outlet 呈現子頁面 =============== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
-      {/* ★ 頁尾 Footer */}
+      {/* =============== 頁尾 Footer =============== */}
       <footer
         style={{
           textAlign: 'center',
@@ -231,7 +239,11 @@ export default function App() {
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
 
-          {/* 其他路由(如 contact, admin, login, register) 亦可加上 */}
+          {/* Login / Register */}
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+
+          {/* 若有 contact / admin 等路由也可加 */}
         </Route>
       </Routes>
     </BrowserRouter>
