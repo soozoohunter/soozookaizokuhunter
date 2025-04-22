@@ -11,3 +11,4 @@ ipfshttpclient==0.8.0a2
 PyJWT==2.6.0
 Pillow==9.4.0
 imagehash==4.3.1
+python-multipart==0.0.5
