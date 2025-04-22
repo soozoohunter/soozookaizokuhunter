@@ -77,7 +77,7 @@ services:
       - "3000"
     restart: unless-stopped
 
-  # Frontend (React+Nginx)
+  # ★★★ Frontend (React + Nginx) ★★★
   suzoo_frontend:
     build:
       context: ./frontend
@@ -93,6 +93,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # 將 /etc/letsencrypt 掛載到 /etc/nginx/certs (或您自訂的 certs 路徑)
     volumes:
       - /etc/letsencrypt:/etc/nginx/certs:ro
     restart: unless-stopped
