@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   ################################################
   # 1) PostgreSQL
@@ -49,7 +51,7 @@ services:
     restart: unless-stopped
 
   ################################################
-  # 4) FastAPI (侵權檔案上傳 + 區塊鏈)
+  # 4) FastAPI
   ################################################
   suzoo_fastapi:
     build:
@@ -69,7 +71,7 @@ services:
     restart: unless-stopped
 
   ################################################
-  # 5) Express (只使用 pg Pool)
+  # 5) Express
   ################################################
   suzoo_express:
     build:
@@ -88,7 +90,7 @@ services:
     restart: unless-stopped
 
   ################################################
-  # 6) Frontend (多階段Docker Build+Nginx)
+  # 6) Frontend (Nginx multi-stage)
   ################################################
   suzoo_frontend:
     build:
@@ -106,7 +108,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 將 SSL certs 掛載到 /etc/nginx/certs
       - /etc/letsencrypt:/etc/nginx/certs:ro
     restart: unless-stopped
 
