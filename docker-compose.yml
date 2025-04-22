@@ -1,7 +1,5 @@
 services:
-  ################################################
-  # 1) PostgreSQL
-  ################################################
+  # PostgreSQL
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -16,9 +14,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ################################################
-  # 2) Ganache (ETH 私有鏈)
-  ################################################
+  # Ganache
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -34,9 +30,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ################################################
-  # 3) IPFS (可選)
-  ################################################
+  # IPFS
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -48,9 +42,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ################################################
-  # 4) FastAPI
-  ################################################
+  # FastAPI
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -68,9 +60,7 @@ services:
       - "8000"
     restart: unless-stopped
 
-  ################################################
-  # 5) Express
-  ################################################
+  # Express
   suzoo_express:
     build:
       context: ./express
@@ -87,9 +77,7 @@ services:
       - "3000"
     restart: unless-stopped
 
-  ################################################
-  # 6) Frontend (Nginx multi-stage)
-  ################################################
+  # ★★★ 新的 Frontend (React+Nginx) ★★★
   suzoo_frontend:
     build:
       context: ./frontend
