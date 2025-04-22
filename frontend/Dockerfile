@@ -2,12 +2,9 @@
 # 1) Builder Stage
 ########################
 FROM node:16-alpine AS builder
-
 WORKDIR /app
 
-# 鎖定 jwt-decode 版本（若您需要）
 COPY package*.json ./
-RUN npm install jwt-decode@4.0.0
 RUN npm install
 
 COPY . .
