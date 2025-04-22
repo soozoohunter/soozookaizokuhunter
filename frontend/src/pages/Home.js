@@ -6,7 +6,7 @@ export default function Home() {
       {/* Enhanced banner section */}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
-          THE WORLD'S ONLY Blockchain-Proven Originality Platform 🇹🇼
+          🇹🇼 THE WORLD'S ONLY Blockchain-Proven Originality Platform
         </h1>
 
         <p style={styles.desc}>
@@ -25,14 +25,14 @@ export default function Home() {
         </button>
 
         <button
-          onClick={() => window.location.href='/try-protect'}
+          onClick={() => window.location.href='/protect-now'}
           style={{
             ...styles.enterBtn,
             marginLeft: '1rem',
             backgroundColor: '#FF5722'
           }}
         >
-          Free Trial / 免費試用
+          Protect Now / 立即試用
         </button>
 
         <div style={styles.companyInfo}>
