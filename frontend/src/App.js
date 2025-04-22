@@ -1,5 +1,4 @@
 // frontend/src/App.js
-
 import React from 'react';
 import {
   BrowserRouter,
@@ -7,8 +6,7 @@ import {
   Route,
   Link,
   Outlet,
-  useLocation,
-  BrowserRouter
+  useLocation
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
@@ -41,7 +39,7 @@ function RootLayout() {
   }
 
   const location = useLocation();
-  const showBanner = location.pathname === '/';
+  const showBanner = (location.pathname === '/');
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -63,7 +61,7 @@ function RootLayout() {
       {/* === 頂部 Header === */}
       <header style={styles.header}>
         <Link to="/" style={{ display:'flex', alignItems:'center', textDecoration:'none' }}>
-          {/* 台灣國旗 (示範 /tw_flag.png 檔案) */}
+          {/* 台灣國旗 */}
           <img 
             src="/tw_flag.png" 
             alt="TaiwanFlag" 
@@ -124,7 +122,6 @@ function RootLayout() {
         <Outlet />
       </main>
 
-      {/* === Footer === */}
       <footer style={styles.footer}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
