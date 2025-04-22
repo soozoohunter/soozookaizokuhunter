@@ -14,8 +14,8 @@ import jwt_decode from 'jwt-decode';
 // 主要頁面
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
-import LoginPage from './pages/Login';        // 若您已有 Login.jsx
-import RegisterPage from './pages/Register';  // 若您已有 Register.jsx
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
 import Payment from './pages/Payment'; 
 import PaymentSuccess from './pages/PaymentSuccess';
 
@@ -25,11 +25,10 @@ import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 
-// ★ 新增：Contact Us 頁面，避免點擊時白屏
+// Contact Us 頁面 (避免白屏)
 import ContactPage from './pages/Contact';
 
 function RootLayout() {
-  // 範例：抓 token、判斷 userRole
   const token = localStorage.getItem('token');
   let userRole = '';
   if (token) {
@@ -41,11 +40,9 @@ function RootLayout() {
     }
   }
 
-  // 是否顯示首頁 Banner
   const location = useLocation();
   const showBanner = location.pathname === '/';
 
-  // 登出
   const handleLogout = () => {
     localStorage.removeItem('token');
     window.location.href = '/';
@@ -72,15 +69,16 @@ function RootLayout() {
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
-          {/* ProtectNow 四步驟 => Step1 */}
-          <Link to="/protect/step1" style={navLinkStyle}>ProtectNow</Link>
 
-          {/* 如果 userRole=admin => Admin Dashboard */}
+          {/* 將「ProtectNow」改為「Hunter for Free」 */}
+          <Link to="/protect/step1" style={navLinkStyle}>
+            Hunter for Free
+          </Link>
+
           {userRole === 'admin' && (
             <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
           )}
 
-          {/* 登入/登出 */}
           {token ? (
             <>
               <Link to="/payment" style={navLinkStyle}>Payment</Link>
@@ -102,7 +100,9 @@ function RootLayout() {
 
       {showBanner && (
         <section style={styles.banner}>
-          <h1 style={styles.bannerTitle}>Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.</h1>
+          <h1 style={styles.bannerTitle}>
+            Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
+          </h1>
           <p style={styles.bannerDesc}>
             捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
             24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。
@@ -134,14 +134,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<RootLayout />}>
-          {/* 首頁 */}
           <Route index element={<HomePage />} />
-          {/* Contact */}
           <Route path="contact" element={<ContactPage />} />
-          {/* Pricing */}
           <Route path="pricing" element={<PricingPage />} />
 
-          {/* ProtectNow 4-step flow */}
           <Route path="protect">
             <Route path="step1" element={<ProtectStep1 />} />
             <Route path="step2" element={<ProtectStep2 />} />
@@ -149,11 +145,9 @@ export default function App() {
             <Route path="step4-infringement" element={<ProtectStep4Infringement />} />
           </Route>
 
-          {/* Payment & success */}
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
 
-          {/* Login / Register */}
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
         </Route>
