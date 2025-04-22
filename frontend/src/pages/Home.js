@@ -31,6 +31,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
+        {/* ★★★ 這裡改成「Hunter for Free / 免費試用」按鈕 ★★★ */}
         <button
           onClick={() => window.location.href='/protect/step1'}
           style={{
@@ -39,7 +40,7 @@ export default function Home() {
             backgroundColor: '#FF5722'
           }}
         >
-          ProtectNow / 免費試用
+          Hunter for Free / 免費試用
         </button>
 
         <div style={styles.companyInfo}>
@@ -67,15 +68,20 @@ export default function Home() {
           </summary>
           <div style={{ marginTop:'1rem', lineHeight:'1.6', fontSize:'0.95rem' }}>
             <p>
-              【繁中】根據台灣與國際著作權法，「原創性證明」至關重要，特別是在無強制登記制度下，創作者必須自行舉證作品之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗無疑。
+              【繁中】根據台灣與國際著作權法，<strong>著作權保護</strong>與
+              <strong>著作權原創證明</strong>至關重要，特別是在無強制登記制度下，創作者必須自行舉證
+              <strong>著作權</strong>之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗無疑。
             </p>
             <p>
-              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，結合強力AI偵測侵權。只需點擊幾下，即可完成原創認證，讓您在全球法庭上都能取得壓倒性證明效力。
+              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，結合強力AI偵測侵權。只需點擊幾下，
+              即可完成原創認證與<strong>著作權保護</strong>，讓您在全球法庭上都能取得壓倒性證明效力。
             </p>
             <p style={{ marginTop:'1rem' }}>
               <strong>【EN】</strong>  
-              Under both Taiwanese and international copyright laws, the burden of proof for originality lies with creators—no mandatory registration is required, but failure to prove authorship usually results in losing the case.  
-              We are the ONLY platform that integrates blockchain immutability and powerful AI infringement detection. A few clicks is all it takes to secure your unstoppable legal advantage in courts worldwide.
+              Under both Taiwanese and international copyright laws, the burden of proof for originality lies with creators—
+              no mandatory registration is required, but failure to prove authorship usually results in losing the case.  
+              We are the ONLY platform that integrates blockchain immutability and powerful AI infringement detection. 
+              A few clicks is all it takes to secure your unstoppable legal advantage in courts worldwide.
             </p>
             <p style={{ marginTop:'1rem', color:'#ffd54f', fontWeight:'600' }}>
               Join us now and defend your creative value like never before!
@@ -84,7 +90,8 @@ export default function Home() {
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與著作權原創完美結合，並提供即時掃描、
+          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與
+          <strong>著作權原創證明</strong>完美結合，並提供即時掃描、
           DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！
         </p>
       </div>
