@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 
--- 2) trial_uploads 表 (匿名試用 + 區塊鏈記錄)
+-- 2) trial_uploads 表
 CREATE TABLE IF NOT EXISTS trial_uploads (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE SET NULL,
@@ -34,7 +34,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_trial_email ON trial_uploads(email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_trial_fingerprint ON trial_uploads(fingerprint);
 CREATE INDEX IF NOT EXISTS idx_trial_user ON trial_uploads(user_id);
 
--- 3) pending_payments 表 (多階段付費)
+-- 3) pending_payments 表
 CREATE TABLE IF NOT EXISTS pending_payments (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
