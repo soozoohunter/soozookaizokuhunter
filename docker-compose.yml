@@ -88,45 +88,28 @@ services:
     restart: unless-stopped
 
   ################################################
-  # 6) React (前端)
+  # 6) Frontend (改用多階段 Docker Build + Nginx)
   ################################################
-  suzoo_react:
+  suzoo_frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: suzoo_react
+    container_name: suzoo_frontend
     depends_on:
       - suzoo_express
       - suzoo_fastapi
+    # 若用於存放 .env 供前端 build 亦可:
     env_file:
       - .env
     networks:
       - suzoo_net
-    # 若要從 http://<HostIP>:3001 測試 React，可保留:
-    ports:
-      - "3001:3000"
-    restart: unless-stopped
-
-  ################################################
-  # 7) Nginx (對外: 80/443)
-  ################################################
-  suzoo_nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: suzoo_nginx
-    depends_on:
-      - suzoo_react
-      - suzoo_express
-      - suzoo_fastapi
-    networks:
-      - suzoo_net
+    # 對外暴露 80,443
     ports:
       - "80:80"
       - "443:443"
+    # 需將 SSL 憑證掛載到容器 /etc/nginx/certs
     volumes:
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/nginx/certs:ro
     restart: unless-stopped
 
 networks:
