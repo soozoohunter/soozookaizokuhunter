@@ -4,29 +4,33 @@
 FROM node:16-alpine AS builder
 WORKDIR /app
 
-# 複製 package.json、package-lock.json
+# 複製 package.json、package-lock.json (若有)
 COPY package*.json ./
-# 安裝依賴
 RUN npm install
 
 # 複製整個前端專案
 COPY . .
 
-# ※ 建議在 package.json 中確認 "build" script 存在
+# 確認有 "build" script
 RUN npm run build
 
 #############################
 # 2) Production Stage
 #############################
-FROM node:16-alpine
+FROM nginx:stable-alpine
 
-# 安裝 serve 用於靜態檔
-RUN npm install -g serve
+# 將 /usr/share/nginx/html 清空
+RUN rm -rf /usr/share/nginx/html/*
 
-WORKDIR /app
-# 從 builder 階段複製打包後的 build 目錄
-COPY --from=builder /app/build ./build
+# 複製第一階段 build 出來的檔案至 /usr/share/nginx/html
+COPY --from=builder /app/build /usr/share/nginx/html
 
-EXPOSE 3000
-# 使用 serve -s build 監聽 3000埠
-CMD ["serve", "-s", "build", "-l", "3000"]
+# 複製自訂的 suzoo.conf => 覆蓋預設配置 (default.conf)
+COPY suzoo.conf /etc/nginx/conf.d/default.conf
+
+# 開放 80, 443
+EXPOSE 80
+EXPOSE 443
+
+# 前台執行 Nginx
+CMD ["nginx", "-g", "daemon off;"]
