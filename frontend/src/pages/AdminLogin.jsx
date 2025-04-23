@@ -1,24 +1,90 @@
-/***************************************************************
- * frontend/src/pages/AdminLogin.jsx
- * - 簡易管理員登入頁面
- ***************************************************************/
+// frontend/src/pages/AdminLogin.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 
-function AdminLogin() {
-  const [email, setEmail] = useState('zacyao1005');    // 預設填入您的Admin帳號
-  const [password, setPassword] = useState('Zack967988'); // 預設填入您的Admin密碼
-  const [error, setError] = useState('');
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #121212;
+  color: #ffffff;
+`;
+
+const FormContainer = styled.div`
+  background-color: #1e1e1e;
+  padding: 2rem 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 400px;
+  border: 2px solid #ff6f00;
+`;
+
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #FFD700;
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+`;
+
+const StyledLabel = styled.label`
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.9rem;
+  color: #ffa500;
+`;
+
+const StyledInput = styled.input`
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: #ffffff;
+  background-color: #2c2c2c;
+  border: 1px solid #444;
+  border-radius: 4px;
+`;
+
+const ErrorMsg = styled.p`
+  color: red;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+`;
+
+const SubmitButton = styled.button`
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: #f97316;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  &:hover {
+    background-color: #ea580c;
+  }
+`;
+
+export default function AdminLogin() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('zacyao1005');
+  const [password, setPassword] = useState('Zack967988');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (localStorage.getItem('token')) {
-      // 若已有token，直接進入
       navigate('/admin/dashboard');
     }
   }, [navigate]);
 
-  const handleLogin = async (e) => {
+  const handleLogin = async e => {
     e.preventDefault();
     setError('');
     try {
@@ -27,52 +93,46 @@ function AdminLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || '登入失敗：請檢查帳號或密碼');
+      } else {
         localStorage.setItem('token', data.token);
         navigate('/admin/dashboard');
-      } else {
-        setError('登入失敗: 帳號或密碼不正確');
       }
     } catch (err) {
-      console.error('[AdminLogin] error:', err);
-      setError('登入發生錯誤，請稍後再試');
+      console.error(err);
+      setError('無法連線，請稍後再試');
     }
   };
 
   return (
-    <div className="container" style={{ maxWidth: '400px', marginTop: '80px', color: '#fff' }}>
-      <h2 className="mb-4">管理員登入</h2>
-      <form onSubmit={handleLogin}>
-        <div className="mb-3">
-          <label className="form-label">Email (Admin)</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ marginBottom: '1rem' }}
+    <PageWrapper>
+      <FormContainer>
+        <Title>Admin Login 管理員登入</Title>
+        {error && <ErrorMsg>{error}</ErrorMsg>}
+
+        <StyledForm onSubmit={handleLogin}>
+          <StyledLabel>Email 或 帳號</StyledLabel>
+          <StyledInput
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email或帳號"
+            onChange={e => setEmail(e.target.value)}
+            placeholder="admin@example.com"
             required
           />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">密碼</label>
-          <input
+
+          <StyledLabel>密碼 / Password</StyledLabel>
+          <StyledInput
             type="password"
-            className="form-control"
-            style={{ marginBottom: '1rem' }}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="請輸入密碼"
+            onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••"
             required
           />
-        </div>
-        {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
-        <button type="submit" className="btn btn-primary w-100">登入</button>
-      </form>
-    </div>
+
+          <SubmitButton type="submit">登入 / Login</SubmitButton>
+        </StyledForm>
+      </FormContainer>
+    </PageWrapper>
   );
 }
-
-export default AdminLogin;
