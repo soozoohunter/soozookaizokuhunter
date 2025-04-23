@@ -1,10 +1,10 @@
 /**************************************************************
  * frontend/src/App.js
- * - 重新排版 Navbar: 
- *   左：Pricing, Contact Us
- *   中：SUZOO IP Guard
- *   右：Register, Login, Admin
- * - 移除舊的 Hunter for Free link
+ * - Navbar 左: Pricing, Contact Us
+ *           中: Logo + SUZOO IP Guard
+ *           右: Register, Login, Admin
+ * - Logo 檔名: logo0.jpg (請放在 public/ 下，或自行調整路徑)
+ * - 去掉頂部「Hunter for Free」按鈕 (因已移至 Home 下方)
  **************************************************************/
 import React from 'react';
 import {
@@ -34,7 +34,7 @@ import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 // Contact Us 頁面
 import ContactPage from './pages/Contact';
 
-// ★ 新增：AdminLogin、AdminDashboard
+// Admin
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
@@ -58,41 +58,45 @@ function RootLayout() {
     window.location.href = '/';
   };
 
-  // 主容器分三部分: 左、中、右
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        {/* 左側區塊 */}
+        {/* 左邊 */}
         <div style={styles.headerLeft}>
           <Link to="/pricing" style={styles.navLink}>Pricing</Link>
           <Link to="/contact" style={styles.navLink}>Contact Us</Link>
         </div>
 
-        {/* 中間區塊：品牌 Logo/文字 */}
+        {/* 中間 - Logo + SUZOO文字 */}
         <div style={styles.headerCenter}>
-          <Link to="/" style={{ ...styles.navLink, ...styles.brandLink }}>
-            SUZOO IP Guard
+          <Link to="/" style={styles.brandLink}>
+            <img 
+              src="/logo0.jpg" 
+              alt="Logo" 
+              style={{ height: '40px', marginRight: '0.5rem' }}
+            />
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+              SUZOO IP Guard
+            </span>
           </Link>
         </div>
 
-        {/* 右側區塊 */}
+        {/* 右邊 */}
         <div style={styles.headerRight}>
-          {/* Register, Login */}
           {!token && (
             <>
               <Link to="/register" style={styles.navLink}>Register</Link>
               <Link to="/login" style={styles.navLink}>Login</Link>
             </>
           )}
-          {/* Admin (可固定顯示或依 role=admin 顯示） */}
+
+          {/* Admin 入口 (若您想固定顯示可保留) */}
           {userRole === 'admin' ? (
             <Link to="/admin/dashboard" style={styles.navLink}>Admin</Link>
           ) : (
-            // 若您想讓所有人都看得到 Admin Login，可加:
             <Link to="/admin/login" style={styles.navLink}>Admin</Link>
           )}
 
-          {/* 若有登入, 顯示 Logout */}
           {token && (
             <button
               onClick={handleLogout}
@@ -104,6 +108,7 @@ function RootLayout() {
         </div>
       </header>
 
+      {/* 首頁的 Banner */}
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>
@@ -139,7 +144,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 一般使用者頁面 */}
+        {/* 1) 一般頁面 */}
         <Route element={<RootLayout />}>
           <Route index element={<HomePage />} />
           <Route path="contact" element={<ContactPage />} />
@@ -160,7 +165,7 @@ export default function App() {
           <Route path="payment/success" element={<PaymentSuccess />} />
         </Route>
 
-        {/* Admin */}
+        {/* 2) Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
@@ -209,9 +214,11 @@ const styles = {
     borderRadius: '4px'
   },
   brandLink: {
-    border: 'none',
-    fontSize: '1.2rem',
-    fontWeight: 'bold'
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.3rem',
+    textDecoration: 'none',
+    color: '#ff6f00'
   },
   banner: {
     textAlign: 'center',
