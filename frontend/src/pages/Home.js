@@ -1,110 +1,164 @@
 // frontend/src/pages/Home.js
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function Home() {
+  // 若您想把檔案先存在 state / localStorage，帶到下一步，就可使用 useState:
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  // 處理檔案改變 -> optional: 預先儲存 base64 / localStorage 以便 ProtectStep1 不必再上傳
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      // ***範例: 把檔案先讀成 base64 存 localStorage***
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        if (evt.target.readyState === FileReader.DONE) {
+          localStorage.setItem('uploadedFileBase64', evt.target.result);
+          localStorage.setItem('uploadedFileName', file.name);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleProveOriginalNow = () => {
+    // 前往 Step1（實作上，Step1 將不再要求重新上傳，而是顯示預覽）
+    window.location.href = '/protect/step1';
+  };
+
   return (
     <div style={styles.container}>
 
       {/*********************************************************************
-       * (1) 置於最頂: Hunter for Free / 免費試用 上傳區塊
-       *    - 來自您「很好的文案設計」中最上方的 upload bar
+       * (A) 置頂：上傳欄位 & 「立即生成原創證明」按鈕
        *********************************************************************/}
       <div style={styles.topUploadSection}>
-        <h2 style={styles.topUploadTitle}>Hunter for Free / 免費試用</h2>
+        <h2 style={styles.topUploadTitle}>
+          {/* 雙語文案 */}
+          Prove Your Original Authorship Now / 立即生成原創證明
+        </h2>
+
         <div style={styles.uploadBar}>
+          {/* 上傳檔案：以簡易文字引導 */}
+          <label htmlFor="fileUpload" style={styles.uploadLabel}>
+            1) Upload Short Video to Generate Dynamic Fingerprint  
+            <br/>
+            &nbsp;&nbsp;Upload Image File to Generate Static Fingerprint
+          </label>
           <input
+            id="fileUpload"
             type="file"
             style={styles.fileInput}
-            onChange={e => console.log(e.target.files[0])}
+            onChange={handleFileChange}
           />
           <button
             style={styles.uploadButton}
-            onClick={() => window.location.href = '/protect/step1'}
+            onClick={handleProveOriginalNow}
           >
-            Hunter for Free / 免費試用
+            {/* 取代舊的 Hunter for Free */}
+            Generate Original Proof Now
+            <br/>
+            立即生成原創證明
           </button>
         </div>
       </div>
 
       {/*********************************************************************
-       * (2) Hero banner
-       *   - 保留原 hero 區塊的文案與排版
+       * (B) Hero banner
        *********************************************************************/}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
-          THE WORLD'S ONLY Blockchain-Proven Originality Platform
+          THE WORLD'S ONLY Blockchain & AI-Powered Originality Proof Platform
         </h1>
         <p style={styles.desc}>
-          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
+          We are proudly Taiwanese (台灣🇹🇼), and the only platform combining blockchain and AI
+          to prove true authorship worldwide.<br/><br/>
+
+          Are you still struggling to prove your <strong>original creation</strong>?
+          Under international copyright law, failing to establish originality means losing your rights entirely.
           <br/><br/>
-          Are you still risking losing your intellectual property due to inadequate proof of originality?
-          Under international copyright law, failing to prove originality
-          means losing your rights entirely— regardless of your creativity.
+          <strong>ONLY WE</strong> solve this once-impossible challenge:
+          <strong> Blockchain Digital Fingerprint + AI Infringement Detection</strong>,
+          backed by rapid global legal actions.
           <br/><br/>
-          <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly: 
-          <strong> Blockchain Digital Fingerprint</strong> combined with 
-          <strong> AI Infringement Detection</strong> and rapid global legal actions.
-          <br/><br/>
-          <strong>Proving originality is notoriously challenging — but not anymore.</strong> 
-          We simplify complex copyright evidence into a single click. 
-          Connect your accounts, and the blockchain instantly becomes your undeniable proof 
-          of originality. 100% tamper-proof, globally recognized, and admissible in courts everywhere.
+          <strong>Proving originality is notoriously difficult — but not with us.</strong>
+          We turn complex copyright evidence into a single step. 100% tamper-proof, globally recognized,
+          and admissible in courts everywhere.
         </p>
       </div>
 
       {/*********************************************************************
-       * (3) Secure Your Intellectual Property 區塊
-       *     - 原本保留的文案，但去掉重複的上傳欄(已放最頂)
+       * (C) Secure Section
        *********************************************************************/}
       <div style={styles.secureSection}>
         <h2 style={styles.secureTitle}>
           Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
         </h2>
         <p style={styles.secureDesc}>
-          捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
-          24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。<br />
-          現在就免費體驗上傳，立即生成原創證明！
+          結合區塊鏈與 AI 智能技術，24 小時隨時偵測侵權行為。  
+          為您的影音、圖像、文字與商標提供強力法律武器。  
+          <br/>
+          Now you can enjoy a seamless, globally recognized proof of authorship—anytime, anywhere!
         </p>
       </div>
 
       {/*********************************************************************
-       * (4) Welcome / marketing  (addonSection)
+       * (D) Welcome / marketing & 『展開區塊』 
        *********************************************************************/}
       <div style={styles.addonSection}>
-        <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
+        <h2 style={styles.welcomeTitle}>
+          Welcome to SUZOO IP Guard 🚀
+        </h2>
         <p style={styles.addonDesc}>
           Every second counts—someone might be stealing your ideas right now!
         </p>
 
         <details style={styles.legalBlock}>
           <summary style={styles.legalSummary}>
-            Understand Why "Proof of Originality" is Critical (點此展開)
+            Understand Why "Proof of Originality" Matters (點此展開)
           </summary>
           <div style={styles.legalText}>
+            {/* ====== 在這裡放您給我的著作權法理&原創性長文，並帶出行銷語 ====== */}
             <p>
-              【繁中】根據台灣與國際著作權法，<strong>著作權保護</strong>與
-              <strong>著作權原創證明</strong>至關重要，特別是在無強制登記制度下...
+              <strong>EN:</strong>  
+              Copyright law protects the “expression” of your ideas, not the ideas themselves.
+              Traditional systems only detect textual plagiarism; they can’t confirm true “originality.”
+              That’s why we integrate blockchain timestamps and AI-driven fingerprinting to ensure
+              undeniable proof of authorship. <em>Only with us</em> can you finally solve the age-old question:
+              <strong>“How do I prove I am the original creator?”</strong><br/><br/>
+              <strong>ZH:</strong>  
+              著作權法保護的是「表達」，而非「概念」。傳統系統僅能比對文字抄襲，卻無法真的證明
+              「原創性」。我們透過區塊鏈時間戳 + AI 指紋技術，讓您徹底解決
+              「我怎麼證明自己才是原著作人？」的世界難題。全世界只有我們能做到！
+            </p>
+            <p>
+              <strong>《核心重點》</strong><br/>
+              {`- `}智慧財產權是各國法律為了保障人類精神活動成果而設的保護機制；  
+              {`- `}著作權法中強調「原創」必須是「獨立創作」且「創作性」達一定程度；  
+              {`- `}一般比對系統只能檢測「字面相似度」，並不保證您能證明「我才是原創」。  
             </p>
             <p style={styles.legalEmph}>
-              Join us now and defend your creative value like never before!
+              Let us handle that final gap—once you upload, we record an immutable blockchain fingerprint,
+              proving in any court that “this exact expression is yours.”<br/>
+              (上傳後，我們替您完成不可篡改的區塊鏈指紋，一旦遇到法律爭議，就能證明「此作品正是您原創」。)
             </p>
           </div>
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與
-          <strong>著作權原創證明</strong>完美結合...
+          <strong>We are truly the world’s only solution!</strong><br/>
+          No one else can integrate blockchain & AI to permanently seal your originality.
         </p>
       </div>
 
       {/*********************************************************************
-       * (5) 公司資訊區 (footer-like)
+       * (E) Footer - Company Info (英文 ONLY)
        *********************************************************************/}
       <div style={styles.companyInfo}>
         <hr style={styles.divider} />
         <p style={styles.companyText}>
-          <strong>Epic Global International Co., Ltd.</strong><br/>
-          凱盾全球國際股份有限公司<br/><br/>
+          <strong>Epic Global International Co., Ltd.</strong><br/><br/>
           <strong>Headquarters:</strong> 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br/>
           <strong>Banqiao Office:</strong> No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br/>
           <strong>Contact:</strong> +886 900-296-168 (GM Zack Yao)
@@ -114,11 +168,7 @@ export default function Home() {
   );
 }
 
-/************************************************************************
- * 樣式整合
- * - 以您最後的程式碼為基底 (深色背景, 區塊樣式…)
- * - 新增 topUploadSection, topUploadTitle 等樣式以容納最上方上傳欄
- ************************************************************************/
+// 樣式
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
@@ -128,9 +178,7 @@ const styles = {
     fontFamily: 'Inter, sans-serif'
   },
 
-  /********************************
-   * (1) 最頂 Hunter for Free 區塊
-   ********************************/
+  // 上方上傳/按鈕
   topUploadSection: {
     textAlign: 'center',
     marginBottom: '3rem'
@@ -143,13 +191,20 @@ const styles = {
   },
   uploadBar: {
     display: 'inline-flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: '1rem'
+    gap: '0.75rem'
+  },
+  uploadLabel: {
+    fontSize: '0.95rem',
+    color: '#ffcc80',
+    marginBottom: '0.3rem'
   },
   fileInput: {
     padding: '0.4rem',
     backgroundColor: '#fff',
-    borderRadius: '4px'
+    borderRadius: '4px',
+    cursor: 'pointer'
   },
   uploadButton: {
     backgroundColor: '#FF5722',
@@ -158,12 +213,11 @@ const styles = {
     padding: '0.6rem 1.4rem',
     borderRadius: '4px',
     fontWeight: 600,
-    cursor: 'pointer'
+    cursor: 'pointer',
+    fontSize: '1rem'
   },
 
-  /********************************
-   * (2) Hero banner
-   ********************************/
+  // Hero
   banner: {
     border: '3px solid #FF5722',
     borderRadius: '12px',
@@ -174,7 +228,7 @@ const styles = {
     marginBottom: '3rem'
   },
   mainTitle: {
-    fontSize: '2.8rem',
+    fontSize: '2.6rem',
     fontWeight: 'bold',
     marginBottom: '1.5rem',
     color: '#FF5722'
@@ -185,9 +239,7 @@ const styles = {
     color: '#c7d2da'
   },
 
-  /********************************
-   * (3) Secure Section
-   ********************************/
+  // Secure
   secureSection: {
     textAlign: 'center',
     marginBottom: '3rem'
@@ -205,9 +257,7 @@ const styles = {
     lineHeight: '1.6'
   },
 
-  /********************************
-   * (4) Welcome / addon section
-   ********************************/
+  // Addon
   addonSection: {
     backgroundColor: '#161d27',
     padding: '2.5rem',
@@ -230,7 +280,7 @@ const styles = {
     textAlign: 'left',
     display: 'inline-block',
     width: '100%',
-    maxWidth: '800px',
+    maxWidth: '900px',
     margin: '0 auto 1.5rem',
     background: '#12181f',
     border: '2px solid #FF5722',
@@ -259,9 +309,7 @@ const styles = {
     fontWeight: 600
   },
 
-  /********************************
-   * (5) 公司資訊區
-   ********************************/
+  // Footer company
   companyInfo: {
     textAlign: 'center',
     marginTop: '4rem'
