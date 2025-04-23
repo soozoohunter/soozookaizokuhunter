@@ -31,7 +31,7 @@ export default function MyRoutes() {
           {/* 新增 Contact Us 路由：/contact */}
           <Route path="contact" element={<ContactUsPage />} />
 
-          {/* 管理員頁面: /admin */}
+          {/* 管理員頁面: /admin (若您想要 /admin/dashboard，也可以在此再做細分) */}
           <Route path="admin" element={<AdminDashboard />} />
         </Route>
       </Routes>
