@@ -33,6 +33,7 @@ const StyledForm = styled.form`
   flex-direction: column;
 `;
 
+// 以下省略部分樣式定義 (PreviewBox, PreviewImg, FileName...) 與你原先相同
 const PreviewBox = styled.div`
   margin: 1rem 0;
   text-align: center;
@@ -123,12 +124,13 @@ export default function ProtectStep1() {
 
   const handleNext = async (e) => {
     e.preventDefault();
+
     if (!previewBase64) {
       setError('No file selected. Please go back to Home and upload a file first.');
       return;
     }
     if (!realName.trim() || !phone.trim() || !address.trim() || !email.trim()) {
-      setError('All fields (RealName, Phone, Address, Email) are required.');
+      setError('All fields (Real Name, Phone, Address, Email) are required.');
       return;
     }
     setError('');
@@ -163,12 +165,13 @@ export default function ProtectStep1() {
       const res = await fetch('/api/protect/step1', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer ' + token  // <---帶上token
+          'Authorization': 'Bearer ' + token // <---帶上token
         },
         body: formData
       });
       if (!res.ok) {
-        const msg = await res.json();
+        const msg = await res.json().catch(() => ({}));
+        // 若後端沒回傳 json，就保底一個物件
         throw new Error(msg.message || 'Server error');
       }
 
@@ -201,14 +204,14 @@ export default function ProtectStep1() {
         </PreviewBox>
 
         <Description>
-          您已於首頁上傳檔案，我們將為您產出「原創著作證明」並保護您的著作權。
-          <br/><br/>
-          Please fill in your real info below (Real Name, Phone, etc.).
+          您已於首頁上傳檔案，我們將為您產出「原創著作證明」並保護您的著作權。<br/>
+          EN: Please fill in your real info below (Real Name, Phone, etc.).
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        <StyledForm onSubmit={handleNext}>
+        {/* ★ 加上 noValidate，避免 Safari 的原生驗證阻擋 */}
+        <StyledForm onSubmit={handleNext} noValidate>
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
           <StyledInput
             type="text"
@@ -230,9 +233,12 @@ export default function ProtectStep1() {
             onChange={e => setAddress(e.target.value)}
           />
 
+          {/* 也可以把 type="email" 改為 text，完全跳過瀏覽器檢查 */}
           <StyledLabel>Email:</StyledLabel>
           <StyledInput
             type="email"
+            // 若擔心 iOS 堅持檢查，可改成 type="text"
+            // type="text"
             value={email}
             onChange={e => setEmail(e.target.value)}
           />
