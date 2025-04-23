@@ -19,7 +19,7 @@ const FormContainer = styled.div`
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: 520px; /* 調整寬度稍大些，避免感覺擠 */
+  max-width: 520px;
   border: 2px solid #ff6f00; 
 `;
 
