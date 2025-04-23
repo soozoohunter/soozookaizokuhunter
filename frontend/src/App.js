@@ -3,7 +3,6 @@
  * - Navbar 左: Pricing, Contact Us
  *           中: Logo + SUZOO IP Guard
  *           右: Register, Login, Admin
- * - Logo 檔名: logo0.jpg (請放在 public/ 下)
  * - 已去掉頂部「Hunter for Free」按鈕
  **************************************************************/
 import React from 'react';
@@ -90,7 +89,7 @@ function RootLayout() {
             </>
           )}
 
-          {/* Admin 入口 */}
+          {/* Admin 入口 (若您想固定顯示可保留) */}
           {userRole === 'admin' ? (
             <Link to="/admin/dashboard" style={styles.navLink}>Admin</Link>
           ) : (
@@ -117,14 +116,12 @@ function RootLayout() {
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>
-            Lock Down Your Creativity with Blockchain. Anytime, Anywhere.
+            Secure Your IP Anytime, Anywhere
           </h1>
           <p style={styles.bannerDesc}>
-            Unbreakable Blockchain + AI Detection,<br/>
-            Ensuring Bulletproof Evidence in Every Case.
+            Unbreakable Blockchain + AI Detection. Ensure Bulletproof Evidence in Every Case.
             <br/><br/>
-            以堅不可摧的區塊鏈與 AI 偵測技術，<br/>
-            為您的智慧財產提供滴水不漏的原創證明。
+            一鍵啟動區塊鏈 + AI 防禦，打造無懈可擊的證據，讓每一次創作都能穩操勝券
           </p>
         </section>
       )}
