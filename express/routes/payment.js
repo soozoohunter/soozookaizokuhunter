@@ -1,9 +1,10 @@
-// express/routes/payment.js
-
+/*************************************************************
+ * express/routes/payment.js
+ * - 付款API (pending -> Admin審核 -> approved)
+ *************************************************************/
 const express = require('express');
 const router = express.Router();
 
-// 可依需求擴充更多項目
 const SERVICE_PRICING = {
   download_certificate: 99,
   infringement_scan: 99,
@@ -13,20 +14,21 @@ const SERVICE_PRICING = {
 
 // POST /api/pay => 建立付款(待審核)
 router.post('/pay', async (req, res) => {
-  const db = req.db; // 來自 server.js app.use((req,res,next)=>{req.db=db;...})
+  const db = req.db; // 來自 server.js
   const { item, price } = req.body;
 
-  // 確認是否為合法項目
+  // 確認是否合法
   const cost = SERVICE_PRICING[item];
   if (!cost) {
-    return res.status(400).json({ error: "Invalid item" });
+    return res.status(400).json({ error: 'Invalid item' });
   }
   if (Number(price) !== cost) {
-    return res.status(400).json({ error: "Price mismatch" });
+    return res.status(400).json({ error: 'Price mismatch' });
   }
 
   try {
-    // 範例: 匿名 user => user_id=null, upload_id=null
+    // 範例: 假設無登入 => userId=null
+    // 實務: 可從 JWT 解碼 req.userId
     const userId = null;
     const uploadId = null;
 
@@ -36,12 +38,12 @@ router.post('/pay', async (req, res) => {
       VALUES ($1, $2, $3, $4, 'PENDING', NOW())
       RETURNING id
     `, [userId, uploadId, item, cost]);
-
     const paymentId = result.rows[0].id;
+
     return res.json({ success: true, paymentId });
   } catch (err) {
-    console.error("[Payment] error:", err);
-    return res.status(500).json({ error: "Payment creation failed" });
+    console.error('[Payment] error:', err);
+    return res.status(500).json({ error: 'Payment creation failed' });
   }
 });
 
@@ -59,19 +61,19 @@ router.post('/admin/payments/:id/approve', async (req, res) => {
     `, [paymentId]);
 
     if (upd.rowCount === 0) {
-      return res.status(404).json({ error: "No record found" });
+      return res.status(404).json({ error: 'No record found' });
     }
     const payment = upd.rows[0];
 
-    // 若需更新 trial_uploads (ex: has_paid_certificate=TRUE) 可在這裡做
-    // if (payment.feature === 'download_certificate') {
-    //   await db.query("UPDATE trial_uploads SET has_paid_certificate=TRUE WHERE id=$1", [payment.upload_id]);
+    // ★ 若要更新該使用者 isPaid=true，可加:
+    // if (payment.user_id) {
+    //   await db.query(`UPDATE users SET "isPaid"=true WHERE id=$1`, [payment.user_id]);
     // }
 
     return res.json({ success: true, payment });
   } catch (err) {
-    console.error("[Payment approve] error:", err);
-    return res.status(500).json({ error: "Approve payment failed" });
+    console.error('[Payment approve] error:', err);
+    return res.status(500).json({ error: 'Approve payment failed' });
   }
 });
 
