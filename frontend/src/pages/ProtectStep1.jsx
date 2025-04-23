@@ -109,7 +109,7 @@ export default function ProtectStep1() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
-  // 載入 localStorage 裡的檔案 (base64 + 檔名)，用於顯示預覽
+  // 載入 localStorage 裡的檔案 (base64 + 檔名)
   useEffect(() => {
     const b64 = localStorage.getItem('uploadedFileBase64');
     const fName = localStorage.getItem('uploadedFileName');
@@ -119,9 +119,8 @@ export default function ProtectStep1() {
 
   const handleNext = async (e) => {
     e.preventDefault();
-    // 檢查是否有檔案
     if (!previewBase64) {
-      setError('No file was selected in Home page');
+      setError('No file was selected. Please go back and upload first.');
       return;
     }
     if (!realName || !phone || !address || !email) {
@@ -130,10 +129,9 @@ export default function ProtectStep1() {
     }
     setError('');
 
-    // TODO: 呼叫 /api/protect/step1 (或您的路由) 上傳 (base64 to file)
     try {
+      // 將 base64 轉檔為 blob
       const formData = new FormData();
-      // 將 base64 轉成 blob
       const byteString = atob(previewBase64.split(',')[1]);
       const mimeString = previewBase64.split(',')[0].split(':')[1].split(';')[0];
       const ab = new ArrayBuffer(byteString.length);
@@ -149,31 +147,28 @@ export default function ProtectStep1() {
       formData.append('address', address);
       formData.append('email', email);
 
-      // 範例 fetch:
       const res = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
       });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.message || 'Upload failed');
-        return;
+      // 只要 res.ok => 跳到 step2；若失敗 => 顯示後端訊息
+      if (!res.ok) {
+        const msg = await res.json();
+        throw new Error(msg.message || 'Server error');
       }
-
-      // 上傳成功 => 進到下一步
+      // 成功 => 進到下一步
       navigate('/protect/step2');
     } catch (err) {
       console.error(err);
-      setError('Server error, please try again later.');
+      setError(err.message || 'Server error, please try again later.');
     }
   };
 
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>Step 1: Verify & Info</Title>
+        <Title>Step 1: Upload & Info</Title>
 
-        {/* 不再要使用者上傳，改顯示預覽 */}
         <PreviewBox>
           <strong>Uploaded File Preview:</strong>
           {previewBase64 ? (
@@ -186,7 +181,7 @@ export default function ProtectStep1() {
               <FileName>[Non-Image File] {fileName}</FileName>
             )
           ) : (
-            <p style={{ color:'#aaa' }}>No file found. Please go back and upload.</p>
+            <p style={{ color:'#aaa' }}>No file found. Please go back to Home and upload.</p>
           )}
         </PreviewBox>
 
@@ -236,7 +231,6 @@ export default function ProtectStep1() {
   );
 }
 
-// 小函式：判斷檔名是否圖片
 function mimeTypeIsImage(fileName='') {
   const lower = fileName.toLowerCase();
   return (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.gif'));
