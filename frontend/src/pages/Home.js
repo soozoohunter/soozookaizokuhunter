@@ -2,15 +2,13 @@
 import React, { useState } from 'react';
 
 export default function Home() {
-  // 若您想把檔案先存在 state / localStorage，帶到下一步，就可使用 useState:
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 處理檔案改變 -> optional: 預先儲存 base64 / localStorage 以便 ProtectStep1 不必再上傳
+  // 上傳檔案 → 預先存到 localStorage (base64 + 檔名) 以便 Step1 預覽
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      // ***範例: 把檔案先讀成 base64 存 localStorage***
       const reader = new FileReader();
       reader.onload = function(evt) {
         if (evt.target.readyState === FileReader.DONE) {
@@ -22,8 +20,8 @@ export default function Home() {
     }
   };
 
+  // 點擊按鈕 → 前往 Step1
   const handleProveOriginalNow = () => {
-    // 前往 Step1（實作上，Step1 將不再要求重新上傳，而是顯示預覽）
     window.location.href = '/protect/step1';
   };
 
@@ -31,20 +29,15 @@ export default function Home() {
     <div style={styles.container}>
 
       {/*********************************************************************
-       * (A) 置頂：上傳欄位 & 「立即生成原創證明」按鈕
+       * (1) 最上方：移除「Prove Your Original Authorship Now」文字
+       *     只保留檔案上傳 + 按鈕
        *********************************************************************/}
       <div style={styles.topUploadSection}>
-        <h2 style={styles.topUploadTitle}>
-          {/* 雙語文案 */}
-          Prove Your Original Authorship Now / 立即生成原創證明
-        </h2>
-
         <div style={styles.uploadBar}>
-          {/* 上傳檔案：以簡易文字引導 */}
           <label htmlFor="fileUpload" style={styles.uploadLabel}>
-            1) Upload Short Video to Generate Dynamic Fingerprint  
+            Upload Short Video for Dynamic Fingerprint  
             <br/>
-            &nbsp;&nbsp;Upload Image File to Generate Static Fingerprint
+            or Upload Image File for Static Fingerprint
           </label>
           <input
             id="fileUpload"
@@ -52,11 +45,11 @@ export default function Home() {
             style={styles.fileInput}
             onChange={handleFileChange}
           />
+
           <button
             style={styles.uploadButton}
             onClick={handleProveOriginalNow}
           >
-            {/* 取代舊的 Hunter for Free */}
             Generate Original Proof Now
             <br/>
             立即生成原創證明
@@ -65,7 +58,7 @@ export default function Home() {
       </div>
 
       {/*********************************************************************
-       * (B) Hero banner
+       * (2) Hero banner 區
        *********************************************************************/}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
@@ -89,7 +82,7 @@ export default function Home() {
       </div>
 
       {/*********************************************************************
-       * (C) Secure Section
+       * (3) Secure Section
        *********************************************************************/}
       <div style={styles.secureSection}>
         <h2 style={styles.secureTitle}>
@@ -104,15 +97,16 @@ export default function Home() {
       </div>
 
       {/*********************************************************************
-       * (D) Welcome / marketing & 『展開區塊』 
+       * (4) 保留 "Welcome to SUZOO IP Guard" + details，
+       *     但移除第三張截圖中「重複的那一段文案」，
+       *     以免跟上面 Secure Section 重複。
        *********************************************************************/}
       <div style={styles.addonSection}>
-        {/* 將原先🚀改成您的Logo */}
         <h2 style={styles.welcomeTitle}>
           Welcome to SUZOO IP Guard
           <img
-            src="/mylogo.png"
-            alt="MyLogo"
+            src="/taiwan.png"   // 改用台灣圖案
+            alt="Taiwan"
             style={{ height: '1.5rem', marginLeft: '0.5rem', verticalAlign: 'baseline' }}
           />
         </h2>
@@ -126,29 +120,23 @@ export default function Home() {
             Understand Why "Proof of Originality" Matters (點此展開)
           </summary>
           <div style={styles.legalText}>
-            {/* ====== 在這裡放您給我的著作權法理&原創性長文，並帶出行銷語 ====== */}
             <p>
               <strong>EN:</strong>  
               Copyright law protects the “expression” of your ideas, not the ideas themselves.
-              Traditional systems only detect textual plagiarism; they can’t confirm true “originality.”
+              Traditional systems only detect textual plagiarism; they can’t confirm “originality.”
               That’s why we integrate blockchain timestamps and AI-driven fingerprinting to ensure
               undeniable proof of authorship. <em>Only with us</em> can you finally solve the age-old question:
-              <strong>“How do I prove I am the original creator?”</strong><br/><br/>
-              <strong>ZH:</strong>  
-              著作權法保護的是「表達」，而非「概念」。傳統系統僅能比對文字抄襲，卻無法真的證明
-              「原創性」。我們透過區塊鏈時間戳 + AI 指紋技術，讓您徹底解決
-              「我怎麼證明自己才是原著作人？」的世界難題。全世界只有我們能做到！
+              <strong>“How do I prove I am the original creator?”</strong>
             </p>
             <p>
-              <strong>《核心重點》</strong><br/>
-              {`- `}智慧財產權是各國法律為了保障人類精神活動成果而設的保護機制；  
-              {`- `}著作權法中強調「原創」必須是「獨立創作」且「創作性」達一定程度；  
-              {`- `}一般比對系統只能檢測「字面相似度」，並不保證您能證明「我才是原創」。  
+              <strong>ZH:</strong>  
+              著作權法保護的是「表達」，而非「概念」。傳統系統只能比對文字抄襲，
+              無法真正證明「原創性」。我們透過區塊鏈時間戳+AI指紋技術，讓您徹底解決
+              「我怎麼證明自己才是原著作人？」的痛點。
             </p>
             <p style={styles.legalEmph}>
               Let us handle that final gap—once you upload, we record an immutable blockchain fingerprint,
-              proving in any court that “this exact expression is yours.”<br/>
-              (上傳後，我們替您完成不可篡改的區塊鏈指紋，一旦遇到法律爭議，就能證明「此作品正是您原創」。)
+              proving in any court that “this exact expression is yours.”
             </p>
           </div>
         </details>
@@ -160,7 +148,7 @@ export default function Home() {
       </div>
 
       {/*********************************************************************
-       * (E) Footer - Company Info (英文 ONLY)
+       * (5) Footer (Company Info)
        *********************************************************************/}
       <div style={styles.companyInfo}>
         <hr style={styles.divider} />
@@ -168,14 +156,14 @@ export default function Home() {
           <strong>Epic Global International Co., Ltd.</strong><br/><br/>
           <strong>Headquarters:</strong> 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br/>
           <strong>Banqiao Office:</strong> No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br/>
-          <strong>Contact:</strong> +886 900-296-168 (GM Zack Yao)
+          <strong>Contact:</strong> +886 900-296-168
         </p>
       </div>
     </div>
   );
 }
 
-// 樣式
+/** 樣式 */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
@@ -184,17 +172,9 @@ const styles = {
     padding: '4rem',
     fontFamily: 'Inter, sans-serif'
   },
-
-  // 上方上傳/按鈕
   topUploadSection: {
     textAlign: 'center',
     marginBottom: '3rem'
-  },
-  topUploadTitle: {
-    fontSize: '1.8rem',
-    color: '#FF5722',
-    marginBottom: '1rem',
-    fontWeight: 600
   },
   uploadBar: {
     display: 'inline-flex',
@@ -224,7 +204,6 @@ const styles = {
     fontSize: '1rem'
   },
 
-  // Hero
   banner: {
     border: '3px solid #FF5722',
     borderRadius: '12px',
@@ -246,7 +225,6 @@ const styles = {
     color: '#c7d2da'
   },
 
-  // Secure
   secureSection: {
     textAlign: 'center',
     marginBottom: '3rem'
@@ -264,7 +242,6 @@ const styles = {
     lineHeight: '1.6'
   },
 
-  // Addon
   addonSection: {
     backgroundColor: '#161d27',
     padding: '2.5rem',
@@ -316,7 +293,6 @@ const styles = {
     fontWeight: 600
   },
 
-  // Footer company
   companyInfo: {
     textAlign: 'center',
     marginTop: '4rem'
