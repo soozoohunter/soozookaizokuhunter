@@ -1,6 +1,7 @@
 /*************************************************************
  * express/server.js
  * - 主程式入口，保留原本 pgPool + Route 掛載 + 健康檢查
+ * - 改為掛載 /auth => authRoutes.js
  * - 新增: 自動建立預設 Admin 帳號 (email='zacyao1005', pass='Zack967988')
  *************************************************************/
 require('dotenv').config();
@@ -13,10 +14,12 @@ const db = require('./db');
 // 引入付款路由 (使用 pgPool)
 const paymentsRouter = require('./routes/payment');
 
-// 新增：引入保護上傳(Protect)路由、Admin路由、Auth路由（若您原本就有，可合併）
+// 新增：引入保護上傳(Protect)路由、Admin路由
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
-const authRouter = require('./routes/auth');
+
+// ★ 關鍵：改為引用 `authRoutes.js`
+const authRoutes = require('./routes/authRoutes');
 
 // ★ 如果您要自動在啟動時，建立一個預設Admin帳號:
 const bcrypt = require('bcryptjs');
@@ -38,15 +41,17 @@ app.use((req, res, next) => {
 });
 
 // 掛載路由
-app.use('/api', paymentsRouter);      // 付款API
+app.use('/api', paymentsRouter);       // 付款API
 app.use('/api/protect', protectRouter); // 作品保護(上傳/下載)API
-app.use('/admin', adminRouter);       // 管理端API
-app.use('/auth', authRouter);         // 一般用戶註冊/登入API
+app.use('/admin', adminRouter);        // 管理端API
+
+// ★ 改為掛載 '/auth' => authRoutes
+app.use('/auth', authRoutes);
 
 // 伺服器啟動前，嘗試建立一個預設的 Admin
 (async function ensureAdmin() {
   try {
-    const email = 'zacyao1005'; // 您指定的帳號
+    const email = 'zacyao1005';
     const plainPwd = 'Zack967988';
     const old = await User.findOne({ where: { email } });
     if (!old) {
@@ -55,8 +60,8 @@ app.use('/auth', authRouter);         // 一般用戶註冊/登入API
         email,
         password: hash,
         role: 'admin',
-        userName: 'ZacYao',   // 隨意
-        // 若您有其他必填欄位（plan、isPaid等）也請一併填入
+        userName: 'ZacYao',  // 可自行調整
+        // 其他必填欄位（plan、isPaid等）也可一併填入
       });
       console.log('[InitAdmin] 已建立預設管理員帳號:', email, '密碼:', plainPwd);
     } else {
