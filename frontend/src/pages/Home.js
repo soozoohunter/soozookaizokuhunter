@@ -1,23 +1,43 @@
 /*************************************************************
  * frontend/src/pages/Home.js
- * - 僅保留所需的段落 & 行銷文案
- * - 在「Secure Your Intellectual Property…」段落下方
- *   新增檔案上傳欄位與「HunterHunterNow」按鈕 (類似Namecheap區塊)
- * - 移除最底部重複的區塊
- * - 在「我們是世界唯一！」段落加上英文介紹
+ * - 僅保留一次 "Secure Your IP..." 區塊
+ * - 在 "THE WORLD'S ONLY..." 標題下方，並排: 檔案上傳 + ProtectNow 按鈕
+ * - 移除最底部那個重複區塊
+ * - 加入英文文案 "We are truly the world’s one and only..."
  *************************************************************/
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function Home() {
+  // 若需要檔案狀態
+  const [file, setFile] = useState(null);
+
+  // 上傳檔案 (示範)
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+      console.log('Selected file:', e.target.files[0]);
+    }
+  };
+
+  // 按鈕動作 (示範)
+  const handleProtectNow = () => {
+    if (!file) {
+      alert('請先選擇檔案');
+      return;
+    }
+    // 這裡可串接您後端 API
+    alert(`ProtectNow clicked, file=${file.name}`);
+  };
+
   return (
     <div style={styles.container}>
-      {/* 上方 Banner-like 區塊 */}
+      {/* Banner 區塊 */}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
-          🇹🇼THE WORLD'S ONLY BlOCKCHAIN-PROVEN ORIGINALITY PLATFORM
+          THE WORLD'S ONLY Blockchain-Proven Originality Platform
         </h1>
         <p style={styles.desc}>
-          We are a proudly Taiwanese (台灣)  platform dedicated to safeguarding creators worldwide.
+          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br/><br/>
           Are you still risking losing your intellectual property due to inadequate proof of originality?
           Under international copyright law, failing to prove originality means losing your rights entirely—
@@ -30,49 +50,31 @@ export default function Home() {
           Connect your accounts, and the blockchain instantly becomes your undeniable proof of originality. 
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
-      </div>
 
-      {/* 中段: Secure Your Intellectual Property... 
-          在此放上檔案上傳欄位 + HunterHunterNow 按鈕 */}
-      <div style={styles.midSection}>
-        <h2 style={styles.midTitle}>
-          Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
-        </h2>
-        <p style={styles.midDesc}>
-          捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
-          24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。
-          <br />
-          現在就免費體驗上傳，立即生成原創證明！
-        </p>
+        {/* ★ 在此 banner 區塊下方，並排: 上傳檔案 + ProtectNow 按鈕 */}
+        <div style={styles.uploadRow}>
+          {/* 檔案上傳 */}
+          <input 
+            type="file" 
+            onChange={handleFileChange} 
+            style={styles.fileInput} 
+          />
 
-        {/* 新增 - Namecheap風格上傳區塊 (僅示範，可再調整樣式或行為) */}
-        <div style={styles.uploadBlock}>
-          <div style={styles.uploadInner}>
-            <h3 style={styles.uploadTitle}>Upload your file to prove originality</h3>
-            <input 
-              type="file" 
-              style={styles.fileInput} 
-              onChange={(e) => {
-                // 您可在此加入檔案處理邏輯
-                console.log(e.target.files[0]);
-              }}
-            />
-            <button 
-              style={styles.uploadButton}
-              onClick={() => {
-                // 這裡觸發上傳動作
-                alert('HunterHunterNow clicked!');
-              }}
-            >
-              PROTECT_NOW
-            </button>
-          </div>
+          {/* ProtectNow 按鈕 */}
+          <button 
+            style={styles.protectBtn}
+            onClick={handleProtectNow}
+          >
+            Protect Now
+          </button>
         </div>
       </div>
 
-      {/* 最後: Welcome / 其他行銷文案 */}
+      {/* 行銷文案: "Welcome to SUZOO IP Guard" or "我們是世界唯一" */}
       <div style={styles.bottomSection}>
-        <h2 style={styles.bottomTitle}>Welcome to SUZOO IP Guard 🚀</h2>
+        <h2 style={styles.bottomTitle}>
+          Welcome to SUZOO IP Guard 🚀
+        </h2>
         <p style={styles.bottomDesc}>
           Every second counts—someone might be stealing your ideas right now!
         </p>
@@ -83,21 +85,24 @@ export default function Home() {
           </summary>
           <div style={{ marginTop:'1rem', lineHeight:'1.6', fontSize:'0.95rem' }}>
             <p>
-              【繁中】根據台灣與國際著作權法，<strong>著作權保護</strong>與
-              <strong>著作權原創證明</strong>至關重要，特別是在無強制登記制度下，創作者必須自行舉證
+              【繁中】根據台灣與國際著作權法，
+              <strong>著作權保護</strong>與<strong>著作權原創證明</strong>至關重要，
+              特別是在無強制登記制度下，創作者必須自行舉證
               <strong>著作權</strong>之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗無疑。
             </p>
             <p>
-              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，結合強力AI偵測侵權。只需點擊幾下，
-              即可完成原創認證與<strong>著作權保護</strong>，讓您在全球法庭上都能取得壓倒性證明效力。
+              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，結合強力AI偵測侵權。
+              只需點擊幾下，即可完成原創認證與<strong>著作權保護</strong>，
+              讓您在全球法庭上都能取得壓倒性證明效力。
             </p>
             <p style={{ marginTop:'1rem' }}>
               <strong>【EN】</strong>  
-              Under both Taiwanese and international copyright laws, the burden 
-              of proof for originality lies with creators—no mandatory registration is required, 
-              but failure to prove authorship usually results in losing the case.  
+              Under both Taiwanese and international copyright laws,
+              the burden of proof for originality lies with creators—
+              no mandatory registration is required, but failure to prove authorship
+              usually results in losing the case.
               We are the ONLY platform that integrates blockchain immutability 
-              and powerful AI infringement detection. 
+              and powerful AI infringement detection.
             </p>
             <p style={{ marginTop:'1rem', color:'#ffd54f', fontWeight:'600' }}>
               Join us now and defend your creative value like never before!
@@ -106,11 +111,9 @@ export default function Home() {
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們是🇹🇼世界唯一！</strong> 只有我們能將區塊鏈與
+          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與
           <strong>著作權原創證明</strong>完美結合，並提供即時掃描、
-          DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！
-          <br /><br />
-          {/* 新增英文介紹 */}
+          DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！<br/><br/>
           <span style={{ color: '#ffd54f', fontWeight: '600', fontSize: '1rem' }}>
             We are truly the world’s one and only service that fuses blockchain and AI 
             to safeguard your creative works with instant, indisputable proof.
@@ -138,66 +141,38 @@ const styles = {
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
   mainTitle: {
-    fontSize: '2.4rem',
+    fontSize: '2.2rem',
     fontWeight: 'bold',
-    marginBottom: '1.5rem',
+    marginBottom: '1.2rem',
     color: '#FF5722',
     textAlign: 'center'
   },
   desc: {
-    fontSize: '1.05rem',
-    lineHeight: '1.9',
-    color: '#c7d2da'
-  },
-  midSection: {
-    margin: '2rem auto',
-    maxWidth: '900px',
-    backgroundColor: '#161d27',
-    padding: '2rem',
-    borderRadius: '10px',
-    boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
-    textAlign: 'center'
-  },
-  midTitle: {
-    fontSize: '1.8rem',
-    color: '#FF5722',
-    marginBottom: '1rem',
-    fontWeight: '700'
-  },
-  midDesc: {
     fontSize: '1rem',
-    color: '#eceff1',
-    marginBottom: '1.5rem',
-    lineHeight: '1.6'
+    lineHeight: '1.8',
+    color: '#c7d2da',
+    textAlign: 'left'
   },
-  uploadBlock: {
-    backgroundColor: '#1f252d',
-    padding: '1.5rem',
-    borderRadius: '8px',
-    border: '2px solid #FF5722',
-    marginTop: '1.5rem'
-  },
-  uploadInner: {
+  uploadRow: {
+    marginTop: '1.5rem',
     display: 'flex',
-    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: '1rem'
-  },
-  uploadTitle: {
-    color: '#ff9e80',
-    marginBottom: '0.5rem',
-    fontSize: '1.2rem'
   },
   fileInput: {
     padding: '0.5rem',
     fontSize: '0.95rem',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    borderRadius: '4px',
+    cursor: 'pointer'
   },
-  uploadButton: {
+  protectBtn: {
     backgroundColor: '#FF5722',
     color: '#fff',
     border: 'none',
-    padding: '0.6rem 1.2rem',
+    padding: '0.8rem 1.5rem',
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '1rem'
@@ -215,7 +190,7 @@ const styles = {
   },
   bottomDesc: {
     textAlign: 'center',
-    fontSize: '1.1rem',
+    fontSize: '1rem',
     color: '#eceff1'
   },
   legalBlock: {
@@ -228,7 +203,7 @@ const styles = {
   },
   extraMarketing: {
     marginTop: '2rem',
-    fontSize: '1.2rem',
+    fontSize: '1.1rem',
     color: '#ffd54f',
     fontWeight: '600',
     textAlign: 'center'
