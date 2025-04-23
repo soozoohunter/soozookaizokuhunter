@@ -17,11 +17,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
-    username: {
+
+    // 改為 userName (原先 username)
+    userName: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
+
     password: {
       type: DataTypes.STRING,
       allowNull: false
