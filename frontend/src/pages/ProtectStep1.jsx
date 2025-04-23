@@ -101,15 +101,19 @@ const ErrorMsg = styled.p`
 
 export default function ProtectStep1() {
   const navigate = useNavigate();
+
+  // 從 localStorage 載入 base64 + filename
   const [previewBase64, setPreviewBase64] = useState(null);
   const [fileName, setFileName] = useState('');
+
+  // 表單欄位
   const [realName, setRealName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
+
   const [error, setError] = useState('');
 
-  // 載入 localStorage 裡的檔案 (base64 + 檔名)
   useEffect(() => {
     const b64 = localStorage.getItem('uploadedFileBase64');
     const fName = localStorage.getItem('uploadedFileName');
@@ -119,21 +123,25 @@ export default function ProtectStep1() {
 
   const handleNext = async (e) => {
     e.preventDefault();
-
-    // 檢查必填
     if (!previewBase64) {
-      setError('No file was selected. Please go back and upload first.');
+      setError('No file selected. Please go back to Home and upload a file first.');
       return;
     }
     if (!realName.trim() || !phone.trim() || !address.trim() || !email.trim()) {
-      setError('Real Name / Phone / Address / Email are required');
+      setError('All fields (RealName, Phone, Address, Email) are required.');
       return;
     }
     setError('');
 
+    // 檢查 token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Please login first. No token found in localStorage.');
+      return;
+    }
+
     try {
-      // 將 base64 轉檔為 blob
-      const formData = new FormData();
+      // 將 base64 轉成 blob
       const byteString = atob(previewBase64.split(',')[1]);
       const mimeString = previewBase64.split(',')[0].split(':')[1].split(';')[0];
       const ab = new ArrayBuffer(byteString.length);
@@ -143,26 +151,31 @@ export default function ProtectStep1() {
       }
       const blob = new Blob([ab], { type: mimeString });
 
+      // 組 formData
+      const formData = new FormData();
       formData.append('file', blob, fileName);
       formData.append('realName', realName);
       formData.append('phone', phone);
       formData.append('address', address);
       formData.append('email', email);
 
+      // 向後端發出請求
       const res = await fetch('/api/protect/step1', {
         method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token  // <---帶上token
+        },
         body: formData
       });
-      // 若失敗 => 顯示後端訊息
       if (!res.ok) {
         const msg = await res.json();
         throw new Error(msg.message || 'Server error');
       }
-      // 成功 => 進到下一步
+
+      // 成功 → 跳到 Step2
       navigate('/protect/step2');
     } catch (err) {
-      console.error(err);
-      setError(err.message || 'Server error, please try again later.');
+      setError(err.message || 'Server error, please try again.');
     }
   };
 
@@ -174,26 +187,26 @@ export default function ProtectStep1() {
         <PreviewBox>
           <strong>Uploaded File Preview:</strong>
           {previewBase64 ? (
-            mimeTypeIsImage(fileName) ? (
+            isImageFile(fileName) ? (
               <>
                 <PreviewImg src={previewBase64} alt="preview" />
                 <FileName>{fileName}</FileName>
               </>
             ) : (
-              <FileName>[Non-Image File] {fileName}</FileName>
+              <FileName>[Non-image File] {fileName}</FileName>
             )
           ) : (
-            <p style={{ color:'#aaa' }}>No file found. Please go back to Home and upload.</p>
+            <p style={{ color: '#aaa' }}>No file found. Go back to Home and upload first.</p>
           )}
         </PreviewBox>
 
         <Description>
-          【繁中】您已於首頁上傳作品檔案，我們將為您產出
-          <strong> 原創著作證明</strong>、確立<strong> 著作權保護</strong>，並能在必要時採取法律行動。
+          您已於首頁上傳檔案，我們將為您產出「原創著作證明」並保護您的著作權。
           <br/><br/>
-          <strong>EN</strong> Please fill in your real info below so we can generate
-          your <em>Originality Certificate</em> and ensure legitimate copyright protection.
+          Please fill in your real info below (Real Name, Phone, etc.).
         </Description>
+
+        {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleNext}>
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
@@ -201,7 +214,6 @@ export default function ProtectStep1() {
             type="text"
             value={realName}
             onChange={e => setRealName(e.target.value)}
-            placeholder="e.g. 王大明 / John Wang"
           />
 
           <StyledLabel>電話 (Phone):</StyledLabel>
@@ -209,7 +221,6 @@ export default function ProtectStep1() {
             type="text"
             value={phone}
             onChange={e => setPhone(e.target.value)}
-            placeholder="e.g. 09xx-xxx-xxx"
           />
 
           <StyledLabel>地址 (Address):</StyledLabel>
@@ -217,7 +228,6 @@ export default function ProtectStep1() {
             type="text"
             value={address}
             onChange={e => setAddress(e.target.value)}
-            placeholder="e.g. 台北市大安區 / Taipei City"
           />
 
           <StyledLabel>Email:</StyledLabel>
@@ -225,18 +235,23 @@ export default function ProtectStep1() {
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="e.g. yourmail@example.com"
           />
 
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-          <SubmitButton type="submit">Next</SubmitButton>
+          <SubmitButton type="submit">
+            Next
+          </SubmitButton>
         </StyledForm>
       </FormContainer>
     </PageWrapper>
   );
 }
 
-function mimeTypeIsImage(fileName='') {
-  const lower = fileName.toLowerCase();
-  return (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.gif'));
+function isImageFile(filename = '') {
+  const lower = filename.toLowerCase();
+  return (
+    lower.endsWith('.png') ||
+    lower.endsWith('.jpg') ||
+    lower.endsWith('.jpeg') ||
+    lower.endsWith('.gif')
+  );
 }
