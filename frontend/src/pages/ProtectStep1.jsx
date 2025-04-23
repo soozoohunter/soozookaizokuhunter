@@ -1,7 +1,10 @@
+// frontend/src/pages/ProtectStep1.jsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
+// ---------- Styled Components -----------
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
@@ -78,8 +81,11 @@ const ErrorMsg = styled.p`
   font-size: 0.9rem;
 `;
 
+// ---------- Component -----------
 export default function ProtectStep1() {
   const navigate = useNavigate();
+  
+  // 檔案、表單欄位
   const [file, setFile] = useState(null);
   const [realName, setRealName] = useState('');
   const [phone, setPhone] = useState('');
@@ -87,87 +93,83 @@ export default function ProtectStep1() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
-  // 檔案上傳
+  // 檔案上傳事件
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
   };
 
-  // 按下 Next 按鈕時的檢查
-  const handleNext = async (e) => {
+  // 按下 Next 按鈕 => 檢查必填，若OK就跳Step2
+  const handleNext = (e) => {
     e.preventDefault();
+
     if (!file) {
-      setError('請上傳檔案');
+      setError('請上傳檔案 (Please upload a file).');
       return;
     }
     if (!realName.trim() || !phone.trim() || !address.trim() || !email.trim()) {
-      setError('真實姓名 / 電話 / 地址 / Email 為必填');
+      setError('真實姓名 / 電話 / 地址 / Email 為必填 (All fields are required).');
       return;
     }
-    setError('');
 
-    // ★ TODO: 串接後端 API (若有需要)
+    setError('');
+    // ★ 如需串接後端，可在此使用 fetch/axios 將 formData 傳至後端
     // const formData = new FormData();
     // formData.append('file', file);
     // formData.append('realName', realName);
-    // formData.append('phone', phone);
-    // formData.append('address', address);
-    // formData.append('email', email);
-    // await fetch('/api/protect/step1', { method:'POST', body: formData });
+    // ... 
+    // await fetch('/api/protect/step1', { method: 'POST', body: formData });
 
-    // 完成後跳至 Step 2
+    // 檔案與表單都OK → 跳到 Step2
     navigate('/protect/step2');
   };
 
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>Step 1: Upload & Info</Title>
+        <Title>Step 1: Upload &amp; Info</Title>
 
-        {/* ★★★ 雙語說明 ★★★ */}
         <Description>
-          【繁中】為了產出您的<strong>原創著作證明書</strong>、確立
-          <strong>著作權保護</strong>，並能在必要時採取法律行動，我們必須請您填寫真實姓名、聯絡方式與Email。
-          這些資料將用於確認您的身分與作品所有權，確保一旦產生證明文件，能真正證明「您」是該作品的原創人。<br/><br/>
-          <strong>【EN】</strong> To generate your <em>Originality Certificate</em> and establish genuine
-          copyright protection, we need your real name, contact info, and email. This information confirms
-          your identity and ownership of the uploaded work, ensuring the legal authenticity of any issued certificate.
+          【繁中】為了產出您的 <strong>原創著作證明書</strong>、確立
+          <strong>著作權保護</strong>，並能在必要時採取法律行動，請填寫真實姓名、聯絡方式與 Email。<br />
+          <strong>EN</strong>: To generate your Originality Certificate and ensure legal protection,
+          please provide your real name, contact info, and email.
         </Description>
 
-        <StyledForm onSubmit={handleNext}>
-          {/* 上傳作品檔案 */}
+        {error && <ErrorMsg>{error}</ErrorMsg>}
+
+        <StyledForm onSubmit={handleNext} noValidate>
           <StyledLabel>上傳作品檔案 (Upload your work):</StyledLabel>
           <StyledInput
             type="file"
             onChange={handleFileChange}
           />
 
-          {/* 真實姓名 */}
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
           <StyledInput
+            type="text"
             value={realName}
             onChange={(e) => setRealName(e.target.value)}
             placeholder="e.g. 王大明 / John Wang"
           />
 
-          {/* 電話 */}
           <StyledLabel>電話 (Phone):</StyledLabel>
           <StyledInput
+            type="text"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="e.g. 09xx-xxx-xxx"
           />
 
-          {/* 地址 */}
           <StyledLabel>地址 (Address):</StyledLabel>
           <StyledInput
+            type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="e.g. 台北市大安區 / Da’an Dist., Taipei"
           />
 
-          {/* Email */}
           <StyledLabel>Email:</StyledLabel>
           <StyledInput
             type="email"
@@ -176,9 +178,6 @@ export default function ProtectStep1() {
             placeholder="e.g. yourmail@example.com"
           />
 
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-
-          {/* 下一步 */}
           <SubmitButton type="submit">
             Next
           </SubmitButton>
@@ -186,4 +185,4 @@ export default function ProtectStep1() {
       </FormContainer>
     </PageWrapper>
   );
-} 
+}
