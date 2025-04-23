@@ -9,7 +9,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// 匯入 pgPool 連線
+// 匯入 pgPool 連線 (PostgreSQL)
 const db = require('./db');
 
 // 引入付款路由 (使用 pgPool)
@@ -41,18 +41,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// 掛載路由
-app.use('/api', paymentsRouter);       // 付款API
-app.use('/api/protect', protectRouter); // 作品保護(上傳/下載)API
+// 付款路由 => /api
+app.use('/api', paymentsRouter);
 
-// ★ 管理端API：/admin
-//   adminRouter 裡應該有 POST /login, GET /users, GET /payments, GET /files...
+// 作品保護 => /api/protect
+app.use('/api/protect', protectRouter);
+
+// 管理端 => /admin
+//   adminRouter 裡應該有 POST /admin/login, GET /admin/users, GET /admin/payments, GET /admin/files...
 app.use('/admin', adminRouter);
 
-// ★ 認證API：/auth (一般註冊 / 登入)
+// 一般認證 => /auth (register / login)
 app.use('/auth', authRoutes);
 
-// 伺服器啟動前，嘗試建立一個預設的 Admin
+// 伺服器啟動前，嘗試建立一個預設的 Admin (email='zacyao1005', pass='Zack967988')
 (async function ensureAdmin() {
   try {
     const email = 'zacyao1005';
