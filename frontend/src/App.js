@@ -3,8 +3,8 @@
  * - Navbar 左: Pricing, Contact Us
  *           中: Logo + SUZOO IP Guard
  *           右: Register, Login, Admin
- * - Logo 檔名: logo0.jpg (請放在 public/ 下，或自行調整路徑)
- * - 去掉頂部「Hunter for Free」按鈕 (因已移至 Home 下方)
+ * - Logo 檔名: logo0.jpg (請放在 public/ 下)
+ * - 已去掉頂部「Hunter for Free」按鈕
  **************************************************************/
 import React from 'react';
 import {
@@ -100,7 +100,12 @@ function RootLayout() {
           {token && (
             <button
               onClick={handleLogout}
-              style={{ ...styles.navLink, border: 'none', background: 'none', cursor: 'pointer' }}
+              style={{ 
+                ...styles.navLink, 
+                border: 'none', 
+                background: 'none', 
+                cursor: 'pointer' 
+              }}
             >
               Logout
             </button>
