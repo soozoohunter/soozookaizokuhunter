@@ -1,8 +1,9 @@
 /*************************************************************
  * express/server.js
  * - 主程式入口，保留原本 pgPool + Route 掛載 + 健康檢查
- * - 改為掛載 /auth => authRoutes.js
- * - 新增: 自動建立預設 Admin 帳號 (email='zacyao1005', pass='Zack967988')
+ * - 已掛載 /admin => adminRouter，裡面可有 /admin/login, /admin/users, ...
+ * - 已掛載 /auth => authRoutes (register / login)
+ * - 自動建立預設 Admin (zacyao1005 / Zack967988)
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
@@ -18,12 +19,12 @@ const paymentsRouter = require('./routes/payment');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
 
-// ★ 關鍵：改為引用 `authRoutes.js`
+// 關鍵：改為引用 `authRoutes.js`
 const authRoutes = require('./routes/authRoutes');
 
 // ★ 如果您要自動在啟動時，建立一個預設Admin帳號:
 const bcrypt = require('bcryptjs');
-const { User } = require('./models'); // 假設您有 Sequelize 的 models/index.js 裡面匯出的 User Model
+const { User } = require('./models');
 
 const app = express();
 app.use(cors());
@@ -43,9 +44,12 @@ app.use((req, res, next) => {
 // 掛載路由
 app.use('/api', paymentsRouter);       // 付款API
 app.use('/api/protect', protectRouter); // 作品保護(上傳/下載)API
-app.use('/admin', adminRouter);        // 管理端API
 
-// ★ 改為掛載 '/auth' => authRoutes
+// ★ 管理端API：/admin
+//   adminRouter 裡應該有 POST /login, GET /users, GET /payments, GET /files...
+app.use('/admin', adminRouter);
+
+// ★ 認證API：/auth (一般註冊 / 登入)
 app.use('/auth', authRoutes);
 
 // 伺服器啟動前，嘗試建立一個預設的 Admin
@@ -72,7 +76,6 @@ app.use('/auth', authRoutes);
   }
 })();
 
-// 最後啟動伺服器
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] running on port ${PORT}`);
