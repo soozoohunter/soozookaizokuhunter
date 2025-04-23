@@ -1,5 +1,8 @@
-// frontend/src/App.js
-
+/**************************************************************
+ * frontend/src/App.js
+ * - 保留您原先的頁面路由與 UI
+ * - 新增 /admin/login 與 /admin/dashboard 供管理員使用
+ **************************************************************/
 import React from 'react';
 import {
   BrowserRouter,
@@ -25,8 +28,12 @@ import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 
-// Contact Us 頁面 (避免白屏)
+// Contact Us 頁面
 import ContactPage from './pages/Contact';
+
+// ★ 新增：AdminLogin、AdminDashboard
+import AdminLogin from './pages/AdminLogin';
+import AdminDashboard from './pages/AdminDashboard';
 
 function RootLayout() {
   const token = localStorage.getItem('token');
@@ -48,7 +55,7 @@ function RootLayout() {
     window.location.href = '/';
   };
 
-  // 導覽列按鈕樣式
+  // 導覽列按鈕的樣式
   const navLinkStyle = {
     margin: '0 1rem',
     color: '#e0e0e0',
@@ -70,13 +77,13 @@ function RootLayout() {
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
 
-          {/* 將「ProtectNow」改為「Hunter for Free」 */}
+          {/* Hunter for Free */}
           <Link to="/protect/step1" style={navLinkStyle}>
             Hunter for Free
           </Link>
 
           {userRole === 'admin' && (
-            <Link to="/admin" style={navLinkStyle}>Admin Dashboard</Link>
+            <Link to="/admin/dashboard" style={navLinkStyle}>Admin Dashboard</Link>
           )}
 
           {token ? (
@@ -133,11 +140,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 包含共用 Layout 的路由 (首頁 / 會員 / 付款 / Protect流程) */}
         <Route element={<RootLayout />}>
           <Route index element={<HomePage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="pricing" element={<PricingPage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
 
+          {/* Protect */}
           <Route path="protect">
             <Route path="step1" element={<ProtectStep1 />} />
             <Route path="step2" element={<ProtectStep2 />} />
@@ -145,17 +156,20 @@ export default function App() {
             <Route path="step4-infringement" element={<ProtectStep4Infringement />} />
           </Route>
 
+          {/* Payment */}
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
-
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
         </Route>
+
+        {/* ★ 新增 Admin Route (不使用 RootLayout) */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>
   );
 }
 
+// 保留您的 UI 設計風格
 const styles = {
   container: {
     fontFamily: 'Roboto, sans-serif',
