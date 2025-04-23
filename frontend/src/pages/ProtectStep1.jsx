@@ -1,4 +1,5 @@
 // frontend/src/pages/ProtectStep1.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -33,7 +34,6 @@ const StyledForm = styled.form`
   flex-direction: column;
 `;
 
-// 以下省略部分樣式定義 (PreviewBox, PreviewImg, FileName...) 與你原先相同
 const PreviewBox = styled.div`
   margin: 1rem 0;
   text-align: center;
@@ -115,6 +115,7 @@ export default function ProtectStep1() {
 
   const [error, setError] = useState('');
 
+  // 初始載入時，查看 localStorage 是否有檔案資料
   useEffect(() => {
     const b64 = localStorage.getItem('uploadedFileBase64');
     const fName = localStorage.getItem('uploadedFileName');
@@ -125,25 +126,21 @@ export default function ProtectStep1() {
   const handleNext = async (e) => {
     e.preventDefault();
 
+    // 若沒上傳檔案
     if (!previewBase64) {
       setError('No file selected. Please go back to Home and upload a file first.');
       return;
     }
+
+    // 若必填欄位有缺
     if (!realName.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       setError('All fields (Real Name, Phone, Address, Email) are required.');
       return;
     }
     setError('');
 
-    // 檢查 token
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Please login first. No token found in localStorage.');
-      return;
-    }
-
     try {
-      // 將 base64 轉成 blob
+      // 將 base64 字串轉為二進位 blob
       const byteString = atob(previewBase64.split(',')[1]);
       const mimeString = previewBase64.split(',')[0].split(':')[1].split(';')[0];
       const ab = new ArrayBuffer(byteString.length);
@@ -161,21 +158,19 @@ export default function ProtectStep1() {
       formData.append('address', address);
       formData.append('email', email);
 
-      // 向後端發出請求
+      // 傳到後端 /api/protect/step1 (不需要 token)
       const res = await fetch('/api/protect/step1', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token // <---帶上token
-        },
         body: formData
       });
+
       if (!res.ok) {
+        // 後端若回傳錯誤訊息，就顯示出來
         const msg = await res.json().catch(() => ({}));
-        // 若後端沒回傳 json，就保底一個物件
         throw new Error(msg.message || 'Server error');
       }
 
-      // 成功 → 跳到 Step2
+      // 成功 → 進到 Step2
       navigate('/protect/step2');
     } catch (err) {
       setError(err.message || 'Server error, please try again.');
@@ -199,7 +194,7 @@ export default function ProtectStep1() {
               <FileName>[Non-image File] {fileName}</FileName>
             )
           ) : (
-            <p style={{ color: '#aaa' }}>No file found. Go back to Home and upload first.</p>
+            <p style={{ color: '#aaa' }}>No file found. Please go back to Home and upload first.</p>
           )}
         </PreviewBox>
 
@@ -210,7 +205,7 @@ export default function ProtectStep1() {
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        {/* ★ 加上 noValidate，避免 Safari 的原生驗證阻擋 */}
+        {/* noValidate -> 避免 iOS Safari 堅持做 email pattern 驗證 */}
         <StyledForm onSubmit={handleNext} noValidate>
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
           <StyledInput
@@ -233,25 +228,24 @@ export default function ProtectStep1() {
             onChange={e => setAddress(e.target.value)}
           />
 
-          {/* 也可以把 type="email" 改為 text，完全跳過瀏覽器檢查 */}
           <StyledLabel>Email:</StyledLabel>
+          {/* 可改成 type="text" 完全跳過瀏覽器檢查 */}
           <StyledInput
             type="email"
-            // 若擔心 iOS 堅持檢查，可改成 type="text"
-            // type="text"
             value={email}
             onChange={e => setEmail(e.target.value)}
           />
 
-          <SubmitButton type="submit">
-            Next
-          </SubmitButton>
+          <SubmitButton type="submit">Next</SubmitButton>
         </StyledForm>
       </FormContainer>
     </PageWrapper>
   );
 }
 
+/** 
+ * 辨別檔名是否為圖片 
+ */
 function isImageFile(filename = '') {
   const lower = filename.toLowerCase();
   return (
