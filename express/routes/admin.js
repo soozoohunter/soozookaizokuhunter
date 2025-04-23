@@ -1,41 +1,29 @@
 /*************************************************************
  * express/routes/admin.js
- * - 管理端登入 (POST /admin/login)
- * - 需 Token 驗證的路由 (GET /admin/users, GET /admin/payments, GET /admin/files)
  *************************************************************/
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Op } = require('sequelize');
 const { User } = require('../models'); // Sequelize 的 User Model
-const dbPool = require('../db');       // pgPool，用於查詢 pending_payments、files 等
+const dbPool = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
-/** 
- * 1) 管理員登入
- *    POST /admin/login
- *    body: { email, password }
- */
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    // 查詢是否有此 email 的用戶
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(401).json({ error: '找不到此帳號' });
     }
-    // 確認角色
     if (user.role !== 'admin') {
       return res.status(403).json({ error: '無權限：非admin身分' });
     }
-    // 驗證密碼
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({ error: '密碼錯誤' });
     }
-    // 簽發 JWT (預設1小時)
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
     return res.json({ token });
   } catch (err) {
@@ -44,11 +32,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-/** 
- * 2) 中介層：authAdminMiddleware
- *    - 檢查是否攜帶 Bearer Token
- *    - 驗證 role 是否為 admin
- */
 function authAdminMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   if (!authHeader.startsWith('Bearer ')) {
@@ -60,7 +43,7 @@ function authAdminMiddleware(req, res, next) {
     if (decoded.role !== 'admin') {
       return res.status(403).json({ error: '存取被拒絕：僅限管理員' });
     }
-    req.user = decoded; // 將解碼結果存到 req.user
+    req.user = decoded;
     next();
   } catch (err) {
     console.error('[authAdminMiddleware] 驗證失敗:', err);
@@ -68,13 +51,8 @@ function authAdminMiddleware(req, res, next) {
   }
 }
 
-/** 
- * 3) 取得所有使用者列表 (僅管理員可查)
- *    GET /admin/users
- */
 router.get('/users', authAdminMiddleware, async (req, res) => {
   try {
-    // 排除密碼欄位
     const users = await User.findAll({ attributes: { exclude: ['password'] } });
     return res.json(users);
   } catch (err) {
@@ -83,10 +61,6 @@ router.get('/users', authAdminMiddleware, async (req, res) => {
   }
 });
 
-/** 
- * 4) 取得付款紀錄
- *    GET /admin/payments
- */
 router.get('/payments', authAdminMiddleware, async (req, res) => {
   try {
     const result = await dbPool.query('SELECT * FROM pending_payments ORDER BY created_at DESC');
@@ -97,14 +71,8 @@ router.get('/payments', authAdminMiddleware, async (req, res) => {
   }
 });
 
-/** 
- * 5) 取得上傳檔案列表
- *    GET /admin/files
- */
 router.get('/files', authAdminMiddleware, async (req, res) => {
   try {
-    // 若您有 Sequelize 的 File model，也可改用 File.findAll()
-    // 這裡示範 pgPool + SELECT
     const result = await dbPool.query('SELECT * FROM files ORDER BY id DESC');
     return res.json(result.rows);
   } catch (err) {
