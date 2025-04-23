@@ -19,7 +19,7 @@ const FormContainer = styled.div`
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 420px;
-  border: 2px solid #ff6f00; /* 橘色外框 */
+  border: 2px solid #ff6f00;
 `;
 
 const Title = styled.h2`
@@ -108,16 +108,18 @@ export default function ProtectStep1() {
     }
     setError('');
 
-    // ★ TODO: 串接後端 API (若有需要)
+    // 這裡可串接後端
     // const formData = new FormData();
     // formData.append('file', file);
     // formData.append('realName', realName);
     // formData.append('phone', phone);
     // formData.append('address', address);
     // formData.append('email', email);
-    // await fetch('/api/protect/step1', { method:'POST', body: formData });
 
-    // 完成後跳至 Step 2
+    // let res = await fetch('/api/protect/step1', { method:'POST', body: formData });
+    // let data = await res.json();
+    // if(!data.success) { setError(data.message); return; }
+
     navigate('/protect/step2');
   };
 
@@ -126,14 +128,11 @@ export default function ProtectStep1() {
       <FormContainer>
         <Title>Step 1: Upload & Info</Title>
 
-        {/* ★★★ 雙語說明 ★★★ */}
         <Description>
           【繁中】為了產出您的<strong>原創著作證明書</strong>、確立
-          <strong>著作權保護</strong>，並能在必要時採取法律行動，我們必須請您填寫真實姓名、聯絡方式與Email。
-          這些資料將用於確認您的身分與作品所有權，確保一旦產生證明文件，能真正證明「您」是該作品的原創人。<br/><br/>
-          <strong>【EN】</strong> To generate your <em>Originality Certificate</em> and establish genuine
-          copyright protection, we need your real name, contact info, and email. This information confirms
-          your identity and ownership of the uploaded work, ensuring the legal authenticity of any issued certificate.
+          <strong>著作權保護</strong>，請先上傳作品檔案並填寫必要個人資訊。<br/>
+          【EN】To generate an <em>Originality Certificate</em> and secure your copyright,
+          please upload your work and provide essential personal info.
         </Description>
 
         <StyledForm onSubmit={handleNext}>
@@ -179,7 +178,6 @@ export default function ProtectStep1() {
 
           {error && <ErrorMsg>{error}</ErrorMsg>}
 
-          {/* 下一步 */}
           <SubmitButton type="submit">
             Next
           </SubmitButton>
