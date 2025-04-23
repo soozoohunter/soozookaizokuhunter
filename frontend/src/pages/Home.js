@@ -1,7 +1,10 @@
 /*************************************************************
  * frontend/src/pages/Home.js
- * - 僅保留您所需的段落 & 行銷文案
- * - 移除多餘的 Hunter for Free 區塊
+ * - 僅保留所需的段落 & 行銷文案
+ * - 在「Secure Your Intellectual Property…」段落下方
+ *   新增檔案上傳欄位與「HunterHunterNow」按鈕 (類似Namecheap區塊)
+ * - 移除最底部重複的區塊
+ * - 在「我們是世界唯一！」段落加上英文介紹
  *************************************************************/
 import React from 'react';
 
@@ -11,10 +14,10 @@ export default function Home() {
       {/* 上方 Banner-like 區塊 */}
       <div style={styles.banner}>
         <h1 style={styles.mainTitle}>
-          THE WORLD'S ONLY Blockchain-Proven Originality Platform
+          🇹🇼THE WORLD'S ONLY BlOCKCHAIN-PROVEN ORIGINALITY PLATFORM
         </h1>
         <p style={styles.desc}>
-          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
+          We are a proudly Taiwanese (台灣)  platform dedicated to safeguarding creators worldwide.
           <br/><br/>
           Are you still risking losing your intellectual property due to inadequate proof of originality?
           Under international copyright law, failing to prove originality means losing your rights entirely—
@@ -30,7 +33,7 @@ export default function Home() {
       </div>
 
       {/* 中段: Secure Your Intellectual Property... 
-          如果您想在此再放 "Hunter for Free" + 上傳欄位，就放在這區塊 */}
+          在此放上檔案上傳欄位 + HunterHunterNow 按鈕 */}
       <div style={styles.midSection}>
         <h2 style={styles.midTitle}>
           Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
@@ -41,7 +44,30 @@ export default function Home() {
           <br />
           現在就免費體驗上傳，立即生成原創證明！
         </p>
-        {/* 如果您需要：在此再做一個檔案上傳 + Hunter for Free 按鈕 */}
+
+        {/* 新增 - Namecheap風格上傳區塊 (僅示範，可再調整樣式或行為) */}
+        <div style={styles.uploadBlock}>
+          <div style={styles.uploadInner}>
+            <h3 style={styles.uploadTitle}>Upload your file to prove originality</h3>
+            <input 
+              type="file" 
+              style={styles.fileInput} 
+              onChange={(e) => {
+                // 您可在此加入檔案處理邏輯
+                console.log(e.target.files[0]);
+              }}
+            />
+            <button 
+              style={styles.uploadButton}
+              onClick={() => {
+                // 這裡觸發上傳動作
+                alert('HunterHunterNow clicked!');
+              }}
+            >
+              PROTECT_NOW
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 最後: Welcome / 其他行銷文案 */}
@@ -67,9 +93,11 @@ export default function Home() {
             </p>
             <p style={{ marginTop:'1rem' }}>
               <strong>【EN】</strong>  
-              Under both Taiwanese and international copyright laws, the burden of proof for originality lies with creators—
-              no mandatory registration is required, but failure to prove authorship usually results in losing the case.  
-              We are the ONLY platform that integrates blockchain immutability and powerful AI infringement detection. 
+              Under both Taiwanese and international copyright laws, the burden 
+              of proof for originality lies with creators—no mandatory registration is required, 
+              but failure to prove authorship usually results in losing the case.  
+              We are the ONLY platform that integrates blockchain immutability 
+              and powerful AI infringement detection. 
             </p>
             <p style={{ marginTop:'1rem', color:'#ffd54f', fontWeight:'600' }}>
               Join us now and defend your creative value like never before!
@@ -78,9 +106,15 @@ export default function Home() {
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們🇹🇼是世界唯一！</strong> 只有我們能將區塊鏈與
+          <strong>我們是🇹🇼世界唯一！</strong> 只有我們能將區塊鏈與
           <strong>著作權原創證明</strong>完美結合，並提供即時掃描、
           DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！
+          <br /><br />
+          {/* 新增英文介紹 */}
+          <span style={{ color: '#ffd54f', fontWeight: '600', fontSize: '1rem' }}>
+            We are truly the world’s one and only service that fuses blockchain and AI 
+            to safeguard your creative works with instant, indisputable proof.
+          </span>
         </p>
       </div>
     </div>
@@ -135,6 +169,38 @@ const styles = {
     color: '#eceff1',
     marginBottom: '1.5rem',
     lineHeight: '1.6'
+  },
+  uploadBlock: {
+    backgroundColor: '#1f252d',
+    padding: '1.5rem',
+    borderRadius: '8px',
+    border: '2px solid #FF5722',
+    marginTop: '1.5rem'
+  },
+  uploadInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '1rem'
+  },
+  uploadTitle: {
+    color: '#ff9e80',
+    marginBottom: '0.5rem',
+    fontSize: '1.2rem'
+  },
+  fileInput: {
+    padding: '0.5rem',
+    fontSize: '0.95rem',
+    backgroundColor: '#ffffff'
+  },
+  uploadButton: {
+    backgroundColor: '#FF5722',
+    color: '#fff',
+    border: 'none',
+    padding: '0.6rem 1.2rem',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '1rem'
   },
   bottomSection: {
     margin: '2rem auto',
