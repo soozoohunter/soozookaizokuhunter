@@ -1,164 +1,137 @@
-// frontend/src/pages/Home.js
 import React, { useState } from 'react';
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 上傳檔案 → 預先存到 localStorage (base64 + 檔名) 以便 Step1 預覽
+  // 上傳檔案 => base64 存 localStorage
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        if (evt.target.readyState === FileReader.DONE) {
-          localStorage.setItem('uploadedFileBase64', evt.target.result);
-          localStorage.setItem('uploadedFileName', file.name);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    setSelectedFile(file);
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      if (evt.target.readyState === FileReader.DONE) {
+        localStorage.setItem('uploadedFileBase64', evt.target.result);
+        localStorage.setItem('uploadedFileName', file.name);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  // 點擊按鈕 → 前往 Step1
+  // 前往 Step1
   const handleProveOriginalNow = () => {
     window.location.href = '/protect/step1';
   };
 
   return (
     <div style={styles.container}>
-
+      
       {/*********************************************************************
-       * (1) 最上方：移除「Prove Your Original Authorship Now」文字
-       *     只保留檔案上傳 + 按鈕
+       * (A) 頂部三欄式 Navbar
+       *     左：Contact Us, Sign Up
+       *     中：台灣圖示 + SUZOO IP Guard (置中)
+       *     右：Login
        *********************************************************************/}
-      <div style={styles.topUploadSection}>
-        <div style={styles.uploadBar}>
-          <label htmlFor="fileUpload" style={styles.uploadLabel}>
-            Upload Short Video for Dynamic Fingerprint  
-            <br/>
-            or Upload Image File for Static Fingerprint
-          </label>
-          <input
-            id="fileUpload"
-            type="file"
-            style={styles.fileInput}
-            onChange={handleFileChange}
-          />
-
-          <button
-            style={styles.uploadButton}
-            onClick={handleProveOriginalNow}
-          >
-            Generate Original Proof Now
-            <br/>
-            立即生成原創證明
-          </button>
+      <header style={styles.navbar}>
+        <div style={styles.navLeft}>
+          <a href="/contact" style={styles.navLink}>Contact Us</a>
+          <a href="/register" style={styles.navLink}>Sign Up</a>
         </div>
-      </div>
-
+        <div style={styles.navCenter}>
+          <img 
+            src="/taiwan.png" 
+            alt="Taiwan" 
+            style={{ height:'1.5rem', marginRight:'0.5rem', verticalAlign:'middle' }}
+          />
+          <span style={{ fontWeight:600, fontSize:'1.1rem', color:'#ffab40' }}>
+            SUZOO IP Guard
+          </span>
+        </div>
+        <div style={styles.navRight}>
+          <a href="/login" style={styles.navLink}>Login</a>
+        </div>
+      </header>
+      
       {/*********************************************************************
-       * (2) Hero banner 區
+       * (B) Hero Banner (僅一次)
        *********************************************************************/}
-      <div style={styles.banner}>
-        <h1 style={styles.mainTitle}>
+      <section style={styles.heroBanner}>
+        <h1 style={styles.heroTitle}>
           THE WORLD'S ONLY Blockchain & AI-Powered Originality Proof Platform
         </h1>
-        <p style={styles.desc}>
+        <p style={styles.heroDesc}>
           We are proudly Taiwanese (台灣🇹🇼), and the only platform combining blockchain and AI
-          to prove true authorship worldwide.<br/><br/>
-
-          Are you still struggling to prove your <strong>original creation</strong>?
-          Under international copyright law, failing to establish originality means losing your rights entirely.
+          to prove true authorship worldwide. 
+          <br/><br/>
+          Are you still struggling to prove your <strong>original creation</strong>? Under international copyright law,
+          failing to establish originality means losing your rights entirely — <em>no matter how creative you are</em>.
           <br/><br/>
           <strong>ONLY WE</strong> solve this once-impossible challenge:
           <strong> Blockchain Digital Fingerprint + AI Infringement Detection</strong>,
           backed by rapid global legal actions.
           <br/><br/>
-          <strong>Proving originality is notoriously difficult — but not with us.</strong>
-          We turn complex copyright evidence into a single step. 100% tamper-proof, globally recognized,
+          Proving originality has always been difficult — <strong>but not anymore</strong>. We reduce
+          complex copyright evidence to a single step: 100% tamper-proof, globally recognized,
           and admissible in courts everywhere.
         </p>
-      </div>
+      </section>
 
       {/*********************************************************************
-       * (3) Secure Section
+       * (C) 檔案上傳 + 按鈕 => 同一行, 按鈕文字短化
        *********************************************************************/}
-      <div style={styles.secureSection}>
-        <h2 style={styles.secureTitle}>
-          Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
-        </h2>
-        <p style={styles.secureDesc}>
-          結合區塊鏈與 AI 智能技術，24 小時隨時偵測侵權行為。  
-          為您的影音、圖像、文字與商標提供強力法律武器。  
-          <br/>
-          Now you can enjoy a seamless, globally recognized proof of authorship—anytime, anywhere!
-        </p>
-      </div>
-
-      {/*********************************************************************
-       * (4) 保留 "Welcome to SUZOO IP Guard" + details，
-       *     但移除第三張截圖中「重複的那一段文案」，
-       *     以免跟上面 Secure Section 重複。
-       *********************************************************************/}
-      <div style={styles.addonSection}>
-        <h2 style={styles.welcomeTitle}>
-          Welcome to SUZOO IP Guard
-          <img
-            src="/taiwan.png"   // 改用台灣圖案
-            alt="Taiwan"
-            style={{ height: '1.5rem', marginLeft: '0.5rem', verticalAlign: 'baseline' }}
+      <section style={styles.uploadSection}>
+        <label style={styles.inlineLabel}>
+          Upload Short Video (Dynamic) or Image (Static):
+          <input
+            type="file"
+            style={styles.fileInput}
+            onChange={handleFileChange}
           />
-        </h2>
+        </label>
+        <button style={styles.proveBtn} onClick={handleProveOriginalNow}>
+          Prove Now
+        </button>
+      </section>
 
-        <p style={styles.addonDesc}>
-          Every second counts—someone might be stealing your ideas right now!
+      {/*********************************************************************
+       * (D) 保留 "Welcome to SUZOO IP Guard" 行銷區
+       *********************************************************************/}
+      <section style={styles.welcomeSection}>
+        <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard</h2>
+        <p style={styles.welcomeDesc}>
+          Every second counts—someone might be stealing your ideas right now!  
+          Our mission is to safeguard your valuable creations with unstoppable technology and a global legal network.
         </p>
 
-        <details style={styles.legalBlock}>
-          <summary style={styles.legalSummary}>
-            Understand Why "Proof of Originality" Matters (點此展開)
+        <details style={styles.detailBox}>
+          <summary style={styles.detailSummary}>
+            Why “Proof of Originality” Matters (點此展開)
           </summary>
-          <div style={styles.legalText}>
+          <div style={styles.detailContent}>
             <p>
-              <strong>EN:</strong>  
-              Copyright law protects the “expression” of your ideas, not the ideas themselves.
-              Traditional systems only detect textual plagiarism; they can’t confirm “originality.”
-              That’s why we integrate blockchain timestamps and AI-driven fingerprinting to ensure
-              undeniable proof of authorship. <em>Only with us</em> can you finally solve the age-old question:
-              <strong>“How do I prove I am the original creator?”</strong>
+              Without solid evidence of authorship, you risk losing your rights.  
+              We provide a <strong>blockchain timestamp</strong> plus <strong>AI-based detection</strong>, making your original works recognized worldwide.
             </p>
-            <p>
-              <strong>ZH:</strong>  
-              著作權法保護的是「表達」，而非「概念」。傳統系統只能比對文字抄襲，
-              無法真正證明「原創性」。我們透過區塊鏈時間戳+AI指紋技術，讓您徹底解決
-              「我怎麼證明自己才是原著作人？」的痛點。
-            </p>
-            <p style={styles.legalEmph}>
-              Let us handle that final gap—once you upload, we record an immutable blockchain fingerprint,
-              proving in any court that “this exact expression is yours.”
+            <p style={styles.highlight}>
+              Join us now and secure your creations in any legal battle!
             </p>
           </div>
         </details>
-
-        <p style={styles.extraMarketing}>
-          <strong>We are truly the world’s only solution!</strong><br/>
-          No one else can integrate blockchain & AI to permanently seal your originality.
-        </p>
-      </div>
+      </section>
 
       {/*********************************************************************
-       * (5) Footer (Company Info)
+       * (E) Footer (公司資訊)
        *********************************************************************/}
-      <div style={styles.companyInfo}>
-        <hr style={styles.divider} />
-        <p style={styles.companyText}>
-          <strong>Epic Global International Co., Ltd.</strong><br/><br/>
+      <footer style={styles.footer}>
+        <hr style={styles.footerDivider} />
+        <p style={styles.footerText}>
+          <strong>Epic Global International Co., Ltd.</strong><br/>
           <strong>Headquarters:</strong> 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br/>
           <strong>Banqiao Office:</strong> No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br/>
           <strong>Contact:</strong> +886 900-296-168
         </p>
-      </div>
+      </footer>
     </div>
   );
 }
@@ -166,145 +139,152 @@ export default function Home() {
 /** 樣式 */
 const styles = {
   container: {
-    backgroundColor: '#0a0f17',
-    color: '#f5faff',
-    minHeight: '100vh',
-    padding: '4rem',
-    fontFamily: 'Inter, sans-serif'
+    backgroundColor:'#0a0f17',
+    color:'#f5faff',
+    minHeight:'100vh',
+    display:'flex',
+    flexDirection:'column'
   },
-  topUploadSection: {
-    textAlign: 'center',
-    marginBottom: '3rem'
+
+  /* (A) Navbar */
+  navbar: {
+    display:'flex',
+    justifyContent:'space-between',
+    alignItems:'center',
+    backgroundColor:'#141414',
+    padding:'0.5rem 2rem',
+    borderBottom:'1px solid #444'
   },
-  uploadBar: {
-    display: 'inline-flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.75rem'
+  navLeft: {
+    display:'flex',
+    gap:'1rem'
   },
-  uploadLabel: {
-    fontSize: '0.95rem',
-    color: '#ffcc80',
-    marginBottom: '0.3rem'
+  navCenter: {
+    display:'flex',
+    alignItems:'center',
+    justifyContent:'center'
+  },
+  navRight: {
+    display:'flex',
+    gap:'1rem'
+  },
+  navLink: {
+    color:'#ffcc80',
+    textDecoration:'none',
+    fontWeight:500
+  },
+
+  /* (B) Hero banner */
+  heroBanner: {
+    padding:'3rem 2rem',
+    textAlign:'center',
+    backgroundColor:'#12181f',
+    border:'3px solid #FF5722',
+    margin:'1rem auto',
+    maxWidth:'1200px',
+    borderRadius:'12px',
+    boxShadow:'0 8px 24px rgba(255,87,34,0.4)'
+  },
+  heroTitle: {
+    fontSize:'2.2rem',
+    color:'#FF5722',
+    marginBottom:'1rem'
+  },
+  heroDesc: {
+    fontSize:'1rem',
+    lineHeight:'1.8',
+    color:'#c7d2da'
+  },
+
+  /* (C) File Upload + Button in one line */
+  uploadSection: {
+    display:'flex',
+    alignItems:'center',
+    justifyContent:'center',
+    gap:'1rem',
+    margin:'2rem auto',
+    maxWidth:'600px'
+  },
+  inlineLabel: {
+    display:'flex',
+    alignItems:'center',
+    gap:'0.75rem',
+    color:'#ffcc80'
   },
   fileInput: {
-    padding: '0.4rem',
-    backgroundColor: '#fff',
-    borderRadius: '4px',
-    cursor: 'pointer'
+    background:'#fff',
+    borderRadius:'4px',
+    cursor:'pointer'
   },
-  uploadButton: {
-    backgroundColor: '#FF5722',
-    color: '#fff',
-    border: 'none',
-    padding: '0.6rem 1.4rem',
-    borderRadius: '4px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '1rem'
-  },
-
-  banner: {
-    border: '3px solid #FF5722',
-    borderRadius: '12px',
-    padding: '3rem',
-    background: '#12181f',
-    textAlign: 'center',
-    boxShadow: '0 8px 24px rgba(255,87,34,0.4)',
-    marginBottom: '3rem'
-  },
-  mainTitle: {
-    fontSize: '2.6rem',
-    fontWeight: 'bold',
-    marginBottom: '1.5rem',
-    color: '#FF5722'
-  },
-  desc: {
-    fontSize: '1.05rem',
-    lineHeight: '1.8',
-    color: '#c7d2da'
+  proveBtn: {
+    backgroundColor:'#FF5722',
+    border:'none',
+    borderRadius:'4px',
+    color:'#fff',
+    fontSize:'1rem',
+    fontWeight:600,
+    padding:'0.6rem 1.2rem',
+    cursor:'pointer'
   },
 
-  secureSection: {
-    textAlign: 'center',
-    marginBottom: '3rem'
-  },
-  secureTitle: {
-    fontSize: '1.8rem',
-    color: '#FF5722',
-    marginBottom: '1rem',
-    fontWeight: 600
-  },
-  secureDesc: {
-    fontSize: '1rem',
-    color: '#eceff1',
-    marginBottom: '1.5rem',
-    lineHeight: '1.6'
-  },
-
-  addonSection: {
-    backgroundColor: '#161d27',
-    padding: '2.5rem',
-    borderRadius: '10px',
-    boxShadow: '0 8px 20px rgba(0,0,0,0.6)',
-    textAlign: 'center',
-    marginBottom: '3rem'
+  /* (D) Welcome Section */
+  welcomeSection: {
+    margin:'2rem auto',
+    maxWidth:'900px',
+    textAlign:'center',
+    backgroundColor:'#161d27',
+    padding:'2rem',
+    borderRadius:'10px',
+    boxShadow:'0 8px 20px rgba(0,0,0,0.6)'
   },
   welcomeTitle: {
-    fontSize: '2rem',
-    color: '#FF5722',
-    marginBottom: '1rem'
+    fontSize:'1.8rem',
+    color:'#FF5722',
+    marginBottom:'1rem'
   },
-  addonDesc: {
-    fontSize: '1.1rem',
-    color: '#eceff1',
-    marginBottom: '1.5rem'
+  welcomeDesc: {
+    fontSize:'1rem',
+    color:'#eceff1',
+    marginBottom:'1.5rem',
+    lineHeight:'1.6'
   },
-  legalBlock: {
-    textAlign: 'left',
-    display: 'inline-block',
-    width: '100%',
-    maxWidth: '900px',
-    margin: '0 auto 1.5rem',
-    background: '#12181f',
-    border: '2px solid #FF5722',
-    borderRadius: '8px',
-    padding: '1rem'
+  detailBox: {
+    textAlign:'left',
+    border:'1px solid #ff6f00',
+    borderRadius:'6px',
+    padding:'1rem',
+    background:'#12181f'
   },
-  legalSummary: {
-    cursor: 'pointer',
-    color: '#FF5722',
-    fontWeight: 500
+  detailSummary: {
+    color:'#ff6f00',
+    cursor:'pointer',
+    fontWeight:600
   },
-  legalText: {
-    marginTop: '1rem',
-    lineHeight: 1.6,
-    fontSize: '0.95rem',
-    color: '#c7d2da'
+  detailContent: {
+    marginTop:'0.5rem',
+    color:'#ccc',
+    fontSize:'0.95rem'
   },
-  legalEmph: {
-    marginTop: '1rem',
-    color: '#ffd54f',
-    fontWeight: 600
-  },
-  extraMarketing: {
-    fontSize: '1.2rem',
-    color: '#ffd54f',
-    fontWeight: 600
+  highlight: {
+    marginTop:'1rem',
+    color:'#ffd54f',
+    fontWeight:600
   },
 
-  companyInfo: {
-    textAlign: 'center',
-    marginTop: '4rem'
+  /* (E) Footer */
+  footer: {
+    marginTop:'auto',
+    textAlign:'center',
+    padding:'1rem'
   },
-  divider: {
-    width: '60%',
-    margin: '1.5rem auto',
-    borderColor: '#FF5722'
+  footerDivider: {
+    width:'60%',
+    margin:'1rem auto',
+    borderColor:'#FF5722'
   },
-  companyText: {
-    fontSize: '0.95rem',
-    color: '#b0bec5',
-    lineHeight: 1.6
+  footerText: {
+    fontSize:'0.9rem',
+    color:'#b0bec5',
+    lineHeight:'1.6'
   }
 };
