@@ -1,7 +1,8 @@
 /**************************************************************
  * frontend/src/App.js
- * - 保留您原先的頁面路由與 UI
- * - 新增 /admin/login 與 /admin/dashboard 供管理員使用
+ * - 維持您原先的頁面路由與 UI
+ * - ★ 新增 /admin/login & /admin/dashboard
+ * - ★ 新增「Admin Login」連結(固定)；若 userRole==='admin' 也顯示「Admin Dashboard」
  **************************************************************/
 import React from 'react';
 import {
@@ -73,6 +74,7 @@ function RootLayout() {
           <img src="/logo0.jpg" alt="Logo" style={{ height: '60px', marginRight: '1rem' }} />
           <span style={styles.logoText}>速誅侵權獵人 SUZOO IP Guard</span>
         </Link>
+
         <nav>
           <Link to="/pricing" style={navLinkStyle}>Pricing</Link>
           <Link to="/contact" style={navLinkStyle}>Contact Us</Link>
@@ -82,10 +84,17 @@ function RootLayout() {
             Hunter for Free
           </Link>
 
+          {/* 固定顯示 Admin Login (若想隱藏可自行拿掉) */}
+          <Link to="/admin/login" style={navLinkStyle}>Admin Login</Link>
+
+          {/* 若 userRole==='admin' 顯示 Admin Dashboard */}
           {userRole === 'admin' && (
-            <Link to="/admin/dashboard" style={navLinkStyle}>Admin Dashboard</Link>
+            <Link to="/admin/dashboard" style={navLinkStyle}>
+              Admin Dashboard
+            </Link>
           )}
 
+          {/* 若有 token, 顯示 Payment & Logout；否則顯示 Login / Register */}
           {token ? (
             <>
               <Link to="/payment" style={navLinkStyle}>Payment</Link>
@@ -105,6 +114,7 @@ function RootLayout() {
         </nav>
       </header>
 
+      {/* 頁面頂部 Banner (只在首頁顯示) */}
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>
@@ -136,11 +146,12 @@ function RootLayout() {
   );
 }
 
+// ★ 主要路由
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 包含共用 Layout 的路由 (首頁 / 會員 / 付款 / Protect流程) */}
+        {/* 1) 使用 RootLayout 包住一般使用者頁面 */}
         <Route element={<RootLayout />}>
           <Route index element={<HomePage />} />
           <Route path="contact" element={<ContactPage />} />
@@ -161,7 +172,7 @@ export default function App() {
           <Route path="payment/success" element={<PaymentSuccess />} />
         </Route>
 
-        {/* ★ 新增 Admin Route (不使用 RootLayout) */}
+        {/* 2) Admin Route (不使用 RootLayout) */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
