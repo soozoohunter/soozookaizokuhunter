@@ -36,7 +36,7 @@ export default function Home() {
         <div style={styles.companyInfo}>
           <hr style={styles.divider}/>
           <p style={styles.companyText}>
-            <strong>Epic Global International Co., Ltd.</strong><br/>
+            <strong>🇹🇼Epic Global International Co., Ltd.</strong><br/>
             凱盾全球國際股份有限公司<br/><br/>
             <strong>Headquarters:</strong> 1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br/>
             <strong>Taipei Office:</strong> No. 3, Lane 36, Lane 153, Section 2, Sanmin Road, Banqiao, New Taipei City<br/>
