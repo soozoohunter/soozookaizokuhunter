@@ -90,7 +90,7 @@ function RootLayout() {
             </>
           )}
 
-          {/* Admin 入口 (若您想固定顯示可保留) */}
+          {/* Admin 入口 */}
           {userRole === 'admin' ? (
             <Link to="/admin/dashboard" style={styles.navLink}>Admin</Link>
           ) : (
@@ -117,11 +117,14 @@ function RootLayout() {
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>
-            Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
+            Lock Down Your Creativity with Blockchain. Anytime, Anywhere.
           </h1>
           <p style={styles.bannerDesc}>
-            捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
-            24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。
+            Unbreakable Blockchain + AI Detection,<br/>
+            Ensuring Bulletproof Evidence in Every Case.
+            <br/><br/>
+            以堅不可摧的區塊鏈與 AI 偵測技術，<br/>
+            為您的智慧財產提供滴水不漏的原創證明。
           </p>
         </section>
       )}
@@ -237,10 +240,10 @@ const styles = {
     fontFamily: '"Montserrat", sans-serif'
   },
   bannerDesc: {
-    fontSize: '0.95rem',
+    fontSize: '1rem',
     color: '#ccc',
     marginTop: '1rem',
-    lineHeight: '1.5'
+    lineHeight: '1.6'
   },
   footer: {
     textAlign: 'center',
