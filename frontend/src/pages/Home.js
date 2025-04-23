@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 檔案選擇 → 存 base64 以便 Step1 使用
+  // 檔案選擇 → base64 存於 localStorage 以便 Step1 使用
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -20,67 +20,84 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
+  // 按鈕 → 前往 Step1
   const handleProofNow = () => {
     window.location.href = '/protect/step1';
   };
 
   return (
     <div style={styles.container}>
+      
+      {/****************************************************************
+       * (A) Hero 3欄佈局
+       *     左欄(中文), 中欄(大標題), 右欄(英文)
+       ****************************************************************/}
+      <section style={styles.heroSection}>
+        <div style={styles.heroRow}>
 
-      {/******************************************************************
-       * (1) Hero 區: 僅顯示大標題 + 文案 (移除 Logo, 改至後方)
-       ******************************************************************/}
-      <section style={styles.hero}>
-        <h1 style={styles.heroTitle}>
-          THE WORLD'S ONLY Blockchain & AI-Powered Originality Proof Platform
-        </h1>
-        <p style={styles.heroDesc}>
-          We are proudly Taiwanese (台灣 🇹🇼), and the only platform combining blockchain and AI
-          to prove true authorship worldwide. <br/><br/>
-          Are you still struggling to prove your <strong>original creation</strong>?  
-          Under international copyright law, failing to establish originality means losing your rights entirely— 
-          <em>no matter how creative you are</em>.<br/><br/>
-          <strong>ONLY WE</strong> solve this once-impossible challenge:
-          <strong> Blockchain Digital Fingerprint + AI Infringement Detection</strong>,  
-          backed by rapid global legal actions.<br/><br/>
-          Proving originality used to be difficult — <strong>but not anymore</strong>. 
-          We reduce complex copyright evidence to a single click:  
-          100% tamper-proof, globally recognized, and admissible in courts everywhere.
-        </p>
-      </section>
-
-      {/******************************************************************
-       * (2) 單行上傳 + 說明 + 按鈕
-       *     文字說明 (「影音檔生成動態指紋」「圖片生成靜態指紋」) 放在左側同框
-       ******************************************************************/}
-      <section style={styles.uploadSection}>
-        <div style={styles.uploadRow}>
-          {/* 左側: 說明文字 */}
-          <div style={styles.uploadInfo}>
-            <p style={styles.uploadInfoText}>
-              <strong>Short Video → Dynamic Fingerprint</strong><br/>
-              <strong>Image → Static Fingerprint</strong>
+          {/* 左：中文介紹 */}
+          <div style={styles.heroColLeft}>
+            <p style={styles.chineseText}>
+              我們是台灣（🇹🇼）唯一結合區塊鏈與AI的原創證明平台。<br/>
+              仍在為了證明自己的原創性而苦惱嗎？  
+              在國際著作權法下，若無法先行證明原創，  
+              您的權利恐在瞬間喪失。
             </p>
           </div>
 
-          {/* 中間: 檔案上傳 */}
-          <input
-            type="file"
-            style={styles.fileInput}
-            onChange={handleFileChange}
-          />
+          {/* 中：大標題 */}
+          <div style={styles.heroColCenter}>
+            <h1 style={styles.centerTitle}>
+              BLOCKCHAIN & AI-POWERED<br/>
+              ORIGINAL PROOF PLATFORM
+            </h1>
+          </div>
 
-          {/* 右側: 按鈕 */}
+          {/* 右：英文介紹 */}
+          <div style={styles.heroColRight}>
+            <p style={styles.englishText}>
+              We are proudly Taiwanese (🇹🇼), the only platform combining blockchain and AI
+              to prove authorship worldwide.<br/>
+              Still struggling to prove your <strong>original creation</strong>?  
+              Without solid proof, you risk losing your rights entirely — <em>no matter how creative you are</em>.
+            </p>
+          </div>
+        </div>
+
+        {/* 下方補充說明 (若需要) */}
+        <p style={styles.heroBottom}>
+          By leveraging <strong>Blockchain Digital Fingerprint + AI Infringement Detection</strong>, 
+          we reduce complex copyright evidence to a single step — 100% tamper-proof, globally recognized, 
+          and admissible in courts everywhere.
+        </p>
+      </section>
+
+      {/****************************************************************
+       * (B) 檔案上傳（大輸入框） + 按鈕
+       ****************************************************************/}
+      <section style={styles.uploadSection}>
+        <div style={styles.uploadRow}>
+
+          {/* 中：檔案上傳 (加寬) */}
+          <label style={styles.uploadLabel}>
+            <span style={{ marginRight:'0.5rem' }}>Upload File:</span>
+            <input
+              type="file"
+              style={styles.fileInput}
+              onChange={handleFileChange}
+            />
+          </label>
+
+          {/* 右：Proof Now */}
           <button style={styles.proofButton} onClick={handleProofNow}>
             Proof Now
           </button>
         </div>
       </section>
 
-      {/******************************************************************
-       * (3) 行銷區 - Welcome + LOGO
-       *     您想將 LOGO 移到這個區塊 (第三張截圖位置)
-       ******************************************************************/}
+      {/****************************************************************
+       * (C) 下方行銷區 + LOGO + Additional details
+       ****************************************************************/}
       <section style={styles.marketingSection}>
         {/* Logo + SUZOO */}
         <div style={styles.logoRow}>
@@ -105,37 +122,33 @@ export default function Home() {
           </summary>
           <div style={styles.expandContent}>
             <p>
-              【繁中】根據台灣與國際著作權法，<strong>原創性</strong>必須透過「具體表達」才能獲得法律保護。
-              傳統系統僅能比對文字抄襲，無法完整保護您的創作。
+              【繁中】根據台灣與國際著作權法，<strong>原創性</strong>必須「具體表達」才受保護。
+              我們透過 <strong>區塊鏈時間戳</strong> + <strong>AI比對</strong>，  
+              提供您跨國不可辯駁的著作權存證，避免侵權者佔盡便宜。
             </p>
             <p>
-              我們透過 <strong>區塊鏈時間戳</strong> + <strong>AI 侵權比對</strong>，
-              迅速提供您<strong>不可辯駁</strong>的著作權存證，並可跨國執行法律行動。
-            </p>
-            <p>
-              【EN】Without solid proof of authorship, you risk losing everything. 
-              Using <strong>blockchain timestamps</strong> and <strong>AI-driven detection</strong>,
-              we help you secure your work in any legal setting around the globe.
+              【EN】Without strong evidence, you could lose your rights entirely.
+              <strong> Blockchain timestamps</strong> plus <strong>AI detection</strong>
+              give you unstoppable power to defend your works worldwide.
             </p>
             <p style={{ marginTop:'1rem' }}>
               <strong>法理補充</strong>:  
-              1) 著作權法保護表達，不保護概念；  
-              2) 原創須獨立完成，非抄襲；  
-              3) 先行存證可使法院推定著作完成時間；  
-              4) AI + 區塊鏈 = 快速偵測+不可竄改；  
-              5) 可結合 DMCA 與全球律師團行動，力挽狂瀾。
+              1) 著作權法保護「表達」非「概念」；  
+              2) 未先行存證者往往在訴訟居劣勢；  
+              3) AI + 區塊鏈讓創作保護變得簡單、不可篡改；  
+              4) DMCA、全球律師團可急速執行下架與索賠。
             </p>
             <p style={styles.highlight}>
               Protect your IP once and for all.  
-              (現在就立即行動，免除被侵權的後顧之憂！)
+              (現在就立即行動，確保您的創作權益萬無一失！)
             </p>
           </div>
         </details>
       </section>
 
-      {/******************************************************************
-       * (4) Footer
-       ******************************************************************/}
+      {/****************************************************************
+       * (D) Footer
+       ****************************************************************/}
       <footer style={styles.footer}>
         <hr style={styles.footerDivider} />
         <p style={styles.footerText}>
@@ -159,29 +172,64 @@ const styles = {
     flexDirection:'column'
   },
 
-  /* (1) Hero (No logo here, just big title + text) */
-  hero: {
-    textAlign:'center',
-    padding:'3rem 2rem',
+  /************************************************************
+   * (A) Hero 3欄, 左中文 / 中標題 / 右英文
+   ************************************************************/
+  heroSection: {
+    maxWidth:'1200px',
+    margin:'2rem auto 0',
+    padding:'2rem',
     border:'3px solid #FF5722',
     borderRadius:'12px',
-    margin:'2rem auto 0',
-    maxWidth:'1200px',
     background:'#12181f',
     boxShadow:'0 8px 24px rgba(255,87,34,0.4)'
   },
-  heroTitle: {
-    fontSize:'2.4rem',
-    color:'#FF5722',
-    marginBottom:'1rem'
+  heroRow: {
+    display:'flex',
+    justifyContent:'space-between',
+    alignItems:'start',
+    gap:'1rem'
   },
-  heroDesc: {
-    fontSize:'1.05rem',
-    lineHeight:'1.8',
+  heroColLeft: {
+    flex:'1',
+    fontSize:'0.95rem',
+    lineHeight:'1.6',
     color:'#c7d2da'
   },
+  heroColCenter: {
+    flex:'1',
+    display:'flex',
+    alignItems:'center',
+    justifyContent:'center'
+  },
+  heroColRight: {
+    flex:'1',
+    fontSize:'0.95rem',
+    lineHeight:'1.6',
+    color:'#c7d2da'
+  },
+  centerTitle: {
+    fontSize:'1.6rem',
+    color:'#FF5722',
+    textAlign:'center'
+  },
+  chineseText: {
+    margin:0
+  },
+  englishText: {
+    margin:0
+  },
+  heroBottom: {
+    marginTop:'1.5rem',
+    fontSize:'0.9rem',
+    lineHeight:'1.6',
+    color:'#ccc',
+    textAlign:'center'
+  },
 
-  /* (2) Single row: explanation + fileInput + button */
+  /************************************************************
+   * (B) Upload Row
+   ************************************************************/
   uploadSection: {
     margin:'1.5rem auto 2.5rem',
     maxWidth:'800px'
@@ -189,25 +237,24 @@ const styles = {
   uploadRow: {
     display:'flex',
     alignItems:'center',
-    justifyContent:'center',
     gap:'1rem',
     background:'#161d27',
     padding:'1rem',
     borderRadius:'8px',
-    boxShadow:'0 3px 10px rgba(0,0,0,0.5)'
+    boxShadow:'0 3px 10px rgba(0,0,0,0.5)',
+    justifyContent:'center'
   },
-  uploadInfo: {
+  uploadLabel: {
+    display:'flex',
+    alignItems:'center',
+    gap:'0.7rem',
     background:'#1e1e1e',
     border:'1px solid #444',
     padding:'0.8rem',
     borderRadius:'6px'
   },
-  uploadInfoText: {
-    fontSize:'0.9rem',
-    color:'#ffcc80',
-    lineHeight:'1.4'
-  },
   fileInput: {
+    width:'260px',
     cursor:'pointer',
     background:'#fff',
     borderRadius:'4px',
@@ -224,7 +271,9 @@ const styles = {
     cursor:'pointer'
   },
 
-  /* (3) Marketing + LOGO here */
+  /************************************************************
+   * (C) Marketing Section + LOGO
+   ************************************************************/
   marketingSection: {
     margin:'2rem auto',
     maxWidth:'900px',
@@ -285,7 +334,9 @@ const styles = {
     fontWeight:600
   },
 
-  /* (4) Footer */
+  /************************************************************
+   * (D) Footer
+   ************************************************************/
   footer: {
     marginTop:'auto',
     textAlign:'center',
