@@ -1,3 +1,4 @@
+// frontend/src/pages/Home.js
 import React, { useState } from 'react';
 
 export default function Home() {
@@ -11,6 +12,7 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (evt.target.readyState === FileReader.DONE) {
+        // 將檔案的 Base64 和檔名存到 localStorage
         localStorage.setItem('uploadedFileBase64', evt.target.result);
         localStorage.setItem('uploadedFileName', file.name);
       }
@@ -95,8 +97,8 @@ export default function Home() {
       <footer style={styles.footer}>
         <hr style={styles.footerDivider} />
         <p style={styles.footerText}>
-          <strong>Epic Global International Co., Ltd.</strong><br/>
-          凱盾全球國際股份有限公司<br/><br/>
+          <strong>🇹🇼🇭🇰Epic Global International Co., Ltd.</strong><br/>
+          🇹🇼凱盾全球國際股份有限公司<br/><br/>
           <strong>Headquarters:</strong> 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br/>
           <strong>Banqiao Office:</strong> No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br/>
           <strong>Contact:</strong> +886 900-296-168 (GM Zack Yao)
