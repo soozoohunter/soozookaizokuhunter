@@ -107,9 +107,16 @@ export default function Home() {
        * (D) Welcome / marketing & 『展開區塊』 
        *********************************************************************/}
       <div style={styles.addonSection}>
+        {/* 將原先🚀改成您的Logo */}
         <h2 style={styles.welcomeTitle}>
-          Welcome to SUZOO IP Guard 🚀
+          Welcome to SUZOO IP Guard
+          <img
+            src="/mylogo.png"
+            alt="MyLogo"
+            style={{ height: '1.5rem', marginLeft: '0.5rem', verticalAlign: 'baseline' }}
+          />
         </h2>
+
         <p style={styles.addonDesc}>
           Every second counts—someone might be stealing your ideas right now!
         </p>
