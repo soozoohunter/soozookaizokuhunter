@@ -4,12 +4,13 @@ import React from 'react';
 export default function Home() {
   return (
     <div style={styles.container}>
-      {/* ----- Hero/Banner 區域 ----- */}
+      {/* ===== Banner / Hero 區域 ===== */}
       <div style={styles.banner}>
-        <h1 style={styles.mainTitle}>
-          THE WORLD'S ONLY Blockchain-Proven Originality Platform
-        </h1>
-
+        {/* 1) 新增精簡標語 + 副標 */}
+        <h1 style={styles.shortTitle}>ONLY BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM</h1>
+        <p style={styles.smallDesc}>One click to prove your creative ownership.</p>
+        
+        {/* 2) 原有段落介紹 */}
         <p style={styles.desc}>
           We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br /><br />
@@ -27,7 +28,7 @@ export default function Home() {
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
-        {/* 按鈕：前往 Pricing */}
+        {/* 3) 主要行動按鈕：前往 Pricing */}
         <button
           onClick={() => window.location.href = '/pricing'}
           style={styles.enterBtn}
@@ -35,7 +36,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* 按鈕：前往 Protect Step1 */}
+        {/* 4) 次要行動按鈕：前往 Protect Step1 */}
         <button
           onClick={() => window.location.href = '/protect/step1'}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
@@ -43,7 +44,7 @@ export default function Home() {
           PROTECT NOW
         </button>
 
-        {/* 公司資訊(英文公司名) */}
+        {/* 5) 公司資訊（英文公司名） */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider} />
           <p style={styles.companyText}>
@@ -56,7 +57,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ----- 其他行銷 / Supplement ----- */}
+      {/* ===== 其他行銷文案 / Supplement 區域 ===== */}
       <div style={styles.addonSection}>
         <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
@@ -104,6 +105,7 @@ export default function Home() {
   );
 }
 
+/** ========== Styles ========== */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
@@ -120,12 +122,20 @@ const styles = {
     textAlign: 'center',
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
-  mainTitle: {
-    fontSize: '2.8rem',
+  // ★ 新增短標語 + 副標
+  shortTitle: {
+    fontSize: '2.2rem',
     fontWeight: 'bold',
-    marginBottom: '2rem',
-    color: '#FF5722'
+    color: '#FF5722',
+    textTransform: 'uppercase',
+    marginBottom: '0.75rem'
   },
+  smallDesc: {
+    fontSize: '1rem',
+    color: '#ffa726', // 可換成您喜歡的顏色
+    marginBottom: '2rem'
+  },
+
   desc: {
     fontSize: '1.05rem',
     lineHeight: '1.9',
