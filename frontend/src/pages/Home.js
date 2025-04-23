@@ -10,7 +10,7 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       if (evt.target.readyState === FileReader.DONE) {
-        // 將檔案的 Base64 和檔名存到 localStorage (示範用)
+        // 儲存檔案於 localStorage (示範用)
         localStorage.setItem('uploadedFileBase64', evt.target.result);
         localStorage.setItem('uploadedFileName', file.name);
       }
@@ -28,7 +28,7 @@ export default function Home() {
 
   return (
     <div style={styles.container}>
-      {/* 1) Hero + Upload Section */}
+      {/* 1) Hero Section + File Upload (放最上方) */}
       <section style={styles.heroSection}>
         <div style={styles.heroHeader}>
           <img src="/logo0.jpg" alt="SUZOO Logo" style={styles.logo} />
@@ -38,11 +38,12 @@ export default function Home() {
         </div>
 
         <p style={styles.heroSubtitle}>
-          Instantly safeguard your work with immutable blockchain records and AI-driven infringement detection. <br/>
-          透過區塊鏈+AI技術，立即為您的創作建立無懈可擊的原創證明。
+          Instantly secure your creativity with unbreakable blockchain timestamps and AI-based detection. 
+          <br />
+          透過堅不可摧的區塊鏈與 AI 偵測技術，立即守護您的智慧財產權。
         </p>
 
-        {/* 上傳檔案 + 免費試用按鈕 */}
+        {/* 上傳區塊 + 免費試用 */}
         <div style={styles.uploadRow}>
           <label style={styles.uploadLabel}>
             <input type="file" style={styles.fileInput} onChange={handleFileChange} />
@@ -58,73 +59,93 @@ export default function Home() {
 
       {/* 2) Marketing / Intro Section */}
       <section style={styles.marketingSection}>
-        <h2 style={styles.marketingTitle}>Welcome to SUZOO IP GUARD</h2>
+        <h2 style={styles.marketingTitle}>Protect Your Creations Now</h2>
         <p style={styles.marketingDesc}>
-          The hardest part of copyright protection is proving you’re the original creator.<br/>
-          在著作權的保護裡，最困難的往往是如何證明自己就是原創作者。
+          Proving originality is the hardest challenge in copyright protection. 
+          Without solid evidence, you risk losing your work—no matter how innovative it is.
+          <br/>
+          著作權最大的難題在於「原創證明」。若缺乏有效證據，無論作品多有創意，都可能失去保護。
         </p>
         <p style={styles.marketingDetail}>
-          That’s exactly where we excel. By combining unbreakable blockchain timestamps with AI “fingerprinting,” 
-          we deliver ironclad evidence of originality—saving you from the nightmare of legal uncertainties.<br/>
-          我們透過區塊鏈時間戳與 AI 指紋比對，為您的作品提供最具法律效力的原創證據，
-          從此不再害怕舉證困難而導致權利流失。
+          SUZOO IP GUARD tackles this head-on with a two-pronged approach: <br/>
+          <strong>Immutable Blockchain Fingerprints</strong> + <strong>Real-time AI Monitoring</strong>.
+          <br/><br/>
+          我們結合「區塊鏈指紋」與「AI 即時監控」雙重防線，替您奠定無懈可擊的原創證明。
         </p>
-
-        {/* CTA: 立即保護 */}
         <button style={styles.subscribeButton} onClick={handleSubscribe}>
           Start Protection Now / 立即開始保護
         </button>
+      </section>
 
+      {/* 3) Unique Selling Point */}
+      <section style={styles.uniqueSection}>
+        <h3 style={styles.uniqueTitle}>Why We're Truly One-of-a-Kind</h3>
+        <p style={styles.uniqueText}>
+          Other services only spot text plagiarism. We detect design nuances, visual elements, and partial modifications.
+          <br/>
+          一般平台僅能偵測文字抄襲，但我們能精準捕捉設計細節、圖像元素乃至部分改作。
+        </p>
+        <p style={styles.uniqueText}>
+          Proudly made in Taiwan, the <strong>only</strong> solution worldwide 
+          that solves the hardest challenge—proving you are the true originator.
+          <br/>
+          由台灣團隊自豪研發，世界唯一可徹底解決「原創證明」難題，替創作者掃除最大的法律障礙。
+        </p>
+      </section>
+
+      {/* 4) Detailed Copyright Info - Expandable */}
+      <section style={styles.infoSection}>
         <details style={styles.expandBox}>
           <summary style={styles.expandSummary}>
-            Why Is “Proof of Originality” So Crucial? (點此展開)
+            Learn More About Copyright & Originality (詳細閱讀)
           </summary>
           <div style={styles.expandContent}>
+            <p style={{ fontWeight: 'bold' }}>一、著作必須具備「原創性」</p>
             <p>
-              Under international copyright law, failing to prove your ownership often means losing your rights entirely—
-              even if you truly created the work. Courts typically require proof of:
+              「原創性」包含原始性及創作性。從法律與實務面來看，只要您的創作能證明獨立完成、非抄襲，
+              且展現最低程度的創意，即受著作權法保護。<br/>
+              <em>In English: “Originality” under law involves both independence and creativity. 
+              As long as you can show the work is independently made, not plagiarized, 
+              and meets a minimal level of creativity, it’s protected.</em>
             </p>
-            <ul style={styles.bulletList}>
-              <li><strong>Creator Identity</strong>: You must show you had the ability and resources to produce the work.</li>
-              <li><strong>Completion Time</strong>: The exact moment your work became a fixed, finished expression.</li>
-              <li><strong>Independent Creation</strong>: Evidence you didn’t copy from earlier works—i.e., originality.</li>
-            </ul>
+
+            <p style={{ fontWeight: 'bold' }}>二、著作完成才能主張權利</p>
             <p>
-              根據實務判決，著作人必須舉證證明（1）著作人身分，（2）著作完成時間，（3）獨立創作非抄襲。<br/>
-              這些舉證往往難度極高，一旦無法證明，就可能喪失著作權的保障。
+              著作權法保護「表達」，不保護「概念」。即使有創新想法，但未完成客觀的表達，仍無法主張著作權。<br/>
+              <em>In English: Copyright safeguards “expression” over “ideas.” 
+              If you haven’t expressed your concept in a tangible way, you can’t claim rights.</em>
             </p>
-            <p style={styles.highlight}>
-              With SUZOO IP GUARD, all this complexity is reduced to one click. 
-              We record your creation on an immutable ledger, scan the internet via AI 24/7,
-              and stand by to launch global legal action whenever infringement is detected.
-              <br/><br/>
-              使用 SUZOO IP GUARD，一鍵完成所有複雜舉證流程，區塊鏈不可竄改紀錄搭配
-              AI 二十四小時監控，全球追蹤，一旦發現侵權立即採取法律行動！
+
+            <p style={{ fontWeight: 'bold' }}>三、獨立創作才不會侵害他人</p>
+            <p>
+              同一顆蘋果，每個人都能畫出不同的畫法，只要不是抄襲，即各自享有著作權。<br/>
+              <em>In English: Multiple people can draw the same apple in their own style. 
+              If it’s not copied from another’s artwork, each is protected separately.</em>
+            </p>
+
+            <p style={{ fontWeight: 'bold' }}>四、舉證：證明「誰、何時、怎麼創作」</p>
+            <p>
+              最難的就是證明自己是作者、何時完成、以及作品為獨立創作。若無法提出確切證據，可能導致權利落空。<br/>
+              <em>In English: The hardest part is proving authorship, completion time, and independence. 
+              Lacking solid evidence, your rights can be easily dismissed.</em>
+            </p>
+
+            <p style={{ marginTop: '1rem' }}>
+              <strong>進一步延伸閱讀：</strong>  
+              (以下為原始著作權法條文與案例分析)  
+              <br/>
+              {/* 在此插入您給予的長篇法條或案例文章，為使程式碼示範精簡，暫以文字代替 */}
+              您可將更完整的著作權法條與實務判決，放置於此處進行展開補充...
             </p>
           </div>
         </details>
       </section>
 
-      {/* 3) Unique Value / Bottom Explanation */}
-      <section style={styles.uniqueSection}>
-        <h3 style={styles.uniqueTitle}>Why Are We the Only One?</h3>
-        <p style={styles.uniqueText}>
-          Most solutions merely detect plagiarism of text. But copyright disputes often involve subtle visuals, designs, 
-          or partial transformations. Only our blockchain + AI synergy offers true, all-encompassing originality proof. <br/>
-          多數平台只能檢測文字重複率，卻無法在視覺、設計、或二次改作等領域有效辨別侵權。
-          我們獨家整合區塊鏈與 AI 指紋技術，真正全面守護您的原創力。
-        </p>
-        <p style={styles.uniqueText}>
-          Proudly made in Taiwan, protecting authors worldwide. <br/>
-          全世界只有台灣的我們，做到了「舉證最難」的著作權問題一次解決。
-        </p>
-      </section>
-
-      {/* 4) Footer */}
+      {/* 5) Footer */}
       <footer style={styles.footer}>
         <hr style={styles.footerDivider} />
         <p style={styles.footerText}>
-          <strong>Epic Global International Co., Ltd.</strong><br/>
+          <strong>🇹🇼🇭🇰🇨🇦Epic Global International Co., Ltd.</strong><br/>
           Headquarters: 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br/>
           Banqiao Office: No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br/>
           Contact: +886 900-296-168 (GM Zack Yao)
@@ -134,6 +155,7 @@ export default function Home() {
   );
 }
 
+/** ============ Styles ============ */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
@@ -142,6 +164,7 @@ const styles = {
     padding: '2rem',
     fontFamily: 'Inter, sans-serif'
   },
+
   /* 1) Hero Section */
   heroSection: {
     textAlign: 'center',
@@ -155,21 +178,22 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: '1rem'
+    gap: '0.8rem'
   },
   logo: {
     height: '50px'
   },
   heroTitle: {
     color: '#FF5722',
-    fontSize: '1.8rem',
+    fontSize: '1.6rem',
     fontWeight: 'bold',
     margin: 0
   },
   heroSubtitle: {
     marginTop: '1rem',
     color: '#c7d2da',
-    lineHeight: 1.6
+    lineHeight: 1.6,
+    fontSize: '1rem'
   },
   uploadRow: {
     display: 'flex',
@@ -210,19 +234,20 @@ const styles = {
   marketingTitle: {
     color: '#FF5722',
     fontSize: '1.6rem',
-    marginBottom: '0.5rem',
+    marginBottom: '1rem',
     textAlign: 'center'
   },
   marketingDesc: {
     color: '#eceff1',
     marginBottom: '1rem',
-    textAlign: 'center'
+    textAlign: 'center',
+    lineHeight: 1.6
   },
   marketingDetail: {
     color: '#ccc',
     marginBottom: '1.5rem',
     textAlign: 'center',
-    lineHeight: 1.6
+    lineHeight: 1.7
   },
   subscribeButton: {
     display: 'block',
@@ -233,32 +258,6 @@ const styles = {
     borderRadius: '4px',
     border: 'none',
     cursor: 'pointer',
-    fontWeight: '600'
-  },
-  expandBox: {
-    marginTop: '1.5rem',
-    background: '#12181f',
-    borderRadius: '8px',
-    padding: '1rem',
-    color: '#ccc'
-  },
-  expandSummary: {
-    color: '#FF5722',
-    cursor: 'pointer',
-    outline: 'none'
-  },
-  expandContent: {
-    marginTop: '1rem',
-    lineHeight: 1.6,
-    fontSize: '0.95rem'
-  },
-  bulletList: {
-    marginLeft: '1.5rem',
-    marginTop: '0.5rem'
-  },
-  highlight: {
-    marginTop: '1rem',
-    color: '#ffd54f',
     fontWeight: '600'
   },
 
@@ -282,7 +281,30 @@ const styles = {
     marginBottom: '1rem'
   },
 
-  /* 4) Footer */
+  /* 4) Info / Expand Box */
+  infoSection: {
+    marginBottom: '2rem'
+  },
+  expandBox: {
+    background: '#12181f',
+    borderRadius: '8px',
+    padding: '1rem',
+    color: '#ccc'
+  },
+  expandSummary: {
+    color: '#FF5722',
+    cursor: 'pointer',
+    outline: 'none',
+    fontSize: '1rem',
+    fontWeight: '600'
+  },
+  expandContent: {
+    marginTop: '1rem',
+    lineHeight: 1.6,
+    fontSize: '0.95rem'
+  },
+
+  /* 5) Footer */
   footer: {
     textAlign: 'center',
     color: '#b0bec5',
