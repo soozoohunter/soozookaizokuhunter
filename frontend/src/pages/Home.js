@@ -6,11 +6,12 @@ export default function Home() {
     <div style={styles.container}>
       {/* ===== Banner / Hero 區域 ===== */}
       <div style={styles.banner}>
-        {/* 1) 新增精簡標語 + 副標 */}
-        <h1 style={styles.shortTitle}>ONLY BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM</h1>
-        <p style={styles.smallDesc}>One click to prove your creative ownership.</p>
+        {/* === 單行標語 + 說明 (合併) === */}
+        <h1 style={styles.shortTitle}>
+          BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM <span style={styles.uppercaseDesc}>ONE CLICK TO PROVE YOUR CREATIVE OWNERSHIP.</span>
+        </h1>
         
-        {/* 2) 原有段落介紹 */}
+        {/* 既有段落介紹 */}
         <p style={styles.desc}>
           We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br /><br />
@@ -28,7 +29,7 @@ export default function Home() {
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
-        {/* 3) 主要行動按鈕：前往 Pricing */}
+        {/* 主要行動按鈕：前往 Pricing */}
         <button
           onClick={() => window.location.href = '/pricing'}
           style={styles.enterBtn}
@@ -36,7 +37,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* 4) 次要行動按鈕：前往 Protect Step1 */}
+        {/* 次要行動按鈕：前往 Protect Step1 */}
         <button
           onClick={() => window.location.href = '/protect/step1'}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
@@ -44,12 +45,12 @@ export default function Home() {
           PROTECT NOW
         </button>
 
-        {/* 5) 公司資訊（英文公司名） */}
+        {/* 公司資訊（英文公司名） */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider} />
           <p style={styles.companyText}>
             <strong>Epic Global International Co., Ltd.</strong><br />
-            凱盾全球國際股份有限公司<br /><br />
+            🇹🇼凱盾全球國際股份有限公司<br /><br />
             <strong>Headquarters:</strong> 1F, No. 5, Lane 40, Taishun Street, Da'an District, Taipei City<br />
             <strong>Taipei Office:</strong> No. 3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br />
             <strong>Contact:</strong> +886 900-296-168 (GM Zack Yao)
@@ -122,18 +123,20 @@ const styles = {
     textAlign: 'center',
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
-  // ★ 新增短標語 + 副標
+  // ★ 合併標語 + 副標為單行
   shortTitle: {
-    fontSize: '2.2rem',
+    fontSize: '1.8rem',      // 可依需求縮小
     fontWeight: 'bold',
     color: '#FF5722',
     textTransform: 'uppercase',
-    marginBottom: '0.75rem'
+    marginBottom: '1rem',
+    whiteSpace: 'nowrap'     // 強制單行
   },
-  smallDesc: {
-    fontSize: '1rem',
-    color: '#ffa726', // 可換成您喜歡的顏色
-    marginBottom: '2rem'
+  uppercaseDesc: {
+    marginLeft: '1.2rem',    // 與前面文字間距
+    fontSize: '1rem',        // 或再小一些
+    textTransform: 'uppercase',
+    color: '#ffd700',        // 可依喜好換色 (此為金色)
   },
 
   desc: {
