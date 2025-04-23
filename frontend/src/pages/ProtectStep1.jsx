@@ -119,11 +119,13 @@ export default function ProtectStep1() {
 
   const handleNext = async (e) => {
     e.preventDefault();
+
+    // 檢查必填
     if (!previewBase64) {
       setError('No file was selected. Please go back and upload first.');
       return;
     }
-    if (!realName || !phone || !address || !email) {
+    if (!realName.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       setError('Real Name / Phone / Address / Email are required');
       return;
     }
@@ -151,7 +153,7 @@ export default function ProtectStep1() {
         method: 'POST',
         body: formData
       });
-      // 只要 res.ok => 跳到 step2；若失敗 => 顯示後端訊息
+      // 若失敗 => 顯示後端訊息
       if (!res.ok) {
         const msg = await res.json();
         throw new Error(msg.message || 'Server error');
@@ -196,6 +198,7 @@ export default function ProtectStep1() {
         <StyledForm onSubmit={handleNext}>
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
           <StyledInput
+            type="text"
             value={realName}
             onChange={e => setRealName(e.target.value)}
             placeholder="e.g. 王大明 / John Wang"
@@ -203,6 +206,7 @@ export default function ProtectStep1() {
 
           <StyledLabel>電話 (Phone):</StyledLabel>
           <StyledInput
+            type="text"
             value={phone}
             onChange={e => setPhone(e.target.value)}
             placeholder="e.g. 09xx-xxx-xxx"
@@ -210,6 +214,7 @@ export default function ProtectStep1() {
 
           <StyledLabel>地址 (Address):</StyledLabel>
           <StyledInput
+            type="text"
             value={address}
             onChange={e => setAddress(e.target.value)}
             placeholder="e.g. 台北市大安區 / Taipei City"
