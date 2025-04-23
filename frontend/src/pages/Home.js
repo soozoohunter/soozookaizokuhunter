@@ -78,7 +78,7 @@ export default function Home() {
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與
+          <strong>我們🇹🇼是世界唯一！</strong> 只有我們能將區塊鏈與
           <strong>著作權原創證明</strong>完美結合，並提供即時掃描、
           DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！
         </p>
