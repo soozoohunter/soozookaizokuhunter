@@ -1,94 +1,98 @@
 // frontend/src/pages/Home.js
+
 import React, { useState } from 'react';
 
 export default function Home() {
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // 處理上傳檔案
+  // 上傳檔案
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setSelectedFile(file);
-
-    // （可視需求將檔案存到 localStorage 或只先存在 state ）
-    // localStorage.setItem('uploadedFileBase64', ... ) ...
+    // 如有需要，可將檔案轉為 base64 存到 localStorage
   };
 
-  // 免費試用按鈕 => 前往 /protect/step1
-  const handleFreeTrial = () => {
+  // 「Protect My Work」按鈕 → 前往 /protect/step1
+  const handleProtect = () => {
     window.location.href = '/protect/step1';
   };
 
-  // 你若要「立即開始保護」的另一個按鈕，可自行添加 handleSubscribe (若需要)
-  // const handleSubscribe = () => {
-  //   window.location.href = '/pricing';
-  // };
+  // 「View Plans」按鈕 → 前往 /pricing
+  const handleViewPlans = () => {
+    window.location.href = '/pricing';
+  };
 
   return (
     <div style={styles.container}>
-      {/* 1) Gradient / Glow Section + Hunter for Free */}
+      {/* 
+        1) 最上方：直向排列 (單一column) 
+           包含：
+           - 大標題 & 說明文字
+           - 「Upload」(file input)
+           - 「Protect My Work」按鈕
+           - 「Secure Your IP Now」小標 
+      */}
       <section style={styles.topSection}>
-        <h1 style={styles.topTitle}>
+        <h1 style={styles.mainTitle}>
           THE WORLD’S ONLY Blockchain & AI-Powered Originality Proof Platform
         </h1>
-        <p style={styles.topSubtitle}>
+
+        <p style={styles.desc}>
           We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br /><br />
           Are you still risking losing your intellectual property due to inadequate proof of originality?
-          Under international copyright law, failing to prove originality means losing your rights entirely—
-          regardless of your creativity.
+          Under international copyright law, failing to prove originality means
+          losing your rights entirely—regardless of your creativity.
           <br /><br />
           <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly:
           <strong> Blockchain Digital Fingerprint</strong> combined with
           <strong> AI Infringement Detection</strong> and rapid global legal actions.
           <br /><br />
-          <strong>Proving originality is notoriously challenging — but not anymore.</strong>
+          <strong>Proving originality is notoriously challenging — but not anymore.</strong> 
           We simplify complex copyright evidence into a single click.
           Connect your accounts, and the blockchain instantly becomes your undeniable proof
           of originality: 100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
-        {/* 上方的 檔案上傳 + Hunter for Free 按鈕 */}
-        <div style={styles.rowWrapper}>
-          <div style={styles.leftColumn}>
-            <label style={styles.uploadLabel}>
-              <input
-                type="file"
-                style={styles.fileInput}
-                onChange={handleFileChange}
-              />
-              <span style={styles.uploadText}>
-                {selectedFile ? selectedFile.name : 'Upload Your Original Work'}
-              </span>
-            </label>
-            <button style={styles.trialButton} onClick={handleFreeTrial}>
-              Hunter for Free / 免費試用
-            </button>
-          </div>
+        {/* 上傳欄 & 按鈕(直向) */}
+        <div style={styles.uploadSection}>
+          <label style={styles.uploadLabel}>
+            <input
+              type="file"
+              style={styles.fileInput}
+              onChange={handleFileChange}
+            />
+            <span style={styles.uploadText}>
+              {selectedFile ? selectedFile.name : 'Upload Your Original Work'}
+            </span>
+          </label>
 
-          {/* 右欄示範：若要再加更多行銷文案或按鈕 */}
-          <div style={styles.rightColumn}>
-            <h2 style={styles.protectTitle}>Secure Your IP Now</h2>
-            <p style={styles.protectDesc}>
-              (EN) Every second counts—someone might be stealing your ideas right now.
-              <br />
-              【繁中】每一秒都至關重要，您的創意可能此刻正被他人盯上！
-              <br /><br />
-              Combine real-time AI scanning and global legal readiness to ensure
-              your copyright stands on unshakeable ground.
-            </p>
-            {/* <button style={styles.protectButton} onClick={handleSubscribe}>
-              Start Protection
-            </button> */}
-          </div>
+          <button style={styles.actionButton} onClick={handleProtect}>
+            Protect My Work
+          </button>
         </div>
+
+        {/* Secure Your IP Now 小標 / 行銷文案 */}
+        <h2 style={styles.subHeading}>Secure Your IP Now</h2>
+        <p style={styles.subDesc}>
+          (EN) Every second counts—someone might be stealing your ideas right now!
+          <br />
+          【繁中】每一秒都至關重要，您的創意可能此刻正被他人盯上！
+          <br /><br />
+          Combine real-time AI scanning and global legal readiness to ensure your copyright
+          stands on unshakeable ground.
+        </p>
+
+        {/* 「View Plans」按鈕 */}
+        <button style={styles.viewPlansButton} onClick={handleViewPlans}>
+          View Plans
+        </button>
       </section>
 
       {/* 2) Additional Marketing / Explanation */}
       <section style={styles.marketingSection}>
-        <h2 style={styles.marketingTitle}>
-          Why Our Service Is Unique
-        </h2>
+        <h2 style={styles.marketingTitle}>Why Our Service Is Unique</h2>
         <p style={styles.marketingDesc}>
           (EN) Unlike typical plagiarism checkers, we detect subtle design tweaks,
           partial transformations, and unauthorized reproductions—far beyond simple text comparisons.
@@ -107,9 +111,9 @@ export default function Home() {
           </summary>
           <div style={styles.legalText}>
             <p>
-              (EN) Under international and Taiwanese copyright law, failing to prove “originality” can undermine
-              your entire legal claim. Our blockchain-proven approach ensures your work is authenticated
-              the moment you create it, recognized worldwide.
+              (EN) Under international and Taiwanese copyright law, failing to prove “originality”
+              can undermine your entire legal claim. Our blockchain-proven approach ensures your
+              work is authenticated the moment you create it, recognized worldwide.
             </p>
             <p>
               【繁中】依據台灣與國際著作權法，「原創性」是保護的核心。若無法證明原創，
@@ -126,7 +130,7 @@ export default function Home() {
       <footer style={styles.footer}>
         <hr style={styles.footerDivider} />
         <p style={styles.footerText}>
-          <strong>Epic Global International Co., Ltd.</strong><br />
+          <strong>🇹🇼Epic Global International Co., Ltd.</strong><br />
           Headquarters: 1F, No.5, Lane 40, Taishun St, Da’an Dist, Taipei City<br />
           Banqiao Office: No.3, Lane 36, Ln.153, Sec.2, Sanmin Rd, Banqiao, New Taipei City<br />
           Contact: +886 900-296-168 (GM Zack Yao)
@@ -146,43 +150,36 @@ const styles = {
     display: 'flex',
     flexDirection: 'column'
   },
-
-  // (1) Gradient / Glow Section
+  // 1) Top section
   topSection: {
     padding: '3rem',
     borderRadius: '12px',
     background: 'linear-gradient(135deg, #12181f 0%, #1e1e1e 100%)',
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)',
     margin: '2rem',
-    textAlign: 'center'
+    textAlign: 'center',
   },
-  topTitle: {
+  mainTitle: {
     fontSize: '2rem',
     color: '#FF5722',
-    marginBottom: '1rem'
+    marginBottom: '1.5rem'
   },
-  topSubtitle: {
+  desc: {
     fontSize: '1rem',
     color: '#c7d2da',
-    marginBottom: '2rem',
-    lineHeight: 1.7
+    lineHeight: 1.7,
+    marginBottom: '2rem'
   },
 
-  rowWrapper: {
+  // 上傳 + 按鈕 (直向)
+  uploadSection: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: '2rem',
-    justifyContent: 'center'
-  },
-  leftColumn: {
-    backgroundColor: '#161d27',
-    padding: '1.5rem',
-    borderRadius: '10px',
-    minWidth: '280px',
-    textAlign: 'center'
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '2rem'
   },
   uploadLabel: {
-    display: 'block',
+    display: 'inline-block',
     backgroundColor: '#1e1e1e',
     padding: '0.6rem 1rem',
     marginBottom: '1rem',
@@ -195,45 +192,39 @@ const styles = {
   uploadText: {
     color: '#ccc'
   },
-  trialButton: {
+  actionButton: {
     backgroundColor: '#FF5722',
     color: '#fff',
     border: 'none',
     padding: '0.7rem 1.4rem',
     borderRadius: '4px',
     fontWeight: '600',
-    cursor: 'pointer',
-    width: '100%'
+    cursor: 'pointer'
   },
 
-  rightColumn: {
-    backgroundColor: '#161d27',
-    padding: '1.5rem',
-    borderRadius: '10px',
-    minWidth: '280px',
-    textAlign: 'center'
-  },
-  protectTitle: {
+  // Secure Your IP Now 小標 + 說明
+  subHeading: {
     fontSize: '1.4rem',
     color: '#FF5722',
-    marginBottom: '1rem'
+    margin: '2rem 0 0.5rem'
   },
-  protectDesc: {
+  subDesc: {
     color: '#ccc',
     lineHeight: 1.6,
     marginBottom: '1rem'
   },
-  protectButton: {
+  viewPlansButton: {
     backgroundColor: '#ff6f00',
     color: '#fff',
-    padding: '0.7rem 1.4rem',
     border: 'none',
+    padding: '0.7rem 1.4rem',
     borderRadius: '4px',
+    fontWeight: '600',
     cursor: 'pointer',
-    fontWeight: '600'
+    marginTop: '0.5rem'
   },
 
-  // (2) Additional Marketing / Explanation
+  // 2) Marketing / Explanation
   marketingSection: {
     backgroundColor: '#0f131a',
     padding: '2rem',
@@ -252,7 +243,6 @@ const styles = {
     marginBottom: '1rem',
     lineHeight: 1.6
   },
-
   legalBlock: {
     marginTop: '1rem',
     textAlign: 'left',
@@ -277,7 +267,7 @@ const styles = {
     fontWeight: 600
   },
 
-  // (3) Footer
+  // 3) Footer
   footer: {
     textAlign: 'center',
     padding: '1rem',
