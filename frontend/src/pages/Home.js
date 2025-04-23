@@ -6,12 +6,11 @@ export default function Home() {
     <div style={styles.container}>
       {/* ===== Banner / Hero 區域 ===== */}
       <div style={styles.banner}>
-        {/* === 單行標語 + 說明 (合併) === */}
-        <h1 style={styles.shortTitle}>
-          BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM <span style={styles.uppercaseDesc}>ONE CLICK TO PROVE YOUR CREATIVE OWNERSHIP.</span>
-        </h1>
+        {/* === 1) 主標 + 副標各自一行 === */}
+        <h1 style={styles.shortTitle}>BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM</h1>
+        <p style={styles.subTitle}>ONE CLICK TO PROVE YOUR CREATIVE OWNERSHIP.</p>
         
-        {/* 既有段落介紹 */}
+        {/* 2) 既有段落介紹 */}
         <p style={styles.desc}>
           We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
           <br /><br />
@@ -29,7 +28,7 @@ export default function Home() {
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
-        {/* 主要行動按鈕：前往 Pricing */}
+        {/* 3) 主要行動按鈕：前往 Pricing */}
         <button
           onClick={() => window.location.href = '/pricing'}
           style={styles.enterBtn}
@@ -37,7 +36,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* 次要行動按鈕：前往 Protect Step1 */}
+        {/* 4) 次要行動按鈕：前往 Protect Step1 */}
         <button
           onClick={() => window.location.href = '/protect/step1'}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
@@ -45,7 +44,7 @@ export default function Home() {
           PROTECT NOW
         </button>
 
-        {/* 公司資訊（英文公司名） */}
+        {/* 5) 公司資訊（英文公司名） */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider} />
           <p style={styles.companyText}>
@@ -123,20 +122,19 @@ const styles = {
     textAlign: 'center',
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
-  // ★ 合併標語 + 副標為單行
+  // ★ 主標與副標分行顯示
   shortTitle: {
-    fontSize: '1.8rem',      // 可依需求縮小
+    fontSize: '2rem',
     fontWeight: 'bold',
     color: '#FF5722',
     textTransform: 'uppercase',
-    marginBottom: '1rem',
-    whiteSpace: 'nowrap'     // 強制單行
+    marginBottom: '0.5rem'
   },
-  uppercaseDesc: {
-    marginLeft: '1.2rem',    // 與前面文字間距
-    fontSize: '1rem',        // 或再小一些
+  subTitle: {
+    fontSize: '1.1rem',
     textTransform: 'uppercase',
-    color: '#ffd700',        // 可依喜好換色 (此為金色)
+    color: '#ffd700', // 金色，可自行調整
+    marginBottom: '1.5rem'
   },
 
   desc: {
