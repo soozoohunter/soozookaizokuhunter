@@ -1,5 +1,5 @@
 // frontend/src/pages/ProtectStep1.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -18,7 +18,7 @@ const FormContainer = styled.div`
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
   width: 100%;
-  max-width: 420px;
+  max-width: 450px;
   border: 2px solid #ff6f00;
 `;
 
@@ -31,6 +31,26 @@ const Title = styled.h2`
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
+`;
+
+const PreviewBox = styled.div`
+  margin: 1rem 0;
+  text-align: center;
+  border: 1px dashed #aaa;
+  padding: 1rem;
+  border-radius: 6px;
+`;
+
+const PreviewImg = styled.img`
+  max-width: 100%;
+  height: auto;
+  margin-top: 0.5rem;
+`;
+
+const FileName = styled.p`
+  font-size: 0.9rem;
+  color: #ccc;
+  margin-top: 0.5rem;
 `;
 
 const StyledLabel = styled.label`
@@ -81,51 +101,101 @@ const ErrorMsg = styled.p`
 
 export default function ProtectStep1() {
   const navigate = useNavigate();
-  const [file, setFile] = useState(null);
+  const [previewBase64, setPreviewBase64] = useState(null);
+  const [fileName, setFileName] = useState('');
   const [realName, setRealName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
 
-  // 1) File picker moved to top
-  const handleFileChange = e => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
+  // 載入 localStorage 裡的檔案 (base64 + 檔名)，用於顯示預覽
+  useEffect(() => {
+    const b64 = localStorage.getItem('uploadedFileBase64');
+    const fName = localStorage.getItem('uploadedFileName');
+    if (b64) setPreviewBase64(b64);
+    if (fName) setFileName(fName);
+  }, []);
 
-  const handleNext = e => {
+  const handleNext = async (e) => {
     e.preventDefault();
-    if (!file) {
-      setError('請上傳檔案');
+    // 檢查是否有檔案
+    if (!previewBase64) {
+      setError('No file was selected in Home page');
       return;
     }
     if (!realName || !phone || !address || !email) {
-      setError('真實姓名 / 電話 / 地址 / Email 為必填');
+      setError('Real Name / Phone / Address / Email are required');
       return;
     }
     setError('');
-    // TODO: call your /api/protect/step1 here if needed
-    navigate('/protect/step2');
+
+    // TODO: 呼叫 /api/protect/step1 (或您的路由) 上傳 (base64 to file)
+    try {
+      const formData = new FormData();
+      // 將 base64 轉成 blob
+      const byteString = atob(previewBase64.split(',')[1]);
+      const mimeString = previewBase64.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+
+      formData.append('file', blob, fileName);
+      formData.append('realName', realName);
+      formData.append('phone', phone);
+      formData.append('address', address);
+      formData.append('email', email);
+
+      // 範例 fetch:
+      const res = await fetch('/api/protect/step1', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.message || 'Upload failed');
+        return;
+      }
+
+      // 上傳成功 => 進到下一步
+      navigate('/protect/step2');
+    } catch (err) {
+      console.error(err);
+      setError('Server error, please try again later.');
+    }
   };
 
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>Step 1: Upload & Info</Title>
+        <Title>Step 1: Verify & Info</Title>
 
-        {/* ↑ file first */}
-        <StyledLabel>上傳作品檔案 (Upload your work):</StyledLabel>
-        <StyledInput type="file" onChange={handleFileChange} />
+        {/* 不再要使用者上傳，改顯示預覽 */}
+        <PreviewBox>
+          <strong>Uploaded File Preview:</strong>
+          {previewBase64 ? (
+            mimeTypeIsImage(fileName) ? (
+              <>
+                <PreviewImg src={previewBase64} alt="preview" />
+                <FileName>{fileName}</FileName>
+              </>
+            ) : (
+              <FileName>[Non-Image File] {fileName}</FileName>
+            )
+          ) : (
+            <p style={{ color:'#aaa' }}>No file found. Please go back and upload.</p>
+          )}
+        </PreviewBox>
 
         <Description>
-          【繁中】為了產出您的<strong>原創著作證明書</strong>、確立
-          <strong>著作權保護</strong>並能在必要時採取法律行動，我們必須請您填寫真實姓名、
-          聯絡方式與Email。<br/><br/>
-          <strong>【EN】</strong> To generate your <em>Originality Certificate</em> and establish
-          genuine copyright protection—
-          we need your real name, contact info, and email.
+          【繁中】您已於首頁上傳作品檔案，我們將為您產出
+          <strong> 原創著作證明</strong>、確立<strong> 著作權保護</strong>，並能在必要時採取法律行動。
+          <br/><br/>
+          <strong>EN</strong> Please fill in your real info below so we can generate
+          your <em>Originality Certificate</em> and ensure legitimate copyright protection.
         </Description>
 
         <StyledForm onSubmit={handleNext}>
@@ -147,7 +217,7 @@ export default function ProtectStep1() {
           <StyledInput
             value={address}
             onChange={e => setAddress(e.target.value)}
-            placeholder="e.g. 台北市大安區"
+            placeholder="e.g. 台北市大安區 / Taipei City"
           />
 
           <StyledLabel>Email:</StyledLabel>
@@ -164,4 +234,10 @@ export default function ProtectStep1() {
       </FormContainer>
     </PageWrapper>
   );
+}
+
+// 小函式：判斷檔名是否圖片
+function mimeTypeIsImage(fileName='') {
+  const lower = fileName.toLowerCase();
+  return (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.gif'));
 }
