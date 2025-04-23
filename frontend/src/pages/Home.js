@@ -1,5 +1,4 @@
- // frontend/src/pages/Home.js
-
+// frontend/src/pages/Home.js
 import React from 'react';
 
 export default function Home() {
@@ -26,23 +25,12 @@ export default function Home() {
           100% tamper-proof, globally recognized, and admissible in courts everywhere.
         </p>
 
+        {/* 保留：Get Protected Now 按鈕 */}
         <button
           onClick={() => window.location.href='/pricing'}
           style={styles.enterBtn}
         >
           Get Protected Now / 立即保護你的著作
-        </button>
-
-        {/* ★Hunter for Free 按鈕*/}
-        <button
-          onClick={() => window.location.href='/protect/step1'}
-          style={{
-            ...styles.enterBtn,
-            marginLeft: '1rem',
-            backgroundColor: '#FF5722'
-          }}
-        >
-          Hunter for Free / 免費試用
         </button>
 
         <div style={styles.companyInfo}>
@@ -57,7 +45,27 @@ export default function Home() {
         </div>
       </div>
 
-      {/* New content section with aggressive marketing */}
+      {/* ★ 新增的 Hunter for Free 區塊 (Namecheap風格) ★ */}
+      <div style={styles.hunterSection}>
+        <h2 style={styles.hunterTitle}>
+          Secure Your Intellectual Property: Instantly. Precisely. Effortlessly.
+        </h2>
+        <p style={styles.hunterDesc}>
+          捍衛你的智慧財產權，即刻且準確。結合區塊鏈與AI智慧技術，
+          24小時全方位偵測與追蹤侵權行為，為你的影音、圖像、文字與商標提供強力法律證據。<br/>
+          現在就免費體驗上傳，立即生成原創證明！
+        </p>
+        
+        {/* 圓角醒目按鈕 → 前往 /protect/step1 */}
+        <button
+          onClick={() => window.location.href='/protect/step1'}
+          style={styles.roundButton}
+        >
+          Hunter for Free / 免費試用
+        </button>
+      </div>
+
+      {/* 下方加強行銷區塊 */}
       <div style={styles.addonSection}>
         <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
@@ -152,6 +160,37 @@ const styles = {
     fontSize: '0.95rem',
     color: '#b0bec5',
     lineHeight: '1.7'
+  },
+  // ★ 新增：Hunter for Free 區塊
+  hunterSection: {
+    marginTop: '2rem',
+    padding: '2rem',
+    backgroundColor: '#161d27',
+    borderRadius: '10px',
+    textAlign: 'center',
+    boxShadow: '0 8px 20px rgba(0,0,0,0.6)'
+  },
+  hunterTitle: {
+    fontSize: '1.8rem',
+    color: '#FF5722',
+    marginBottom: '1rem',
+    fontWeight: '700'
+  },
+  hunterDesc: {
+    fontSize: '1.1rem',
+    color: '#eceff1',
+    marginBottom: '1.5rem'
+  },
+  roundButton: {
+    backgroundColor: '#e53935', // 可改成更亮或更深的紅橘色
+    color: '#fff',
+    padding: '0.8rem 2rem',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: '25px', // 顯示更圓
+    cursor: 'pointer',
+    transition: 'background-color 0.3s'
   },
   addonSection: {
     marginTop: '3rem',
