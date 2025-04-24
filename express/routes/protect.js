@@ -1,7 +1,7 @@
 /*************************************************************
  * express/routes/protect.js
  * - 於建立 User 時，username = phone
- * - PDF 產生時強化排版/內容(著作財產權存證 + 您的公司資訊)
+ * - PDF 產生時強化排版/內容 + 插入 Logo 圖片
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -96,7 +96,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // 刪除暫存檔
     fs.unlinkSync(req.file.path);
 
-    // 產生 PDF (含著作權存證 + 公司資訊 + 您提供的法令說明)
+    // 產生 PDF (含著作權存證 + 公司資訊 + 您提供的法令說明 + Logo)
     const pdfBuf = await generatePdf({
       realName, birthDate, phone, address, email,
       filename: req.file.originalname,
@@ -171,7 +171,8 @@ router.get('/scan/:fileId', async (req, res) => {
 });
 
 /**
- * 產生 PDF：美化 & 新增著作權法規、公司資訊
+ * 產生 PDF：示範插入 Logo、更多排版
+ * 只要您能在後端讀取到 logo0.jpg，即可替換下方路徑
  */
 async function generatePdf({
   realName, birthDate, phone, address, email,
@@ -180,7 +181,6 @@ async function generatePdf({
   return new Promise((resolve, reject) => {
     try {
       const PDFDocument = require('pdfkit');
-
       const doc = new PDFDocument({
         size: 'A4',
         margin: 50
@@ -189,7 +189,21 @@ async function generatePdf({
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // ★ 頁面上方標題
+      // ★ 插入 Logo (請確保路徑正確):
+      // 假設 Express 容器可讀取 '/app/frontend/public/logo0.jpg'
+      // 若無法，請改成您真正掛載後可讀取的實際路徑
+      try {
+        doc.image('/app/frontend/public/logo0.jpg', {
+          fit: [80, 80],
+          align: 'center',
+          valign: 'top'
+        });
+        doc.moveDown(1); // 空一行
+      } catch (err) {
+        console.warn('Logo image not found or load error:', err);
+      }
+
+      // 主標題
       doc
         .fontSize(20)
         .fillColor('#f97316')
@@ -213,7 +227,7 @@ async function generatePdf({
 
       doc.moveDown(1.5);
 
-      // ★ 分隔線
+      // 分隔線
       doc
         .moveTo(doc.x, doc.y)
         .lineTo(doc.page.width - 50, doc.y)
@@ -223,7 +237,7 @@ async function generatePdf({
 
       doc.moveDown();
 
-      // ★ 基本著作人 / 作品資訊
+      // 基本著作人 / 作品資訊
       doc.fontSize(12).fillColor('#111');
       doc.text(`【著作權人】(Holder): ${realName}`);
       doc.text(`出生日期 (Birth Date): ${birthDate}`);
@@ -232,13 +246,13 @@ async function generatePdf({
       doc.text(`Email: ${email}`);
       doc.moveDown(0.8);
 
-      doc.fillColor('#111').text(`作品檔案名稱 (Original File): ${filename}`);
+      doc.fillColor('#111').text(`作品檔案 (Original File): ${filename}`);
       doc.text(`Fingerprint (SHA-256): ${fingerprint}`);
       doc.text(`IPFS Hash: ${ipfsHash || '(None)'}`);
       doc.text(`TxHash (區塊鏈交易): ${txHash || '(None)'}`);
       doc.moveDown(1);
 
-      // ★ 分隔線
+      // 分隔線
       doc
         .moveTo(doc.x, doc.y)
         .lineTo(doc.page.width - 50, doc.y)
@@ -248,7 +262,7 @@ async function generatePdf({
 
       doc.moveDown(1);
 
-      // ★ 法規 / 申請書段落
+      // 法規 / 申請書段落
       doc.fontSize(10).fillColor('#333').text(`
 【員工利用公司資源所完成之職務著作】如雙方無特別約定，著作財產權歸公司所有，公司得行使該著作權。本證書所示之員工作品，即符合著作權法第11條之規範。
 `, { indent: 20, lineGap: 3 });
