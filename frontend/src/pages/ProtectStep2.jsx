@@ -24,6 +24,19 @@ const InfoBlock = styled.div`
   word-break: break-all;
 `;
 
+const NextButton = styled.button`
+  background-color: #f97316;
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  &:hover {
+    background-color: #ea580c;
+  }
+`;
+
 export default function ProtectStep2() {
   const [result, setResult] = useState(null);
   const navigate = useNavigate();
@@ -39,7 +52,11 @@ export default function ProtectStep2() {
   }, [navigate]);
 
   if (!result) {
-    return null; // 或顯示 Loading...
+    return (
+      <Container>
+        <p>Loading...</p>
+      </Container>
+    );
   }
 
   const {
@@ -82,20 +99,9 @@ export default function ProtectStep2() {
       )}
 
       <p style={{ marginTop: '2rem' }}>
-        <button
-          onClick={() => navigate('/protect/step3')}
-          style={{
-            backgroundColor: '#f97316',
-            color: '#fff',
-            border: 'none',
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
+        <NextButton onClick={() => navigate('/protect/step3')}>
           Next → Step 3
-        </button>
+        </NextButton>
       </p>
     </Container>
   );
