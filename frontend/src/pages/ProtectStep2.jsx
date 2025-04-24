@@ -48,7 +48,7 @@ export default function ProtectStep2() {
     const data = JSON.parse(stored);
     setResult(data);
 
-    // ★ 另外再存一份 protectStep2, 供 Step3 重整時使用
+    // ★ 再存一份 protectStep2
     localStorage.setItem('protectStep2', JSON.stringify(data));
   }, [navigate]);
 
@@ -60,13 +60,7 @@ export default function ProtectStep2() {
     );
   }
 
-  const {
-    fileId,
-    pdfUrl,
-    fingerprint,
-    ipfsHash,
-    txHash
-  } = result;
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = result;
 
   return (
     <Container>
