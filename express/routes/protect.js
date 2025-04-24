@@ -115,7 +115,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     });
   } catch (err) {
     console.error('[protect step1 error]', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -131,7 +131,7 @@ router.get('/certificates/:fileId', async (req, res) => {
     res.download(pdfPath, `KaiKaiShield_Certificate_${req.params.fileId}.pdf`);
   } catch (err) {
     console.error('[Download PDF error]', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -166,7 +166,7 @@ router.get('/scan/:fileId', async (req, res) => {
     });
   } catch (err) {
     console.error('[scan error]', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -189,7 +189,7 @@ async function generatePdf({
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // ★ 插入 Logo (請確保路徑正確):
+      // ★ 插入 Logo (請確保路徑正確)：
       // 假設 Express 容器可讀取 '/app/frontend/public/logo0.jpg'
       // 若無法，請改成您真正掛載後可讀取的實際路徑
       try {
@@ -199,8 +199,8 @@ async function generatePdf({
           valign: 'top'
         });
         doc.moveDown(1); // 空一行
-      } catch (err) {
-        console.warn('Logo image not found or load error:', err);
+      } catch (imgErr) {
+        console.warn('Logo image not found or load error:', imgErr);
       }
 
       // 主標題
