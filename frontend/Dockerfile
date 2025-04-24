@@ -4,14 +4,14 @@
 FROM node:16-alpine AS build
 WORKDIR /app
 
-# 複製 package.json + package-lock.json (若有)
+# 安裝依賴
 COPY package*.json ./
 RUN npm install
 
 # 複製整個前端專案 (src, public, etc.)
 COPY . .
 
-# 執行 React build
+# 打包 (build) React
 RUN npm run build
 
 ################################################
@@ -19,15 +19,13 @@ RUN npm run build
 ################################################
 FROM nginx:alpine
 
-# 移除預設配置
+# 刪除預設配置，以便我們手動掛載 suzoo.conf
 RUN rm /etc/nginx/conf.d/default.conf || true
 
-# 若您有自訂 suzoo.conf，就複製它
-# COPY suzoo.conf /etc/nginx/conf.d/default.conf
-
-# 複製 React 編譯後結果
+# 將第一階段編譯後的檔案搬到 /usr/share/nginx/html
 COPY --from=build /app/build /usr/share/nginx/html
 
+# Expose ports (容器內部)
 EXPOSE 80
 EXPOSE 443
 
