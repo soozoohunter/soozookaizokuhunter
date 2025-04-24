@@ -1,31 +1,27 @@
-// express/routes/protect.js
+/*************************************************************
+ * express/routes/protect.js
+ *************************************************************/
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-
-// PDFKit
 const PDFDocument = require('pdfkit');
 
-// Model
 const { User, File } = require('../models');
-
-// IPFS / chain / fingerprint service
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 
-// Multer 上傳暫存
 const upload = multer({ dest: 'uploads/' });
 
 /**
  * POST /api/protect/step1
- * - 檢查 phone/email => 若已存在 => 409
- * - 若無 => 建立 User => hashing password => plan=freeTrial
+ * - phone/email => 若已存在 => 409
+ * - 若無 => 建User => plan=freeTrial
  * - fingerprint => IPFS => chain => File DB
- * - 生成 PDF => 回傳 pdfUrl
+ * - 產生PDF => 回傳 pdfUrl
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -34,65 +30,51 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '缺少必填欄位或檔案' });
     }
 
-    // 1) 檢查是否已存在
+    // 檢查 phone/email
     const existUser = await User.findOne({
       where: {
-        [Op.or]: [{ username: phone }, { email }]
+        [Op.or]: [{ phone }, { email }]
       }
     });
     if (existUser) {
-      return res.status(409).json({ error: '您已是我們的聯盟一員，請直接登入' });
+      return res.status(409).json({ error: '您已是我們的會員，請直接登入' });
     }
 
-    // 2) 建立 newUser
-    const rawPass = phone + '@KaiShield'; 
-    const hashedPassword = await bcrypt.hash(rawPass, 10);
+    // 建 user
+    const rawPass = phone + '@KaiShield';
+    const hashed = await bcrypt.hash(rawPass, 10);
 
-    // serialNumber 可自動產生，如 'SN-' + Date.now() 或其他
     const newUser = await User.create({
       serialNumber: 'SN-' + Date.now(),
-      username: phone,
       email,
-      password: hashedPassword,
+      phone,
+      password: hashed,
       realName,
       birthDate,
-      phone,
       address,
       role: 'user',
-      plan: 'freeTrial',
-      uploadVideos: 0,
-      uploadImages: 0
+      plan: 'freeTrial'
     });
 
-    // 3) fingerprint => IPFS => chain
-    const filePath = req.file.path;
-    const buffer = fs.readFileSync(filePath);
-    const fingerprint = fingerprintService.sha256(buffer);
+    // fingerprint => IPFS => chain
+    const buf = fs.readFileSync(req.file.path);
+    const fingerprint = fingerprintService.sha256(buf);
 
     let ipfsHash = null;
     let txHash = null;
-
-    // IPFS
     try {
-      ipfsHash = await ipfsService.saveFile(buffer);
-    } catch (err) {
-      console.error('[IPFS error]', err.message);
+      ipfsHash = await ipfsService.saveFile(buf);
+    } catch (e) {
+      console.error('[IPFS error]', e);
     }
-
-    // blockchain
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
-      if (receipt && receipt.transactionHash) {
-        txHash = receipt.transactionHash;
-      } else {
-        // 如果 chain.storeRecord 只回傳 fake hash
-        txHash = receipt || null;
-      }
-    } catch (err) {
-      console.error('[Chain error]', err.message);
+      txHash = receipt?.transactionHash || null;
+    } catch (e) {
+      console.error('[Chain error]', e);
     }
 
-    // 建立 File
+    // File記錄
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -101,7 +83,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       tx_hash: txHash
     });
 
-    // 檔案類型
+    // 更新上傳次數
     if (req.file.mimetype.startsWith('video')) {
       newUser.uploadVideos++;
     } else {
@@ -109,44 +91,34 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
     await newUser.save();
 
-    // 刪除上傳暫存
-    fs.unlinkSync(filePath);
+    // 刪除暫存檔
+    fs.unlinkSync(req.file.path);
 
-    // 4) 生成 PDF
-    const pdfBuffer = await generateCopyrightPdf({
-      realName,
-      birthDate,
-      phone,
-      address,
-      email,
+    // 產生 PDF
+    const pdfBuf = await generatePdf({
+      realName, birthDate, phone, address, email,
       filename: req.file.originalname,
-      fingerprint,
-      ipfsHash,
-      txHash
+      fingerprint, ipfsHash, txHash
     });
-
-    const pdfFilename = `certificate_${newFile.id}.pdf`;
-    const pdfPath = `uploads/${pdfFilename}`;
-    fs.writeFileSync(pdfPath, pdfBuffer);
+    const pdfPath = `uploads/certificate_${newFile.id}.pdf`;
+    fs.writeFileSync(pdfPath, pdfBuf);
 
     return res.json({
       message: '上傳成功並建立會員＆PDF！',
       fileId: newFile.id,
+      pdfUrl: `/api/protect/certificates/${newFile.id}`,
       fingerprint,
       ipfsHash,
-      txHash,
-      pdfUrl: `/api/protect/certificates/${newFile.id}`
+      txHash
     });
-
   } catch (err) {
     console.error('[protect step1 error]', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 /**
  * GET /api/protect/certificates/:fileId
- * 下載 PDF
  */
 router.get('/certificates/:fileId', async (req, res) => {
   try {
@@ -163,39 +135,31 @@ router.get('/certificates/:fileId', async (req, res) => {
 
 /**
  * GET /api/protect/scan/:fileId
- * AI爬蟲 => RapidAPI / DMCA
+ * 範例: AI爬蟲
  */
 router.get('/scan/:fileId', async (req, res) => {
   try {
-    const fileId = req.params.fileId;
-    const file = await File.findByPk(fileId);
+    const file = await File.findByPk(req.params.fileId);
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
-    const fingerprint = file.fingerprint;
     const apiKey = process.env.RAPIDAPI_KEY;
-
     if (!apiKey) {
       return res.status(400).json({ error: 'RAPIDAPI_KEY not configured' });
     }
 
-    // 假設呼叫外部API
-    // const resp = await axios.get('https://some-rapidapi-endpoint',{
-    //   headers: { 'X-RapidAPI-Key': apiKey },
-    //   params: { hash: fingerprint }
-    // });
-    // const suspiciousLinks = resp.data.links || [];
-
-    // Mock Data
+    // 模擬
     const suspiciousLinks = [
-      'https://fb.com/someInfringerPost',
-      'https://y2u.be/infringingVid'
+      'https://fakeInfringing.example/abc',
+      'https://youtu.be/infringing_qwerty'
     ];
 
-    return res.json({
+    file.status = 'scanned';
+    file.infringingLinks = JSON.stringify(suspiciousLinks);
+    await file.save();
+
+    res.json({
       message: 'AI Scan done',
-      fileId,
-      fingerprint,
       suspiciousLinks
     });
   } catch (err) {
@@ -204,19 +168,19 @@ router.get('/scan/:fileId', async (req, res) => {
   }
 });
 
-// 生成 PDF 函式
-async function generateCopyrightPdf({
+// PDF 產生函式
+async function generatePdf({
   realName, birthDate, phone, address, email,
   filename, fingerprint, ipfsHash, txHash
 }) {
   return new Promise((resolve, reject) => {
     try {
+      const PDFDocument = require('pdfkit');
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const chunks = [];
-      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // 標題
       doc.fontSize(18).fillColor('#f97316')
         .text('KaiKaiShield / SUZOO IP Guard', { align: 'center' });
       doc.moveDown(0.5);
@@ -232,30 +196,26 @@ async function generateCopyrightPdf({
         .text(`Email: ${email}`)
         .moveDown();
 
-      // 區塊鏈資訊
-      doc.fontSize(12).fillColor('#444')
+      doc.fillColor('#444')
         .text(`Original File: ${filename}`)
         .text(`Fingerprint (SHA-256): ${fingerprint}`)
         .text(`IPFS Hash: ${ipfsHash || '(None)'}`)
-        .text(`Tx Hash: ${txHash || '(None)'}`)
+        .text(`TxHash: ${txHash || '(None)'}`)
         .moveDown();
 
-      // 著作權法依據
       doc.fontSize(10).fillColor('#333').text(`
-【繁中】自作品完成時即享有著作權，無需任何登記。 
-本證書記載創作人、完成時間、區塊鏈雜湊等資訊，可用於法律舉證。
-(著作權法第13條 等)
+【繁中】作品自完成即受著作權法保護，區塊鏈記錄可作為法律舉證之力。
       `.trim());
 
       doc.moveDown();
       doc.fontSize(10).fillColor('#111').text(`
-【EN】Under international copyright law, a work is protected upon completion.
-This certificate, issued via blockchain immutability, serves as legal evidence of authorship and creation time.
+【EN】Your work is protected upon creation. This blockchain-based certificate
+serves as an immutable proof of authorship. 
       `);
 
       doc.moveDown();
       doc.fontSize(10).fillColor('#666')
-        .text('© 2023 KaiKaiShield / SUZOO IP Guard. All Rights Reserved.', { align: 'center' });
+        .text('(c) 2023 KaiKaiShield / SUZOO IP Guard. All Rights Reserved.', { align: 'center' });
 
       doc.end();
     } catch (err) {
