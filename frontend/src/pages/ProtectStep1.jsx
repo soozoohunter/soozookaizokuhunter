@@ -65,6 +65,27 @@ const StyledInput = styled.input`
   border-radius: 4px;
 `;
 
+const FileName = styled.div`
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: #aaaaaa;
+  word-break: break-all;
+`;
+
+const ClearButton = styled.button`
+  margin-bottom: 1rem;
+  background-color: #444;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  &:hover {
+    background-color: #666;
+  }
+`;
+
 const SubmitButton = styled.button`
   padding: 0.75rem;
   font-size: 1rem;
@@ -100,6 +121,11 @@ export default function ProtectStep1() {
     }
   };
 
+  // 清除檔案
+  const handleClearFile = () => {
+    setFile(null);
+  };
+
   // 按下 Next => 將資料 POST 給 /api/protect/step1
   const handleNext = async (e) => {
     e.preventDefault();
@@ -107,7 +133,7 @@ export default function ProtectStep1() {
 
     // 簡易檢查
     if (!file) {
-      return setError('請上傳檔案 (Please upload a file).');
+      return setError('請先上傳檔案 (Please upload a file).');
     }
     if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       return setError('必填欄位不可空白。');
@@ -115,6 +141,7 @@ export default function ProtectStep1() {
 
     try {
       setLoading(true);
+
       // 組 formData
       const formData = new FormData();
       formData.append('file', file);
@@ -128,20 +155,24 @@ export default function ProtectStep1() {
         method: 'POST',
         body: formData
       });
-      if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(errData.error || `上傳失敗: HTTP ${resp.status}`);
-      }
-      const data = await resp.json(); 
-      console.log('step1 success =>', data);
 
-      // 將後端回傳資訊 (pdfUrl, fileId, fingerprint等) 暫存，讓 Step2 顯示
-      localStorage.setItem('protectStep1', JSON.stringify(data));
+      const respData = await resp.json(); // 無論 success or error 先 parse JSON
+
+      if (!resp.ok) {
+        // 後端回傳錯誤時 (e.g. 409 / 400 / 500)
+        throw new Error(respData.error || `上傳失敗: HTTP ${resp.status}`);
+      }
+
+      // 成功 => respData 內有 pdfUrl / fileId / fingerprint / ipfsHash / txHash ...
+      console.log('step1 success =>', respData);
+
+      // 將後端回傳資訊存入 localStorage，讓 Step2 顯示
+      localStorage.setItem('protectStep1', JSON.stringify(respData));
 
       // 前往 Step2
       navigate('/protect/step2');
     } catch (err) {
-      console.error(err);
+      console.error('step1 error =>', err);
       setError(err.message || '連線失敗，請稍後再試');
     } finally {
       setLoading(false);
@@ -155,22 +186,28 @@ export default function ProtectStep1() {
 
         <Description>
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品檔案並填寫下列資訊。
-          檔案將自動產生 Fingerprint (SHA-256) 並上傳 IPFS，寫入區塊鏈。
-          <br />
-          <span style={{ color: 'red' }}>
-            {error && `連線失敗，請稍後再試`}
-          </span>
+          檔案將自動產生 Fingerprint (SHA-256) 並上傳 IPFS、寫入區塊鏈。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleNext}>
-          <StyledLabel>上傳作品檔案:</StyledLabel>
-          <StyledInput
-            type="file"
-            accept="image/*,video/*,application/pdf"
-            onChange={handleFileChange}
-          />
+          <StyledLabel>上傳作品檔案 (Upload File):</StyledLabel>
+          {!file && (
+            <StyledInput
+              type="file"
+              accept="image/*,video/*,application/pdf"
+              onChange={handleFileChange}
+            />
+          )}
+          {file && (
+            <>
+              <FileName>已選擇檔案：{file.name}</FileName>
+              <ClearButton type="button" onClick={handleClearFile}>
+                移除檔案
+              </ClearButton>
+            </>
+          )}
 
           <StyledLabel>真實姓名 (Real Name):</StyledLabel>
           <StyledInput
