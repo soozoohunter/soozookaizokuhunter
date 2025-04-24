@@ -1,3 +1,4 @@
+// frontend/src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -24,7 +25,7 @@ const FormContainer = styled.div`
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #FFD700; /* 金色文字 */
+  color: #FFD700;
 `;
 
 const StyledForm = styled.form`
@@ -35,7 +36,7 @@ const StyledForm = styled.form`
 const StyledLabel = styled.label`
   margin: 0.5rem 0 0.25rem;
   font-size: 0.9rem;
-  color: #ffa500; /* 橘字 */
+  color: #ffa500;
 `;
 
 const StyledInput = styled.input`
@@ -60,7 +61,7 @@ const SubmitButton = styled.button`
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
-  background-color: #f97316; /* 橘色按鈕 */
+  background-color: #f97316;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -88,23 +89,23 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // 依前端規劃：若含 @ => 視為 email；否則 username
+    // 如果含 '@'，則視為 email，否則 username
     let payload;
     if (identifier.includes('@')) {
       payload = { email: identifier.trim().toLowerCase(), password };
     } else {
-      payload = { userName: identifier.trim(), password };
+      payload = { username: identifier.trim(), password };
     }
 
     try {
       const resp = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
 
@@ -115,7 +116,7 @@ export default function Login() {
         if (data.token) {
           localStorage.setItem('token', data.token);
         }
-        alert(data.message || '登入成功 (Login success)');
+        alert(data.message || '登入成功');
         navigate('/');
       }
     } catch (err) {
@@ -135,7 +136,7 @@ export default function Login() {
           <StyledInput
             placeholder="Enter email or username"
             value={identifier}
-            onChange={e => setIdentifier(e.target.value)}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
 
           <StyledLabel>密碼 / Password</StyledLabel>
@@ -143,10 +144,12 @@ export default function Login() {
             type="password"
             placeholder="Enter password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
           />
 
-          <SubmitButton type="submit">登入 / Login</SubmitButton>
+          <SubmitButton type="submit">
+            登入 / Login
+          </SubmitButton>
         </StyledForm>
 
         <SwitchPrompt>
