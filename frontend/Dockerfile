@@ -19,13 +19,13 @@ RUN npm run build
 ################################################
 FROM nginx:alpine
 
-# 刪除預設配置，以便我們手動掛載 suzoo.conf
+# 刪除預設配置，以便我們手動掛載 suzoo.conf（若您有自定配置）
 RUN rm /etc/nginx/conf.d/default.conf || true
 
 # 將第一階段編譯後的檔案搬到 /usr/share/nginx/html
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Expose ports (容器內部)
+# Expose ports
 EXPOSE 80
 EXPOSE 443
 
