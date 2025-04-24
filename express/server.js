@@ -25,19 +25,20 @@ app.get('/health', (req, res) => {
 });
 
 // 掛載各路由
-app.use('/api', paymentRoutes);       // e.g. /api/pricing, /api/purchase
-app.use('/api/protect', protectRouter);
-app.use('/admin', adminRouter);
-app.use('/auth', authRouter);
+app.use('/api', paymentRoutes);         // e.g. /api/pricing, /api/purchase
+app.use('/api/protect', protectRouter); // 保護流程
+app.use('/admin', adminRouter);         // 後台管理
+app.use('/auth', authRouter);           // 登入/註冊
 
 // DB 連線 & 同步
 (async () => {
   try {
+    // 測試連線
     await sequelize.authenticate();
     console.log('[Express] Sequelize connected.');
 
-    // ★★ 開發 or 簡易解法：使用 sync({ alter: true }) 直接更新表結構
-    //    (正式上線環境建議用 Migration，這裡為了快速修正欄位缺漏先用此法)
+    // ★★ 使用 sync({ alter: true }) 來直接更新表結構
+    //    (開發用；生產環境建議改用 Migration)
     await sequelize.sync({ alter: true });
     console.log('[Express] Sequelize synced (alter:true).');
 
