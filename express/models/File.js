@@ -28,7 +28,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // AI 偵測結果欄位 (狀態、侵權連結、JSON等)
     status: {
       type: DataTypes.STRING,
       defaultValue: 'pending'
