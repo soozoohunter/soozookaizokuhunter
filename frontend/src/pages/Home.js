@@ -1,7 +1,10 @@
 // frontend/src/pages/Home.js
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Home() {
+  const navigate = useNavigate();
+
   return (
     <div style={styles.container}>
       {/* ===== Banner / Hero 區域 ===== */}
@@ -28,7 +31,7 @@ export default function Home() {
 
         {/* 主要行動按鈕：Pricing */}
         <button
-          onClick={() => window.location.href = '/pricing'}
+          onClick={() => navigate('/pricing')}
           style={styles.enterBtn}
         >
           Get Protected Now / 立即保護你的著作
@@ -36,7 +39,7 @@ export default function Home() {
 
         {/* 次要行動按鈕：Protect Step1 */}
         <button
-          onClick={() => window.location.href = '/protect/step1'}
+          onClick={() => navigate('/protect/step1')}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
         >
           PROTECT NOW
