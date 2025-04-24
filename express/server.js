@@ -1,5 +1,5 @@
 /*************************************************************
- * express/server.js (最終版) - 改用 paymentRoutes.js
+ * express/server.js (最終版, 使用 alter:true 直接同步)
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
@@ -7,8 +7,8 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const createAdmin = require('./createDefaultAdmin');
 
-// ★ 改成正確路徑名稱 'paymentRoutes'
-const paymentRoutes = require('./routes/paymentRoutes'); 
+// ★ 改用 'paymentRoutes' (正確路徑)
+const paymentRoutes = require('./routes/paymentRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
 const authRouter = require('./routes/authRoutes');
@@ -25,7 +25,7 @@ app.get('/health', (req, res) => {
 });
 
 // 掛載各路由
-app.use('/api', paymentRoutes);       // e.g. /api/pricing, /api/purchase...
+app.use('/api', paymentRoutes);       // e.g. /api/pricing, /api/purchase
 app.use('/api/protect', protectRouter);
 app.use('/admin', adminRouter);
 app.use('/auth', authRouter);
@@ -36,9 +36,11 @@ app.use('/auth', authRouter);
     await sequelize.authenticate();
     console.log('[Express] Sequelize connected.');
 
-    // 開發測試時可使用 sync({ alter: true })，自動更新欄位；正式環境建議移除或使用 migration
+    // ★★ 開發 or 簡易解法：使用 sync({ alter: true }) 直接更新表結構
+    //    (正式上線環境建議用 Migration，這裡為了快速修正欄位缺漏先用此法)
     await sequelize.sync({ alter: true });
-    console.log('[Express] Sequelize synced.');
+    console.log('[Express] Sequelize synced (alter:true).');
+
   } catch (err) {
     console.error('[Express] Sequelize connect error:', err);
   }
