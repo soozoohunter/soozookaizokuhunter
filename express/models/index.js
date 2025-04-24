@@ -1,40 +1,35 @@
 'use strict';
+require('dotenv').config();
+const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
-const { Sequelize, DataTypes } = require('sequelize');
+const Sequelize = require('sequelize');
 
-// 連線字串
-const DB_URL = process.env.DATABASE_URL ||
-  `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
+// 讀取 DB 連線設定 (Postgres)
+const dbHost = process.env.DB_HOST || 'suzoo_postgres';
+const dbPort = process.env.DB_PORT || '5432';
+const dbName = process.env.DB_NAME || 'mydatabase';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPass = process.env.DB_PASS || 'postgres';
 
-const sequelize = new Sequelize(DB_URL, {
+const sequelize = new Sequelize(dbName, dbUser, dbPass, {
+  host: dbHost,
+  port: dbPort,
   dialect: 'postgres',
   logging: false
 });
 
-// 載入 Model
-const User = require('./User')(sequelize, DataTypes);
-const File = require('./File')(sequelize, DataTypes);
-const Payment = require('./Payment')(sequelize, DataTypes);
-const Infringement = require('./Infringement')(sequelize, DataTypes);
-// ... 若有更多 model，一併 require
+const db = {};
+db.sequelize = sequelize;
 
-// 這裡可做關聯 (association)
-User.hasMany(File, { foreignKey: 'user_id' });
-File.belongsTo(User, { foreignKey: 'user_id' });
+// Import Models
+const UserModel = require('./User')(sequelize, Sequelize.DataTypes);
+const FileModel = require('./File')(sequelize, Sequelize.DataTypes);
 
-User.hasMany(Payment, { foreignKey: 'userId' });
-Payment.belongsTo(User, { foreignKey: 'userId' });
+db.User = UserModel;
+db.File = FileModel;
 
-User.hasMany(Infringement, { foreignKey: 'userId' });
-Infringement.belongsTo(User, { foreignKey: 'userId' });
+// 關聯
+db.User.hasMany(db.File, { foreignKey: 'user_id' });
+db.File.belongsTo(db.User, { foreignKey: 'user_id' });
 
-// 匯出
-module.exports = {
-  sequelize,
-  User,
-  File,
-  Payment,
-  Infringement
-  // ... 也可 export 其他
-};
+module.exports = db;
