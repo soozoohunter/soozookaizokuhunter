@@ -1,5 +1,5 @@
 // frontend/src/pages/ProtectStep4Infringement.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -46,8 +46,18 @@ const Button = styled.button`
 export default function ProtectStep4Infringement() {
   const navigate = useNavigate();
   const { state } = useLocation();
+  const [info, setInfo] = useState(null);
 
-  if (!state || !state.fileId) {
+  useEffect(() => {
+    if (!state || !state.fileId) {
+      // 簡化：若無 data => 回 Step1
+      navigate('/protect/step1');
+    } else {
+      setInfo(state);
+    }
+  }, [state, navigate]);
+
+  if (!info) {
     return (
       <Container>
         <ContentBox>
@@ -59,7 +69,7 @@ export default function ProtectStep4Infringement() {
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks } = state;
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks } = info;
 
   const handleDownloadPdf = () => {
     if (!pdfUrl) {
@@ -75,14 +85,13 @@ export default function ProtectStep4Infringement() {
       <ContentBox>
         <Title>Step 4: Final Proof & Infringement Links</Title>
         <InfoText>
-          恭喜！您的作品已完成區塊鏈上鏈與 AI 掃描。<br />
-          以下為您的最終資訊：
+          您的作品已完成區塊鏈上鏈與 AI 掃描，以下為最終資訊：
         </InfoText>
 
         <InfoText>
           FileID: <Highlight>{fileId}</Highlight><br />
-          Fingerprint: <Highlight>{fingerprint}</Highlight> <br />
-          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight> <br />
+          Fingerprint: <Highlight>{fingerprint}</Highlight><br />
+          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight><br />
           Tx Hash: <Highlight>{txHash || '(None)'}</Highlight><br />
         </InfoText>
 
