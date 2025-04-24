@@ -1,7 +1,6 @@
 /**************************************************************
  * frontend/src/App.js
- * 增強: Home, Pricing, Contact, Protect (step1~4), Admin, Payment...
- * 已改寫 Banner Slogan，著重 "Copyright / Infringement" 關鍵字
+ * 維持您既有 Navbar/Banner/UI；追加 Protect Step1~4 完整路由
  **************************************************************/
 import React from 'react';
 import {
@@ -14,27 +13,27 @@ import {
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
-// 頁面
+// 1) 一般頁面
 import HomePage from './pages/Home';
-import PricingPage from './pages/PricingPage';   // 若您有
-import ContactPage from './pages/Contact';       // 若您有
+import PricingPage from './pages/PricingPage';
+import ContactPage from './pages/Contact';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
-// Protect
+// 2) Protect (4-steps)
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
-import ProtectStep4 from './pages/ProtectStep4Infringement';
+import ProtectStep4Infringement from './pages/ProtectStep4Infringement'; // ←注意import名稱
 
-// Admin
+// 3) Admin
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
 function RootLayout() {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || '';
   let userRole = '';
   if (token) {
     try {
@@ -114,15 +113,14 @@ function RootLayout() {
           </h1>
           <p style={styles.bannerDesc}>
             One-Click Originality. End Infringements Forever. 
-            <br />
-            <br />
+            <br /><br />
             區塊鏈 + AI Copyright Shield，從此不再擔心抄襲與侵權。
             讓您的創作擁有<strong>無可撼動</strong>的法律證據！
           </p>
         </section>
       )}
 
-      {/* ====== 主內容 ====== */}
+      {/* ====== 主內容 (Outlet) ====== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
@@ -133,7 +131,8 @@ function RootLayout() {
           為紀念我最深愛的 曾李素珠 阿嬤
           <br />
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            In loving memory of my beloved grandmother, Tseng Li Su-Chu. <br />
+            In loving memory of my beloved grandmother, Tseng Li Su-Chu.
+            <br />
             by KaiKaiShield 凱盾
           </span>
         </div>
@@ -142,27 +141,31 @@ function RootLayout() {
   );
 }
 
+// ====== App ======
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Layout 包含 Navbar/Banner/Footer */}
+        {/* 1) 包含 Navbar / Footer 的 Layout */}
         <Route element={<RootLayout />}>
+          {/* 首頁 (index) */}
           <Route index element={<HomePage />} />
+
+          {/* 一般頁面 */}
           <Route path="pricing" element={<PricingPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
 
-          {/* Protect 流程 */}
+          {/* Protect 流程: Step1~4 */}
           <Route path="protect">
             <Route path="step1" element={<ProtectStep1 />} />
             <Route path="step2" element={<ProtectStep2 />} />
             <Route path="step3" element={<ProtectStep3 />} />
-            <Route path="step4-infringement" element={<ProtectStep4 />} />
+            <Route path="step4-infringement" element={<ProtectStep4Infringement />} />
           </Route>
 
-          {/* Payment */}
+          {/* 付款 */}
           <Route path="payment" element={<Payment />} />
           <Route path="payment/success" element={<PaymentSuccess />} />
         </Route>
