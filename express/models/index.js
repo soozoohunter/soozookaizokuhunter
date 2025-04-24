@@ -1,35 +1,33 @@
 'use strict';
-require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
-const Sequelize = require('sequelize');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+const { Sequelize, DataTypes } = require('sequelize');
 
-// 讀取 DB 連線設定 (Postgres)
-const dbHost = process.env.DB_HOST || 'suzoo_postgres';
-const dbPort = process.env.DB_PORT || '5432';
-const dbName = process.env.DB_NAME || 'mydatabase';
-const dbUser = process.env.DB_USER || 'postgres';
-const dbPass = process.env.DB_PASS || 'postgres';
+// 連線字串
+const DB_URL = process.env.DATABASE_URL
+  || `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT}/${process.env.POSTGRES_DB}`;
 
-const sequelize = new Sequelize(dbName, dbUser, dbPass, {
-  host: dbHost,
-  port: dbPort,
+// 建立 sequelize 連線
+const sequelize = new Sequelize(DB_URL, {
   dialect: 'postgres',
   logging: false
 });
 
-const db = {};
-db.sequelize = sequelize;
-
-// Import Models
-const UserModel = require('./User')(sequelize, Sequelize.DataTypes);
-const FileModel = require('./File')(sequelize, Sequelize.DataTypes);
-
-db.User = UserModel;
-db.File = FileModel;
+// 載入 Model
+const User = require('./User')(sequelize, DataTypes);
+const File = require('./File')(sequelize, DataTypes);
+// 若有 Payment, Infringement... 也可在此引入
 
 // 關聯
-db.User.hasMany(db.File, { foreignKey: 'user_id' });
-db.File.belongsTo(db.User, { foreignKey: 'user_id' });
+User.hasMany(File, { foreignKey: 'user_id' });
+File.belongsTo(User, { foreignKey: 'user_id' });
 
-module.exports = db;
+// 若有 Payment, Infringement... 在此做關聯
+// ...
+
+module.exports = {
+  sequelize,
+  User,
+  File
+  // Payment, ...
+};
