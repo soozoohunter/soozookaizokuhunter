@@ -2,7 +2,7 @@
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    // PK
+    // 自動ID
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -13,14 +13,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
-    // Email
+    // email必填且唯一
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
-    // 手機號碼當作唯一帳號
-    phone: {
+    // ★ username 當手機號碼
+    username: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // 角色 (admin / user)
+    // 角色
     role: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -54,10 +54,11 @@ module.exports = (sequelize, DataTypes) => {
     // 其他欄位
     realName: { type: DataTypes.STRING, allowNull: true },
     birthDate: { type: DataTypes.DATEONLY, allowNull: true },
+    phone: { type: DataTypes.STRING, allowNull: true }, 
     address: { type: DataTypes.STRING, allowNull: true },
     plan: { type: DataTypes.STRING, allowNull: false, defaultValue: 'freeTrial' },
     uploadVideos: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    uploadImages: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
+    uploadImages: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
 
   }, {
     tableName: 'users',
