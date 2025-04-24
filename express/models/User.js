@@ -1,6 +1,7 @@
 /************************************************************
  * models/User.js
- * - username / serialNumber 改可為 null
+ * - 調整：username、serialNumber 可為 null
+ * - 保留 phone、birthDate、realName... 以便在 protect.js 建立用戶時帶入
  ************************************************************/
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
@@ -9,29 +10,24 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       autoIncrement: true
     },
-    // username 可允許為 null，若您堅持必填可改 false
     username: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true,   // 可為 null
       unique: false
     },
-    // serialNumber 改可為 null
     serialNumber: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true    // 可為 null
     },
-    // email 必填且唯一
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true
     },
-    // 密碼
     password: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // 角色
     role: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -43,8 +39,6 @@ module.exports = (sequelize, DataTypes) => {
     FB: { type: DataTypes.STRING, allowNull: true },
     YouTube: { type: DataTypes.STRING, allowNull: true },
     TikTok: { type: DataTypes.STRING, allowNull: true },
-
-    // 電商平台 (若您保留)
     Shopee: { type: DataTypes.STRING, allowNull: true },
     Ruten: { type: DataTypes.STRING, allowNull: true },
     Yahoo: { type: DataTypes.STRING, allowNull: true },
@@ -57,9 +51,21 @@ module.exports = (sequelize, DataTypes) => {
     birthDate: { type: DataTypes.STRING, allowNull: true },
     phone: { type: DataTypes.STRING, allowNull: true },
     address: { type: DataTypes.STRING, allowNull: true },
-    plan: { type: DataTypes.STRING, allowNull: false, defaultValue: 'freeTrial' },
-    uploadVideos: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
-    uploadImages: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
+    plan: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'freeTrial'
+    },
+    uploadVideos: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    uploadImages: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    }
   }, {
     tableName: 'users',
     timestamps: true
