@@ -1,5 +1,12 @@
 /********************************************************************
- * express/controllers/paymentController.js
+ * express/controllers/paymentController.js (保留您原本邏輯)
+ * 
+ * 假設有 5 隻主要 function：
+ *   1) getPricing
+ *   2) purchasePlan
+ *   3) getInfo
+ *   4) notify
+ *   5) submitPayment
  ********************************************************************/
 const { User } = require('../models');
 
@@ -14,7 +21,7 @@ const paymentController = {
     return res.json(plans);
   },
 
-  // 2) POST purchase
+  // 2) POST purchase (購買/升級)
   purchasePlan: async (req, res) => {
     try {
       const { userId, plan } = req.body;
@@ -24,7 +31,7 @@ const paymentController = {
       }
       user.plan = plan;
       await user.save();
-      return res.json({ message: `方案已升級為: ${plan}` });
+      return res.json({ message: `已將方案升級為：${plan}` });
     } catch (err) {
       console.error('[purchasePlan error]', err);
       return res.status(500).json({ error: err.message });
@@ -44,14 +51,14 @@ const paymentController = {
     return res.json(info);
   },
 
-  // 4) POST notify
+  // 4) POST notify (用戶通知已匯款)
   notify: async (req, res) => {
     try {
-      const userId = req.user.userId;
+      const userId = req.user.userId; // 從 authMiddleware 取得 user
       const { paymentRef, contact } = req.body;
-      // 您可選擇要更新 user.phone 或 user.address:
-      await User.update({ phone: contact }, { where: { id: userId } });
-      return res.json({ message: '付款資訊已提交(Phone已更新)' });
+      // 隨便改某欄位來紀錄
+      await User.update({ address: contact }, { where: { id: userId } });
+      return res.json({ message: '付款資訊已提交(地址已更新)' });
     } catch (err) {
       console.error('[notify error]', err);
       return res.status(500).json({ error: '付款通知失敗' });
@@ -63,8 +70,8 @@ const paymentController = {
     try {
       const userId = req.user.userId;
       const { lastFive, amount, planWanted } = req.body;
-      console.log(`[submitPayment] user ${userId}, last5=${lastFive}, amount=${amount}, plan=${planWanted}`);
-      // 您可把匯款資料寫入 DB ...
+      console.log(`[submitPayment] userId=${userId}, last5=${lastFive}, amount=${amount}, plan=${planWanted}`);
+      // 可將紀錄寫入 Payment Table
       return res.json({ message: '已收到匯款資訊，等待管理員確認' });
     } catch (err) {
       console.error('[submitPayment error]', err);
