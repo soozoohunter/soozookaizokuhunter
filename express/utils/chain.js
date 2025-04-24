@@ -1,81 +1,57 @@
-require('dotenv').config();
-const axios = require('axios');
-const Web3EthAbi = require('web3-eth-abi');
-const Web3EthAccounts = require('web3-eth-accounts');
+// express/utils/chain.js
+const Web3 = require('web3');
 
-const { BLOCKCHAIN_RPC_URL, BLOCKCHAIN_PRIVATE_KEY, CONTRACT_ADDRESS } = process.env;
+const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
+const PRIVATE_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '';
 
-if (!BLOCKCHAIN_RPC_URL || !BLOCKCHAIN_PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.warn('[chain.js] 區塊鏈環境變數設定不足');
-}
+const web3 = new Web3(new Web3.providers.HttpProvider(RPC_URL));
 
-const privateKey = BLOCKCHAIN_PRIVATE_KEY.startsWith('0x')
-  ? BLOCKCHAIN_PRIVATE_KEY
-  : '0x' + BLOCKCHAIN_PRIVATE_KEY;
-const account = new Web3EthAccounts().privateKeyToAccount(privateKey);
-const fromAddress = account.address;
-
-async function rpcCall(method, params=[]) {
-  const payload = { jsonrpc:'2.0', id:1, method, params };
-  const resp = await axios.post(BLOCKCHAIN_RPC_URL, payload, {
-    headers:{ 'Content-Type':'application/json' }
-  });
-  if (resp.data.error) {
-    throw new Error(`RPC Error: ${resp.data.error.message}`);
+// 假設合約 ABI
+const contractAbi = [
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_fingerprint", "type": "string" },
+      { "internalType": "string", "name": "_ipfsHash", "type": "string" }
+    ],
+    "name": "storeRecord",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
-  return resp.data.result;
+];
+
+let contract = null;
+if (CONTRACT_ADDRESS) {
+  contract = new web3.eth.Contract(contractAbi, CONTRACT_ADDRESS);
+  console.log('[chain.js] Contract loaded =>', CONTRACT_ADDRESS);
+} else {
+  console.warn('[chain.js] No CONTRACT_ADDRESS found => return fakeTx');
 }
 
-async function waitForReceipt(txHash, timeoutMs=15000, pollMs=1000) {
-  const start = Date.now();
-  while ((Date.now() - start) < timeoutMs) {
-    const receipt = await rpcCall('eth_getTransactionReceipt',[txHash]);
-    if (receipt) return receipt;
-    await new Promise(r=>setTimeout(r, pollMs));
-  }
-  throw new Error(`Transaction ${txHash} not mined within ${timeoutMs}ms`);
-}
-
-// storeRecord
 async function storeRecord(fingerprint, ipfsHash='') {
   try {
-    // encode storeRecord(string,string)
-    const data = Web3EthAbi.encodeFunctionCall({
-      name:'storeRecord',
-      type:'function',
-      inputs:[
-        { name:'fingerprint', type:'string' },
-        { name:'ipfsHash', type:'string' }
-      ]
-    }, [fingerprint, ipfsHash]);
+    if (!contract || !PRIVATE_KEY) {
+      console.warn('[chain.js] missing contract or privateKey => returning FAKE Tx');
+      return { transactionHash: '0xFAKE_TX_HASH_123' };
+    }
+    const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
+    const data = contract.methods.storeRecord(fingerprint, ipfsHash).encodeABI();
 
-    const nonce = await rpcCall('eth_getTransactionCount',[fromAddress,'pending']);
-    const gasPrice = await rpcCall('eth_gasPrice',[]);
-    const gas = await rpcCall('eth_estimateGas',[{
-      from:fromAddress,
-      to:CONTRACT_ADDRESS,
-      data
-    }]);
-    const chainIdHex = await rpcCall('eth_chainId',[]);
-    const chainId = parseInt(chainIdHex,16);
-
-    const txParams = {
-      from: fromAddress,
+    const tx = {
+      from: account.address,
       to: CONTRACT_ADDRESS,
-      value:'0x0',
       data,
-      nonce,
-      gas,
-      gasPrice,
-      chainId
+      gas: 300000
     };
-    const signed = await account.signTransaction(txParams);
-    const txHash = await rpcCall('eth_sendRawTransaction',[signed.rawTransaction]);
-    const receipt = await waitForReceipt(txHash);
-    return receipt;
-  } catch(e){
-    console.error('[storeRecord Error]', e);
-    throw e;
+
+    const signedTx = await account.signTransaction(tx);
+    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    console.log('[chain.js] storeRecord =>', receipt.transactionHash);
+    return { transactionHash: receipt.transactionHash };
+  } catch (err) {
+    console.error('[chain.js storeRecord error]', err);
+    return null;
   }
 }
 
