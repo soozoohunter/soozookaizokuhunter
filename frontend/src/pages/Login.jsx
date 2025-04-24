@@ -9,17 +9,16 @@ const PageWrapper = styled.div`
   align-items: center;
   justify-content: center;
   background-color: #121212;
-  color: #ffffff;
 `;
 
 const FormContainer = styled.div`
   background-color: #1e1e1e;
   padding: 2rem 2.5rem;
   border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 400px;
-  border: 2px solid #ff6f00; /* 橘色外框 */
+  border: 2px solid #ff6f00;
+  color: #ffffff;
 `;
 
 const Title = styled.h2`
@@ -43,8 +42,8 @@ const StyledInput = styled.input`
   padding: 0.5rem 0.75rem;
   margin-bottom: 1rem;
   font-size: 1rem;
-  color: #ffffff;
   background-color: #2c2c2c;
+  color: #fff;
   border: 1px solid #444;
   border-radius: 4px;
 `;
@@ -58,15 +57,12 @@ const ErrorMsg = styled.p`
 
 const SubmitButton = styled.button`
   padding: 0.75rem;
-  font-size: 1rem;
-  font-weight: bold;
-  color: #ffffff;
   background-color: #f97316;
+  color: #fff;
+  font-weight: bold;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  margin-top: 0.5rem;
-
   &:hover {
     background-color: #ea580c;
   }
@@ -85,7 +81,7 @@ const SwitchPrompt = styled.p`
 
 export default function Login() {
   const navigate = useNavigate();
-  const [identifier, setIdentifier] = useState(''); // email or username
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -93,35 +89,32 @@ export default function Login() {
     e.preventDefault();
     setErrorMsg('');
 
-    // 如果含 '@'，則視為 email，否則 username
-    let payload;
-    if (identifier.includes('@')) {
-      payload = { email: identifier.trim().toLowerCase(), password };
-    } else {
-      payload = { username: identifier.trim(), password };
-    }
-
     try {
+      // 若含 '@' -> email; 否則 phone= username
+      const payload = identifier.includes('@')
+        ? { email: identifier.trim().toLowerCase(), password }
+        : { username: identifier.trim(), password };
+
       const resp = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
       const data = await resp.json();
 
       if (!resp.ok) {
-        setErrorMsg(data.message || '登入失敗 (Login failed)');
-      } else {
-        // 成功 => 儲存 token，導向首頁
-        if (data.token) {
-          localStorage.setItem('token', data.token);
-        }
-        alert(data.message || '登入成功');
-        navigate('/');
+        setErrorMsg(data.message || '登入失敗');
+        return;
       }
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      alert(data.message || '登入成功');
+      navigate('/');
     } catch (err) {
       console.error(err);
-      setErrorMsg('無法連接伺服器 (Cannot connect to server)');
+      setErrorMsg('伺服器錯誤');
     }
   };
 
@@ -132,9 +125,9 @@ export default function Login() {
         {errorMsg && <ErrorMsg>{errorMsg}</ErrorMsg>}
 
         <StyledForm onSubmit={handleSubmit}>
-          <StyledLabel>帳號 (Email 或 Username)</StyledLabel>
+          <StyledLabel>帳號 (手機號碼 or Email)</StyledLabel>
           <StyledInput
-            placeholder="Enter email or username"
+            placeholder="09xx-xxx-xxx or you@example.com"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
           />
@@ -142,18 +135,16 @@ export default function Login() {
           <StyledLabel>密碼 / Password</StyledLabel>
           <StyledInput
             type="password"
-            placeholder="Enter password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <SubmitButton type="submit">
-            登入 / Login
-          </SubmitButton>
+          <SubmitButton type="submit">登入 / Login</SubmitButton>
         </StyledForm>
 
         <SwitchPrompt>
-          尚未註冊？ <Link to="/register">註冊帳號</Link>
+          尚未註冊？ <Link to="/register">前往註冊</Link>
         </SwitchPrompt>
       </FormContainer>
     </PageWrapper>
