@@ -7,28 +7,26 @@ export default function Home() {
       {/* ===== Banner / Hero 區域 ===== */}
       <div style={styles.banner}>
         {/* === 1) 主標 + 副標各自一行 === */}
-        <h1 style={styles.shortTitle}>BLOCKCHAIN-CERTIFIED COPYRIGHT PLATFORM</h1>
-        <p style={styles.subTitle}>ONE CLICK TO PROVE YOUR CREATIVE OWNERSHIP.</p>
+        <h1 style={styles.shortTitle}>BLOCKCHAIN + AI = FLAWLESS COPYRIGHT PROTECTION</h1>
+        <p style={styles.subTitle}>ONE CLICK TO PROVE YOUR ORIGINALITY.</p>
         
-        {/* 2) 既有段落介紹 */}
+        {/* 2) 介紹段落 */}
         <p style={styles.desc}>
-          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to safeguarding creators worldwide.
+          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to solving the world's toughest copyright disputes. 
           <br /><br />
-          Are you still risking losing your intellectual property due to inadequate proof of originality?
-          Under international copyright law, failing to prove originality means losing your rights entirely—
-          regardless of your creativity.
+          Under modern copyright law, <strong>Originality</strong> is the key.
+          Failing to prove your creation time and independence often means losing everything in court—
+          even if you truly created it first.
           <br /><br />
-          <strong>ONLY WE</strong> offer a solution powerful enough to end this nightmare instantly:
-          <strong> Blockchain Digital Fingerprint</strong> combined with 
-          <strong> AI Infringement Detection</strong> and rapid global legal actions.
+          <strong>ONLY WE</strong> combine unstoppable <strong>Blockchain Fingerprinting</strong>
+          with advanced <strong>AI Infringement Detection</strong> and global legal solutions.
           <br /><br />
-          <strong>Proving originality is notoriously challenging — but not anymore.</strong>
-          We simplify complex copyright evidence into a single click. 
-          Connect your accounts, and the blockchain instantly becomes your undeniable proof of originality—
-          100% tamper-proof, globally recognized, and admissible in courts everywhere.
+          <strong>No more guesswork, no more hidden copying:</strong>
+          once you're on our chain, your authorship is unassailable,
+          recognized by courts worldwide, and protected from any unauthorized use.
         </p>
 
-        {/* 3) 主要行動按鈕：前往 Pricing */}
+        {/* 主要行動按鈕：Pricing */}
         <button
           onClick={() => window.location.href = '/pricing'}
           style={styles.enterBtn}
@@ -36,7 +34,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
-        {/* 4) 次要行動按鈕：前往 Protect Step1 */}
+        {/* 次要行動按鈕：Protect Step1 */}
         <button
           onClick={() => window.location.href = '/protect/step1'}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
@@ -44,7 +42,7 @@ export default function Home() {
           PROTECT NOW
         </button>
 
-        {/* 5) 公司資訊（英文公司名） */}
+        {/* 公司資訊 */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider} />
           <p style={styles.companyText}>
@@ -57,48 +55,47 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ===== 其他行銷文案 / Supplement 區域 ===== */}
+      {/* ===== 行銷文案 / Supplement 區域 ===== */}
       <div style={styles.addonSection}>
         <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
-          Every second counts—someone might be stealing your ideas right now!
+          Every second counts—someone might be stealing your ideas right now! <br />
+          Protect your Copyright &amp; Infringement claims with unstoppable evidence.
         </p>
 
         <details style={styles.legalBlock}>
           <summary style={{ cursor: 'pointer', color: '#FF5722', marginBottom: '1rem' }}>
-            Understand Why "Proof of Originality" is Critical (點此展開)
+            Understand Why "Originality" Matters (點此展開)
           </summary>
           <div style={{ marginTop: '1rem', lineHeight: '1.6', fontSize: '0.95rem' }}>
             <p>
-              【繁中】根據台灣與國際著作權法，<strong>著作權保護</strong>與
-              <strong>著作權原創證明</strong>至關重要，特別是在無強制登記制度下，創作者必須自行舉證
-              著作權之原創性與完成時間。無法有效舉證，則在法律訴訟中幾乎必敗。
+              【繁中】根據台灣與國際著作權法，「原創性」是判斷是否享有著作權保護的關鍵。
+              只要是 <strong>獨立完成</strong> 的創作，即使與他人作品雷同，也可能受保護；
+              但若不能證明獨立完成，將面臨抄襲、侵權的風險。
             </p>
             <p>
-              我們的平台提供全球獨一無二的解決方案，以區塊鏈技術創建永久不可篡改之證據，
-              結合強力AI偵測侵權。只需點擊幾下，即可完成原創認證與著作權保護，讓您在全球法庭上
-              都能取得壓倒性證明效力。
+              不論是攝影、美術、文本、程式碼，只要在完成之際無法舉證原創，
+              <strong>法院就可能認定著作權不成立</strong>。
+              這也是為什麼我們強調
+              <strong>區塊鏈+AI雙重保障</strong>的重要性——
+              一次上鏈，終身保護，AI 即時比對潛在侵權。
             </p>
             <p style={{ marginTop: '1rem' }}>
               <strong>【EN】</strong>
-              Under both Taiwanese and international copyright laws,
-              the burden of proof for originality lies with creators—
-              no mandatory registration is required, but failure to prove authorship
-              usually results in losing the case. We are the ONLY platform that integrates
-              blockchain immutability and powerful AI infringement detection.
-              A few clicks is all it takes to secure your unstoppable legal advantage
-              in courts worldwide.
+              Copyright law revolves around proving independent creation.
+              If you can't show that your work is truly original, you risk losing all claims.
+              Our system locks your proof onto the blockchain at the moment of creation,
+              ensuring no one can challenge your authorship or time of completion.
             </p>
             <p style={{ marginTop: '1rem', color: '#ffd54f', fontWeight: '600' }}>
-              Join us now and defend your creative value like never before!
+              Join us and never lose a copyright dispute again!
             </p>
           </div>
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>我們是世界唯一！</strong> 只有我們能將區塊鏈與
-          <strong>著作權原創證明</strong>完美結合，並提供即時掃描、
-          DMCA強制下架與全球法律行動。別再猶豫，立即行動吧！
+          <strong>我們是世界唯一！</strong> 只有我們能將「區塊鏈著作權證明」與「AI侵權偵測」結合，
+          完美解決著作權法中「原創性」的舉證難題。下好離手，馬上上鏈！
         </p>
       </div>
     </div>
@@ -122,9 +119,8 @@ const styles = {
     textAlign: 'center',
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
-  // ★ 主標與副標分行顯示
   shortTitle: {
-    fontSize: '2rem',
+    fontSize: '1.9rem',
     fontWeight: 'bold',
     color: '#FF5722',
     textTransform: 'uppercase',
@@ -133,10 +129,9 @@ const styles = {
   subTitle: {
     fontSize: '1.1rem',
     textTransform: 'uppercase',
-    color: '#ffd700', // 金色，可自行調整
+    color: '#ffd700',
     marginBottom: '1.5rem'
   },
-
   desc: {
     fontSize: '1.05rem',
     lineHeight: '1.9',
