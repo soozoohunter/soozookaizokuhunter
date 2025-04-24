@@ -2,7 +2,7 @@
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    // 主鍵ID
+    // PK
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
-    // ★ Phone 當作唯一帳號
+    // 手機號碼當作唯一帳號
     phone: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -37,13 +37,13 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'user'
     },
 
-    // 社群平台欄位
+    // 社群平台
     IG: { type: DataTypes.STRING, allowNull: true },
     FB: { type: DataTypes.STRING, allowNull: true },
     YouTube: { type: DataTypes.STRING, allowNull: true },
     TikTok: { type: DataTypes.STRING, allowNull: true },
 
-    // 電商平台欄位
+    // 電商平台
     Shopee: { type: DataTypes.STRING, allowNull: true },
     Ruten: { type: DataTypes.STRING, allowNull: true },
     Yahoo: { type: DataTypes.STRING, allowNull: true },
