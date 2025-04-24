@@ -1,3 +1,6 @@
+/*************************************************************
+ * express/routes/admin.js
+ *************************************************************/
 const express = require('express');
 const router = express.Router();
 const { User, File } = require('../models');
@@ -23,15 +26,18 @@ function requireAdmin(req, res, next) {
   }
 }
 
-// POST /admin/login
+/**
+ * POST /admin/login
+ * 管理員以 phone 登入
+ */
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
       return res.status(400).json({ error: '缺少帳號或密碼' });
     }
 
-    const user = await User.findOne({ where: { username } });
+    const user = await User.findOne({ where: { phone } });
     if (!user) {
       return res.status(401).json({ error: '無此帳號' });
     }
@@ -45,21 +51,28 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: '非管理員無法登入' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: 'admin' }, JWT_SECRET, { expiresIn: '1d' });
-    res.json({ message: 'Admin登入成功', token });
+    const token = jwt.sign({ userId: user.id, role: 'admin' }, JWT_SECRET, {
+      expiresIn: '1d'
+    });
+
+    return res.json({ message: 'Admin登入成功', token });
   } catch (err) {
     console.error('[AdminLogin Error]', err);
-    res.status(500).json({ error: '登入過程發生錯誤' });
+    return res.status(500).json({ error: '登入過程發生錯誤' });
   }
 });
 
-// GET /admin/users
+/**
+ * GET /admin/users
+ */
 router.get('/users', requireAdmin, async (req, res) => {
   const users = await User.findAll();
   res.json(users);
 });
 
-// GET /admin/files
+/**
+ * GET /admin/files
+ */
 router.get('/files', requireAdmin, async (req, res) => {
   const files = await File.findAll();
   res.json(files);
