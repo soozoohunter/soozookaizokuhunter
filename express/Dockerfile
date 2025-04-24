@@ -1,20 +1,16 @@
-################################################
-# Express + Node
-################################################
+# express/Dockerfile
 FROM node:16-alpine
 
 WORKDIR /app
 
-# 安裝依賴
+# 1) COPY package.json
 COPY package*.json ./
 RUN npm install
 
-# ★ 原本是 COPY express/fonts /app/fonts
-#   若 Dockerfile 與 fonts 在同層 (即 express/Dockerfile + express/fonts)
-#   就要寫 COPY ./fonts /app/fonts
+# 2) COPY 字型：本機的 ./fonts (同層) → 容器的 /app/fonts
 COPY ./fonts /app/fonts
 
-# 再複製其餘程式碼 (routes、models、server.js...)
+# 3) 再把整個 express 其他檔案複製過去
 COPY . .
 
 EXPOSE 3000
