@@ -1,6 +1,6 @@
 /********************************************************************
  * services/fingerprintService.js
- * 可選：整合 FastAPI / 也可直接本地計算 sha256
+ * 保留：sha256 + checkImageViaFastAPI
  ********************************************************************/
 const crypto = require('crypto');
 const axios = require('axios');
