@@ -1,101 +1,111 @@
 // frontend/src/pages/ProtectStep4Infringement.jsx
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 
-import React, { useEffect, useState } from 'react';
+const Container = styled.div`
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: #101010;
+  color: #fff;
+`;
+const ContentBox = styled.div`
+  max-width: 600px;
+  margin: 0 auto;
+  background: #1e1e1e;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 2px solid #ff6f00;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+`;
+const Title = styled.h2`
+  color: #ffd700;
+  margin-bottom: 1rem;
+`;
+const InfoText = styled.p`
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+`;
+const Highlight = styled.span`
+  color: #f97316;
+  font-weight: bold;
+`;
+const Button = styled.button`
+  background-color: #f97316;
+  color: #fff;
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 1rem;
+  &:hover { background-color: #ea580c; }
+`;
 
 export default function ProtectStep4Infringement() {
-  const [percent, setPercent] = useState(0);
-  const [done, setDone] = useState(false);
-  const [resultCount, setResultCount] = useState(0);
+  const navigate = useNavigate();
+  const { state } = useLocation();
 
-  useEffect(() => {
-    let p = 0;
-    const timer = setInterval(() => {
-      p += 4; // 25 steps => 100
-      if (p >= 100) {
-        p = 100;
-        setPercent(100);
-        setDone(true);
-        setResultCount(3); // 假裝偵測到3筆
-        clearInterval(timer);
-      } else {
-        setPercent(p);
-      }
-    }, 120); // 25*120=3000ms
+  if (!state || !state.fileId) {
+    return (
+      <Container>
+        <ContentBox>
+          <Title>Oops</Title>
+          <p>無法取得資訊，請從 Step1 開始</p>
+          <Button onClick={() => navigate('/protect/step1')}>Go Step1</Button>
+        </ContentBox>
+      </Container>
+    );
+  }
 
-    return () => clearInterval(timer);
-  }, []);
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks } = state;
+
+  const handleDownloadPdf = () => {
+    if (!pdfUrl) {
+      alert('無法找到 PDF URL');
+      return;
+    }
+    // 直接開啟/下載
+    window.open(pdfUrl, '_blank');
+  };
 
   return (
-    <div style={{ color:'#fff', textAlign:'center', padding:'2rem' }}>
-      <h2>Step 4: Infringement Detection</h2>
+    <Container>
+      <ContentBox>
+        <Title>Step 4: Final Proof & Infringement Links</Title>
+        <InfoText>
+          恭喜！您的作品已完成區塊鏈上鏈與 AI 掃描。<br />
+          以下為您的最終資訊：
+        </InfoText>
 
-      {!done && (
-        <>
-          <div style={styles.spinner} />
-          <div style={styles.progressBarContainer}>
-            <div style={{ 
-              ...styles.progressBarFill, 
-              width: `${percent}%` 
-            }} />
-          </div>
-          <p style={{ marginTop:'1rem' }}>{percent}%</p>
-          <p style={{ color:'#aaa', marginTop:'0.5rem' }}>
-            正在爬蟲中，掃描可能的侵權內容...
-          </p>
-        </>
-      )}
+        <InfoText>
+          FileID: <Highlight>{fileId}</Highlight><br />
+          Fingerprint: <Highlight>{fingerprint}</Highlight> <br />
+          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight> <br />
+          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight><br />
+        </InfoText>
 
-      {done && (
-        <div style={{ marginTop:'2rem' }}>
-          <p style={{ color:'#ff6f00', fontWeight:'bold' }}>
-            偵測完成：發現 {resultCount} 筆疑似侵權
-          </p>
-          <p style={{ marginTop:'1rem' }}>
-            若需查看侵權清單或提告，請付 NT$99 或升級訂閱方案。
-          </p>
-          <p style={{ marginTop:'1rem', color:'#ccc' }}>
-            <strong>單次付費：</strong> 
-            <a href="/payment?item=infringement_view&price=99" style={styles.link}>
-              立即查看
-            </a>
-            　|　
-            <strong>訂閱：</strong> 
-            <a href="/pricing" style={styles.link}>
-              前往升級
-            </a>
-          </p>
-        </div>
-      )}
-    </div>
+        <InfoText>
+          侵權掃描結果：<br />
+          {suspiciousLinks && suspiciousLinks.length > 0 ? (
+            suspiciousLinks.map((link, idx) => (
+              <div key={idx} style={{ margin: '0.25rem 0'}}>
+                <Highlight>{link}</Highlight>
+              </div>
+            ))
+          ) : (
+            <span>尚未偵測到可疑連結</span>
+          )}
+        </InfoText>
+
+        <Button onClick={handleDownloadPdf}>
+          Download Certificate PDF
+        </Button>
+        <Button onClick={() => navigate('/')}>
+          Back to Home
+        </Button>
+      </ContentBox>
+    </Container>
   );
 }
-
-const styles = {
-  spinner: {
-    margin:'1rem auto',
-    width:'40px',
-    height:'40px',
-    border:'6px solid #444',
-    borderTop:'6px solid #ff6f00',
-    borderRadius:'50%',
-    animation:'spin 0.8s linear infinite'
-  },
-  progressBarContainer: {
-    margin:'1rem auto',
-    width:'200px',
-    height:'10px',
-    background:'#333',
-    borderRadius:'5px',
-    overflow:'hidden'
-  },
-  progressBarFill: {
-    height:'100%',
-    background:'#ff6f00',
-    transition:'width 0.1s linear'
-  },
-  link: {
-    color:'#ff6f00',
-    textDecoration:'none',
-    fontWeight:'bold'
-  }
-};
