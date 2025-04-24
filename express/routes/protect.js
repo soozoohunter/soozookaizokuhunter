@@ -1,6 +1,6 @@
 /*************************************************************
  * express/routes/protect.js
- * 一次上傳 => 建User => 區塊鏈 => PDF
+ * - 在建立 User 時，帶入 username: phone
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -19,10 +19,6 @@ const upload = multer({ dest: 'uploads/' });
 
 /**
  * POST /api/protect/step1
- * - 檢查 phone/email => 若已存在 => 409
- * - 若無 => 建User => plan=freeTrial
- * - fingerprint => IPFS => chain => File DB
- * - 產生 PDF => 回傳 pdfUrl
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -31,7 +27,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '缺少必填欄位或檔案' });
     }
 
-    // 檢查 phone/email
+    // 檢查 phone / email 是否已存在
     const existUser = await User.findOne({
       where: {
         [Op.or]: [{ phone }, { email }]
@@ -41,11 +37,12 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(409).json({ error: '您已是會員，請直接登入' });
     }
 
-    // 建 user
+    // 建 user (username 以 phone 帶入)
     const rawPass = phone + '@KaiShield';
     const hashed = await bcrypt.hash(rawPass, 10);
 
     const newUser = await User.create({
+      username: phone,                 // ★ 新增這行
       serialNumber: 'SN-' + Date.now(),
       email,
       phone,
@@ -57,18 +54,20 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // fingerprint => IPFS => chain
+    // 計算 fingerprint => 上傳 IPFS => 區塊鏈
     const buf = fs.readFileSync(req.file.path);
     const fingerprint = fingerprintService.sha256(buf);
 
     let ipfsHash = null;
     let txHash = null;
+
     // IPFS
     try {
       ipfsHash = await ipfsService.saveFile(buf);
     } catch (e) {
       console.error('[IPFS error]', e);
     }
+
     // 區塊鏈
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
