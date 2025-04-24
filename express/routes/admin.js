@@ -1,14 +1,20 @@
 /*************************************************************
  * express/routes/admin.js
+ * 
+ * 管理員相關路由：
+ *  - /admin/login
+ *  - /admin/users
+ *  - /admin/files
  *************************************************************/
 const express = require('express');
 const router = express.Router();
-const { User, File } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { User, File } = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
+// Middleware：檢查 JWT & role=admin
 function requireAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
@@ -28,7 +34,7 @@ function requireAdmin(req, res, next) {
 
 /**
  * POST /admin/login
- * 管理員以 phone 登入
+ * - 以 phone (或 email) 當帳號
  */
 router.post('/login', async (req, res) => {
   try {
