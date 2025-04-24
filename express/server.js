@@ -1,18 +1,21 @@
 /*************************************************************
- * express/server.js
+ * express/server.js (最終版範例)
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
+const { sequelize, User } = require('./models'); 
+// ↑ 用 ./models/index.js 匯出的 sequelize instance 與 Model
+const createAdmin = require('./createDefaultAdmin');
 
+// 路由
 const paymentsRouter = require('./routes/payment');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
 const authRoutes = require('./routes/authRoutes');
 
+// 其他套件
 const bcrypt = require('bcryptjs');
-const { User } = require('./models');
 
 const app = express();
 app.use(cors());
@@ -20,49 +23,32 @@ app.use(express.json());
 
 // 簡易健康檢查
 app.get('/health', (req, res) => {
-  res.send('Express OK');
+  res.send('Express OK (Sequelize Version)');
 });
 
-// 使每個路由都能使用 req.db (pgPool)
-app.use((req, res, next) => {
-  req.db = db;
-  next();
-});
-
-// 付款路由 => /api
+// 路由掛載
 app.use('/api', paymentsRouter);
-
-// 作品保護 => /api/protect
 app.use('/api/protect', protectRouter);
-
-// 管理端 => /admin
 app.use('/admin', adminRouter);
-
-// 一般認證 => /auth (register / login)
 app.use('/auth', authRoutes);
 
-// 啟動前嘗試建立預設 Admin (email='zacyao1005@example.com', password='Zack967988')
+// 啟動前檢查資料庫連線 & 同步
+(async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('[Express] Sequelize connected.');
+    // 若要自動建立 / 更新資料表:
+    // await sequelize.sync({ alter: true });
+    // console.log('[Express] Sequelize synced.');
+  } catch (err) {
+    console.error('[Express] Sequelize connect error:', err);
+  }
+})();
+
+// 建立預設Admin (非必要，但若原本有)
 (async function ensureAdmin() {
   try {
-    const email = 'zacyao1005@example.com'; // 有效 Email
-    const plainPwd = 'Zack967988';
-    const userName = 'zacyao1005';  // 對應 Model 欄位 userName
-
-    const old = await User.findOne({ where: { email } });
-    if (!old) {
-      const hash = await bcrypt.hash(plainPwd, 10);
-      // 新增 admin
-      await User.create({
-        email,
-        userName,
-        password: hash,
-        role: 'admin',
-        serialNumber: 'ADMIN-000001'
-      });
-      console.log('[InitAdmin] 已建立預設管理員:', email, '密碼:', plainPwd);
-    } else {
-      console.log('[InitAdmin] 已存在 admin:', email);
-    }
+    await createAdmin(); // 讓 createDefaultAdmin.js 處理
   } catch (err) {
     console.error('[InitAdmin] 建立管理員失敗:', err);
   }
