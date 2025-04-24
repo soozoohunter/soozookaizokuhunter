@@ -1,13 +1,15 @@
 /*************************************************************
  * express/routes/protect.js
- * - 於建立 User 時，username = phone
- * - PDF 產生時強化排版/內容 + 插入 Logo 圖片
+ * - 建 User 時 username = phone
+ * - PDF 產出含 Logo
+ * - /scan/:fileId 用 axios + RapidAPI Key 進行真實爬蟲
  *************************************************************/
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const axios = require('axios'); // ← 安裝 axios: npm i axios
 const { Op } = require('sequelize');
 
 const { User, File } = require('../models');
@@ -19,6 +21,7 @@ const upload = multer({ dest: 'uploads/' });
 
 /**
  * POST /api/protect/step1
+ * 上傳檔案 + 建立User(若phone/email不存在) + Fingerprint/IPFS/區塊鏈 + 產生PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -27,7 +30,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '缺少必填欄位或檔案' });
     }
 
-    // 檢查 phone / email 是否已存在
+    // 檢查 phone/email 是否已存在
     const existUser = await User.findOne({
       where: {
         [Op.or]: [{ phone }, { email }]
@@ -37,12 +40,12 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(409).json({ error: '您已是會員，請直接登入' });
     }
 
-    // 建 user (username 用 phone)
+    // 建 User
     const rawPass = phone + '@KaiShield';
     const hashed = await bcrypt.hash(rawPass, 10);
 
     const newUser = await User.create({
-      username: phone,
+      username: phone, // ← 以 phone 當 username
       serialNumber: 'SN-' + Date.now(),
       email,
       phone,
@@ -54,7 +57,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // fingerprint => IPFS => chain
+    // Fingerprint => IPFS => 區塊鏈
     const fileBuf = fs.readFileSync(req.file.path);
     const fingerprint = fingerprintService.sha256(fileBuf);
 
@@ -64,19 +67,19 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // IPFS
     try {
       ipfsHash = await ipfsService.saveFile(fileBuf);
-    } catch (err) {
-      console.error('[IPFS error]', err);
+    } catch (e) {
+      console.error('[IPFS error]', e);
     }
 
     // 區塊鏈
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
-    } catch (err) {
-      console.error('[Chain error]', err);
+    } catch (e) {
+      console.error('[Chain error]', e);
     }
 
-    // File記錄
+    // File 記錄
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -96,7 +99,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // 刪除暫存檔
     fs.unlinkSync(req.file.path);
 
-    // 產生 PDF (含著作權存證 + 公司資訊 + 您提供的法令說明 + Logo)
+    // 產生 PDF
     const pdfBuf = await generatePdf({
       realName, birthDate, phone, address, email,
       filename: req.file.originalname,
@@ -115,12 +118,13 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     });
   } catch (err) {
     console.error('[protect step1 error]', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 /**
  * GET /api/protect/certificates/:fileId
+ * 下載 PDF
  */
 router.get('/certificates/:fileId', async (req, res) => {
   try {
@@ -131,13 +135,13 @@ router.get('/certificates/:fileId', async (req, res) => {
     res.download(pdfPath, `KaiKaiShield_Certificate_${req.params.fileId}.pdf`);
   } catch (err) {
     console.error('[Download PDF error]', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 /**
  * GET /api/protect/scan/:fileId
- * 模擬 AI爬蟲
+ * 透過 RapidAPI Key + axios 呼叫真實爬蟲 (IG / FB / YouTube Scraper)
  */
 router.get('/scan/:fileId', async (req, res) => {
   try {
@@ -145,34 +149,81 @@ router.get('/scan/:fileId', async (req, res) => {
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
+
     const apiKey = process.env.RAPIDAPI_KEY;
     if (!apiKey) {
-      return res.status(400).json({ error: 'RAPIDAPI_KEY not configured' });
+      return res.status(400).json({ error: 'RAPIDAPI_KEY not configured in .env' });
     }
 
-    // 模擬：回傳假連結
-    const suspiciousLinks = [
-      'https://xxxx.com/infringing-post',
-      'https://yyyy.com/watch?v=123abc'
-    ];
+    // 收集可疑連結
+    let suspiciousLinks = [];
 
+    // ★ Instagram (Real-Time Instagram Scraper)
+    try {
+      const igResp = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword', {
+        params: { query: file.fingerprint },
+        headers: {
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': 'real-time-instagram-scraper-api.p.rapidapi.com'
+        }
+      });
+      const igLinks = igResp.data?.results || [];
+      suspiciousLinks = suspiciousLinks.concat(igLinks);
+    } catch (err) {
+      console.error('[IG API error]', err.message);
+    }
+
+    // ★ Facebook (Facebook Scraper)
+    try {
+      const fbResp = await axios.get('https://facebook-scraper3.p.rapidapi.com/page/reels', {
+        params: { page_id: '100064860875397' },
+        headers: {
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': 'facebook-scraper3.p.rapidapi.com'
+        }
+      });
+      const fbLinks = fbResp.data?.reels || [];
+      suspiciousLinks = suspiciousLinks.concat(fbLinks);
+    } catch (err) {
+      console.error('[FB API error]', err.message);
+    }
+
+    // ★ YouTube (youtube-search6.p.rapidapi.com)
+    try {
+      const ytResp = await axios.get('https://youtube-search6.p.rapidapi.com/search', {
+        params: { query: file.fingerprint },
+        headers: {
+          'X-RapidAPI-Key': apiKey,
+          'X-RapidAPI-Host': 'youtube-search6.p.rapidapi.com'
+        }
+      });
+      const ytItems = ytResp.data?.items || [];
+      const ytLinks = ytItems.map(i => i.link);
+      suspiciousLinks = suspiciousLinks.concat(ytLinks);
+    } catch (err) {
+      console.error('[YouTube API error]', err.message);
+    }
+
+    // 去重
+    const uniqueLinks = Array.from(new Set(suspiciousLinks));
+
+    // 寫回 DB
     file.status = 'scanned';
-    file.infringingLinks = JSON.stringify(suspiciousLinks);
+    file.infringingLinks = JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message: 'AI Scan done',
-      suspiciousLinks
+      message: 'AI Scan done via RapidAPI, real calls',
+      suspiciousLinks: uniqueLinks
     });
   } catch (err) {
     console.error('[scan error]', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
 /**
- * 產生 PDF：示範插入 Logo、更多排版
- * 只要您能在後端讀取到 logo0.jpg，即可替換下方路徑
+ * 產生 PDF：插入 Logo、排版
  */
 async function generatePdf({
   realName, birthDate, phone, address, email,
@@ -181,55 +232,43 @@ async function generatePdf({
   return new Promise((resolve, reject) => {
     try {
       const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument({
-        size: 'A4',
-        margin: 50
-      });
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const chunks = [];
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // ★ 插入 Logo (請確保路徑正確)：
-      // 假設 Express 容器可讀取 '/app/frontend/public/logo0.jpg'
-      // 若無法，請改成您真正掛載後可讀取的實際路徑
+      // ★ 插入 Logo (確保路徑正確)
       try {
         doc.image('/app/frontend/public/logo0.jpg', {
           fit: [80, 80],
           align: 'center',
           valign: 'top'
         });
-        doc.moveDown(1); // 空一行
+        doc.moveDown(1);
       } catch (imgErr) {
-        console.warn('Logo image not found or load error:', imgErr);
+        console.warn('Logo image load error:', imgErr);
       }
 
       // 主標題
-      doc
-        .fontSize(20)
-        .fillColor('#f97316')
+      doc.fontSize(20).fillColor('#f97316')
         .text('著作財產權存證登記申請書', { align: 'center', underline: true });
 
       doc.moveDown(0.5);
-      doc
-        .fontSize(12)
-        .fillColor('#333')
+      doc.fontSize(12).fillColor('#333')
         .text(`
 中華智慧財產權協會 著作權存證登記申請書
 (本證書為區塊鏈記錄 + IPFS 雙重防護之數位佐證)
 `, { align: 'center' });
 
       doc.moveDown();
-      doc
-        .fontSize(12)
-        .fillColor('#444')
+      doc.fontSize(12).fillColor('#444')
         .text('【Epic Global Int’I Inc. 凱盾全球國際股份有限公司】')
         .text('■ 於 Republic of Seychelles 登記在案 (資料號: #185749)');
 
       doc.moveDown(1.5);
 
       // 分隔線
-      doc
-        .moveTo(doc.x, doc.y)
+      doc.moveTo(doc.x, doc.y)
         .lineTo(doc.page.width - 50, doc.y)
         .strokeColor('#f97316')
         .lineWidth(1)
@@ -253,8 +292,7 @@ async function generatePdf({
       doc.moveDown(1);
 
       // 分隔線
-      doc
-        .moveTo(doc.x, doc.y)
+      doc.moveTo(doc.x, doc.y)
         .lineTo(doc.page.width - 50, doc.y)
         .strokeColor('#bbb')
         .lineWidth(1)
@@ -283,15 +321,12 @@ async function generatePdf({
 `, { indent: 20, lineGap: 3 });
 
       doc.moveDown(1);
-
       doc.fontSize(10).fillColor('#666').text(`
 以上說明供參考，實際法律權利義務以著作權法及雙方合約為準。本存證登記書係結合區塊鏈與 IPFS 技術，作為著作確權、侵權取證之輔助依據。
 `, { lineGap: 4 });
 
       doc.moveDown();
-      doc
-        .fontSize(10)
-        .fillColor('#888')
+      doc.fontSize(10).fillColor('#888')
         .text('(c) 2023 Epic Global Int’I Inc. / KaiKaiShield. All Rights Reserved.', {
           align: 'center'
         });
