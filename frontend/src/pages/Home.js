@@ -7,19 +7,29 @@ export default function Home() {
 
   return (
     <div style={styles.container}>
+      {/* ===== Banner / Hero 區域 ===== */}
       <div style={styles.banner}>
-        <h1 style={styles.shortTitle}>WORLD'S FIRST COPYRIGHT BLOCKCHAIN PLATFORM</h1>
-        <p style={styles.subTitle}>PROTECT YOUR CREATIONS WITH ONE CLICK.</p>
-
+        {/* === 1) 主標 + 副標各自一行 === */}
+        <h1 style={styles.shortTitle}>BLOCKCHAIN + AI = FLAWLESS COPYRIGHT PROTECTION</h1>
+        <p style={styles.subTitle}>ONE CLICK TO PROVE YOUR ORIGINALITY.</p>
+        
+        {/* 2) 介紹段落 */}
         <p style={styles.desc}>
-          We're the first and only Taiwanese (台灣) 🇹🇼 platform solving the global copyright puzzle:
+          We are a proudly Taiwanese (台灣) 🇹🇼 platform dedicated to solving the world's toughest copyright disputes. 
           <br /><br />
-          Proving originality has always been the toughest part of copyright disputes. 
-          Now, with our groundbreaking technology—combining <strong>Blockchain</strong> and <strong>AI Detection</strong>—you'll never again lose your rights due to insufficient evidence.
+          Under modern copyright law, <strong>Originality</strong> is the key.
+          Failing to prove your creation time and independence often means losing everything in court—
+          even if you truly created it first.
           <br /><br />
-          <strong>One click. Unbreakable proof. Instant global protection.</strong>
+          <strong>ONLY WE</strong> combine unstoppable <strong>Blockchain Fingerprinting</strong>
+          with advanced <strong>AI Infringement Detection</strong> and global legal solutions.
+          <br /><br />
+          <strong>No more guesswork, no more hidden copying:</strong>
+          once you're on our chain, your authorship is unassailable,
+          recognized by courts worldwide, and protected from any unauthorized use.
         </p>
 
+        {/* 主要行動按鈕：Pricing */}
         <button
           onClick={() => navigate('/pricing')}
           style={styles.enterBtn}
@@ -27,6 +37,7 @@ export default function Home() {
           Get Protected Now / 立即保護你的著作
         </button>
 
+        {/* 次要行動按鈕：Protect Step1 */}
         <button
           onClick={() => navigate('/protect/step1')}
           style={{ ...styles.enterBtn, marginLeft: '1rem' }}
@@ -34,6 +45,7 @@ export default function Home() {
           PROTECT NOW
         </button>
 
+        {/* 公司資訊 */}
         <div style={styles.companyInfo}>
           <hr style={styles.divider} />
           <p style={styles.companyText}>
@@ -46,49 +58,54 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ===== 行銷文案 / Supplement 區域 ===== */}
       <div style={styles.addonSection}>
         <h2 style={styles.welcomeTitle}>Welcome to SUZOO IP Guard 🚀</h2>
         <p style={styles.addonDesc}>
-          Don't let copyright infringement steal your success.
-          <br />
-          Get irrefutable blockchain evidence and AI-powered infringement protection today.
+          Every second counts—someone might be stealing your ideas right now! <br />
+          Protect your Copyright &amp; Infringement claims with unstoppable evidence.
         </p>
 
         <details style={styles.legalBlock}>
           <summary style={{ cursor: 'pointer', color: '#FF5722', marginBottom: '1rem' }}>
-            Why is "Originality" Crucial? 點此展開
+            Understand Why "Originality" Matters (點此展開)
           </summary>
           <div style={{ marginTop: '1rem', lineHeight: '1.6', fontSize: '0.95rem' }}>
             <p>
-              【繁中】原創性決定了你的著作能否獲得法律保護。
-              台灣及國際著作權法皆強調「獨立完成創作」的重要性，
-              但要提出有效證據常是一大難題。<br />
-              我們的服務透過區塊鏈技術，在創作完成瞬間即刻上鏈，
-              形成全球法庭都無法否認的證據，並搭配AI自動偵測侵權行為，
-              讓你的創作從此不再被盜用。
+              【繁中】根據台灣與國際著作權法，「原創性」是判斷是否享有著作權保護的關鍵。
+              只要是 <strong>獨立完成</strong> 的創作，即使與他人作品雷同，也可能受保護；
+              但若不能證明獨立完成，將面臨抄襲、侵權的風險。
+            </p>
+            <p>
+              不論是攝影、美術、文本、程式碼，只要在完成之際無法舉證原創，
+              <strong>法院就可能認定著作權不成立</strong>。
+              這也是為什麼我們強調
+              <strong>區塊鏈+AI雙重保障</strong>的重要性——
+              一次上鏈，終身保護，AI 即時比對潛在侵權。
             </p>
             <p style={{ marginTop: '1rem' }}>
               <strong>【EN】</strong>
-              Originality is your strongest asset in copyright cases.
-              Our blockchain and AI-driven system instantly creates undeniable proof of your work’s originality,
-              ensuring you win every copyright dispute.
+              Copyright law revolves around proving independent creation.
+              If you can't show that your work is truly original, you risk losing all claims.
+              Our system locks your proof onto the blockchain at the moment of creation,
+              ensuring no one can challenge your authorship or time of completion.
             </p>
             <p style={{ marginTop: '1rem', color: '#ffd54f', fontWeight: '600' }}>
-              Protect your IP today—once it's on the blockchain, it's protected forever.
+              Join us and never lose a copyright dispute again!
             </p>
           </div>
         </details>
 
         <p style={styles.extraMarketing}>
-          <strong>全球唯一！</strong> 區塊鏈＋AI雙重技術，終極解決著作權舉證難題。
-          <br />立即行動，讓侵權者無處可逃。
+          <strong>我們是世界唯一！</strong> 只有我們能將「區塊鏈著作權證明」與「AI侵權偵測」結合，
+          完美解決著作權法中「原創性」的舉證難題。下好離手，馬上上鏈！
         </p>
       </div>
     </div>
   );
 }
 
-/** Styles */
+/** ========== Styles ========== */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
@@ -106,13 +123,15 @@ const styles = {
     boxShadow: '0 8px 24px rgba(255,87,34,0.4)'
   },
   shortTitle: {
-    fontSize: '2rem',
+    fontSize: '1.9rem',
     fontWeight: 'bold',
     color: '#FF5722',
+    textTransform: 'uppercase',
     marginBottom: '0.5rem'
   },
   subTitle: {
     fontSize: '1.1rem',
+    textTransform: 'uppercase',
     color: '#ffd700',
     marginBottom: '1.5rem'
   },
@@ -130,7 +149,8 @@ const styles = {
     padding: '0.8rem 2rem',
     cursor: 'pointer',
     fontSize: '1rem',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    transition: 'transform 0.2s'
   },
   companyInfo: {
     marginTop: '2.5rem'
