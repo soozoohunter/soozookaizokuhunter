@@ -9,12 +9,10 @@ const Container = styled.div`
   background-color: #111;
   min-height: 100vh;
 `;
-
 const Title = styled.h2`
   color: #FFD700;
   margin-bottom: 1rem;
 `;
-
 const InfoBlock = styled.div`
   background-color: #1e1e1e;
   border: 2px solid #ff6f00;
@@ -23,7 +21,6 @@ const InfoBlock = styled.div`
   margin-bottom: 1rem;
   word-break: break-all;
 `;
-
 const NextButton = styled.button`
   background-color: #f97316;
   color: #fff;
@@ -46,9 +43,13 @@ export default function ProtectStep2() {
     if (!stored) {
       // 若沒有 step1 資料 => 直接跳回 step1
       navigate('/protect/step1');
-    } else {
-      setResult(JSON.parse(stored));
+      return;
     }
+    const data = JSON.parse(stored);
+    setResult(data);
+
+    // ★ 另外再存一份 protectStep2, 供 Step3 重整時使用
+    localStorage.setItem('protectStep2', JSON.stringify(data));
   }, [navigate]);
 
   if (!result) {
