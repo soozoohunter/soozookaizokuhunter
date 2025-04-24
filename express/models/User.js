@@ -2,7 +2,7 @@
 
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
-    // ID 主鍵由 Sequelize 自動建立
+    // ID 主鍵
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -18,6 +18,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
+    // ★ Phone 當作 username
     username: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -32,12 +33,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'user'
     },
-    // 社群平台欄位 (原有)
+
+    // 社群平台欄位
     IG: { type: DataTypes.STRING, allowNull: true },
     FB: { type: DataTypes.STRING, allowNull: true },
     YouTube: { type: DataTypes.STRING, allowNull: true },
     TikTok: { type: DataTypes.STRING, allowNull: true },
-    // 電商平台欄位 (原有)
+
+    // 電商平台欄位
     Shopee: { type: DataTypes.STRING, allowNull: true },
     Ruten: { type: DataTypes.STRING, allowNull: true },
     Yahoo: { type: DataTypes.STRING, allowNull: true },
@@ -45,7 +48,7 @@ module.exports = (sequelize, DataTypes) => {
     Taobao: { type: DataTypes.STRING, allowNull: true },
     eBay: { type: DataTypes.STRING, allowNull: true },
 
-    // ★ 新增：真實姓名、生日、電話、地址、方案 & 上傳統計
+    // 其他欄位
     realName: { type: DataTypes.STRING, allowNull: true },
     birthDate: { type: DataTypes.DATEONLY, allowNull: true },
     phone: { type: DataTypes.STRING, allowNull: true },
