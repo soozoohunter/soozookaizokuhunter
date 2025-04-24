@@ -1,26 +1,22 @@
-/********************************************************************
- * services/ipfsService.js
- ********************************************************************/
+// express/services/ipfsService.js
 require('dotenv').config();
 const { create } = require('ipfs-http-client');
 
-const IPFS_API_URL = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
-// 若您想本機 => 'http://127.0.0.1:5001'
+// 預設連線: 'http://127.0.0.1:5001' or 'http://suzoo_ipfs:5001'
+const IPFS_API_URL = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
 
-let ipfs;
+let client = null;
 try {
-  ipfs = create({ url: IPFS_API_URL });
-  console.log('[ipfsService] Connected to IPFS =>', IPFS_API_URL);
-} catch(e) {
-  console.error('[ipfsService] init error:', e);
+  client = create({ url: IPFS_API_URL });
+  console.log('[ipfsService] connected to IPFS =>', IPFS_API_URL);
+} catch (err) {
+  console.error('[ipfsService] init error:', err);
 }
 
-async function uploadToIPFS(buffer) {
-  if (!ipfs) throw new Error('IPFS not initialized');
-  const { cid } = await ipfs.add(buffer);
-  return cid.toString();
+async function saveFile(buffer) {
+  if (!client) throw new Error('IPFS client not initialized');
+  const added = await client.add(buffer);
+  return added.cid.toString();
 }
 
-module.exports = {
-  uploadToIPFS
-};
+module.exports = { saveFile };
