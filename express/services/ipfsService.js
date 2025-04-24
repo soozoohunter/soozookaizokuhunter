@@ -1,7 +1,11 @@
+/********************************************************************
+ * services/ipfsService.js
+ ********************************************************************/
 require('dotenv').config();
 const { create } = require('ipfs-http-client');
 
-const IPFS_API_URL = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
+const IPFS_API_URL = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
+// 若您想本機 => 'http://127.0.0.1:5001'
 
 let ipfs;
 try {
