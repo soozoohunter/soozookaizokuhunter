@@ -2,14 +2,50 @@
 
 module.exports = (sequelize, DataTypes) => {
   const File = sequelize.define('File', {
-    filename: { type:DataTypes.STRING, allowNull:false },
-    fingerprint: { type:DataTypes.STRING, allowNull:false, unique:true },
-    ipfs_hash: { type:DataTypes.STRING },
-    tx_hash: { type:DataTypes.STRING },
-    user_id: { type:DataTypes.INTEGER, allowNull:false }
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    filename: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    fingerprint: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    ipfs_hash: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    tx_hash: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+
+    // 新增紀錄 AI 狀態
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: 'pending'
+    },
+    infringingLinks: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    resultJson: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+
   }, {
-    tableName:'files',
-    timestamps:true
+    tableName: 'files',
+    timestamps: true
   });
 
   return File;
