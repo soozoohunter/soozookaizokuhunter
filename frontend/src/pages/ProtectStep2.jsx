@@ -1,99 +1,102 @@
 // frontend/src/pages/ProtectStep2.jsx
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const Container = styled.div`
-  min-height: 100vh;
   padding: 2rem;
-  background-color: #101010;
   color: #fff;
-`;
-const ContentBox = styled.div`
-  max-width: 600px;
-  margin: 0 auto;
-  background: #1e1e1e;
-  padding: 2rem;
-  border-radius: 8px;
-  border: 2px solid #ff6f00;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  background-color: #111;
+  min-height: 100vh;
 `;
 
 const Title = styled.h2`
-  color: #ffd700;
+  color: #FFD700;
   margin-bottom: 1rem;
-`;
-const InfoText = styled.p`
-  font-size: 0.95rem;
-  line-height: 1.5;
-  margin-bottom: 1rem;
-`;
-const Highlight = styled.span`
-  color: #f97316;
-  font-weight: bold;
 `;
 
-const NextButton = styled.button`
-  background-color: #f97316;
-  color: #fff;
-  font-weight: bold;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  &:hover { background-color: #ea580c; }
+const InfoBlock = styled.div`
+  background-color: #1e1e1e;
+  border: 2px solid #ff6f00;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  word-break: break-all;
 `;
 
 export default function ProtectStep2() {
+  const [result, setResult] = useState(null);
   const navigate = useNavigate();
-  const { state } = useLocation();
 
-  // 若直接進到 Step2 而沒 state，可能要導回 Step1
-  if (!state || !state.fileId) {
-    return (
-      <Container>
-        <ContentBox>
-          <Title>Oops</Title>
-          <p>無法取得上一步資訊，請先從 Step1 開始</p>
-          <NextButton onClick={() => navigate('/protect/step1')}>Go Step1</NextButton>
-        </ContentBox>
-      </Container>
-    );
+  useEffect(() => {
+    const stored = localStorage.getItem('protectStep1');
+    if (!stored) {
+      // 若沒有 step1 資料 => 直接跳回 step1
+      navigate('/protect/step1');
+    } else {
+      setResult(JSON.parse(stored));
+    }
+  }, [navigate]);
+
+  if (!result) {
+    return null; // 或顯示 Loading...
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = state;
-
-  const handleNext = () => {
-    // 進入 Step3，帶上 fileId
-    navigate('/protect/step3', {
-      state: {
-        fileId,
-        pdfUrl,
-        fingerprint,
-        ipfsHash,
-        txHash
-      }
-    });
-  };
+  const {
+    fileId,
+    pdfUrl,
+    fingerprint,
+    ipfsHash,
+    txHash
+  } = result;
 
   return (
     <Container>
-      <ContentBox>
-        <Title>Step 2: Blockchain Record</Title>
-        <InfoText>
-          您的作品已成功上傳！以下是區塊鏈紀錄資訊：<br />
-          Fingerprint: <Highlight>{fingerprint}</Highlight> <br />
-          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight> <br />
-          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight> <br />
-        </InfoText>
+      <Title>Step 2: Result &amp; Certificate</Title>
 
-        <InfoText>
-          憑證 PDF 已產生，可在最後一步下載。<br />
-          (預設路徑: <Highlight>{pdfUrl}</Highlight>)
-        </InfoText>
+      <InfoBlock>
+        <p><strong>File ID:</strong> {fileId}</p>
+        <p><strong>Fingerprint (SHA-256):</strong> {fingerprint || 'N/A'}</p>
+        <p><strong>IPFS Hash:</strong> {ipfsHash || 'N/A'}</p>
+        <p><strong>Tx Hash:</strong> {txHash || 'N/A'}</p>
+      </InfoBlock>
 
-        <NextButton onClick={handleNext}>Next: AI Scan</NextButton>
-      </ContentBox>
+      {pdfUrl ? (
+        <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
+          <p><strong>Certificate PDF:</strong></p>
+          <p>
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#4caf50', textDecoration: 'underline' }}
+            >
+              點我下載 / Download PDF
+            </a>
+          </p>
+        </InfoBlock>
+      ) : (
+        <InfoBlock>
+          <p>尚未生成 PDF 連結，或連結錯誤。</p>
+        </InfoBlock>
+      )}
+
+      <p style={{ marginTop: '2rem' }}>
+        <button
+          onClick={() => navigate('/protect/step3')}
+          style={{
+            backgroundColor: '#f97316',
+            color: '#fff',
+            border: 'none',
+            padding: '0.75rem 1.5rem',
+            fontSize: '1rem',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          Next → Step 3
+        </button>
+      </p>
     </Container>
   );
 }
