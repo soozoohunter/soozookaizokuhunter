@@ -1,8 +1,8 @@
+// frontend/src/pages/Register.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-// 全頁面深色背景
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
@@ -12,7 +12,6 @@ const PageWrapper = styled.div`
   color: #ffffff;
 `;
 
-// 外層容器：橘色邊框、二次深色背景
 const FormContainer = styled.div`
   background-color: #1e1e1e;
   padding: 2rem 2.5rem;
@@ -20,13 +19,13 @@ const FormContainer = styled.div`
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 520px;
-  border: 2px solid #ff6f00; 
+  border: 2px solid #ff6f00;
 `;
 
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #FFD700; /* 金色文字 */
+  color: #FFD700;
 `;
 
 const StyledForm = styled.form`
@@ -37,7 +36,7 @@ const StyledForm = styled.form`
 const StyledLabel = styled.label`
   display: flex;
   flex-direction: column;
-  color: #ffa500; 
+  color: #ffa500;
   font-size: 0.9rem;
 `;
 
@@ -52,7 +51,6 @@ const StyledInput = styled.input`
   border-radius: 4px;
 `;
 
-// 區塊 (社群平台 / 電商平台)
 const Section = styled.div`
   border: 1px solid #ff6f00;
   padding: 1rem;
@@ -67,11 +65,10 @@ const SectionTitle = styled.h3`
   font-size: 1rem;
 `;
 
-// 二欄式排版
 const GridTwoCols = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem; 
+  gap: 1rem;
 `;
 
 const HintText = styled.p`
@@ -93,11 +90,12 @@ const SubmitButton = styled.button`
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
-  background-color: #f97316; 
+  background-color: #f97316;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 0.5rem;
+
   &:hover {
     background-color: #ea580c;
   }
@@ -125,42 +123,41 @@ export default function Register() {
   });
 
   const handleChange = (e) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = async(e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1) 必填：email, username, password, confirmPassword
-    if (!form.email.trim() || !form.username.trim() ||
-        !form.password || !form.confirmPassword) {
+    // 1) 必填: email, username, password, confirmPassword
+    if (!form.email.trim() || !form.username.trim() || !form.password || !form.confirmPassword) {
       return setErrorMsg('必填欄位未填 (Please fill in all required fields)');
     }
     // 2) 密碼一致
     if (form.password !== form.confirmPassword) {
       return setErrorMsg('兩次輸入的密碼不一致 (Passwords do not match)');
     }
-    // 3) 至少一個社群/電商欄位
-    const { IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, Taobao, eBay } = form;
-    const accounts = [IG, FB, YouTube, TikTok, Shopee, Ruten, Yahoo, Amazon, Taobao, eBay];
-    const hasAccount = accounts.some(acc => acc.trim() !== '');
+    // 3) 至少一個社群/電商帳號
+    const accountsArr = [form.IG, form.FB, form.YouTube, form.TikTok,
+      form.Shopee, form.Ruten, form.Yahoo, form.Amazon, form.Taobao, form.eBay];
+    const hasAccount = accountsArr.some((acc) => acc.trim() !== '');
     if (!hasAccount) {
-      return setErrorMsg('請至少填寫一個社群或電商帳號 (At least one social/e-commerce account)');
+      return setErrorMsg('請至少填寫一個社群或電商帳號');
     }
 
     try {
       const resp = await fetch('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify(form)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
       });
       const data = await resp.json();
 
       if (!resp.ok) {
         setErrorMsg(data.message || '註冊失敗 (Registration failed)');
       } else {
-        alert(data.message || '註冊成功 (Registration successful)');
+        alert(data.message || '註冊成功');
         navigate('/login');
       }
     } catch (err) {
@@ -177,9 +174,8 @@ export default function Register() {
         {errorMsg && <ErrorMsg>{errorMsg}</ErrorMsg>}
 
         <StyledForm onSubmit={handleSubmit}>
-          {/* Email */}
           <StyledLabel>電子郵件 Email</StyledLabel>
-          <StyledInput 
+          <StyledInput
             name="email"
             type="email"
             placeholder="Enter your email"
@@ -188,9 +184,8 @@ export default function Register() {
             required
           />
 
-          {/* Username */}
           <StyledLabel>用戶名稱 Username</StyledLabel>
-          <StyledInput 
+          <StyledInput
             name="username"
             type="text"
             placeholder="Enter username"
@@ -199,9 +194,8 @@ export default function Register() {
             required
           />
 
-          {/* Password */}
           <StyledLabel>密碼 Password</StyledLabel>
-          <StyledInput 
+          <StyledInput
             name="password"
             type="password"
             placeholder="Enter password"
@@ -210,9 +204,8 @@ export default function Register() {
             required
           />
 
-          {/* Confirm */}
           <StyledLabel>確認密碼 Confirm Password</StyledLabel>
-          <StyledInput 
+          <StyledInput
             name="confirmPassword"
             type="password"
             placeholder="Re-enter password"
@@ -221,13 +214,12 @@ export default function Register() {
             required
           />
 
-          {/* 社群平台 */}
           <Section>
             <SectionTitle>社群平台 / Social Accounts</SectionTitle>
             <GridTwoCols>
               <StyledLabel>
-                Instagram (optional)
-                <StyledInput 
+                Instagram
+                <StyledInput
                   name="IG"
                   type="text"
                   placeholder="Instagram"
@@ -236,8 +228,8 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                Facebook (optional)
-                <StyledInput 
+                Facebook
+                <StyledInput
                   name="FB"
                   type="text"
                   placeholder="Facebook"
@@ -246,8 +238,8 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                YouTube (optional)
-                <StyledInput 
+                YouTube
+                <StyledInput
                   name="YouTube"
                   type="text"
                   placeholder="YouTube"
@@ -256,8 +248,8 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                TikTok (optional)
-                <StyledInput 
+                TikTok
+                <StyledInput
                   name="TikTok"
                   type="text"
                   placeholder="TikTok"
@@ -268,17 +260,13 @@ export default function Register() {
             </GridTwoCols>
           </Section>
 
-          <HintText>
-            提供社群與電商帳號能證明原創性，確保你的內容受區塊鏈保護。<br/>
-            (Providing social & e-commerce accounts helps prove originality on the blockchain.)
-          </HintText>
+          <HintText>至少填一個社群或電商帳號，以利區塊鏈證明原創</HintText>
 
-          {/* 電商平台 */}
           <Section>
             <SectionTitle>電商平台 / E-Commerce Accounts</SectionTitle>
             <GridTwoCols>
               <StyledLabel>
-                Shopee (optional)
+                Shopee
                 <StyledInput
                   name="Shopee"
                   type="text"
@@ -288,7 +276,7 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                Ruten (optional)
+                Ruten
                 <StyledInput
                   name="Ruten"
                   type="text"
@@ -298,7 +286,7 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                Yahoo Auction (optional)
+                Yahoo
                 <StyledInput
                   name="Yahoo"
                   type="text"
@@ -308,7 +296,7 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                Amazon (optional)
+                Amazon
                 <StyledInput
                   name="Amazon"
                   type="text"
@@ -318,7 +306,7 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                Taobao/Tmall (optional)
+                Taobao/Tmall
                 <StyledInput
                   name="Taobao"
                   type="text"
@@ -328,7 +316,7 @@ export default function Register() {
                 />
               </StyledLabel>
               <StyledLabel>
-                eBay (optional)
+                eBay
                 <StyledInput
                   name="eBay"
                   type="text"
@@ -340,9 +328,7 @@ export default function Register() {
             </GridTwoCols>
           </Section>
 
-          <SubmitButton type="submit">
-            提交註冊 / Submit
-          </SubmitButton>
+          <SubmitButton type="submit">提交註冊</SubmitButton>
         </StyledForm>
       </FormContainer>
     </PageWrapper>
