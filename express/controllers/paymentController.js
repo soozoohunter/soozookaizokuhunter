@@ -1,17 +1,12 @@
 /********************************************************************
- * express/controllers/paymentController.js (保留您原本邏輯)
- * 
- * 假設有 5 隻主要 function：
- *   1) getPricing
- *   2) purchasePlan
- *   3) getInfo
- *   4) notify
- *   5) submitPayment
+ * express/controllers/paymentController.js
+ *  - 5 隻主要 function： getPricing, purchasePlan, getInfo, notify, submitPayment
+ *  - 保留您目前的邏輯 & DB 操作
  ********************************************************************/
 const { User } = require('../models');
 
 const paymentController = {
-  // 1) GET Pricing
+  // 1) GET /api/pricing
   getPricing(req, res) {
     const plans = [
       { name: 'freeTrial', price: 0, desc: '限時一次免費上傳' },
@@ -21,7 +16,7 @@ const paymentController = {
     return res.json(plans);
   },
 
-  // 2) POST purchase (購買/升級)
+  // 2) POST /api/purchase
   purchasePlan: async (req, res) => {
     try {
       const { userId, plan } = req.body;
@@ -38,8 +33,9 @@ const paymentController = {
     }
   },
 
-  // 3) GET Info
+  // 3) GET /api/payment/info
   getInfo(req, res) {
+    // 回傳匯款資訊 or 金流資訊
     const info = {
       bankName: process.env.BANK_NAME || '台灣遠東國際商業銀行',
       bankCode: '805',
@@ -51,27 +47,32 @@ const paymentController = {
     return res.json(info);
   },
 
-  // 4) POST notify (用戶通知已匯款)
+  // 4) POST /api/payment/notify
+  // 用戶「通知」已匯款；可更新 DB 記錄或做其他動作
   notify: async (req, res) => {
     try {
-      const userId = req.user.userId; // 從 authMiddleware 取得 user
+      const userId = req.user.userId; // 從 authMiddleware 取得 JWT 解析出的 userId
       const { paymentRef, contact } = req.body;
-      // 隨便改某欄位來紀錄
+      // 範例：更新使用者 address 或 phone 以紀錄
       await User.update({ address: contact }, { where: { id: userId } });
-      return res.json({ message: '付款資訊已提交(地址已更新)' });
+      return res.json({ message: '付款資訊已提交(已更新使用者資訊)' });
     } catch (err) {
       console.error('[notify error]', err);
       return res.status(500).json({ error: '付款通知失敗' });
     }
   },
 
-  // 5) POST submitPayment
+  // 5) POST /api/payment/submit
+  // 用戶提交匯款資訊 (lastFive, amount, planWanted 等)
   submitPayment: async (req, res) => {
     try {
       const userId = req.user.userId;
       const { lastFive, amount, planWanted } = req.body;
       console.log(`[submitPayment] userId=${userId}, last5=${lastFive}, amount=${amount}, plan=${planWanted}`);
-      // 可將紀錄寫入 Payment Table
+
+      // 假設可存到 Payment table or log
+      // ...
+
       return res.json({ message: '已收到匯款資訊，等待管理員確認' });
     } catch (err) {
       console.error('[submitPayment error]', err);
