@@ -50,7 +50,7 @@ export default function ProtectStep4Infringement() {
 
   useEffect(() => {
     if (!state || !state.fileId) {
-      // 簡化：若無 data => 回 Step1
+      // 若無 state => 回 Step1
       navigate('/protect/step1');
     } else {
       setInfo(state);
