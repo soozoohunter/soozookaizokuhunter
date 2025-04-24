@@ -1,9 +1,7 @@
 /**************************************************************
  * frontend/src/App.js
- * - Navbar 左: Pricing, Contact Us
- *           中: Logo + SUZOO IP Guard
- *           右: Register, Login, Admin
- * - 已去掉頂部「Hunter for Free」按鈕
+ * 增強: Home, Pricing, Contact, Protect (step1~4), Admin, Payment...
+ * 已改寫 Banner Slogan，著重 "Copyright / Infringement" 關鍵字
  **************************************************************/
 import React from 'react';
 import {
@@ -16,22 +14,20 @@ import {
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
-// 主要頁面
+// 頁面
 import HomePage from './pages/Home';
-import PricingPage from './pages/PricingPage';
+import PricingPage from './pages/PricingPage';   // 若您有
+import ContactPage from './pages/Contact';       // 若您有
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
-import Payment from './pages/Payment'; 
+import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 
-// 4-Step Protect 流程
+// Protect
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
-import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
-
-// Contact Us 頁面
-import ContactPage from './pages/Contact';
+import ProtectStep4 from './pages/ProtectStep4Infringement';
 
 // Admin
 import AdminLogin from './pages/AdminLogin';
@@ -59,14 +55,15 @@ function RootLayout() {
 
   return (
     <div style={styles.container}>
+      {/* ====== Header / Navbar ====== */}
       <header style={styles.header}>
-        {/* 左邊 */}
+        {/* 左側連結區: Pricing / Contact */}
         <div style={styles.headerLeft}>
           <Link to="/pricing" style={styles.navLink}>Pricing</Link>
           <Link to="/contact" style={styles.navLink}>Contact Us</Link>
         </div>
 
-        {/* 中間 - Logo + SUZOO文字 */}
+        {/* 中間品牌 Logo */}
         <div style={styles.headerCenter}>
           <Link to="/" style={styles.brandLink}>
             <img 
@@ -80,7 +77,7 @@ function RootLayout() {
           </Link>
         </div>
 
-        {/* 右邊 */}
+        {/* 右側連結區: Register / Login / Admin / Logout */}
         <div style={styles.headerRight}>
           {!token && (
             <>
@@ -88,22 +85,19 @@ function RootLayout() {
               <Link to="/login" style={styles.navLink}>Login</Link>
             </>
           )}
-
-          {/* Admin 入口 (若您想固定顯示可保留) */}
           {userRole === 'admin' ? (
             <Link to="/admin/dashboard" style={styles.navLink}>Admin</Link>
           ) : (
             <Link to="/admin/login" style={styles.navLink}>Admin</Link>
           )}
-
           {token && (
             <button
               onClick={handleLogout}
-              style={{ 
-                ...styles.navLink, 
-                border: 'none', 
-                background: 'none', 
-                cursor: 'pointer' 
+              style={{
+                ...styles.navLink,
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer'
               }}
             >
               Logout
@@ -112,32 +106,35 @@ function RootLayout() {
         </div>
       </header>
 
-      {/* 首頁的 Banner */}
+      {/* ====== 首頁 Banner 區塊 ====== */}
       {showBanner && (
         <section style={styles.banner}>
           <h1 style={styles.bannerTitle}>
-            Secure Your IP Anytime, Anywhere
+            World's First Unstoppable Copyright Protection
           </h1>
           <p style={styles.bannerDesc}>
-            Unbreakable Blockchain + AI Detection. Ensure Bulletproof Evidence in Every Case.
-            <br/><br/>
-            一鍵啟動區塊鏈 + AI 防禦，打造無懈可擊的證據，讓每一次創作都能穩操勝券
+            One-Click Originality. End Infringements Forever. 
+            <br />
+            <br />
+            區塊鏈 + AI Copyright Shield，從此不再擔心抄襲與侵權。
+            讓您的創作擁有<strong>無可撼動</strong>的法律證據！
           </p>
         </section>
       )}
 
+      {/* ====== 主內容 ====== */}
       <main style={{ padding: '2rem', flex: 1 }}>
         <Outlet />
       </main>
 
+      {/* ====== Footer ====== */}
       <footer style={styles.footer}>
         <div>
           為紀念我最深愛的 曾李素珠 阿嬤
           <br />
           <span style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-            In loving memory of my beloved grandmother, Tseng Li Su-Chu.
-            <br />
-            by Ka!KaiShield 凱盾
+            In loving memory of my beloved grandmother, Tseng Li Su-Chu. <br />
+            by KaiKaiShield 凱盾
           </span>
         </div>
       </footer>
@@ -149,20 +146,20 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 1) 一般頁面 */}
+        {/* Layout 包含 Navbar/Banner/Footer */}
         <Route element={<RootLayout />}>
           <Route index element={<HomePage />} />
-          <Route path="contact" element={<ContactPage />} />
           <Route path="pricing" element={<PricingPage />} />
+          <Route path="contact" element={<ContactPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
 
-          {/* Protect */}
+          {/* Protect 流程 */}
           <Route path="protect">
             <Route path="step1" element={<ProtectStep1 />} />
             <Route path="step2" element={<ProtectStep2 />} />
             <Route path="step3" element={<ProtectStep3 />} />
-            <Route path="step4-infringement" element={<ProtectStep4Infringement />} />
+            <Route path="step4-infringement" element={<ProtectStep4 />} />
           </Route>
 
           {/* Payment */}
@@ -170,7 +167,7 @@ export default function App() {
           <Route path="payment/success" element={<PaymentSuccess />} />
         </Route>
 
-        {/* 2) Admin */}
+        {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
@@ -178,7 +175,7 @@ export default function App() {
   );
 }
 
-// 樣式
+/* ====== Styles ====== */
 const styles = {
   container: {
     fontFamily: 'Roboto, sans-serif',
@@ -232,7 +229,7 @@ const styles = {
     borderBottom: '4px solid #ff6f00'
   },
   bannerTitle: {
-    fontSize: '2.3rem',
+    fontSize: '2.4rem',
     color: '#ff6f00',
     fontFamily: '"Montserrat", sans-serif'
   },
