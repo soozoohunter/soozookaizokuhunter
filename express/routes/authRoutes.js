@@ -1,5 +1,8 @@
 /*************************************************************
  * express/routes/authRoutes.js
+ * 
+ * - /auth/login
+ * - /auth/register
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -12,7 +15,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
 /**
  * POST /auth/login
- *  - 若 identifier 含 '@' => email；否則 phone
+ *  - 若 identifier 含 '@' => 視為 email；否則視為 phone
  */
 router.post('/login', async (req, res) => {
   try {
@@ -25,7 +28,7 @@ router.post('/login', async (req, res) => {
     if (identifier.includes('@')) {
       whereClause = { email: identifier.toLowerCase() };
     } else {
-      // phone => 移除非數字/+號:
+      // phone => 清除非數字/+號
       const phoneClean = identifier.replace(/[^\d+]/g, '');
       whereClause = { phone: phoneClean };
     }
@@ -40,6 +43,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: '密碼錯誤' });
     }
 
+    // 簽發 JWT
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: '7d'
     });
@@ -63,7 +67,7 @@ router.post('/login', async (req, res) => {
 
 /**
  * POST /auth/register
- *  - 用 phone 當唯一帳號
+ *  - 以 phone + email 建立帳號
  */
 router.post('/register', async (req, res) => {
   try {
@@ -83,8 +87,8 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: '兩次密碼不一致' });
     }
 
-    // 檢查 email / phone 是否已存在
-    const exist = await User.findOne({
+    // 檢查 email/phone 是否已註冊
+    const existed = await User.findOne({
       where: {
         [Op.or]: [
           { email: email.toLowerCase() },
@@ -92,12 +96,12 @@ router.post('/register', async (req, res) => {
         ]
       }
     });
-    if (exist) {
-      return res.status(409).json({ message: 'Email或手機已註冊過' });
+    if (existed) {
+      return res.status(409).json({ message: 'Email或手機已被註冊' });
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const serialNumber = 'SN' + Date.now();
+    const serialNumber = 'SN-' + Date.now();
 
     const newUser = await User.create({
       serialNumber,
