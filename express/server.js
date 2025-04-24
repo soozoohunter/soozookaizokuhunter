@@ -1,5 +1,5 @@
 /*************************************************************
- * express/server.js (最終版)
+ * express/server.js (最終版) - 改用 paymentRoutes.js
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
@@ -7,12 +7,15 @@ const cors = require('cors');
 const { sequelize } = require('./models');
 const createAdmin = require('./createDefaultAdmin');
 
-const paymentRoutes = require('./routes/payment');     // Payment
-const protectRouter = require('./routes/protect');     // Protect
-const adminRouter = require('./routes/admin');         // Admin
-const authRouter = require('./routes/authRoutes');     // Auth
+// ★ 改成正確路徑名稱 'paymentRoutes'
+const paymentRoutes = require('./routes/paymentRoutes'); 
+const protectRouter = require('./routes/protect');
+const adminRouter = require('./routes/admin');
+const authRouter = require('./routes/authRoutes');
 
 const app = express();
+
+// 中介層
 app.use(cors());
 app.use(express.json());
 
@@ -22,7 +25,7 @@ app.get('/health', (req, res) => {
 });
 
 // 掛載各路由
-app.use('/api', paymentRoutes);
+app.use('/api', paymentRoutes);       // e.g. /api/pricing, /api/purchase...
 app.use('/api/protect', protectRouter);
 app.use('/admin', adminRouter);
 app.use('/auth', authRouter);
@@ -33,7 +36,7 @@ app.use('/auth', authRouter);
     await sequelize.authenticate();
     console.log('[Express] Sequelize connected.');
 
-    // 開發測試時可使用 sync，自動更新欄位
+    // 開發測試時可使用 sync({ alter: true })，自動更新欄位；正式環境建議移除或使用 migration
     await sequelize.sync({ alter: true });
     console.log('[Express] Sequelize synced.');
   } catch (err) {
