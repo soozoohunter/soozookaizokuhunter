@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
 
-    // 新增紀錄 AI 狀態
+    // 可用於AI偵測結果
     status: {
       type: DataTypes.STRING,
       defaultValue: 'pending'
@@ -41,8 +41,7 @@ module.exports = (sequelize, DataTypes) => {
     resultJson: {
       type: DataTypes.TEXT,
       allowNull: true
-    },
-
+    }
   }, {
     tableName: 'files',
     timestamps: true
