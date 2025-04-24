@@ -1,13 +1,13 @@
 /*************************************************************
- * express/server.js (最終版, 使用 alter:true 直接同步)
+ * express/server.js (最終版, 使用 alter:true or force:true)
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
-const createAdmin = require('./createDefaultAdmin');
+const createAdmin = require('./createDefaultAdmin'); // 如果有預設管理員
 
-// ★ 改用 'paymentRoutes' (正確路徑)
+// 若您有 routes
 const paymentRoutes = require('./routes/paymentRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
@@ -25,23 +25,28 @@ app.get('/health', (req, res) => {
 });
 
 // 掛載各路由
-app.use('/api', paymentRoutes);         // e.g. /api/pricing, /api/purchase
-app.use('/api/protect', protectRouter); // 保護流程
-app.use('/admin', adminRouter);         // 後台管理
-app.use('/auth', authRouter);           // 登入/註冊
+app.use('/api', paymentRoutes);
+app.use('/api/protect', protectRouter);
+app.use('/admin', adminRouter);
+app.use('/auth', authRouter);
 
 // DB 連線 & 同步
 (async () => {
   try {
-    // 測試連線
     await sequelize.authenticate();
     console.log('[Express] Sequelize connected.');
 
-    // ★★ 使用 sync({ alter: true }) 來直接更新表結構
-    //    (開發用；生產環境建議改用 Migration)
-    await sequelize.sync({ alter: true });
-    console.log('[Express] Sequelize synced (alter:true).');
+    // ---------- 方式1: alter:true 自動嘗試更新(不保證成功) ----------
+    // await sequelize.sync({ alter: true });
+    
+    // ---------- 方式2: force:true 會直接重建資料表, 所有資料會被刪除! ----------
+    // await sequelize.sync({ force: true });
 
+    // (建議只在測試或本地用 force:true 或手動 drop table)
+    // 兩者只能擇一，不要同時開
+    await sequelize.sync({ alter: true }); 
+    
+    console.log('[Express] Sequelize synced.');
   } catch (err) {
     console.error('[Express] Sequelize connect error:', err);
   }
