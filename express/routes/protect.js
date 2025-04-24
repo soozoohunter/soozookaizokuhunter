@@ -1,6 +1,7 @@
 /*************************************************************
  * express/routes/protect.js
- * - 在建立 User 時，帶入 username: phone
+ * - 在建立 User 時，username = phone
+ * - 產生 PDF 時，加入「著作權注意事項」與「公司資料 (Epic Global Int’l Inc.)」等美化
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -8,7 +9,6 @@ const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const PDFDocument = require('pdfkit');
 
 const { User, File } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
@@ -17,9 +17,7 @@ const chain = require('../utils/chain');
 
 const upload = multer({ dest: 'uploads/' });
 
-/**
- * POST /api/protect/step1
- */
+// POST /api/protect/step1
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
     const { realName, birthDate, phone, address, email } = req.body;
@@ -37,12 +35,12 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(409).json({ error: '您已是會員，請直接登入' });
     }
 
-    // 建 user (username 以 phone 帶入)
+    // 建 user (username 用 phone)
     const rawPass = phone + '@KaiShield';
     const hashed = await bcrypt.hash(rawPass, 10);
 
     const newUser = await User.create({
-      username: phone,                 // ★ 新增這行
+      username: phone,
       serialNumber: 'SN-' + Date.now(),
       email,
       phone,
@@ -54,20 +52,18 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // 計算 fingerprint => 上傳 IPFS => 區塊鏈
+    // fingerprint => IPFS => chain
     const buf = fs.readFileSync(req.file.path);
     const fingerprint = fingerprintService.sha256(buf);
 
     let ipfsHash = null;
     let txHash = null;
-
     // IPFS
     try {
       ipfsHash = await ipfsService.saveFile(buf);
     } catch (e) {
       console.error('[IPFS error]', e);
     }
-
     // 區塊鏈
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
@@ -76,7 +72,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       console.error('[Chain error]', e);
     }
 
-    // File記錄
+    // File 記錄
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -119,9 +115,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
   }
 });
 
-/**
- * GET /api/protect/certificates/:fileId
- */
+// GET /api/protect/certificates/:fileId
 router.get('/certificates/:fileId', async (req, res) => {
   try {
     const pdfPath = `uploads/certificate_${req.params.fileId}.pdf`;
@@ -135,10 +129,7 @@ router.get('/certificates/:fileId', async (req, res) => {
   }
 });
 
-/**
- * GET /api/protect/scan/:fileId
- * 模擬 AI爬蟲
- */
+// GET /api/protect/scan/:fileId
 router.get('/scan/:fileId', async (req, res) => {
   try {
     const file = await File.findByPk(req.params.fileId);
@@ -170,7 +161,10 @@ router.get('/scan/:fileId', async (req, res) => {
   }
 });
 
-// 產生 PDF
+/**
+ * generatePdf
+ * - 美化後的著作權證書，含公司資訊 + 著作權注意事項
+ */
 async function generatePdf({
   realName, birthDate, phone, address, email,
   filename, fingerprint, ipfsHash, txHash
@@ -179,51 +173,83 @@ async function generatePdf({
     try {
       const PDFDocument = require('pdfkit');
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
       const chunks = [];
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      doc.fontSize(18).fillColor('#f97316')
-        .text('KaiKaiShield / SUZOO IP Guard', { align: 'center' });
+      // ★ Title: SUZOO IP Guard
+      doc.fontSize(20).fillColor('#f97316').font('Helvetica-Bold')
+         .text('SUZOO IP Guard - Copyright Certificate', { align: 'center' });
       doc.moveDown(0.5);
-      doc.fontSize(14).fillColor('#333')
-        .text('BLOCKCHAIN COPYRIGHT CERTIFICATE', { align: 'center' });
+
+      // ★ Subtitle: Epic Global Int’l Inc. / 凱盾全球國際股份有限公司
+      doc.fontSize(12).fillColor('#333').font('Helvetica')
+         .text('Epic Global Int’l Inc. (Registered in Republic of Seychelles)', { align: 'center' });
+      doc.moveDown(1.5);
+
+      // ★ Section: 基本資訊
+      doc.fontSize(13).fillColor('#111').font('Helvetica-Bold')
+         .text('著作權人 (Holder): ', { continued: true })
+         .fillColor('#000').font('Helvetica').text(`${realName || 'N/A'}`);
+
+      doc.fontSize(13).fillColor('#111').font('Helvetica-Bold')
+         .text('生日 (Birth Date): ', { continued: true })
+         .fillColor('#000').font('Helvetica').text(`${birthDate || 'N/A'}`);
+
+      doc.fontSize(13).fillColor('#111').font('Helvetica-Bold')
+         .text('手機/電話 (Phone): ', { continued: true })
+         .fillColor('#000').font('Helvetica').text(`${phone || 'N/A'}`);
+
+      doc.fontSize(13).fillColor('#111').font('Helvetica-Bold')
+         .text('地址 (Address): ', { continued: true })
+         .fillColor('#000').font('Helvetica').text(`${address || 'N/A'}`);
+
+      doc.fontSize(13).fillColor('#111').font('Helvetica-Bold')
+         .text('Email: ', { continued: true })
+         .fillColor('#000').font('Helvetica').text(`${email || 'N/A'}`);
+
       doc.moveDown(1);
 
-      doc.fontSize(12).fillColor('#111')
-        .text(`Holder (著作權人): ${realName}`)
-        .text(`Birth Date (生日): ${birthDate}`)
-        .text(`Phone: ${phone}`)
-        .text(`Address: ${address}`)
-        .text(`Email: ${email}`)
-        .moveDown();
+      // ★ Section: 作品檔案 + 區塊鏈資訊
+      doc.fontSize(13).fillColor('#333').font('Helvetica-Bold')
+         .text('作品檔案 (Original File): ', { continued: true })
+         .fillColor('#444').font('Helvetica')
+         .text(filename || 'N/A');
 
-      doc.fillColor('#444')
-        .text(`Original File: ${filename}`)
-        .text(`Fingerprint (SHA-256): ${fingerprint}`)
-        .text(`IPFS Hash: ${ipfsHash || '(None)'}`)
-        .text(`TxHash: ${txHash || '(None)'}`)
-        .moveDown();
+      doc.fontSize(13).fillColor('#333').font('Helvetica-Bold')
+         .text('Fingerprint (SHA-256): ', { continued: true })
+         .fillColor('#444').font('Helvetica')
+         .text(fingerprint || '(None)');
 
-      doc.fontSize(10).fillColor('#333').text(`
-【繁中】您的作品自完成即受著作權法保護，區塊鏈不可竄改之紀錄可作為法律舉證依據。
-      `.trim());
+      doc.fontSize(13).fillColor('#333').font('Helvetica-Bold')
+         .text('IPFS Hash: ', { continued: true })
+         .fillColor('#444').font('Helvetica')
+         .text(ipfsHash || '(None)');
 
-      doc.moveDown();
-      doc.fontSize(10).fillColor('#111').text(`
-【EN】Your work is protected upon creation. This blockchain-based certificate
-serves as immutable proof of authorship in any jurisdiction.
-      `);
+      doc.fontSize(13).fillColor('#333').font('Helvetica-Bold')
+         .text('Tx Hash: ', { continued: true })
+         .fillColor('#444').font('Helvetica')
+         .text(txHash || '(None)');
 
-      doc.moveDown();
-      doc.fontSize(10).fillColor('#666')
-        .text('(c) 2023 KaiKaiShield / SUZOO IP Guard. All Rights Reserved.', { align: 'center' });
+      doc.moveDown(1.2);
 
-      doc.end();
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
+      // ★ Separator
+      doc.strokeColor('#f97316').lineWidth(2)
+         .moveTo(doc.x, doc.y)
+         .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+         .stroke();
+      doc.moveDown(1);
 
-module.exports = router;
+      // ★ 內容：著作權申請表的說明 / 注意事項
+      doc.fontSize(10).fillColor('#000').font('Helvetica')
+        .text(`【中華保護智慧財產權協會 / 著作權存證登記申請書】`, { align: 'left' })
+        .moveDown(0.5)
+        .text(`※ 若為職務上之著作，著作財產權歸公司所有，除非契約另有約定 (著作權法第11條)。`, { align: 'left' })
+        .moveDown(0.5)
+        .text(`※ 若侵害他人著作權，如盜用照片、影印整本書等，恐違反著作權法須負損害賠償責任。`, { align: 'left' })
+        .moveDown(0.5)
+        .text(`※ 相關案例說明：`, { align: 'left' })
+        .list([
+          `拍賣網站下載他人商品照片 → 涉及攝影著作侵權，可能被索賠新台幣5萬元以上。`,
+          `教授提供概念給學生，程式由學生完成 → 著作權歸
