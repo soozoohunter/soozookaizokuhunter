@@ -1,98 +1,99 @@
 // frontend/src/pages/ProtectStep2.jsx
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+const Container = styled.div`
+  min-height: 100vh;
+  padding: 2rem;
+  background-color: #101010;
+  color: #fff;
+`;
+const ContentBox = styled.div`
+  max-width: 600px;
+  margin: 0 auto;
+  background: #1e1e1e;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 2px solid #ff6f00;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+`;
+
+const Title = styled.h2`
+  color: #ffd700;
+  margin-bottom: 1rem;
+`;
+const InfoText = styled.p`
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+`;
+const Highlight = styled.span`
+  color: #f97316;
+  font-weight: bold;
+`;
+
+const NextButton = styled.button`
+  background-color: #f97316;
+  color: #fff;
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  &:hover { background-color: #ea580c; }
+`;
 
 export default function ProtectStep2() {
   const navigate = useNavigate();
-  const [percent, setPercent] = useState(0);
-  const [done, setDone] = useState(false);
+  const { state } = useLocation();
 
-  useEffect(() => {
-    // 模擬 3 秒生成Hash
-    let current = 0;
-    const timer = setInterval(() => {
-      current += 5;
-      if (current >= 100) {
-        current = 100;
-        setPercent(100);
-        setDone(true);
-        clearInterval(timer);
-      } else {
-        setPercent(current);
-      }
-    }, 150); // 3秒 => 100/5 * 150ms = 3000ms
+  // 若直接進到 Step2 而沒 state，可能要導回 Step1
+  if (!state || !state.fileId) {
+    return (
+      <Container>
+        <ContentBox>
+          <Title>Oops</Title>
+          <p>無法取得上一步資訊，請先從 Step1 開始</p>
+          <NextButton onClick={() => navigate('/protect/step1')}>Go Step1</NextButton>
+        </ContentBox>
+      </Container>
+    );
+  }
 
-    return () => clearInterval(timer);
-  }, []);
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = state;
 
   const handleNext = () => {
-    navigate('/protect/step3');
+    // 進入 Step3，帶上 fileId
+    navigate('/protect/step3', {
+      state: {
+        fileId,
+        pdfUrl,
+        fingerprint,
+        ipfsHash,
+        txHash
+      }
+    });
   };
 
   return (
-    <div style={{ color:'#fff', textAlign:'center', padding:'2rem' }}>
-      <h2>Step 2: Generating Hash...</h2>
-      
-      {!done && (
-        <>
-          <div style={styles.spinner} />
-          <div style={styles.progressBarContainer}>
-            <div style={{ 
-              ...styles.progressBarFill, 
-              width: `${percent}%` 
-            }} />
-          </div>
-          <p style={{ marginTop:'1rem' }}>{percent}%</p>
-          <p style={{ color:'#aaa', marginTop:'0.5rem' }}>
-            正在上傳至區塊鏈中，請稍候...
-          </p>
-        </>
-      )}
+    <Container>
+      <ContentBox>
+        <Title>Step 2: Blockchain Record</Title>
+        <InfoText>
+          您的作品已成功上傳！以下是區塊鏈紀錄資訊：<br />
+          Fingerprint: <Highlight>{fingerprint}</Highlight> <br />
+          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight> <br />
+          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight> <br />
+        </InfoText>
 
-      {done && (
-        <div style={{ marginTop:'1.5rem' }}>
-          <p style={{ color:'#FFD700', fontWeight:'bold' }}>
-            恭喜！雜湊值生成成功
-          </p>
-          <p>你的作品已在區塊鏈留下不可逆的原創證明。</p>
-          <button style={styles.btn} onClick={handleNext}>Next</button>
-        </div>
-      )}
-    </div>
+        <InfoText>
+          憑證 PDF 已產生，可在最後一步下載。<br />
+          (預設路徑: <Highlight>{pdfUrl}</Highlight>)
+        </InfoText>
+
+        <NextButton onClick={handleNext}>Next: AI Scan</NextButton>
+      </ContentBox>
+    </Container>
   );
 }
-
-const styles = {
-  spinner: {
-    margin:'1rem auto',
-    width:'40px',
-    height:'40px',
-    border:'6px solid #444',
-    borderTop:'6px solid #ff6f00',
-    borderRadius:'50%',
-    animation:'spin 0.8s linear infinite'
-  },
-  progressBarContainer: {
-    margin:'1rem auto',
-    width:'200px',
-    height:'10px',
-    background:'#333',
-    borderRadius:'5px',
-    overflow:'hidden'
-  },
-  progressBarFill: {
-    height:'100%',
-    background:'#ff6f00',
-    transition:'width 0.1s linear'
-  },
-  btn: {
-    marginTop:'1rem',
-    backgroundColor:'#ff6f00',
-    color:'#fff',
-    border:'none',
-    borderRadius:'4px',
-    padding:'0.75rem 1.5rem',
-    cursor:'pointer'
-  }
-};
