@@ -1,3 +1,6 @@
+/*************************************************************
+ * express/routes/authRoutes.js
+ *************************************************************/
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -7,6 +10,10 @@ const { Op } = require('sequelize');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
+/**
+ * POST /auth/login
+ *  - 若 identifier 含 '@' => email；否則 phone
+ */
 router.post('/login', async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -18,7 +25,9 @@ router.post('/login', async (req, res) => {
     if (identifier.includes('@')) {
       whereClause = { email: identifier.toLowerCase() };
     } else {
-      whereClause = { username: identifier };
+      // phone => 移除非數字/+號:
+      const phoneClean = identifier.replace(/[^\d+]/g, '');
+      whereClause = { phone: phoneClean };
     }
 
     const user = await User.findOne({ where: whereClause });
@@ -31,13 +40,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: '密碼錯誤' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+      expiresIn: '7d'
+    });
+
+    return res.json({
       message: '登入成功',
       token,
       user: {
         id: user.id,
-        username: user.username,
+        phone: user.phone,
         email: user.email,
         role: user.role,
         plan: user.plan
@@ -49,26 +61,34 @@ router.post('/login', async (req, res) => {
   }
 });
 
+/**
+ * POST /auth/register
+ *  - 用 phone 當唯一帳號
+ */
 router.post('/register', async (req, res) => {
   try {
     const {
-      email, username, password, confirmPassword,
+      email,
+      phone,
+      password,
+      confirmPassword,
       IG, FB, YouTube, TikTok,
       Shopee, Ruten, Yahoo, Amazon, Taobao, eBay
     } = req.body;
 
-    if (!email || !username || !password || !confirmPassword) {
-      return res.status(400).json({ message: '必填欄位未填' });
+    if (!email || !phone || !password || !confirmPassword) {
+      return res.status(400).json({ message: '必填欄位未填 (email, phone, password)' });
     }
     if (password !== confirmPassword) {
       return res.status(400).json({ message: '兩次密碼不一致' });
     }
 
+    // 檢查 email / phone 是否已存在
     const exist = await User.findOne({
       where: {
         [Op.or]: [
           { email: email.toLowerCase() },
-          { username }
+          { phone }
         ]
       }
     });
@@ -82,13 +102,13 @@ router.post('/register', async (req, res) => {
     const newUser = await User.create({
       serialNumber,
       email: email.toLowerCase(),
-      username,
+      phone,
       password: hashed,
       IG, FB, YouTube, TikTok,
       Shopee, Ruten, Yahoo, Amazon, Taobao, eBay
     });
 
-    res.json({ message: '註冊成功', userId: newUser.id });
+    return res.json({ message: '註冊成功', userId: newUser.id });
   } catch (err) {
     console.error('[Register Error]', err);
     res.status(500).json({ message: '伺服器錯誤' });
