@@ -1,75 +1,62 @@
 /*************************************************************
- * express/routes/payment.js
- * - 付款API (pending -> Admin審核 -> approved)
+ * express/routes/payment.js (使用 Sequelize Payment Model)
  *************************************************************/
 const express = require('express');
 const router = express.Router();
+const { Payment } = require('../models'); 
+const authMiddleware = require('../middleware/authMiddleware');
 
-const SERVICE_PRICING = {
-  download_certificate: 99,
-  infringement_scan: 99,
-  dmca_submit: 299,
-  legal_support: 9990
-};
-
-// POST /api/pay => 建立付款(待審核)
+/** 
+ * POST /api/pay => 建立付款(待審核)
+ * body: { item, price } 
+ */
 router.post('/pay', async (req, res) => {
-  const db = req.db; // 來自 server.js
   const { item, price } = req.body;
-
-  // 確認是否合法
+  const SERVICE_PRICING = {
+    download_certificate: 99,
+    infringement_scan: 99,
+    dmca_submit: 299,
+    legal_support: 9990
+  };
+  // 驗證
   const cost = SERVICE_PRICING[item];
   if (!cost) {
     return res.status(400).json({ error: 'Invalid item' });
   }
-  if (Number(price) !== cost) {
+  if (+price !== cost) {
     return res.status(400).json({ error: 'Price mismatch' });
   }
-
   try {
-    // 範例: 假設無登入 => userId=null
-    // 實務: 可從 JWT 解碼 req.userId
+    // ★ 假設無登入 => userId=null
+    // 若實務需要 JWT: const userId = req.user.userId; (authMiddleware)
     const userId = null;
-    const uploadId = null;
-
-    const result = await db.query(`
-      INSERT INTO pending_payments
-        (user_id, upload_id, feature, amount, status, created_at)
-      VALUES ($1, $2, $3, $4, 'PENDING', NOW())
-      RETURNING id
-    `, [userId, uploadId, item, cost]);
-    const paymentId = result.rows[0].id;
-
-    return res.json({ success: true, paymentId });
+    const payment = await Payment.create({
+      userId: userId,
+      lastFive: '',
+      amount: cost,
+      planWanted: 'BASIC', // or 依 item
+      status: 'PENDING'
+    });
+    return res.json({ success: true, paymentId: payment.id });
   } catch (err) {
     console.error('[Payment] error:', err);
     return res.status(500).json({ error: 'Payment creation failed' });
   }
 });
 
-// 管理員審核 /api/admin/payments/:id/approve
-router.post('/admin/payments/:id/approve', async (req, res) => {
-  const db = req.db;
+/**
+ * 管理員審核 => POST /api/admin/payments/:id/approve
+ */
+router.post('/admin/payments/:id/approve', authMiddleware, async (req, res) => {
   const paymentId = req.params.id;
-
   try {
-    const upd = await db.query(`
-      UPDATE pending_payments
-        SET status='APPROVED', approved_at=NOW()
-        WHERE id=$1
-        RETURNING *
-    `, [paymentId]);
-
-    if (upd.rowCount === 0) {
+    // 找到 payment
+    const payment = await Payment.findByPk(paymentId);
+    if (!payment) {
       return res.status(404).json({ error: 'No record found' });
     }
-    const payment = upd.rows[0];
-
-    // ★ 若要更新該使用者 isPaid=true，可加:
-    // if (payment.user_id) {
-    //   await db.query(`UPDATE users SET "isPaid"=true WHERE id=$1`, [payment.user_id]);
-    // }
-
+    payment.status = 'APPROVED';
+    await payment.save();
     return res.json({ success: true, payment });
   } catch (err) {
     console.error('[Payment approve] error:', err);
