@@ -1,5 +1,5 @@
 // frontend/src/pages/ProtectStep3.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -45,23 +45,40 @@ const Button = styled.button`
 
 export default function ProtectStep3() {
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const location = useLocation();
+
+  const [fileData, setFileData] = useState(null);
   const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  if (!state || !state.fileId) {
+  useEffect(() => {
+    // 若 location.state 沒資料 → 可能使用者重整 or 直接輸入 /step3
+    let data = location.state;
+    if (!data || !data.fileId) {
+      const stored2 = localStorage.getItem('protectStep2');
+      if (stored2) {
+        data = JSON.parse(stored2);
+      }
+    }
+    if (!data || !data.fileId) {
+      // 依然沒資料 → 用戶沒走 step2
+      navigate('/protect/step2');
+    } else {
+      setFileData(data);
+    }
+  }, [location.state, navigate]);
+
+  if (!fileData) {
     return (
       <Container>
         <ContentBox>
-          <Title>Oops</Title>
-          <p>無法取得上一步資訊，請先從 Step2 開始</p>
-          <Button onClick={() => navigate('/protect/step2')}>Go Step2</Button>
+          <Title>Loading...</Title>
         </ContentBox>
       </Container>
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = state;
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = fileData;
 
   const handleScan = async () => {
     try {
@@ -98,8 +115,7 @@ export default function ProtectStep3() {
       <ContentBox>
         <Title>Step 3: AI Infringement Scan</Title>
         <InfoText>
-          這裡會呼叫後端 API `/api/protect/scan/${fileId}` 來模擬侵權掃描。
-          找到可疑的盜用連結後，您就可以主張DMCA下架或法律途徑。
+          這裡會呼叫後端 API <Highlight>/api/protect/scan/{fileId}</Highlight> 模擬侵權掃描。
         </InfoText>
 
         {!scanResult && (
@@ -111,7 +127,7 @@ export default function ProtectStep3() {
         {scanResult && (
           <>
             <InfoText>
-              發現可疑連結：<br />
+              發現可疑連結：
               {scanResult.map((link, idx) => (
                 <div key={idx} style={{ margin: '0.25rem 0'}}>
                   <Highlight>{link}</Highlight>
