@@ -1,7 +1,7 @@
 {
   "name": "suzoo-express",
   "version": "1.0.0",
-  "description": "Soozoo Express server",
+  "description": "Soozoo Express server (Enterprise Production)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
