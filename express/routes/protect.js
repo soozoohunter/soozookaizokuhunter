@@ -1,15 +1,14 @@
 /*************************************************************
  * express/routes/protect.js
  * 
- * - 若檔案是 video/* & 非白名單 => 402 NEED_PAYMENT
- * - 若是 image/* 或白名單 => 仍免費
- * - 修正 rename 時不要使用 '/uploads/...'
- * - 確保使用者已有 username 欄位
+ * - 如果上傳檔案是 video/* 且非白名單 => 402 NEED_PAYMENT
+ * - 若 email 在 DB 有 unique constraint，重複會報錯 409
+ * - 修正 rename => 用 path.resolve(__dirname, '../../uploads')
  *************************************************************/
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
@@ -23,10 +22,10 @@ const chain = require('../utils/chain');
 const PDFDocument = require('pdfkit');
 const puppeteer = require('puppeteer');
 
-// Multer 暫存
+// Multer 暫存到 uploads/，docker 容器需有此資料夾
 const upload = multer({ dest: 'uploads/' });
 
-// 白名單 (允許無限 / 免付費)
+// 白名單 (免付費)
 const ALLOW_UNLIMITED = [
   '0900296168',
   'jeffqqm@gmail.com'
@@ -34,7 +33,7 @@ const ALLOW_UNLIMITED = [
 
 /**
  * POST /api/protect/step1
- * - 上傳檔案 => 若是 video & 非白名單 => 402 NEED_PAYMENT
+ * - 若 video & 非白名單 => 402 NEED_PAYMENT
  * - 否則建立 User + Fingerprint + PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
@@ -50,12 +49,12 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       agreePolicy
     } = req.body;
 
-    // 1) 檢查必填
+    // 1) 檢查
     if (!req.file) {
       return res.status(400).json({ error: '缺少上傳檔案' });
     }
     if (!realName || !birthDate || !phone || !address || !email) {
-      return res.status(400).json({ error: '缺少必填欄位(個人基本資料)' });
+      return res.status(400).json({ error: '缺少必填欄位(個人資料)' });
     }
     if (!title) {
       return res.status(400).json({ error: '請輸入作品標題(title)' });
@@ -67,49 +66,40 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '請勾選同意隱私權政策與使用條款' });
     }
 
-    // 2) 判斷是否 video => 需付費
-    const mimeType = req.file.mimetype; // e.g. "video/mp4"
-    const isVideo = mimeType.startsWith('video');
-    // 用白名單做免付費判斷
+    // 2) 判斷 video => 若非白名單 => 402
+    const mimeType = req.file.mimetype;       // "video/mp4", "image/png", ...
+    const isVideo  = mimeType.startsWith('video');
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
-
     if (isVideo && !isUnlimited) {
-      // 短影音需付費 => 直接回 402
       fs.unlinkSync(req.file.path); // 刪除暫存
       return res.status(402).json({
         code: 'NEED_PAYMENT',
-        error: '短影音功能需付費，請聯繫或購買方案'
+        error: '短影音上傳需付費，請聯繫客服或升級付費方案'
       });
     }
 
-    // 3) 若非白名單 => 檢查 phone/email 是否重複 (或您可直接允許重複)
+    // 3) 若非白名單 => 檢查重複 email/phone (DB 限制 unique)
     if (!isUnlimited) {
-      const existUser = await User.findOne({
-        where: {
-          [Op.or]: [
-            { phone },
-            { email }
-          ]
-        }
+      const oldUser = await User.findOne({
+        where: { [Op.or]: [{ email }, { phone }] }
       });
-      if (existUser) {
+      if (oldUser) {
         return res.status(409).json({
           code: 'ALREADY_MEMBER',
-          error: '您已是會員，請直接登入或使用既有帳號'
+          error: '此Email或手機已被使用，請改用已有帳號'
         });
       }
     }
 
-    // 4) 建立 User
-    // ※ DB 需存在 username 欄位
-    const rawPass = phone + '@KaiShield';
-    const hashed = await bcrypt.hash(rawPass, 10);
+    // 4) 建 User => DB 要有 username 欄位
+    const rawPass   = phone + '@KaiShield';      // 初始密碼
+    const hashedPass= await bcrypt.hash(rawPass, 10);
     const newUser = await User.create({
-      username: phone, // DB 要有 username
+      username: phone, // DB 需存在 username 欄位
       serialNumber: 'SN-' + Date.now(),
       email,
       phone,
-      password: hashed,
+      password: hashedPass,
       realName,
       birthDate,
       address,
@@ -118,23 +108,23 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     });
 
     // 5) Fingerprint => IPFS => 區塊鏈
-    const fileBuf = fs.readFileSync(req.file.path);
-    const fingerprint = fingerprintService.sha256(fileBuf);
-    let ipfsHash = null;
-    let txHash = null;
+    const fileBuf    = fs.readFileSync(req.file.path);
+    const fingerprint= fingerprintService.sha256(fileBuf);
+    let ipfsHash=null, txHash=null;
+
     try {
       ipfsHash = await ipfsService.saveFile(fileBuf);
-    } catch (ipfsErr) {
-      console.error('[IPFS error]', ipfsErr);
+    } catch(errIPFS){
+      console.error('[IPFS error]', errIPFS);
     }
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
-    } catch (chainErr) {
-      console.error('[Chain error]', chainErr);
+    } catch(errChain){
+      console.error('[Chain error]', errChain);
     }
 
-    // 建立 File 紀錄
+    // File 紀錄
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -151,9 +141,9 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
     await newUser.save();
 
-    // 6) rename => 保留檔案至 uploads/ (避免 / 開頭)
+    // 6) rename => uploads/
     const ext = path.extname(req.file.originalname) || '';
-    const localDir = path.resolve(__dirname, '../../uploads'); 
+    const localDir = path.resolve(__dirname, '../../uploads');
     if (!fs.existsSync(localDir)) {
       fs.mkdirSync(localDir, { recursive: true });
     }
@@ -177,9 +167,9 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       fileBuffer: fileBuf,
       mimeType
     });
-    const pdfPath = path.join('uploads', `certificate_${newFile.id}.pdf`); 
-    // 這裡可用相對路徑 "uploads/certificate_xxx.pdf"
-    fs.writeFileSync(pdfPath, pdfBuf);
+    const pdfFileName = `certificate_${newFile.id}.pdf`;
+    const pdfFilePath = path.join(localDir, pdfFileName);
+    fs.writeFileSync(pdfFilePath, pdfBuf);
 
     // 回傳
     return res.json({
@@ -203,7 +193,9 @@ router.post('/step1', upload.single('file'), async (req, res) => {
  */
 router.get('/certificates/:fileId', async (req, res) => {
   try {
-    const pdfPath = path.join('uploads', `certificate_${req.params.fileId}.pdf`);
+    const localDir = path.resolve(__dirname, '../../uploads');
+    const pdfPath  = path.join(localDir, `certificate_${req.params.fileId}.pdf`);
+
     if (!fs.existsSync(pdfPath)) {
       return res.status(404).json({ error: 'PDF Not Found' });
     }
@@ -216,7 +208,7 @@ router.get('/certificates/:fileId', async (req, res) => {
 
 /**
  * GET /api/protect/scan/:fileId
- * - 文字式爬蟲 + (image => 單張 googleReverseImage) or (short video => 抽frame)
+ * - 文字爬蟲 + googleReverseImage (image / short video)
  */
 router.get('/scan/:fileId', async (req, res) => {
   try {
@@ -228,124 +220,103 @@ router.get('/scan/:fileId', async (req, res) => {
     let suspiciousLinks = [];
     const apiKey = process.env.RAPIDAPI_KEY;
 
-    // 1) 文字爬蟲
+    // (1) 文字爬蟲 (TikTok / IG / FB)
     if (apiKey) {
       const searchQuery = file.filename || file.fingerprint || 'default';
       // Tiktok
       try {
-        const respTikTok = await axios.get(
-          'https://tiktok-scraper7.p.rapidapi.com/feed/search',
-          {
-            params: { keywords: searchQuery, region: 'us', count: '5' },
-            headers: {
-              'X-RapidAPI-Key': apiKey,
-              'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com'
-            }
+        const respTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search', {
+          params: { keywords: searchQuery, region: 'us', count: '5' },
+          headers: {
+            'X-RapidAPI-Key': apiKey,
+            'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com'
           }
-        );
-        const tiktokItems = respTikTok.data?.videos || [];
-        tiktokItems.forEach((item) => {
-          if (item.link) suspiciousLinks.push(item.link);
         });
-      } catch (errTik) {
-        console.error('[Tiktok error]', errTik.message);
-      }
+        const tiktokItems = respTT.data?.videos || [];
+        tiktokItems.forEach( it => {
+          if (it.link) suspiciousLinks.push(it.link);
+        });
+      } catch(eTT){ console.error('[TT error]', eTT.message); }
 
       // IG
       try {
-        const igResp = await axios.get(
-          'https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword',
-          {
-            params: { query: searchQuery },
-            headers: {
-              'X-RapidAPI-Key': apiKey,
-              'X-RapidAPI-Host': 'real-time-instagram-scraper-api.p.rapidapi.com'
-            }
+        const igResp = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword', {
+          params: { query: searchQuery },
+          headers: {
+            'X-RapidAPI-Key': apiKey,
+            'X-RapidAPI-Host': 'real-time-instagram-scraper-api.p.rapidapi.com'
           }
-        );
+        });
         const igLinks = igResp.data?.results || [];
         suspiciousLinks = suspiciousLinks.concat(igLinks);
-      } catch (errIG) {
-        console.error('[IG error]', errIG.message);
-      }
+      } catch(eIG){ console.error('[IG error]', eIG.message); }
 
       // FB
       try {
-        const fbResp = await axios.get(
-          'https://facebook-scraper3.p.rapidapi.com/page/reels',
-          {
-            params: { page_id: '100064860875397' },
-            headers: {
-              'X-RapidAPI-Key': apiKey,
-              'X-RapidAPI-Host': 'facebook-scraper3.p.rapidapi.com'
-            }
+        const fbResp = await axios.get('https://facebook-scraper3.p.rapidapi.com/page/reels', {
+          params: { page_id: '100064860875397' },
+          headers: {
+            'X-RapidAPI-Key': apiKey,
+            'X-RapidAPI-Host': 'facebook-scraper3.p.rapidapi.com'
           }
-        );
+        });
         const fbLinks = fbResp.data?.reels || [];
         suspiciousLinks = suspiciousLinks.concat(fbLinks);
-      } catch (errFB) {
-        console.error('[FB error]', errFB.message);
-      }
+      } catch(eFB){ console.error('[FB error]', eFB.message); }
 
     } else {
-      console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawl');
+      console.warn('[scan] No RAPIDAPI_KEY => skip text-based');
     }
 
-    // 2) 以圖搜圖 / 或短影音抽圖
-    const guessExt = path.extname(file.filename);
+    // (2) googleReverseImage
     const localDir = path.resolve(__dirname, '../../uploads');
+    const guessExt = path.extname(file.filename) || '';
     const localPath = path.join(localDir, `imageForSearch_${file.id}${guessExt}`);
     if (!fs.existsSync(localPath)) {
-      // 檔案不存在 => 只回傳文字爬蟲
-      const unique1 = Array.from(new Set(suspiciousLinks));
+      // 檔案不存在 => 只回文字爬蟲
+      const uniqueNoFile = Array.from(new Set(suspiciousLinks));
       file.status = 'scanned';
-      file.infringingLinks = JSON.stringify(unique1);
+      file.infringingLinks = JSON.stringify(uniqueNoFile);
       await file.save();
       return res.json({
-        message: 'Text-based done. No local file => skip reverseImage',
-        suspiciousLinks: unique1
+        message: 'no local file => only text-based done',
+        suspiciousLinks: uniqueNoFile
       });
     }
 
     let googleResults = [];
-    // 根據 user.uploadImages / uploadVideos 判斷
     const user = await User.findByPk(file.user_id);
-
+    // 若 user.uploadImages>0 => 單張
     if (user && user.uploadImages > 0) {
-      // 單張
       const singleLinks = await doGoogleReverseImage(localPath);
       googleResults.push(...singleLinks);
       suspiciousLinks.push(...singleLinks);
     }
     else if (user && user.uploadVideos > 0) {
-      // 短影音 -> ffprobe => 時長 <=30 => 抽 frames
+      // 短影片 => ffprobe => <=30s => 抽 frames
       try {
         const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
-        const durationStr = execSync(cmdProbe).toString().trim();
-        const durationSec = parseFloat(durationStr) || 9999;
-        if (durationSec <= 30) {
+        const durStr = execSync(cmdProbe).toString().trim();
+        const durSec = parseFloat(durStr) || 9999;
+        if (durSec <=30) {
           const outDir = path.join(localDir, `frames_${file.id}`);
           if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
           const cmdExtract = `ffmpeg -i "${localPath}" -vf fps=100 "${outDir}/frame_%05d.jpg"`;
           execSync(cmdExtract);
 
-          const frameFiles = fs.readdirSync(outDir).filter(f => f.endsWith('.jpg'));
-          // 大量 google => 可能 reCAPTCHA
-          for (let i = 0; i < frameFiles.length; i++) {
-            const framePath = path.join(outDir, frameFiles[i]);
+          const frames = fs.readdirSync(outDir).filter(f => f.endsWith('.jpg'));
+          for (let i=0; i<frames.length; i++){
+            const framePath = path.join(outDir, frames[i]);
             const frameLinks = await doGoogleReverseImage(framePath);
             googleResults.push(...frameLinks);
             suspiciousLinks.push(...frameLinks);
-
-            // if (i>10) break; // 避免過多
+            // if (i>10) break; // 避免太多
           }
         } else {
-          console.log('[scan] video >30s => skip frames');
+          console.log('[scan] video>30s => skip frames');
         }
-      } catch(eVid) {
-        console.error('[Video extraction error]', eVid);
-      }
+      } catch(eVid){ console.error('[video ext error]', eVid); }
     }
 
     // 去重
@@ -359,7 +330,6 @@ router.get('/scan/:fileId', async (req, res) => {
       suspiciousLinks: uniqueLinks,
       googleResults
     });
-
   } catch (err) {
     console.error('[scan error]', err);
     return res.status(500).json({ error: err.message });
@@ -367,7 +337,7 @@ router.get('/scan/:fileId', async (req, res) => {
 });
 
 /**
- * 單張以圖搜圖 - Puppeteer
+ * 單張 googleReverseImage
  */
 async function doGoogleReverseImage(localPath) {
   const results = [];
@@ -375,42 +345,39 @@ async function doGoogleReverseImage(localPath) {
   try {
     browser = await puppeteer.launch({
       headless: true,
-      defaultViewport: { width: 1280, height: 800 },
-      // 可能需要 executablePath, args
+      defaultViewport: { width: 1280, height: 800 }
     });
     const page = await browser.newPage();
-    await page.goto('https://images.google.com/', { waitUntil: 'networkidle2' });
+    await page.goto('https://images.google.com/', { waitUntil:'networkidle2' });
 
-    // 相機按鈕
+    // 相機 icon
     const cameraButtonSelector = 'div[jsname="Q4LuWd"] a.Q4LuWd';
-    await page.waitForSelector(cameraButtonSelector, { timeout: 8000 });
+    await page.waitForSelector(cameraButtonSelector, { timeout:8000 });
     await page.click(cameraButtonSelector);
 
-    // Upload an image
+    // "Upload an image"
     const uploadTabSelector = 'a[aria-label="Upload an image"]';
-    await page.waitForSelector(uploadTabSelector, { timeout: 8000 });
+    await page.waitForSelector(uploadTabSelector, { timeout:8000 });
     await page.click(uploadTabSelector);
 
-    // 上傳檔案
+    // 上傳
     const fileInputSelector = 'input#qbfile';
-    await page.waitForSelector(fileInputSelector, { timeout: 8000 });
+    await page.waitForSelector(fileInputSelector, { timeout:8000 });
     const fileInput = await page.$(fileInputSelector);
     await fileInput.uploadFile(localPath);
 
     // 等4秒
     await page.waitForTimeout(4000);
 
-    // 取得前5連結
+    // 抓前5連結
     const resultsSelector = 'div.g a';
-    await page.waitForSelector(resultsSelector, { timeout: 15000 });
-    const links = await page.$$eval(resultsSelector, (anchors) =>
-      anchors.slice(0, 5).map(a => a.href)
+    await page.waitForSelector(resultsSelector, { timeout:15000 });
+    const links = await page.$$eval(resultsSelector, anchors =>
+      anchors.slice(0,5).map(a=>a.href)
     );
     results.push(...links);
-
-    console.log('[doGoogleReverseImage]', links);
-  } catch (err) {
-    console.error('[doGoogleReverseImage Error]', err);
+  } catch(e) {
+    console.error('[doGoogleReverseImage Error]', e);
   } finally {
     if (browser) await browser.close();
   }
@@ -429,36 +396,28 @@ async function generatePdf({
 }) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const doc = new PDFDocument({ size:'A4', margin:50 });
       const chunks = [];
-      doc.on('data', (c) => chunks.push(c));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('data', c=>chunks.push(c));
+      doc.on('end', ()=>resolve(Buffer.concat(chunks)));
 
-      // 字型
       const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
       doc.font(fontPath);
 
       doc.fontSize(16).fillColor('#f97316')
-        .text('著作權存證登記證明書', { align: 'center', underline: true });
+        .text('著作權存證登記證明書', { align:'center', underline:true });
       doc.moveDown(0.5);
       doc.fontSize(10).fillColor('#555')
-        .text('(Certificate of Copyright Registration)', { align: 'center' });
+        .text('(Certificate of Copyright Registration)', { align:'center' });
       doc.moveDown(1);
 
       doc.fontSize(9).fillColor('#f00')
-        .text(`Certificate Serial No.: ${serialNumber}`, { align: 'center' });
+        .text(`Certificate Serial No.: ${serialNumber}`, { align:'center' });
       doc.moveDown(1);
 
-      // 印章
-      try {
-        const stampPath = path.join(__dirname, '../fonts/stamp.png');
-        doc.image(stampPath, { fit: [80, 80], align: 'left' });
-      } catch(eS){}
-
-      doc.moveDown(1);
       // 權利主體
       doc.fontSize(11).fillColor('#111')
-        .text('【權利主體 (Holder)】', { underline: true });
+        .text('【權利主體(Holder)】', { underline:true });
       doc.text(`• 姓名: ${realName}`);
       doc.text(`• 生日: ${birthDate}`);
       doc.text(`• 電話(帳號): ${phone}`);
@@ -466,40 +425,40 @@ async function generatePdf({
       doc.text(`• Email: ${email}`);
       doc.moveDown(1);
 
-      doc.text('【著作資訊】', { underline: true });
+      doc.text('【著作資訊】', { underline:true });
       doc.text(`• Title: ${title}`);
       doc.text(`• Keywords: ${keywords}`);
       doc.text(`• 檔名: ${filename}`);
       doc.text(`• SHA256: ${fingerprint}`);
-      doc.text(`• IPFS Hash: ${ipfsHash || '(None)'}`);
-      doc.text(`• TxHash: ${txHash || '(None)'}`);
+      doc.text(`• IPFS Hash: ${ipfsHash||'(None)'}`);
+      doc.text(`• TxHash: ${txHash||'(None)'}`);
       doc.moveDown(1);
 
-      doc.text('【作品截圖】', { underline: true });
+      doc.text('【作品截圖】', { underline:true });
       if (mimeType.startsWith('image')) {
-        // 圖片 => 插入縮圖
-        const tempImg = path.join(__dirname, `../temp_${Date.now()}.jpg`);
-        fs.writeFileSync(tempImg, fileBuffer);
-        doc.image(tempImg, { fit: [200, 150] });
-        fs.unlinkSync(tempImg);
-      } else if (mimeType.startsWith('video')) {
-        // 影片 => ffmpeg 抽 1 秒
         try {
-          const videoTemp = path.join(__dirname, `../tempvid_${Date.now()}.mp4`);
-          const shotPath = path.join(__dirname, `../tempvidshot_${Date.now()}.jpg`);
-          fs.writeFileSync(videoTemp, fileBuffer);
-          execSync(`ffmpeg -i "${videoTemp}" -ss 00:00:01 -frames:v 1 -y "${shotPath}"`);
-          doc.image(shotPath, { fit: [200, 150] });
-          fs.unlinkSync(videoTemp);
+          const tmpImg = path.join(__dirname, `../temp_${Date.now()}.jpg`);
+          fs.writeFileSync(tmpImg, fileBuffer);
+          doc.image(tmpImg, { fit:[200,150] });
+          fs.unlinkSync(tmpImg);
+        } catch(e){}
+      } else if (mimeType.startsWith('video')) {
+        try {
+          const tmpVid   = path.join(__dirname, `../tmpvid_${Date.now()}.mp4`);
+          const shotPath = path.join(__dirname, `../tmpvidshot_${Date.now()}.jpg`);
+          fs.writeFileSync(tmpVid, fileBuffer);
+          execSync(`ffmpeg -i "${tmpVid}" -ss 00:00:01 -frames:v 1 -y "${shotPath}"`);
+          doc.image(shotPath, { fit:[200,150] });
+          fs.unlinkSync(tmpVid);
           fs.unlinkSync(shotPath);
-        } catch(eV){}
+        } catch(e){}
       } else {
-        doc.text('(No preview for this file type)', { italic:true });
+        doc.text('(No preview)', { italic:true });
       }
       doc.moveDown(1);
 
       doc.fontSize(10).fillColor('#000')
-        .text('依據伯恩公約、TRIPS 等國際規範，本公司於聯合國會員國(塞席爾Seychelles)設立，具全球法律效力，為初步舉證依據。');
+        .text('依據伯恩公約、TRIPS 等國際規範，本公司於聯合國會員國(塞席爾Seychelles)設立，具全球法律效力。');
       doc.moveDown(1);
 
       doc.text('GM / Zack Yao', { align:'right' });
