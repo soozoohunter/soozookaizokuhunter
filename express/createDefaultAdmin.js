@@ -1,10 +1,8 @@
 /********************************************************************
  * express/createDefaultAdmin.js
  * 
- * 伺服器啟動時，若無符合 phone/email 的 admin，就建立 or 更新為 admin：
- *   - phone= 0900296168
- *   - email= jeffqqm@gmail.com
- *   - password= Zack967988
+ * 伺服器啟動時，若無符合 phone/email 的使用者，則新建 admin。
+ * 若找到了但不是 admin，則強制更新為 admin + 重設預設密碼。
  ********************************************************************/
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
@@ -16,8 +14,8 @@ module.exports = async function createDefaultAdmin() {
     const defaultPhone = '0900296168';
     const defaultPass = 'Zack967988';
 
-    // 1) 檢查有無相同 email 或 phone 的使用者
-    const oldAdmin = await User.findOne({
+    // 查找相同 email or phone 的使用者
+    const existing = await User.findOne({
       where: {
         [Op.or]: [
           { email: defaultEmail },
@@ -26,31 +24,29 @@ module.exports = async function createDefaultAdmin() {
       }
     });
 
-    // 2) 若已存在 => 強制更新為 admin + 預設密碼
-    if (oldAdmin) {
-      console.log(`[InitAdmin] Found user => email=${oldAdmin.email}, phone=${oldAdmin.phone}`);
+    if (existing) {
+      console.log('[InitAdmin] Found user =>', existing.email, existing.phone);
 
-      // 檢查 role
-      if (oldAdmin.role !== 'admin') {
-        console.log('[InitAdmin] This user is not admin. Updating role & password...');
-        oldAdmin.role = 'admin';
+      // 不是 admin 就升級為 admin，並重置密碼
+      if (existing.role !== 'admin') {
+        existing.role = 'admin';
+        console.log('[InitAdmin] Updating role => admin');
       }
-
-      // 更新密碼成預設 (確保能登入)
+      // 重置密碼
       const hashed = await bcrypt.hash(defaultPass, 10);
-      oldAdmin.password = hashed;
+      existing.password = hashed;
 
-      // 若沒有序號，設為 'SNADMIN001'
-      if (!oldAdmin.serialNumber) {
-        oldAdmin.serialNumber = 'SNADMIN001';
+      // 若沒有 serialNumber，就補一下
+      if (!existing.serialNumber) {
+        existing.serialNumber = 'SNADMIN001';
       }
+      await existing.save();
 
-      await oldAdmin.save();
-      console.log(`[InitAdmin] Updated to admin => ${oldAdmin.email}, pass=${defaultPass}`);
+      console.log(`[InitAdmin] Updated admin => email=${existing.email}, pass=${defaultPass}`);
       return;
     }
 
-    // 3) 若尚無 -> 新建 admin
+    // 若不存在 => 新建 admin
     const hashed = await bcrypt.hash(defaultPass, 10);
     await User.create({
       serialNumber: 'SNADMIN001',
@@ -58,10 +54,10 @@ module.exports = async function createDefaultAdmin() {
       phone: defaultPhone,
       password: hashed,
       role: 'admin',
-      realName: 'System Admin'
+      realName: 'System Admin',
+      username: 'zacyao1005' // 看您需求，也可用預設 username
     });
-    console.log(`[InitAdmin] Created admin => email=${defaultEmail}, phone=${defaultPhone}, pass=${defaultPass}`);
-
+    console.log(`[InitAdmin] Created admin => email=${defaultEmail}, pass=${defaultPass}`);
   } catch (err) {
     console.error('[InitAdmin] error:', err);
   }
