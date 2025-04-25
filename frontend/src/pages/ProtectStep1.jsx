@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-// ---------- Styled Components -----------
+/** =========== Styled Components =========== **/
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
@@ -112,19 +112,14 @@ const SubmitButton = styled.button`
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
-  // 檔案、表單欄位
   const [file, setFile] = useState(null);
   const [realName, setRealName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
-
-  // 作品標題 / 關鍵字
   const [title, setTitle] = useState('');
   const [keywords, setKeywords] = useState('');
-
-  // 是否同意條款
   const [agreePolicy, setAgreePolicy] = useState(false);
 
   const [error, setError] = useState('');
@@ -141,15 +136,11 @@ export default function ProtectStep1() {
     setFile(null);
   };
 
-  // 按下 Next => 將資料 POST 給 /api/protect/step1
   const handleNext = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 檢查必填
-    if (!file) {
-      return setError('請先上傳檔案');
-    }
+    if (!file) return setError('請先上傳檔案');
     if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       return setError('必填欄位不可空白');
     }
@@ -183,23 +174,16 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        // 若後端回傳 409 => 有可能是已是會員
-        if (resp.status === 409) {
-          // 假設後端會回傳 { code: 'ALREADY_MEMBER', error: '...' }
-          if (respData.code === 'ALREADY_MEMBER') {
-            alert(respData.error || '您已是會員，請直接登入或註冊');
-            // 跳轉至 /register
-            navigate('/register');
-            return;
-          }
-          // 否則就 throw
-          throw new Error(respData.error || '此手機或Email已註冊');
+        if (resp.status === 409 && respData.code === 'ALREADY_MEMBER') {
+          alert(respData.error || '您已是會員，請直接登入或註冊');
+          navigate('/register');
+          return;
         }
-        // 其他錯誤
+        // 402 => NEED_PAYMENT or other
         throw new Error(respData.error || '上傳失敗');
       }
 
-      // 成功
+      // 成功 => 寫 localStorage
       console.log('step1 success =>', respData);
       localStorage.setItem('protectStep1', JSON.stringify(respData));
       navigate('/protect/step2');
@@ -215,7 +199,6 @@ export default function ProtectStep1() {
     <PageWrapper>
       <FormContainer>
         <Title>Step 1: Upload &amp; Member Info</Title>
-
         <Description>
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。
           系統會自動為您建立會員帳號（手機為帳號、Email 唯一），
@@ -297,22 +280,16 @@ export default function ProtectStep1() {
             onChange={(e) => setKeywords(e.target.value)}
           />
 
-          <details style={{
-            margin: '1rem 0',
-            background: '#2c2c2c',
-            padding: '1rem',
-            border: '1px solid #ff6f00',
-            borderRadius: '6px'
-          }}>
+          <details style={{ margin: '1rem 0', background: '#2c2c2c', padding: '1rem',
+            border: '1px solid #ff6f00', borderRadius: '6px' }}>
             <summary style={{ cursor: 'pointer', color: '#f97316' }}>
               閱讀隱私權與服務條款 (點此展開)
             </summary>
             <div style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              <p>本公司「凱盾全球國際股份有限公司(Epic Global Int’I Inc.)」隱私權保護政策...</p>
+              <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策...</p>
               <p>1. 您需年滿18歲...</p>
               <p>2. 蒐集與使用個人資料之目的...</p>
               <p>3. 若有違反規範，本公司得終止服務...</p>
-              {/* 可貼更完整文字 */}
             </div>
           </details>
           <CheckboxRow>
