@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
-const createAdmin = require('./createDefaultAdmin'); // 如果有預設管理員
+const createAdmin = require('./createDefaultAdmin'); // 若有預設管理員
 
 // 若您有 routes
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -44,7 +44,7 @@ app.use('/auth', authRouter);
 
     // (建議只在測試或本地用 force:true 或手動 drop table)
     // 兩者只能擇一，不要同時開
-    await sequelize.sync({ alter: true }); 
+    await sequelize.sync({ alter: true });
     
     console.log('[Express] Sequelize synced.');
   } catch (err) {
@@ -52,7 +52,7 @@ app.use('/auth', authRouter);
   }
 })();
 
-// 建立預設 Admin
+// 建立/更新預設 Admin
 (async function ensureAdmin() {
   try {
     await createAdmin();
