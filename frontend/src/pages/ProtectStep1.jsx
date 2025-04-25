@@ -99,7 +99,7 @@ const SubmitButton = styled.button`
   font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
-  background-color: #f97316; /* 橘色按鈕 */
+  background-color: #f97316;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -120,11 +120,11 @@ export default function ProtectStep1() {
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
 
-  // ★ 新增：作品標題 (Title)
+  // 作品標題 / 關鍵字
   const [title, setTitle] = useState('');
-  // ★ 新增：關鍵字 (Keywords)
   const [keywords, setKeywords] = useState('');
-  // ★ 新增：是否同意隱私與條款
+
+  // 是否同意條款
   const [agreePolicy, setAgreePolicy] = useState(false);
 
   const [error, setError] = useState('');
@@ -174,7 +174,6 @@ export default function ProtectStep1() {
       formData.append('email', email);
       formData.append('title', title);
       formData.append('keywords', keywords);
-      // 送出是否同意 (後端檢查 'true' 才放行)
       formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
 
       const resp = await fetch('/api/protect/step1', {
@@ -184,19 +183,25 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        // 若後端回傳 409 => 顯示更友善訊息
+        // 若後端回傳 409 => 有可能是已是會員
         if (resp.status === 409) {
-          throw new Error(respData.error || '此手機或Email已註冊，請直接登入');
+          // 假設後端會回傳 { code: 'ALREADY_MEMBER', error: '...' }
+          if (respData.code === 'ALREADY_MEMBER') {
+            alert(respData.error || '您已是會員，請直接登入或註冊');
+            // 跳轉至 /register
+            navigate('/register');
+            return;
+          }
+          // 否則就 throw
+          throw new Error(respData.error || '此手機或Email已註冊');
         }
         // 其他錯誤
         throw new Error(respData.error || '上傳失敗');
       }
 
-      // 成功 => respData 內含 pdfUrl / fileId / ...
+      // 成功
       console.log('step1 success =>', respData);
       localStorage.setItem('protectStep1', JSON.stringify(respData));
-
-      // 前往 Step2
       navigate('/protect/step2');
     } catch (err) {
       console.error('step1 error =>', err);
@@ -230,7 +235,9 @@ export default function ProtectStep1() {
           ) : (
             <>
               <FileName>已選檔案: {file.name}</FileName>
-              <ClearButton type="button" onClick={handleClearFile}>移除檔案</ClearButton>
+              <ClearButton type="button" onClick={handleClearFile}>
+                移除檔案
+              </ClearButton>
             </>
           )}
 
@@ -290,35 +297,33 @@ export default function ProtectStep1() {
             onChange={(e) => setKeywords(e.target.value)}
           />
 
-          {/* ====== 隱私權 & 條款 checkbox ====== */}
           <details style={{
-            margin:'1rem 0',
-            background:'#2c2c2c',
-            padding:'1rem',
-            border:'1px solid #ff6f00',
-            borderRadius:'6px'
+            margin: '1rem 0',
+            background: '#2c2c2c',
+            padding: '1rem',
+            border: '1px solid #ff6f00',
+            borderRadius: '6px'
           }}>
-            <summary style={{ cursor:'pointer', color:'#f97316' }}>
+            <summary style={{ cursor: 'pointer', color: '#f97316' }}>
               閱讀隱私權與服務條款 (點此展開)
             </summary>
-            <div style={{ fontSize:'0.85rem', marginTop:'0.5rem' }}>
+            <div style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
               <p>本公司「凱盾全球國際股份有限公司(Epic Global Int’I Inc.)」隱私權保護政策...</p>
               <p>1. 您需年滿18歲...</p>
               <p>2. 蒐集與使用個人資料之目的...</p>
               <p>3. 若有違反規範，本公司得終止服務...</p>
-              {/* 視需求再貼更完整文字 */}
+              {/* 可貼更完整文字 */}
             </div>
           </details>
           <CheckboxRow>
             <input
               type="checkbox"
               checked={agreePolicy}
-              onChange={()=> setAgreePolicy(!agreePolicy)}
-              style={{ marginRight:'0.5rem' }}
+              onChange={() => setAgreePolicy(!agreePolicy)}
+              style={{ marginRight: '0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
-          {/* ================================ */}
 
           <SubmitButton type="submit" disabled={loading}>
             {loading ? 'Uploading...' : '下一步 / Next'}
