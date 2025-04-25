@@ -1,10 +1,8 @@
 /*************************************************************
  * express/routes/protect.js
- * - 建User時 username=phone
- * - 產PDF (中英雙語)
- * - 影片抽圖 (ffmpeg)
- * - /scan/:fileId => 真實爬蟲
- * - 移除隱私權內容於 PDF，僅檢查前端 agreePolicy
+ * - 修正：允許 phone=0900296168 或 email=jeffqqm@gmail.com 無限上傳
+ * - 若重複 -> 回傳 code=ALREADY_MEMBER
+ * - PDF：新增印章 + 署名 + address
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -24,6 +22,12 @@ const PDFDocument = require('pdfkit');
 
 // 上傳檔案暫存
 const upload = multer({ dest: 'uploads/' });
+
+// 允許無限上傳測試的名單
+const ALLOW_UNLIMITED = [
+  '0900296168',
+  'jeffqqm@gmail.com'
+];
 
 /**
  * POST /api/protect/step1
@@ -58,16 +62,21 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '請勾選同意隱私權政策與使用條款' });
     }
 
-    // 2) 檢查是否已存在 User
-    const existUser = await User.findOne({
-      where: {
-        [Op.or]: [{ phone }, { email }]
+    // 2) 檢查是否已存在 User (若不在白名單則擋)
+    const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
+    if (!isUnlimited) {
+      const existUser = await User.findOne({
+        where: {
+          [Op.or]: [{ phone }, { email }]
+        }
+      });
+      if (existUser) {
+        // 回傳一個 code，讓前端知道要轉到 /register
+        return res.status(409).json({
+          error: '您已是會員，請至登入或註冊頁面',
+          code: 'ALREADY_MEMBER'
+        });
       }
-    });
-    if (existUser) {
-      return res
-        .status(409)
-        .json({ error: '此手機或Email已是會員，請直接登入或使用原帳號' });
     }
 
     // 3) 建立 User => username = phone
@@ -86,7 +95,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // 4) 讀取檔案 => Fingerprint => IPFS => 區塊鏈
+    // 4) Fingerprint => IPFS => 區塊鏈
     const fileBuf = fs.readFileSync(req.file.path);
     const mimeType = req.file.mimetype;
     const fingerprint = fingerprintService.sha256(fileBuf);
@@ -107,17 +116,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       console.error('[Chain error]', chainErr);
     }
 
-    // 5) File 資料表
+    // 5) File
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash: txHash
-      // 若DB有欄位可以存 title/keywords，可附加
     });
 
-    // 6) 更新上傳次數
+    // 6) 更新上傳次數 (除非您要對無限用戶也紀錄)
     if (mimeType.startsWith('video')) {
       newUser.uploadVideos++;
     } else if (mimeType.startsWith('image')) {
@@ -125,7 +133,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
     await newUser.save();
 
-    // 刪除暫存
     fs.unlinkSync(req.file.path);
 
     // 7) 產PDF
@@ -181,7 +188,8 @@ router.get('/certificates/:fileId', async (req, res) => {
 
 /**
  * GET /api/protect/scan/:fileId
- *  - 真實爬蟲 (TikTok / IG / FB)
+ * - 依 filename/fingerprint => TikTok / IG / FB
+ * - 注意: 目前可能只能針對文字 keywords
  */
 router.get('/scan/:fileId', async (req, res) => {
   try {
@@ -194,7 +202,6 @@ router.get('/scan/:fileId', async (req, res) => {
       return res.status(400).json({ error: 'RAPIDAPI_KEY not configured in .env' });
     }
 
-    // 以 filename / fingerprint 當搜尋關鍵字
     const searchQuery = file.filename || file.fingerprint || 'default';
     let suspiciousLinks = [];
 
@@ -270,17 +277,14 @@ router.get('/scan/:fileId', async (req, res) => {
 });
 
 /**
- * generatePdf => 不含隱私條款內容
- *  僅包含著作權證書(英中對照) + 影片截圖
+ * generatePdf => 新增印章 / SerialNo / Zack Yao GM
  */
 async function generatePdf({
   realName, birthDate, phone, address, email,
-  title,
-  keywords,
+  title, keywords,
   filename, fingerprint, ipfsHash, txHash,
   serialNumber,
-  fileBuffer,
-  mimeType
+  fileBuffer, mimeType
 }) {
   return new Promise((resolve, reject) => {
     try {
@@ -289,21 +293,39 @@ async function generatePdf({
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // ★ 指定字型檔 (請確認 fonts 資料夾內有檔案)
+      // 指定字型
       const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
       doc.font(fontPath);
 
-      // 主標
-      doc.fontSize(14).fillColor('#000').text('凱盾全球國際股份有限公司 (Epic Global Int’I Inc.)', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(14).fillColor('#666').text('SUZOO IP Guard', { align: 'center' });
+      // == 上方: 公司抬頭 ==
+      doc.fontSize(14).fillColor('#000').text('凱盾全球國際股份有限公司 (Epic Global Int’l Inc.)', { align: 'center' });
+      doc.moveDown(0.2);
+      // 也可隱藏 SUZOO IP Guard
+      // doc.fontSize(12).fillColor('#666').text('SUZOO IP Guard', { align: 'center' });
 
       doc.moveDown(0.5);
       doc.fontSize(16).fillColor('#f97316')
         .text('著作權存證登記證明書', { align: 'center', underline: true });
       doc.fontSize(10).fillColor('#555')
         .text('(Certificate of Copyright Registration)', { align: 'center' });
+
+      doc.moveDown(0.5);
+      // Certificate No.
+      doc.fontSize(9).fillColor('#f00')
+        .text(`Certificate Serial No.: ${serialNumber}`, { align: 'center' });
       doc.moveDown(1);
+
+      // === 蓋個印章 stamp.png ===
+      try {
+        const stampPath = path.join(__dirname, '../fonts/stamp.png'); 
+        // 需您準備實際檔案 e.g. /fonts/stamp.png
+        doc.image(stampPath, {
+          fit: [80, 80],
+          align: 'left'
+        });
+      } catch (stampErr) {
+        console.warn('Stamp image not found or failed.', stampErr);
+      }
 
       // 分隔線
       doc.moveTo(doc.x, doc.y)
@@ -315,16 +337,16 @@ async function generatePdf({
 
       // 權利主體
       doc.fontSize(11).fillColor('#111')
-        .text('【權利主體 Holder】', { underline: true });
+        .text('【權利主體 (Holder)】', { underline: true });
       doc.text(`• RealName / 姓名: ${realName}`);
       doc.text(`• BirthDate: ${birthDate}`);
-      doc.text(`• Phone(帳號): ${phone}`);
+      doc.text(`• Phone(會員帳號): ${phone}`);
       doc.text(`• Address: ${address}`);
       doc.text(`• Email: ${email}`);
       doc.moveDown(1);
 
       // 著作資訊
-      doc.text('【著作資訊 Work Info】', { underline: true });
+      doc.text('【著作資訊 (Work Info)】', { underline: true });
       doc.text(`• Title(作品標題): ${title}`);
       doc.text(`• Keywords: ${keywords}`);
       doc.text(`• OriginalFile: ${filename}`);
@@ -333,16 +355,16 @@ async function generatePdf({
       doc.text(`• TxHash: ${txHash || '(None)'}`);
       doc.moveDown(1);
 
-      // 截圖 (圖片 or 影片)
-      doc.text('【作品截圖 / Screenshot】', { underline: true });
+      // 截圖
+      doc.text('【作品截圖 (Screenshot)】', { underline: true });
       if (mimeType.startsWith('image')) {
         try {
           const tempImg = path.join(__dirname, `../temp_preview_${Date.now()}.jpg`);
           fs.writeFileSync(tempImg, fileBuffer);
           doc.image(tempImg, { fit: [200, 150] });
           fs.unlinkSync(tempImg);
-        } catch (imgErr) {
-          doc.text('(插入圖片預覽失敗)', { italic: true });
+        } catch (errImg) {
+          doc.text('(插入圖片失敗)', { italic: true });
         }
       } else if (mimeType.startsWith('video')) {
         try {
@@ -350,14 +372,13 @@ async function generatePdf({
           const shotPath = path.join(__dirname, `../temp_screenshot_${Date.now()}.jpg`);
           fs.writeFileSync(videoTemp, fileBuffer);
 
-          // ffmpeg 指令
           const cmd = `ffmpeg -i "${videoTemp}" -ss 00:00:01 -frames:v 1 -y "${shotPath}"`;
           execSync(cmd);
           doc.image(shotPath, { fit: [200, 150] });
 
           fs.unlinkSync(videoTemp);
           fs.unlinkSync(shotPath);
-        } catch (vidErr) {
+        } catch (errVid) {
           doc.text('(Video screenshot failed)', { italic: true });
         }
       } else {
@@ -365,23 +386,19 @@ async function generatePdf({
       }
       doc.moveDown(1);
 
-      // 版權宣告 => 著作權法
+      // 國際法宣告 + GM 署名
       doc.fontSize(10).fillColor('#000')
-        .text(`下列為部分著作權法摘要，可提供法律依據與保護：`, {
-          lineGap: 2,
-          underline: true
+        .text(`依據伯恩公約、TRIPS 等國際規範，本公司於聯合國會員國(塞席爾Seychelles)設立並在台灣設立子公司，出具之證書具全球法律效力，可於訴訟時作為初步舉證依據。`, {
+          lineGap: 2
         });
-      doc.moveDown(0.5);
-
-      doc.fontSize(9).fillColor('#111')
-        .text(`(示範) 依據伯恩公約、TRIPS 等國際規範，本證書具全球法律效力，並可於訴訟時作為初步舉證...`, {
-          lineGap: 1.5
-        });
-      // ...您可插入更多條文
-
       doc.moveDown(1);
+
+      doc.text(`(Address) Taipei, Taiwan.\n`, { lineGap:1 });
+      doc.text(`GM / Copyright Certifier: Zack Yao`, { lineGap:1 });
+      doc.moveDown(1);
+
       doc.fontSize(9).fillColor('#888')
-        .text(`(c) 2023 凱盾全球國際股份有限公司 / SUZOO IP Guard. All Rights Reserved.`, {
+        .text(`(c) 2023 凱盾全球國際股份有限公司. All Rights Reserved.`, {
           align: 'center'
         });
 
