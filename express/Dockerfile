@@ -28,4 +28,6 @@ COPY ./fonts /app/fonts
 COPY . .
 
 EXPOSE 3000
-CMD ["node", "server.js"
+
+# ★★ 關鍵修正：補上右中括號，完整 JSON array 形式
+CMD ["node", "server.js"]
