@@ -1,6 +1,10 @@
 /*************************************************************
  * express/routes/protect.js
  * (最終優化 + Stealth + 多搜尋引擎 + 影片抽幀 + 截圖上傳IPFS + 上鏈)
+ *
+ * /step1 => 上傳 + DB + Fingerprint + IPFS + 區塊鏈 + PDF
+ * /scan/:fileId => 文字爬蟲(TikTok/IG/FB) + (影片抽幀 or 圖片) => 多搜尋引擎(stealth)
+ *                 => 結果截圖 => IPFS => 上鏈
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -18,14 +22,14 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const PDFDocument = require('pdfkit');
 
-// 影片抽幀 + 多搜尋引擎(stealth) + 截圖IPFS
+// ★ 新增：影片抽幀 & 多搜尋引擎(puppeteer-extra + stealth + 截圖上鏈)
 const { extractKeyFrames } = require('../utils/extractFrames');
 const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
 
-// Multer 暫存到 uploads/
+// Multer 上傳暫存
 const upload = multer({ dest: 'uploads/' });
 
-// 白名單 (免付費)
+// 白名單(免付費)
 const ALLOW_UNLIMITED = [
   '0900296168',
   'jeffqqm@gmail.com'
@@ -33,8 +37,9 @@ const ALLOW_UNLIMITED = [
 
 /**
  * POST /api/protect/step1
- * - 若 video & 非白名單 => 402 NEED_PAYMENT
- * - 否則建立 User + Fingerprint + PDF
+ * - 若影片 & 非白名單 => free
+ * - 若影片 & 非白名單不包含 => 402 NEED_PAYMENT
+ * - 建立 User + Fingerprint + IPFS + 區塊鏈 + PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -49,7 +54,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       agreePolicy
     } = req.body;
 
-    // 1) 檢查
+    // 檢查必填
     if (!req.file) {
       return res.status(400).json({ error: '缺少上傳檔案' });
     }
@@ -66,19 +71,19 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '請勾選同意隱私權政策與使用條款' });
     }
 
-    // 若影片 && 非白名單 => 收費
+    // 若是影片且非白名單 => 402
     const mimeType = req.file.mimetype;
-    const isVideo  = mimeType.startsWith('video');
+    const isVideo = mimeType.startsWith('video');
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
     if (isVideo && !isUnlimited) {
       fs.unlinkSync(req.file.path);
       return res.status(402).json({
-        code: 'NEED_PAYMENT',
-        error: '短影音上傳需付費，請聯繫客服或升級付費方案'
+        code:'NEED_PAYMENT',
+        error:'短影音上傳需付費，請聯繫客服或升級付費方案'
       });
     }
 
-    // 檢查重複 email/phone
+    // 檢查 email/phone 重複
     if (!isUnlimited) {
       const oldUser = await User.findOne({
         where:{ [Op.or]: [{ email }, { phone }] }
@@ -93,7 +98,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     // 建 User
     const rawPass   = phone + '@KaiShield';
-    const hashedPass= await bcrypt.hash(rawPass, 10);
+    const hashedPass= await bcrypt.hash(rawPass,10);
     const newUser = await User.create({
       username: phone,
       serialNumber: 'SN-' + Date.now(),
@@ -110,21 +115,21 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // Fingerprint => IPFS => 區塊鏈
     const fileBuf    = fs.readFileSync(req.file.path);
     const fingerprint= fingerprintService.sha256(fileBuf);
-
     let ipfsHash=null, txHash=null;
+
     try {
       ipfsHash = await ipfsService.saveFile(fileBuf);
     } catch(eIPFS){
       console.error('[IPFS error]', eIPFS);
     }
     try {
-      const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
-      txHash = receipt?.transactionHash || null;
+      const receipt = await chain.storeRecord(fingerprint, ipfsHash||'');
+      txHash = receipt?.transactionHash||null;
     } catch(eChain){
       console.error('[Chain error]', eChain);
     }
 
-    // 建 File 紀錄
+    // File 紀錄
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -140,7 +145,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // rename => uploads/
     const ext = path.extname(req.file.originalname)||'';
     const localDir = path.resolve(__dirname, '../../uploads');
-    if(!fs.existsSync(localDir)){
+    if(!fs.existsSync(localDir)) {
       fs.mkdirSync(localDir, { recursive:true });
     }
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
@@ -177,7 +182,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       defaultPassword: rawPass
     });
 
-  } catch(err){
+  } catch(err) {
     console.error('[protect step1 error]', err);
     return res.status(500).json({ error: err.message });
   }
@@ -188,8 +193,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
  */
 router.get('/certificates/:fileId', async(req,res)=>{
   try{
-    const localDir = path.resolve(__dirname, '../../uploads');
-    const pdfPath  = path.join(localDir, `certificate_${req.params.fileId}.pdf`);
+    const localDir= path.resolve(__dirname,'../../uploads');
+    const pdfPath= path.join(localDir, `certificate_${req.params.fileId}.pdf`);
     if(!fs.existsSync(pdfPath)){
       return res.status(404).json({ error:'PDF Not Found' });
     }
@@ -202,13 +207,11 @@ router.get('/certificates/:fileId', async(req,res)=>{
 
 /**
  * GET /api/protect/scan/:fileId
- *  - 文字爬蟲 (Tiktok/IG/FB)
- *  - 短影片 => <=30s => 抽幀 => 多搜尋引擎(stealth) + 截圖=>IPFS=>Chain
- *  - 圖片 => 多搜尋引擎(stealth) + 截圖=>IPFS=>Chain
- *  - 去重 => infringingLinks
+ * 文字爬蟲(TikTok/IG/FB) + (短影片抽幀 or 單張圖片) => 多搜尋引擎(puppeteer-extra + stealth)
+ * => 截圖 => IPFS => 區塊鏈
  */
 router.get('/scan/:fileId', async(req,res)=>{
-  try{
+  try {
     const file = await File.findByPk(req.params.fileId);
     if(!file){
       return res.status(404).json({ error:'File not found' });
@@ -219,7 +222,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 
     // (1) 文字爬蟲
     if(apiKey){
-      const searchQuery = file.filename || file.fingerprint || 'default';
+      const searchQuery= file.filename || file.fingerprint || 'default';
       // Tiktok
       try {
         const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
@@ -240,7 +243,7 @@ router.get('/scan/:fileId', async(req,res)=>{
         const rIG = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword',{
           params:{ query:searchQuery },
           headers:{
-            'X-RapidAPI-Key':apiKey,
+            'X-RapidAPI-Key': apiKey,
             'X-RapidAPI-Host':'real-time-instagram-scraper-api.p.rapidapi.com'
           }
         });
@@ -261,18 +264,18 @@ router.get('/scan/:fileId', async(req,res)=>{
         suspiciousLinks.push(...fbLinks);
       } catch(eFB){ console.error('[FB error]', eFB.message); }
     } else {
-      console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawling');
+      console.warn('[scan] No RAPIDAPI_KEY => skip text-based searching');
     }
 
-    // (2) 檔案
-    const localDir = path.resolve(__dirname, '../../uploads');
-    const guessExt = path.extname(file.filename)||'';
+    // (2) 判斷檔案
+    const localDir= path.resolve(__dirname,'../../uploads');
+    const guessExt= path.extname(file.filename)||'';
     const localPath= path.join(localDir, `imageForSearch_${file.id}${guessExt}`);
     if(!fs.existsSync(localPath)){
-      // 只回文字爬蟲
-      const noFile = Array.from(new Set(suspiciousLinks));
+      // 無檔案 => 只回文字爬蟲
+      const noFile= Array.from(new Set(suspiciousLinks));
       file.status='scanned';
-      file.infringingLinks = JSON.stringify(noFile);
+      file.infringingLinks= JSON.stringify(noFile);
       await file.save();
       return res.json({
         message:'no local file => only text-based done',
@@ -280,31 +283,31 @@ router.get('/scan/:fileId', async(req,res)=>{
       });
     }
 
-    // (3) 圖片/影片 => doMultiReverseImage
+    // (3) 多搜尋引擎 => 若短影片 <=30s => 抽幀, 否則單張
     let allLinks = [...suspiciousLinks];
     const user = await User.findByPk(file.user_id);
 
+    // 檢查是否 mp4/mov/webm
     let isVideo = false;
-    if(guessExt.match(/\.(mp4|mov|avi|mkv|webm)$/i)) {
+    if(guessExt.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
       isVideo=true;
     }
 
     if(isVideo && user && user.uploadVideos>0){
-      // 短影片 => <=30s
+      // 影片 => ffprobe
       try {
         const cmdProbe=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
         const durStr= execSync(cmdProbe).toString().trim();
         const durSec= parseFloat(durStr)||9999;
-
         if(durSec<=30){
           const outDir= path.join(localDir, `frames_${file.id}`);
           if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
-          // 預設抽10張
+          // 抽10張
           const frames= await extractKeyFrames(localPath, outDir, 10);
           for(let i=0;i<frames.length;i++){
-            const frameLinks= await doMultiReverseImage(frames[i], file.id);
-            allLinks.push(...frameLinks);
+            const perLinks= await doMultiReverseImage(frames[i], file.id);
+            allLinks.push(...perLinks);
           }
         } else {
           console.log('[scan] video>30s => skip frames => no multiEngine');
@@ -314,21 +317,22 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     }
     else if(!isVideo && user && user.uploadImages>0){
-      // 圖片 => multiEngine
+      // 圖片 => 直接
       const found= await doMultiReverseImage(localPath, file.id);
       allLinks.push(...found);
     }
 
-    // 去重
+    // (4) 去重
     const uniqueLinks= Array.from(new Set(allLinks));
     file.status='scanned';
     file.infringingLinks= JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message:'Scan done => text + multiEngine + stealth + screenshot IPFS + chain',
+      message:'Scan done => text + multiEngine + stealth + screenshot→IPFS→chain',
       suspiciousLinks: uniqueLinks
     });
+
   } catch(err){
     console.error('[scan error]', err);
     return res.status(500).json({ error: err.message });
@@ -346,7 +350,7 @@ async function generatePdf({
   fileBuffer, mimeType
 }){
   return new Promise((resolve, reject)=>{
-    try{
+    try {
       const PDFDocument = require('pdfkit');
       const doc = new PDFDocument({ size:'A4', margin:50 });
       const chunks=[];
@@ -389,24 +393,24 @@ async function generatePdf({
       doc.text('【作品截圖】',{ underline:true });
       const { execSync } = require('child_process');
       if(mimeType.startsWith('image')){
-        try{
+        try {
           const tmpImg= path.join(__dirname, `../temp_${Date.now()}.jpg`);
           fs.writeFileSync(tmpImg, fileBuffer);
-          doc.image(tmpImg, { fit:[200,150] });
+          doc.image(tmpImg,{ fit:[200,150] });
           fs.unlinkSync(tmpImg);
         } catch(e){}
       } else if(mimeType.startsWith('video')){
-        try{
+        try {
           const tmpVid= path.join(__dirname, `../tmpvid_${Date.now()}.mp4`);
           const shot= path.join(__dirname, `../tmpvidshot_${Date.now()}.jpg`);
           fs.writeFileSync(tmpVid, fileBuffer);
           execSync(`ffmpeg -i "${tmpVid}" -ss 00:00:01 -frames:v 1 -y "${shot}"`);
-          doc.image(shot, { fit:[200,150] });
+          doc.image(shot,{ fit:[200,150] });
           fs.unlinkSync(tmpVid);
           fs.unlinkSync(shot);
         } catch(e){}
       } else {
-        doc.text('(No preview)', { italic:true });
+        doc.text('(No preview)',{ italic:true });
       }
       doc.moveDown(1);
 
