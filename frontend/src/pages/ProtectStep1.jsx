@@ -111,8 +111,12 @@ export default function ProtectStep1() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
-  const [title, setTitle] = useState('');       // ★ 新增作品標題
-  const [keywords, setKeywords] = useState(''); // ★ 新增關鍵字
+
+  // ★ 新增：作品標題 (Title)
+  const [title, setTitle] = useState('');
+
+  // ★ 新增：關鍵字 (Keywords)
+  const [keywords, setKeywords] = useState('');
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -159,8 +163,8 @@ export default function ProtectStep1() {
       formData.append('phone', phone);
       formData.append('address', address);
       formData.append('email', email);
-      formData.append('title', title);
-      formData.append('keywords', keywords);
+      formData.append('title', title);        // 新增 title
+      formData.append('keywords', keywords); // 新增 keywords
 
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
@@ -199,7 +203,9 @@ export default function ProtectStep1() {
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品檔案並填寫下列資訊。
           檔案將自動產生 Fingerprint (SHA-256) 並上傳 IPFS、寫入區塊鏈。
           <br /><br />
-          <strong>關鍵字(hashtags)</strong> 請用分號「;」或逗號「,」分隔，以便AI爬蟲更準確搜尋。
+          <strong>作品標題</strong> 用於證書顯示；<br />
+          <strong>關鍵字 (hashtags)</strong> 請用分號「;」或逗號「,」分隔，
+          以便AI爬蟲更準確搜尋。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -275,7 +281,7 @@ export default function ProtectStep1() {
             type="text"
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
-            placeholder="e.g. art; painting; cat / or art,painting,cat"
+            placeholder="e.g. art; painting; cat"
           />
 
           <SubmitButton type="submit" disabled={loading}>
