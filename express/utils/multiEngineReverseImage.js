@@ -1,90 +1,83 @@
 // express/utils/multiEngineReverseImage.js
+
 const puppeteerExtra = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteerExtra.use(StealthPlugin());
 
 const fs   = require('fs');
 const path = require('path');
-
-// 引入 IPFS + Chain 服務，用於截圖後上傳
 const ipfsService = require('../../services/ipfsService');
 const chain = require('../../utils/chain');
 
 /**
  * doMultiReverseImage(imagePath, fileId)
- *  - 在同一個 browser 中依序執行 Google, Bing, Yandex, Baidu, Ginifab
- *  - 各取前 5 筆結果連結 => 合併回傳 string[] (URL清單)
- *  - 同時對每個 result link 截圖 => 上傳 IPFS => 區塊鏈記錄
+ *  - 啟動 puppeteer-extra(stealth)
+ *  - 順序執行 Google/Bing/Yandex/Baidu/Ginifab
+ *  - 各搜尋擷取前 5 筆 => 截圖 => IPFS => 區塊鏈
+ *  - 合併回傳 (string[]) => 所有搜尋結果URL
  */
 async function doMultiReverseImage(imagePath, fileId) {
   const foundLinks = [];
   let browser;
   try {
-    // 啟動 puppeteer-extra + stealth
     browser = await puppeteerExtra.launch({
       headless: true,
       defaultViewport: { width:1280, height:800 },
       args: ['--no-sandbox','--disable-setuid-sandbox']
     });
 
-    // 順序執行（也可用 Promise.all）
+    // 順序 (可用 Promise.all 亦可)
     const google = await doGoogleImageSearch(browser, imagePath, fileId);
     foundLinks.push(...google);
-    const bing = await doBingImageSearch(browser, imagePath, fileId);
+    const bing   = await doBingImageSearch(browser, imagePath, fileId);
     foundLinks.push(...bing);
     const yandex = await doYandexImageSearch(browser, imagePath, fileId);
     foundLinks.push(...yandex);
-    const baidu = await doBaiduImageSearch(browser, imagePath, fileId);
+    const baidu  = await doBaiduImageSearch(browser, imagePath, fileId);
     foundLinks.push(...baidu);
-    const ginifab = await doGinifabImageSearch(browser, imagePath, fileId);
+    const ginifab= await doGinifabImageSearch(browser, imagePath, fileId);
     foundLinks.push(...ginifab);
 
-  } catch(err) {
-    console.error('[doMultiReverseImage error]', err);
+  } catch(e) {
+    console.error('[doMultiReverseImage error]', e);
   } finally {
     if (browser) await browser.close();
   }
   return foundLinks;
 }
 
-//
-// 以下每個函式會：
-//  1) 打開分頁
-//  2) 上傳 imagePath
-//  3) 抓前5 result link
-//  4) 對 link 做 captureScreenshotAndChain
-//
-
+// -----------------------------------------------------------
 async function doGoogleImageSearch(browser, imagePath, fileId) {
-  const result = [];
+  const arr = [];
   let page;
   try {
     page = await browser.newPage();
     await page.goto('https://images.google.com/', { waitUntil:'networkidle2' });
 
-    // 相機icon
+    // 相機 icon
     await page.waitForSelector('div[jsname="Q4LuWd"] a.Q4LuWd',{ timeout:8000 });
     await page.click('div[jsname="Q4LuWd"] a.Q4LuWd');
 
-    // "Upload an image" tab
+    // "Upload an image"
     const upSel = 'a[aria-label="Upload an image"]';
     await page.waitForSelector(upSel,{ timeout:8000 });
     await page.click(upSel);
 
     // file input
-    const fileSel = 'input#qbfile';
-    await page.waitForSelector(fileSel,{ timeout:8000 });
-    const fileInput = await page.$(fileSel);
+    const fileInputSel = 'input#qbfile';
+    await page.waitForSelector(fileInputSel,{ timeout:8000 });
+    const fileInput = await page.$(fileInputSel);
     await fileInput.uploadFile(imagePath);
 
     await page.waitForTimeout(4000);
 
-    // 前5連結
-    const resSel = 'div.g a';
-    await page.waitForSelector(resSel,{ timeout:15000 });
-    const links = await page.$$eval(resSel, arr => arr.slice(0,5).map(a=>a.href));
-    for (const link of links) {
-      result.push(link);
+    // 前5
+    const resultsSel = 'div.g a';
+    await page.waitForSelector(resultsSel,{ timeout:15000 });
+    const links = await page.$$eval(resultsSel, arr => arr.slice(0,5).map(a=>a.href));
+    for(const link of links){
+      arr.push(link);
+      // 截圖=>IPFS=>chain
       await captureScreenshotAndChain(page, link, fileId);
     }
 
@@ -93,31 +86,30 @@ async function doGoogleImageSearch(browser, imagePath, fileId) {
   } finally {
     if(page) await page.close().catch(()=>{});
   }
-  return result;
+  return arr;
 }
 
 async function doBingImageSearch(browser, imagePath, fileId) {
-  const result = [];
+  const arr=[];
   let page;
   try {
     page = await browser.newPage();
     await page.goto('https://www.bing.com/images?FORM=SBIRDI',{ waitUntil:'networkidle2' });
 
-    const camBtn = 'button[aria-label="Search using an image"]';
+    const camBtn= 'button[aria-label="Search using an image"]';
     await page.waitForSelector(camBtn,{ timeout:8000 });
     await page.click(camBtn);
 
-    const fileSel = 'input[type="file"][accept="image/*"]';
-    const fileInput = await page.waitForSelector(fileSel,{ visible:true, timeout:15000 });
+    const fileSel= 'input[type="file"][accept="image/*"]';
+    const fileInput= await page.waitForSelector(fileSel,{ visible:true, timeout:15000 });
     await fileInput.uploadFile(imagePath);
 
     await page.waitForTimeout(5000);
 
-    // 前5
-    const itemHandles = await page.$$('li a.iusc');
+    const itemHandles= await page.$$('li a.iusc');
     for(let i=0; i<Math.min(itemHandles.length,5); i++){
-      const href = await itemHandles[i].evaluate(a=>a.href);
-      result.push(href);
+      const href= await itemHandles[i].evaluate(a=>a.href);
+      arr.push(href);
       await captureScreenshotAndChain(page, href, fileId);
     }
   } catch(e){
@@ -125,26 +117,27 @@ async function doBingImageSearch(browser, imagePath, fileId) {
   } finally {
     if(page) await page.close().catch(()=>{});
   }
-  return result;
+  return arr;
 }
 
 async function doYandexImageSearch(browser, imagePath, fileId) {
-  const arr = [];
+  const arr=[];
   let page;
   try {
     page = await browser.newPage();
     await page.goto('https://yandex.com/images/', { waitUntil:'networkidle2' });
+
     await page.waitForSelector('button[data-testid="search-input__camera"]',{ timeout:8000 });
     await page.click('button[data-testid="search-input__camera"]');
 
-    const fileInput = await page.waitForSelector('input[type="file"]',{ visible:true, timeout:10000 });
+    const fileInput= await page.waitForSelector('input[type="file"]',{ visible:true, timeout:10000 });
     await fileInput.uploadFile(imagePath);
 
     await page.waitForTimeout(5000);
 
-    const anchors = await page.$$('.CbirSites-Item a');
+    const anchors= await page.$$('.CbirSites-Item a');
     for(let i=0; i<Math.min(anchors.length,5); i++){
-      const link = await anchors[i].evaluate(a=>a.href);
+      const link= await anchors[i].evaluate(a=>a.href);
       arr.push(link);
       await captureScreenshotAndChain(page, link, fileId);
     }
@@ -157,22 +150,22 @@ async function doYandexImageSearch(browser, imagePath, fileId) {
 }
 
 async function doBaiduImageSearch(browser, imagePath, fileId) {
-  const arr = [];
+  const arr=[];
   let page;
   try {
     page = await browser.newPage();
     await page.goto('https://graph.baidu.com/pcpage/index?tpl_from=pc', { waitUntil:'networkidle2' });
 
-    const sel = 'div.upload-wrap input[type="file"]';
-    const up = await page.waitForSelector(sel,{ timeout:8000 });
+    const upSel= 'div.upload-wrap input[type="file"]';
+    const up= await page.waitForSelector(upSel,{ timeout:8000 });
     await up.uploadFile(imagePath);
 
     await page.waitForTimeout(5000);
 
-    const items = await page.$$('.result-list .result-item');
+    const items= await page.$$('.result-list .result-item');
     for(let i=0; i<Math.min(items.length,5); i++){
-      const href = await items[i].$eval('.result-title a', el=>el.href).catch(()=>null);
-      if(href) {
+      const href= await items[i].$eval('.result-title a', el=>el.href).catch(()=>null);
+      if(href){
         arr.push(href);
         await captureScreenshotAndChain(page, href, fileId);
       }
@@ -192,25 +185,25 @@ async function doGinifabImageSearch(browser, imagePath, fileId) {
     page = await browser.newPage();
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', { waitUntil:'networkidle2' });
 
-    const fileInput = await page.waitForSelector('#fileInput',{ timeout:10000 });
+    const fileInput= await page.waitForSelector('#fileInput',{ timeout:10000 });
     await fileInput.uploadFile(imagePath);
 
     await page.waitForTimeout(3000);
 
-    // 可能點擊 "Search by TinEye" => popup
+    // "Search by TinEye" => popup
     const [popup] = await Promise.all([
       page.waitForEvent('popup'),
       page.evaluate(()=>{
         const aList = Array.from(document.querySelectorAll('a'));
-        const tinEyeLink = aList.find(a=> /tin\s*eye/i.test(a.textContent||''));
+        const tinEyeLink= aList.find(a=> /tin\s*eye/i.test(a.textContent||''));
         if(tinEyeLink) tinEyeLink.click();
       })
     ]);
     await popup.waitForTimeout(3000);
 
-    const anchors = await popup.$$('a.result--url');
+    const anchors= await popup.$$('a.result--url');
     for(let i=0;i<Math.min(anchors.length,5); i++){
-      const href = await anchors[i].evaluate(a=>a.href);
+      const href= await anchors[i].evaluate(a=>a.href);
       arr.push(href);
       await captureScreenshotAndChain(popup, href, fileId);
     }
@@ -224,21 +217,22 @@ async function doGinifabImageSearch(browser, imagePath, fileId) {
 }
 
 /**
- * 截圖 => 上傳 IPFS => 區塊鏈
+ * 截圖 => IPFS => 區塊鏈
  */
 async function captureScreenshotAndChain(page, url, fileId) {
   try {
-    await page.goto(url, { waitUntil:'networkidle2', timeout:10000 });
-    const screenshotPath = path.join(__dirname, `../../uploads/result_${fileId}_${Date.now()}.png`);
-    await page.screenshot({ path: screenshotPath, fullPage:true });
+    await page.goto(url, { waitUntil:'networkidle2', timeout:15000 });
+    const screenshotPath= path.join(__dirname, `../../uploads/result_${fileId}_${Date.now()}.png`);
+    await page.screenshot({ path:screenshotPath, fullPage:true });
 
     // 上傳 IPFS
-    const ipfsHash = await ipfsService.saveFile(screenshotPath);
+    const ipfsHash= await ipfsService.saveFile(screenshotPath);
+
     // 區塊鏈
-    const receipt = await chain.storeRecord(ipfsHash);
-    const txHash = receipt?.transactionHash;
+    const receipt= await chain.storeRecord(ipfsHash);
+    const txHash= receipt?.transactionHash||null;
     console.log(`Screenshot => ${url}, IPFS=${ipfsHash}, txHash=${txHash||'(None)'}`);
-  } catch(e) {
+  } catch(e){
     console.warn('[captureScreenshotAndChain]', e);
   }
 }
