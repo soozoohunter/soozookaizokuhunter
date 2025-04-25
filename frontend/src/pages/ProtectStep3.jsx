@@ -52,7 +52,6 @@ export default function ProtectStep3() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // 若 location.state 沒資料 → 可能使用者重整 or 直接輸入 /step3
     let data = location.state;
     if (!data || !data.fileId) {
       const stored2 = localStorage.getItem('protectStep2');
@@ -61,7 +60,6 @@ export default function ProtectStep3() {
       }
     }
     if (!data || !data.fileId) {
-      // 依然沒資料 → 用戶沒走 step2
       navigate('/protect/step2');
     } else {
       setFileData(data);
@@ -86,12 +84,12 @@ export default function ProtectStep3() {
       const resp = await fetch(`/api/protect/scan/${fileId}`);
       const data = await resp.json();
       if (!resp.ok) {
-        alert(data.error || 'AI Scan failed');
+        alert(data.error || 'AI real scan failed');
       } else {
         setScanResult(data.suspiciousLinks || []);
       }
     } catch (err) {
-      alert('連線失敗');
+      alert('連線失敗: ' + err);
     } finally {
       setLoading(false);
     }
@@ -114,8 +112,10 @@ export default function ProtectStep3() {
     <Container>
       <ContentBox>
         <Title>Step 3: AI Infringement Scan</Title>
+
         <InfoText>
-          這裡會呼叫後端 API <Highlight>/api/protect/scan/{fileId}</Highlight> 模擬侵權掃描。
+          我們將呼叫後端 API <Highlight>/api/protect/scan/{fileId}</Highlight>，
+          透過 <strong>RapidAPI</strong> (TikTok / IG / FB) 進行真實爬蟲。
         </InfoText>
 
         {!scanResult && (
@@ -128,6 +128,11 @@ export default function ProtectStep3() {
           <>
             <InfoText>
               發現可疑連結：
+              {scanResult.length === 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <Highlight>無任何可疑內容</Highlight>
+                </div>
+              )}
               {scanResult.map((link, idx) => (
                 <div key={idx} style={{ margin: '0.25rem 0'}}>
                   <Highlight>{link}</Highlight>
