@@ -32,7 +32,7 @@ const Title = styled.h2`
 const Description = styled.p`
   font-size: 0.9rem;
   line-height: 1.6;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   color: #cccccc;
 `;
 
@@ -86,6 +86,14 @@ const ClearButton = styled.button`
   }
 `;
 
+const CheckboxRow = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #ffa500;
+`;
+
 const SubmitButton = styled.button`
   padding: 0.75rem;
   font-size: 1rem;
@@ -95,7 +103,7 @@ const SubmitButton = styled.button`
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
   &:hover {
     background-color: #ea580c;
   }
@@ -114,9 +122,10 @@ export default function ProtectStep1() {
 
   // ★ 新增：作品標題 (Title)
   const [title, setTitle] = useState('');
-
   // ★ 新增：關鍵字 (Keywords)
   const [keywords, setKeywords] = useState('');
+  // ★ 新增：是否同意隱私與條款
+  const [agreePolicy, setAgreePolicy] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -127,7 +136,6 @@ export default function ProtectStep1() {
       setFile(e.target.files[0]);
     }
   };
-
   // 清除檔案
   const handleClearFile = () => {
     setFile(null);
@@ -138,24 +146,25 @@ export default function ProtectStep1() {
     e.preventDefault();
     setError('');
 
-    // 簡易檢查
+    // 檢查必填
     if (!file) {
-      return setError('請先上傳檔案 (Please upload a file).');
+      return setError('請先上傳檔案');
     }
     if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
-      return setError('必填欄位不可空白。');
+      return setError('必填欄位不可空白');
     }
     if (!title.trim()) {
-      return setError('請輸入作品標題 (Title)！');
+      return setError('請輸入作品標題(Title)');
     }
     if (!keywords.trim()) {
-      return setError('請輸入關鍵字 (Keywords)！');
+      return setError('請輸入關鍵字(Keywords)');
+    }
+    if (!agreePolicy) {
+      return setError('請勾選同意隱私權政策與使用條款');
     }
 
     try {
       setLoading(true);
-
-      // 組 formData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('realName', realName);
@@ -163,25 +172,28 @@ export default function ProtectStep1() {
       formData.append('phone', phone);
       formData.append('address', address);
       formData.append('email', email);
-      formData.append('title', title);        // 新增 title
-      formData.append('keywords', keywords); // 新增 keywords
+      formData.append('title', title);
+      formData.append('keywords', keywords);
+      // 送出是否同意 (後端檢查 'true' 才放行)
+      formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
 
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
       });
-
-      const respData = await resp.json(); // 無論 success or error 先 parse JSON
+      const respData = await resp.json();
 
       if (!resp.ok) {
-        // 後端回傳錯誤時 (e.g. 409 / 400 / 500)
-        throw new Error(respData.error || `上傳失敗: HTTP ${resp.status}`);
+        // 若後端回傳 409 => 顯示更友善訊息
+        if (resp.status === 409) {
+          throw new Error(respData.error || '此手機或Email已註冊，請直接登入');
+        }
+        // 其他錯誤
+        throw new Error(respData.error || '上傳失敗');
       }
 
-      // 成功 => respData 內有 pdfUrl / fileId / fingerprint / ipfsHash / txHash ...
+      // 成功 => respData 內含 pdfUrl / fileId / ...
       console.log('step1 success =>', respData);
-
-      // 將後端回傳資訊存入 localStorage，讓 Step2 顯示
       localStorage.setItem('protectStep1', JSON.stringify(respData));
 
       // 前往 Step2
@@ -197,95 +209,119 @@ export default function ProtectStep1() {
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>Step 1: Upload &amp; Info</Title>
+        <Title>Step 1: Upload &amp; Member Info</Title>
 
         <Description>
-          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品檔案並填寫下列資訊。
-          檔案將自動產生 Fingerprint (SHA-256) 並上傳 IPFS、寫入區塊鏈。
-          <br /><br />
-          <strong>作品標題</strong> 用於證書顯示；<br />
-          <strong>關鍵字 (hashtags)</strong> 請用分號「;」或逗號「,」分隔，
-          以便AI爬蟲更準確搜尋。
+          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。
+          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），
+          並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleNext}>
           <StyledLabel>上傳作品檔案 (Upload File):</StyledLabel>
-          {!file && (
+          {!file ? (
             <StyledInput
               type="file"
               accept="image/*,video/*,application/pdf"
               onChange={handleFileChange}
             />
-          )}
-          {file && (
+          ) : (
             <>
-              <FileName>已選檔案：{file.name}</FileName>
-              <ClearButton type="button" onClick={handleClearFile}>
-                移除檔案
-              </ClearButton>
+              <FileName>已選檔案: {file.name}</FileName>
+              <ClearButton type="button" onClick={handleClearFile}>移除檔案</ClearButton>
             </>
           )}
 
-          <StyledLabel>真實姓名 (Real Name):</StyledLabel>
+          <StyledLabel>真實姓名 (RealName)</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="王小明 / John Wang"
             value={realName}
             onChange={(e) => setRealName(e.target.value)}
-            placeholder="e.g. 王大明 / John Wang"
           />
 
-          <StyledLabel>生日 (Birth Date):</StyledLabel>
+          <StyledLabel>生日 (Birth Date)</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="1988-10-24"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            placeholder="e.g. 1988-10-24"
           />
 
-          <StyledLabel>手機/電話 (Phone):</StyledLabel>
+          <StyledLabel>手機 (Phone) - 作為會員帳號</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="09xx-xxx-xxx"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. 09xx-xxx-xxx"
           />
 
-          <StyledLabel>地址 (Address):</StyledLabel>
+          <StyledLabel>地址 (Address)</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="台北市大安區..."
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="e.g. 台北市大安區泰順街xx號"
           />
 
-          <StyledLabel>Email:</StyledLabel>
+          <StyledLabel>Email</StyledLabel>
           <StyledInput
             type="email"
+            placeholder="example@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="e.g. yourmail@example.com"
           />
 
-          <StyledLabel>作品標題 (Title):</StyledLabel>
+          <StyledLabel>作品標題 (Title)</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="My Artwork"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. 我的插畫作品 / My Artwork"
           />
 
-          <StyledLabel>關鍵字 (Keywords; 用分號或逗號分隔):</StyledLabel>
+          <StyledLabel>關鍵字 (Keywords)</StyledLabel>
           <StyledInput
             type="text"
+            placeholder="art; painting; cat"
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
-            placeholder="e.g. art; painting; cat"
           />
 
+          {/* ====== 隱私權 & 條款 checkbox ====== */}
+          <details style={{
+            margin:'1rem 0',
+            background:'#2c2c2c',
+            padding:'1rem',
+            border:'1px solid #ff6f00',
+            borderRadius:'6px'
+          }}>
+            <summary style={{ cursor:'pointer', color:'#f97316' }}>
+              閱讀隱私權與服務條款 (點此展開)
+            </summary>
+            <div style={{ fontSize:'0.85rem', marginTop:'0.5rem' }}>
+              <p>本公司「凱盾全球國際股份有限公司(Epic Global Int’I Inc.)」隱私權保護政策...</p>
+              <p>1. 您需年滿18歲...</p>
+              <p>2. 蒐集與使用個人資料之目的...</p>
+              <p>3. 若有違反規範，本公司得終止服務...</p>
+              {/* 視需求再貼更完整文字 */}
+            </div>
+          </details>
+          <CheckboxRow>
+            <input
+              type="checkbox"
+              checked={agreePolicy}
+              onChange={()=> setAgreePolicy(!agreePolicy)}
+              style={{ marginRight:'0.5rem' }}
+            />
+            <span>我已閱讀並同意隱私權政策與使用條款</span>
+          </CheckboxRow>
+          {/* ================================ */}
+
           <SubmitButton type="submit" disabled={loading}>
-            {loading ? 'Uploading...' : 'Next'}
+            {loading ? 'Uploading...' : '下一步 / Next'}
           </SubmitButton>
         </StyledForm>
       </FormContainer>
