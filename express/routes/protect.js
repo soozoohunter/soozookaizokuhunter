@@ -49,7 +49,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       agreePolicy
     } = req.body;
 
-    // 驗證
+    // 1) 檢查
     if (!req.file) {
       return res.status(400).json({ error: '缺少上傳檔案' });
     }
@@ -78,7 +78,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 檢查 email/phone 重複
+    // 檢查重複 email/phone
     if (!isUnlimited) {
       const oldUser = await User.findOne({
         where:{ [Op.or]: [{ email }, { phone }] }
