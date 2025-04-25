@@ -1,19 +1,20 @@
 // express/utils/multiEngineReverseImage.js
 const puppeteerExtra = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-// 若需 IPFS+Chain 截圖可另外引入
-// const ipfsService = require('../../services/ipfsService');
-// const chain = require('../../utils/chain');
-// const fs   = require('fs');
-// const path = require('path');
-
 puppeteerExtra.use(StealthPlugin());
+
+const fs   = require('fs');
+const path = require('path');
+
+// 引入 IPFS + Chain 服務，用於截圖後上傳
+const ipfsService = require('../../services/ipfsService');
+const chain = require('../../utils/chain');
 
 /**
  * doMultiReverseImage(imagePath, fileId)
  *  - 在同一個 browser 中依序執行 Google, Bing, Yandex, Baidu, Ginifab
  *  - 各取前 5 筆結果連結 => 合併回傳 string[] (URL清單)
- *  - 可自行擴充截圖 => IPFS => 區塊鏈
+ *  - 同時對每個 result link 截圖 => 上傳 IPFS => 區塊鏈記錄
  */
 async function doMultiReverseImage(imagePath, fileId) {
   const foundLinks = [];
@@ -27,15 +28,15 @@ async function doMultiReverseImage(imagePath, fileId) {
     });
 
     // 順序執行（也可用 Promise.all）
-    const google = await doGoogleImageSearch(browser, imagePath);
+    const google = await doGoogleImageSearch(browser, imagePath, fileId);
     foundLinks.push(...google);
-    const bing = await doBingImageSearch(browser, imagePath);
+    const bing = await doBingImageSearch(browser, imagePath, fileId);
     foundLinks.push(...bing);
-    const yandex = await doYandexImageSearch(browser, imagePath);
+    const yandex = await doYandexImageSearch(browser, imagePath, fileId);
     foundLinks.push(...yandex);
-    const baidu = await doBaiduImageSearch(browser, imagePath);
+    const baidu = await doBaiduImageSearch(browser, imagePath, fileId);
     foundLinks.push(...baidu);
-    const ginifab = await doGinifabImageSearch(browser, imagePath);
+    const ginifab = await doGinifabImageSearch(browser, imagePath, fileId);
     foundLinks.push(...ginifab);
 
   } catch(err) {
@@ -46,7 +47,15 @@ async function doMultiReverseImage(imagePath, fileId) {
   return foundLinks;
 }
 
-async function doGoogleImageSearch(browser, imagePath) {
+//
+// 以下每個函式會：
+//  1) 打開分頁
+//  2) 上傳 imagePath
+//  3) 抓前5 result link
+//  4) 對 link 做 captureScreenshotAndChain
+//
+
+async function doGoogleImageSearch(browser, imagePath, fileId) {
   const result = [];
   let page;
   try {
@@ -74,10 +83,10 @@ async function doGoogleImageSearch(browser, imagePath) {
     const resSel = 'div.g a';
     await page.waitForSelector(resSel,{ timeout:15000 });
     const links = await page.$$eval(resSel, arr => arr.slice(0,5).map(a=>a.href));
-    result.push(...links);
-
-    // (可選) 截圖 => IPFS => chain
-    // for (const link of links) { await captureScreenshotAndChain(page, link, fileId); }
+    for (const link of links) {
+      result.push(link);
+      await captureScreenshotAndChain(page, link, fileId);
+    }
 
   } catch(e){
     console.error('[doGoogleImageSearch]', e);
@@ -87,7 +96,7 @@ async function doGoogleImageSearch(browser, imagePath) {
   return result;
 }
 
-async function doBingImageSearch(browser, imagePath) {
+async function doBingImageSearch(browser, imagePath, fileId) {
   const result = [];
   let page;
   try {
@@ -109,7 +118,7 @@ async function doBingImageSearch(browser, imagePath) {
     for(let i=0; i<Math.min(itemHandles.length,5); i++){
       const href = await itemHandles[i].evaluate(a=>a.href);
       result.push(href);
-      // await captureScreenshotAndChain(page, href, fileId);
+      await captureScreenshotAndChain(page, href, fileId);
     }
   } catch(e){
     console.error('[doBingImageSearch]', e);
@@ -119,7 +128,7 @@ async function doBingImageSearch(browser, imagePath) {
   return result;
 }
 
-async function doYandexImageSearch(browser, imagePath) {
+async function doYandexImageSearch(browser, imagePath, fileId) {
   const arr = [];
   let page;
   try {
@@ -137,6 +146,7 @@ async function doYandexImageSearch(browser, imagePath) {
     for(let i=0; i<Math.min(anchors.length,5); i++){
       const link = await anchors[i].evaluate(a=>a.href);
       arr.push(link);
+      await captureScreenshotAndChain(page, link, fileId);
     }
   } catch(e){
     console.error('[doYandexImageSearch]', e);
@@ -146,7 +156,7 @@ async function doYandexImageSearch(browser, imagePath) {
   return arr;
 }
 
-async function doBaiduImageSearch(browser, imagePath) {
+async function doBaiduImageSearch(browser, imagePath, fileId) {
   const arr = [];
   let page;
   try {
@@ -162,7 +172,10 @@ async function doBaiduImageSearch(browser, imagePath) {
     const items = await page.$$('.result-list .result-item');
     for(let i=0; i<Math.min(items.length,5); i++){
       const href = await items[i].$eval('.result-title a', el=>el.href).catch(()=>null);
-      if(href) arr.push(href);
+      if(href) {
+        arr.push(href);
+        await captureScreenshotAndChain(page, href, fileId);
+      }
     }
   } catch(e){
     console.error('[doBaiduImageSearch]', e);
@@ -172,7 +185,7 @@ async function doBaiduImageSearch(browser, imagePath) {
   return arr;
 }
 
-async function doGinifabImageSearch(browser, imagePath) {
+async function doGinifabImageSearch(browser, imagePath, fileId) {
   const arr=[];
   let page;
   try {
@@ -199,6 +212,7 @@ async function doGinifabImageSearch(browser, imagePath) {
     for(let i=0;i<Math.min(anchors.length,5); i++){
       const href = await anchors[i].evaluate(a=>a.href);
       arr.push(href);
+      await captureScreenshotAndChain(popup, href, fileId);
     }
     if(!popup.isClosed()) await popup.close();
   } catch(e){
@@ -210,10 +224,23 @@ async function doGinifabImageSearch(browser, imagePath) {
 }
 
 /**
-// (可選) 截圖 => IPFS => 上鏈
+ * 截圖 => 上傳 IPFS => 區塊鏈
+ */
 async function captureScreenshotAndChain(page, url, fileId) {
-  // ...
+  try {
+    await page.goto(url, { waitUntil:'networkidle2', timeout:10000 });
+    const screenshotPath = path.join(__dirname, `../../uploads/result_${fileId}_${Date.now()}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage:true });
+
+    // 上傳 IPFS
+    const ipfsHash = await ipfsService.saveFile(screenshotPath);
+    // 區塊鏈
+    const receipt = await chain.storeRecord(ipfsHash);
+    const txHash = receipt?.transactionHash;
+    console.log(`Screenshot => ${url}, IPFS=${ipfsHash}, txHash=${txHash||'(None)'}`);
+  } catch(e) {
+    console.warn('[captureScreenshotAndChain]', e);
+  }
 }
-*/
 
 module.exports = { doMultiReverseImage };
