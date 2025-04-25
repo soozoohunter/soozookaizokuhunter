@@ -14,10 +14,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont
-    # 若有其它缺失依賴 (mesa-gl, libxi, gconf, etc)，可於此補上
 
 # 3) 複製並安裝 Node.js 依賴
-#    (此處已在 package.json 新增 puppeteer-extra, puppeteer-extra-plugin-stealth)
 COPY package*.json ./
 RUN npm install
 
@@ -29,5 +27,5 @@ COPY . .
 
 EXPOSE 3000
 
-# ★★ 關鍵修正：補上右中括號，完整 JSON array 形式
+# 關鍵修正 => 完整 JSON array
 CMD ["node", "server.js"]
