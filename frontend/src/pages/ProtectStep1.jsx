@@ -19,7 +19,7 @@ const FormContainer = styled.div`
   border-radius: 8px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   border: 2px solid #ff6f00; /* 橘色外框 */
 `;
 
@@ -111,6 +111,9 @@ export default function ProtectStep1() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
+  const [title, setTitle] = useState('');       // ★ 新增作品標題
+  const [keywords, setKeywords] = useState(''); // ★ 新增關鍵字
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -138,6 +141,12 @@ export default function ProtectStep1() {
     if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       return setError('必填欄位不可空白。');
     }
+    if (!title.trim()) {
+      return setError('請輸入作品標題 (Title)！');
+    }
+    if (!keywords.trim()) {
+      return setError('請輸入關鍵字 (Keywords)！');
+    }
 
     try {
       setLoading(true);
@@ -150,6 +159,8 @@ export default function ProtectStep1() {
       formData.append('phone', phone);
       formData.append('address', address);
       formData.append('email', email);
+      formData.append('title', title);
+      formData.append('keywords', keywords);
 
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
@@ -187,6 +198,8 @@ export default function ProtectStep1() {
         <Description>
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品檔案並填寫下列資訊。
           檔案將自動產生 Fingerprint (SHA-256) 並上傳 IPFS、寫入區塊鏈。
+          <br /><br />
+          <strong>關鍵字(hashtags)</strong> 請用分號「;」或逗號「,」分隔，以便AI爬蟲更準確搜尋。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -202,7 +215,7 @@ export default function ProtectStep1() {
           )}
           {file && (
             <>
-              <FileName>已選擇檔案：{file.name}</FileName>
+              <FileName>已選檔案：{file.name}</FileName>
               <ClearButton type="button" onClick={handleClearFile}>
                 移除檔案
               </ClearButton>
@@ -222,7 +235,7 @@ export default function ProtectStep1() {
             type="text"
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
-            placeholder="e.g. 1988年10月24日"
+            placeholder="e.g. 1988-10-24"
           />
 
           <StyledLabel>手機/電話 (Phone):</StyledLabel>
@@ -238,7 +251,7 @@ export default function ProtectStep1() {
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="e.g. 台北市大安區泰順街40號"
+            placeholder="e.g. 台北市大安區泰順街xx號"
           />
 
           <StyledLabel>Email:</StyledLabel>
@@ -247,6 +260,22 @@ export default function ProtectStep1() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="e.g. yourmail@example.com"
+          />
+
+          <StyledLabel>作品標題 (Title):</StyledLabel>
+          <StyledInput
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. 我的插畫作品 / My Artwork"
+          />
+
+          <StyledLabel>關鍵字 (Keywords; 用分號或逗號分隔):</StyledLabel>
+          <StyledInput
+            type="text"
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder="e.g. art; painting; cat / or art,painting,cat"
           />
 
           <SubmitButton type="submit" disabled={loading}>
