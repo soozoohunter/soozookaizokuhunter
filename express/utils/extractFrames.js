@@ -5,7 +5,9 @@ const { spawn } = require('child_process');
 
 /**
  * extractKeyFrames(videoPath, outDir, frameCount = 10)
- * 以 ffmpeg 抽指定數量的影格，限制 fps=5，最多 frameCount 張
+ * - 使用 ffmpeg，fps=5, 最多抽 frameCount 張影格
+ * - 若 outDir 不存在則建立
+ * - 以 Promise 回傳抽出的 frame 路徑陣列(已排序)
  */
 async function extractKeyFrames(videoPath, outDir, frameCount = 10) {
   if (!fs.existsSync(outDir)) {
@@ -14,7 +16,7 @@ async function extractKeyFrames(videoPath, outDir, frameCount = 10) {
   return new Promise((resolve, reject) => {
     const args = [
       '-i', videoPath,
-      '-vf', 'fps=5',          // 每秒取5張
+      '-vf', 'fps=5',  // 每秒最多5張
       '-vframes', `${frameCount}`,
       path.join(outDir, 'frame_%05d.jpg')
     ];
