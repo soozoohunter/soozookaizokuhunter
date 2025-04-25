@@ -5,9 +5,9 @@ const { spawn } = require('child_process');
 
 /**
  * extractKeyFrames(videoPath, outDir, frameCount = 10)
- * - 使用 ffmpeg，fps=5, 最多抽 frameCount 張影格
- * - 若 outDir 不存在則建立
- * - 以 Promise 回傳抽出的 frame 路徑陣列(已排序)
+ *  - 使用 ffmpeg，fps=5, 最多抽 frameCount 張影格
+ *  - 若 outDir 不存在則自動建立
+ *  - 以 Promise 回傳抽出的 frame 路徑陣列(已排序)
  */
 async function extractKeyFrames(videoPath, outDir, frameCount = 10) {
   if (!fs.existsSync(outDir)) {
