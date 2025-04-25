@@ -1,13 +1,13 @@
 /*************************************************************
- * express/server.js (最終版, 使用 alter:true or force:true)
+ * express/server.js
  *************************************************************/
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
-const createAdmin = require('./createDefaultAdmin'); // 若有預設管理員
+const createAdmin = require('./createDefaultAdmin');
 
-// 若您有 routes
+// 如果您有其他 routes
 const paymentRoutes = require('./routes/paymentRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
@@ -38,26 +38,20 @@ app.use('/auth', authRouter);
 
     // ---------- 方式1: alter:true 自動嘗試更新(不保證成功) ----------
     // await sequelize.sync({ alter: true });
-    
+
     // ---------- 方式2: force:true 會直接重建資料表, 所有資料會被刪除! ----------
     // await sequelize.sync({ force: true });
 
-    // (建議只在測試或本地用 force:true 或手動 drop table)
+    // 建議只在測試或本地用 force:true 或手動 drop table
     // 兩者只能擇一，不要同時開
     await sequelize.sync({ alter: true });
-    
     console.log('[Express] Sequelize synced.');
+
+    // 建立/更新預設 Admin
+    await createAdmin();
+
   } catch (err) {
     console.error('[Express] Sequelize connect error:', err);
-  }
-})();
-
-// 建立/更新預設 Admin
-(async function ensureAdmin() {
-  try {
-    await createAdmin();
-  } catch (err) {
-    console.error('[InitAdmin] 建立管理員失敗:', err);
   }
 })();
 
