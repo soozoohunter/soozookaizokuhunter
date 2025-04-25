@@ -1,9 +1,8 @@
 /*************************************************************
  * express/routes/protect.js
- * - 建User(若非白名單則限制重複) + PDF含印章, GM簽名
- * - (Short Video) => 若 <=30秒 => 抽3000張圖 => 逐張 Google 以圖搜圖
- * - (Image) => 單張 Google 以圖搜圖
- * - 文字爬蟲 => TikTok / IG / FB
+ * - 短影音需付費：若 video/* 而非白名單 => 回傳 402 NEED_PAYMENT
+ * - 若 image/* 或白名單 => 仍免費進行 Fingerprint / IPFS / PDF
+ * - /scan/:fileId => 依舊可對短影音(<=30秒)抽3000張 + GoogleReverseImage
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -25,7 +24,7 @@ const puppeteer = require('puppeteer'); // puppeteer 以圖搜圖
 // Multer 暫存
 const upload = multer({ dest: 'uploads/' });
 
-// 白名單 (允許無限)
+// 白名單 (允許無限 / 免付費)
 const ALLOW_UNLIMITED = [
   '0900296168',
   'jeffqqm@gmail.com'
@@ -33,6 +32,8 @@ const ALLOW_UNLIMITED = [
 
 /**
  * POST /api/protect/step1
+ * - 若上傳檔案為 video/* & 非白名單 => 402 NEED_PAYMENT
+ * - 否則繼續 Fingerprint / IPFS / PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -47,7 +48,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       agreePolicy
     } = req.body;
 
-    // 檢查
+    // 1) 必填檢查
     if (!req.file) {
       return res.status(400).json({ error: '缺少上傳檔案' });
     }
@@ -64,23 +65,37 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: '請勾選同意隱私權政策與使用條款' });
     }
 
-    // 檢查 phone/email
+    // 2) 判斷是否 video 需要付費
+    const mimeType = req.file.mimetype; // e.g. "video/mp4" or "image/png"
+    const isVideo = mimeType.startsWith('video');
+    // 下列只示範用白名單 ALLOW_UNLIMITED 做「免付費」判斷，實務可對照 user.plan
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
+
+    if (isVideo && !isUnlimited) {
+      // 非白名單又是 video => 需付費
+      // 刪除上傳暫存檔
+      fs.unlinkSync(req.file.path);
+
+      return res.status(402).json({
+        code: 'NEED_PAYMENT',
+        error: '短影音功能需付費方案，請前往付費或聯繫我們。'
+      });
+    }
+
+    // 3) 檢查 phone/email 是否已有帳號 (若非白名單)
     if (!isUnlimited) {
       const existUser = await User.findOne({
-        where: {
-          [Op.or]: [{ phone }, { email }]
-        }
+        where: { [Op.or]: [{ phone }, { email }] }
       });
       if (existUser) {
         return res.status(409).json({
-          error: '您已是會員，請至登入或註冊頁面',
-          code: 'ALREADY_MEMBER'
+          code: 'ALREADY_MEMBER',
+          error: '您已是會員，請至登入或註冊頁面'
         });
       }
     }
 
-    // 建User
+    // 4) 建立 User
     const rawPass = phone + '@KaiShield';
     const hashed = await bcrypt.hash(rawPass, 10);
     const newUser = await User.create({
@@ -96,9 +111,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // Fingerprint => IPFS => 區塊鏈
+    // 5) Fingerprint / IPFS / 區塊鏈
     const fileBuf = fs.readFileSync(req.file.path);
-    const mimeType = req.file.mimetype;
     const fingerprint = fingerprintService.sha256(fileBuf);
 
     let ipfsHash = null;
@@ -115,7 +129,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       console.error('[Chain error]', chainErr);
     }
 
-    // File record
+    // 6) File
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -124,20 +138,20 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       tx_hash: txHash
     });
 
-    // 上傳次數
-    if (mimeType.startsWith('video')) {
+    // 更新上傳次數
+    if (isVideo) {
       newUser.uploadVideos++;
-    } else if (mimeType.startsWith('image')) {
+    } else {
       newUser.uploadImages++;
     }
     await newUser.save();
 
-    // 保留檔案 => rename
+    // rename => 保留檔案
     const ext = path.extname(req.file.originalname) || '';
     const localPath = path.join(__dirname, `../../uploads/imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, localPath);
 
-    // 產 PDF
+    // 7) 產 PDF
     const pdfBuf = await generatePdf({
       realName,
       birthDate,
@@ -166,6 +180,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       txHash,
       defaultPassword: rawPass
     });
+
   } catch (err) {
     console.error('[protect step1 error]', err);
     return res.status(500).json({ error: err.message });
@@ -174,6 +189,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 /**
  * GET /api/protect/certificates/:fileId
+ * - 下載 PDF
  */
 router.get('/certificates/:fileId', async (req, res) => {
   try {
@@ -190,9 +206,9 @@ router.get('/certificates/:fileId', async (req, res) => {
 
 /**
  * GET /api/protect/scan/:fileId
- * - (1) 文字爬蟲 => TikTok / IG / FB
- * - (2) 若是 image => Puppeteer googleReverseImage(單張)
- * - (3) 若是 short video(<=30秒) => 抽3000張 => 對每張 googleReverseImage (示範)
+ * - 文字式爬蟲 (TikTok / IG / FB)
+ * - 若是 image => 單張 Puppeteer googleReverseImage
+ * - 若是 short video(<=30秒) => 抽3000張 + googleReverseImage
  */
 router.get('/scan/:fileId', async (req, res) => {
   try {
@@ -201,14 +217,14 @@ router.get('/scan/:fileId', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // 先做文字爬蟲
     let suspiciousLinks = [];
     const apiKey = process.env.RAPIDAPI_KEY;
-    if (!apiKey) {
-      console.warn('RAPIDAPI_KEY not set => 跳過文字爬蟲');
-    } else {
+
+    // (1) 文字爬蟲
+    if (apiKey) {
       const searchQuery = file.filename || file.fingerprint || 'default';
-      // TikTok
+
+      // Tiktok
       try {
         const respTikTok = await axios.get(
           'https://tiktok-scraper7.p.rapidapi.com/feed/search',
@@ -224,9 +240,10 @@ router.get('/scan/:fileId', async (req, res) => {
         tiktokItems.forEach((item) => {
           if (item.link) suspiciousLinks.push(item.link);
         });
-      } catch (e) {
-        console.error('[Tiktok error]', e.message);
+      } catch (errTik) {
+        console.error('[Tiktok error]', errTik.message);
       }
+
       // IG
       try {
         const igResp = await axios.get(
@@ -241,9 +258,10 @@ router.get('/scan/:fileId', async (req, res) => {
         );
         const igLinks = igResp.data?.results || [];
         suspiciousLinks = suspiciousLinks.concat(igLinks);
-      } catch (e2) {
-        console.error('[IG error]', e2.message);
+      } catch (errIG) {
+        console.error('[IG error]', errIG.message);
       }
+
       // FB
       try {
         const fbResp = await axios.get(
@@ -258,86 +276,81 @@ router.get('/scan/:fileId', async (req, res) => {
         );
         const fbLinks = fbResp.data?.reels || [];
         suspiciousLinks = suspiciousLinks.concat(fbLinks);
-      } catch (e3) {
-        console.error('[FB error]', e3.message);
+      } catch (errFB) {
+        console.error('[FB error]', errFB.message);
       }
+    } else {
+      console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawl');
     }
 
-    // 再做以圖搜圖 / 或短片擷取
+    // (2) 以圖搜圖 or 短影音抽圖
     const guessExt = path.extname(file.filename);
     const localPath = path.join(__dirname, `../../uploads/imageForSearch_${file.id}${guessExt}`);
+
     if (!fs.existsSync(localPath)) {
-      // 沒找到檔 => 直接回傳文字爬蟲結果
+      // 檔案不存在 => 只回傳文字爬蟲結果
       const unique1 = Array.from(new Set(suspiciousLinks));
       file.status = 'scanned';
       file.infringingLinks = JSON.stringify(unique1);
       await file.save();
       return res.json({
-        message: 'Text-based done, no local file to do reverseImage',
+        message: 'Text-based done, no local file => no reverseImage',
         suspiciousLinks: unique1
       });
     }
 
-    // 分辨是 image or short video
-    const user = await User.findByPk(file.user_id);
     let googleResults = [];
-
-    // 簡易判斷：若 user.uploadImages>0 => 代表這是圖
+    // 判斷檔案屬於 image or video
+    const user = await User.findByPk(file.user_id);
     if (user && user.uploadImages > 0) {
-      // 單張 -> 直接 puppeteer
+      // 單張
       console.log(`[scan] Single image => googleReverseImage(${localPath})`);
       const singleLinks = await doGoogleReverseImage(localPath);
       googleResults = singleLinks;
       suspiciousLinks = suspiciousLinks.concat(singleLinks);
     }
-    // 若 user.uploadVideos>0 => 代表是視頻 => 檢查長度 <= 30秒 => ffprobe
     else if (user && user.uploadVideos > 0) {
+      // 取得時長 => 若 <=30 => 抽3000張 + googleReverseImage
       try {
-        // ffprobe => 取得影片秒數
         const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
-        const durationStr = execSync(cmdProbe).toString().trim(); 
+        const durationStr = execSync(cmdProbe).toString().trim();
         const durationSec = parseFloat(durationStr) || 9999;
-        console.log('Video duration =>', durationSec);
 
         if (durationSec <= 30) {
-          // 抽 3000 張 => fps=100
-          // 指令: ffmpeg -i video.mp4 -vf fps=100 outDir/frame_%05d.jpg
+          console.log('[scan] short video => extract frames => googleReverseImage...');
           const outDir = path.join(__dirname, `../../uploads/frames_${file.id}`);
           if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
           const cmdExtract = `ffmpeg -i "${localPath}" -vf fps=100 "${outDir}/frame_%05d.jpg"`;
           execSync(cmdExtract);
 
-          // 逐張 => googleReverseImage
-          const frameFiles = fs.readdirSync(outDir).filter(f=>f.endsWith('.jpg'));
-          // (極度建議只挑幾張！否則Google馬上封 or reCAPTCHA)
-          // 這裡示範全部 => 3000張 = 3000 calls => 幾乎必被封
-          for (let i=0; i<frameFiles.length; i++){
+          const frameFiles = fs.readdirSync(outDir).filter(f => f.endsWith('.jpg'));
+          // 大量以圖搜圖非常容易被 Google block
+          for (let i = 0; i < frameFiles.length; i++) {
             const framePath = path.join(outDir, frameFiles[i]);
-            console.log(`[scan] doGoogleReverseImage => ${frameFiles[i]}`);
             const frameLinks = await doGoogleReverseImage(framePath);
             googleResults = googleResults.concat(frameLinks);
             suspiciousLinks = suspiciousLinks.concat(frameLinks);
-            // ※若要避免被封，可 sleep 幾秒 or break
-          }
-        }
-        else {
-          console.log('[scan] Video > 30s => skip frame extraction');
-        }
 
-      } catch(eVid){
+            // ★建議可 sleep 或只抽部分 frame
+            // if (i >= 10) break; // 避免過多
+          }
+        } else {
+          console.log('[scan] video > 30s => skip frame extraction');
+        }
+      } catch(eVid) {
         console.error('[Video extraction error]', eVid);
       }
     }
 
-    // 合併
+    // 去重
     const uniqueLinks = Array.from(new Set(suspiciousLinks));
     file.status = 'scanned';
     file.infringingLinks = JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message: 'Scan done => text + googleReverseImage (if short video or image)',
+      message: 'Scan done => text + googleReverseImage (if short video/image)',
       suspiciousLinks: uniqueLinks,
       googleResults
     });
@@ -346,7 +359,6 @@ router.get('/scan/:fileId', async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
 
 /**
  * Puppeteer：Google Reverse Image (單張)
@@ -358,31 +370,31 @@ async function doGoogleReverseImage(localPath) {
     browser = await puppeteer.launch({
       headless: true,
       defaultViewport: { width: 1280, height: 800 },
-      // 可能要 additional config: executablePath, args etc
+      // 視 Docker/系統環境，可能需指定 executablePath 或額外參數
     });
     const page = await browser.newPage();
     await page.goto('https://images.google.com/', { waitUntil: 'networkidle2' });
 
-    // 相機 icon
+    // 按相機 icon
     const cameraButtonSelector = 'div[jsname="Q4LuWd"] a.Q4LuWd';
     await page.waitForSelector(cameraButtonSelector, { timeout: 8000 });
     await page.click(cameraButtonSelector);
 
-    // Upload image
+    // 點擊 "Upload an image"
     const uploadTabSelector = 'a[aria-label="Upload an image"]';
     await page.waitForSelector(uploadTabSelector, { timeout: 8000 });
     await page.click(uploadTabSelector);
 
-    // 上傳
+    // 上傳檔案
     const fileInputSelector = 'input#qbfile';
     await page.waitForSelector(fileInputSelector, { timeout: 8000 });
     const fileInput = await page.$(fileInputSelector);
     await fileInput.uploadFile(localPath);
 
-    // 等4秒
+    // 等待 4 秒
     await page.waitForTimeout(4000);
 
-    // 抓前5連結
+    // 抓前 5 個搜尋結果
     const resultsSelector = 'div.g a';
     await page.waitForSelector(resultsSelector, { timeout: 15000 });
     const links = await page.$$eval(resultsSelector, (anchors) =>
@@ -430,7 +442,7 @@ async function generatePdf({
         .text(`Certificate Serial No.: ${serialNumber}`, { align: 'center' });
       doc.moveDown(1);
 
-      // stamp
+      // 印章
       try {
         const stampPath = path.join(__dirname, '../fonts/stamp.png');
         doc.image(stampPath, { fit: [80, 80], align: 'left' });
