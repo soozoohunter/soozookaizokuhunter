@@ -1,4 +1,3 @@
-// frontend/src/pages/ProtectStep2.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -35,20 +34,20 @@ const NextButton = styled.button`
 `;
 
 export default function ProtectStep2() {
-  const [result, setResult] = useState(null);
   const navigate = useNavigate();
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('protectStep1');
     if (!stored) {
-      // 若 step1資料不存在 => 直接跳回 step1
+      // 若沒有 step1 資料 => 直接跳回 step1
       navigate('/protect/step1');
       return;
     }
     const data = JSON.parse(stored);
     setResult(data);
 
-    // 再存一份
+    // 再存一份 protectStep2
     localStorage.setItem('protectStep2', JSON.stringify(data));
   }, [navigate]);
 
@@ -62,14 +61,14 @@ export default function ProtectStep2() {
 
   const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = result;
 
-  const handleNext = () => {
-    // 跳至 Step 3 => 侵權偵測
+  const handleGoNext = () => {
+    // 改文字 => 開始進行侵權偵測
     navigate('/protect/step3');
   };
 
   return (
     <Container>
-      <Title>Step 2: 結果 &amp; 下載證明書</Title>
+      <Title>Step 2: Result &amp; Certificate</Title>
 
       <InfoBlock>
         <p><strong>File ID:</strong> {fileId}</p>
@@ -99,7 +98,7 @@ export default function ProtectStep2() {
       )}
 
       <p style={{ marginTop: '2rem' }}>
-        <NextButton onClick={handleNext}>
+        <NextButton onClick={handleGoNext}>
           開始進行侵權偵測 →
         </NextButton>
       </p>
