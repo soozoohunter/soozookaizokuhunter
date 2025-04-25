@@ -9,6 +9,7 @@ const Container = styled.div`
   background-color: #101010;
   color: #fff;
 `;
+
 const ContentBox = styled.div`
   max-width: 600px;
   margin: 0 auto;
@@ -18,19 +19,23 @@ const ContentBox = styled.div`
   border: 2px solid #ff6f00;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
 `;
+
 const Title = styled.h2`
   color: #ffd700;
   margin-bottom: 1rem;
 `;
+
 const InfoText = styled.p`
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 1rem;
 `;
+
 const Highlight = styled.span`
   color: #f97316;
   font-weight: bold;
 `;
+
 const Button = styled.button`
   background-color: #f97316;
   color: #fff;
@@ -40,7 +45,9 @@ const Button = styled.button`
   border-radius: 4px;
   cursor: pointer;
   margin-right: 1rem;
-  &:hover { background-color: #ea580c; }
+  &:hover {
+    background-color: #ea580c;
+  }
 `;
 
 export default function ProtectStep4Infringement() {
@@ -50,7 +57,6 @@ export default function ProtectStep4Infringement() {
 
   useEffect(() => {
     if (!state || !state.fileId) {
-      // 若無 state => 回 Step1
       navigate('/protect/step1');
     } else {
       setInfo(state);
@@ -76,27 +82,22 @@ export default function ProtectStep4Infringement() {
       alert('無法找到 PDF URL');
       return;
     }
-    // 直接開啟/下載
     window.open(pdfUrl, '_blank');
   };
 
   return (
     <Container>
       <ContentBox>
-        <Title>Step 4: Final Proof & Infringement Links</Title>
+        <Title>Step 4: Final Result</Title>
         <InfoText>
-          您的作品已完成區塊鏈上鏈與 AI 掃描，以下為最終資訊：
+          FileID: <Highlight>{fileId}</Highlight><br/>
+          Fingerprint: <Highlight>{fingerprint}</Highlight><br/>
+          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight><br/>
+          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight><br/>
         </InfoText>
 
         <InfoText>
-          FileID: <Highlight>{fileId}</Highlight><br />
-          Fingerprint: <Highlight>{fingerprint}</Highlight><br />
-          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight><br />
-          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight><br />
-        </InfoText>
-
-        <InfoText>
-          侵權掃描結果：<br />
+          侵權掃描結果：
           {suspiciousLinks && suspiciousLinks.length > 0 ? (
             suspiciousLinks.map((link, idx) => (
               <div key={idx} style={{ margin: '0.25rem 0'}}>
@@ -104,16 +105,14 @@ export default function ProtectStep4Infringement() {
               </div>
             ))
           ) : (
-            <span>尚未偵測到可疑連結</span>
+            <div style={{ marginTop: '0.5rem' }}>
+              <Highlight>尚未發現可疑連結</Highlight>
+            </div>
           )}
         </InfoText>
 
-        <Button onClick={handleDownloadPdf}>
-          Download Certificate PDF
-        </Button>
-        <Button onClick={() => navigate('/')}>
-          Back to Home
-        </Button>
+        <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
       </ContentBox>
     </Container>
   );
