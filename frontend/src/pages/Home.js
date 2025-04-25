@@ -28,8 +28,8 @@ export default function Home() {
 
         <p style={styles.desc}>
           We are a proudly Taiwanese (台灣) 🇹🇼 platform, but also registered in 
-          <strong> Seychelles</strong> (塞席爾為聯合國成員國)
-          – ensuring our certificates carry <strong>global legal validity</strong>.
+          <strong> Seychelles</strong> (聯合國成員國),
+          ensuring our certificates carry <strong>global legal validity</strong>.
           <br /><br />
           Under modern copyright law, <strong>Originality</strong> is the key.
           Failing to prove your creation time and independence often means losing everything in court —
@@ -74,15 +74,14 @@ export default function Home() {
                 <p>
                   Our service integrates <strong>blockchain registration</strong> 
                   with <strong>AI scanning</strong> for potential infringement worldwide.
-                  We are recognized under the <em>Berne Convention</em> for the Protection 
-                  of Literary and Artistic Works, and <em>TRIPS</em> (Agreement on 
-                  Trade-Related Aspects of Intellectual Property Rights) under the WTO framework.
+                  We are recognized under the Berne Convention for the Protection 
+                  of Literary and Artistic Works, and TRIPS (WTO's IP framework).
                 </p>
                 <p>
                   Because Seychelles is a member of the United Nations since 1976, 
                   our corporate registration there ensures <strong>global enforceability</strong>
                   of all our certificates. No matter where infringers hide, 
-                  you have the powerful legal grounds to claim your rights.
+                  you have powerful legal grounds to claim your rights.
                 </p>
                 <p style={{ marginTop: '1rem' }}>
                   If you ever face disputes abroad, 
@@ -93,30 +92,28 @@ export default function Home() {
               </div>
             </details>
 
-            {/* (B) 台灣著作權法 + WTO 加入後衝擊  + 摘要 */}
+            {/* (B) 台灣著作權法 & WTO/TRIPS */}
             <details style={styles.detailsBox}>
               <summary style={styles.summaryStyle}>
-                Taiwan Copyright Act &amp; WTO/TRIPS (點此展開)
+                Taiwan Copyright &amp; WTO/TRIPS (點此展開)
               </summary>
               <div style={styles.detailInner}>
                 <p>
-                  <strong>中華民國著作權法 (Taiwan)</strong> 已多次修正，以符合 
-                  <em>WTO/TRIPS</em> 規範。自動保護原創作品，不需註冊即可享有著作權。
-                  加入世界貿易組織後，對外國著作也更擴大回溯保護。
+                  Under <strong>WTO/TRIPS</strong> requirements, 
+                  Taiwan’s Copyright Act extends to all member economies, 
+                  abiding by the “national treatment” principle. 
+                  This means foreign works are widely protected, 
+                  and likewise Taiwanese works gain protection globally.
                 </p>
                 <p>
-                  <em>TRIPS</em> 要求會員體遵守 
-                  <em>Berne Convention</em> 基本精神，對著作財產權施以「著作人終身+50年」保護期間，
-                  並落實國民待遇(MFN 原則)，意即他國作品在台灣也享同等保護。
-                </p>
-                <p style={{ marginTop: '1rem' }}>
-                  依照法學者章忠信先生(刊於「律師雜誌」)，WTO 的相關規範要求
-                  我國對外國著作回溯保護，使用者應該「授權利用」「付費使用」，
-                  不再能將外國作品視為公共領域任意使用。這對智慧財產的尊重
-                  與國際接軌十分重要。
+                  The law also ensures a “lifetime + 50 years” protection period, 
+                  plus stronger “retroactive protection,” 
+                  preventing unauthorized usage of older or foreign works. 
+                  This fosters respect for intellectual property in line with international standards.
                 </p>
                 <p style={{ marginTop: '1rem', color: '#ffd54f', fontWeight: '600' }}>
-                  我們的區塊鏈＋AI存證，即符合此趨勢，在世界各地皆能有效遏止侵權！
+                  Our blockchain + AI solution fully aligns with these global norms, 
+                  effectively deterring infringement anywhere in the world!
                 </p>
               </div>
             </details>
@@ -141,14 +138,14 @@ export default function Home() {
             <p>
               【繁中】根據台灣與國際著作權法，「原創性」是判斷是否享有著作權保護的關鍵。
               只要是 <strong>獨立完成</strong> 的創作，即使與他人作品雷同，也可能受保護；
-              但若不能證明獨立完成，將面臨抄襲、侵權的風險。
+              但若不能證明獨立完成，將面臨抄襲或侵權的風險。
             </p>
             <p>
               不論是攝影、美術、文本、程式碼，只要在完成之際無法舉證原創，
               <strong>法院就可能認定著作權不成立</strong>。
               這也是為什麼我們強調
               <strong>區塊鏈+AI雙重保障</strong>的重要性——
-              一次上鏈，終身保護，AI 即時比對潛在侵權。
+              一次上鏈，AI動態比對侵權風險，省去後顧之憂。
             </p>
             <p style={{ marginTop: '1rem' }}>
               <strong>【EN】</strong>
@@ -195,9 +192,10 @@ const styles = {
     textAlign: 'center',
     marginBottom: '2rem',
   },
+  // ★ 變成橘色
   freeTrialBtn: {
-    backgroundColor: '#00e676',
-    color: '#000',
+    backgroundColor: '#f97316',
+    color: '#fff',
     border: 'none',
     borderRadius: '8px',
     padding: '0.9rem 2rem',
