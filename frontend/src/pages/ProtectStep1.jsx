@@ -1,9 +1,7 @@
-// frontend/src/pages/ProtectStep1.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
-/** =========== Styled Components =========== **/
 const PageWrapper = styled.div`
   min-height: 100vh;
   display: flex;
@@ -20,13 +18,13 @@ const FormContainer = styled.div`
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
   max-width: 480px;
-  border: 2px solid #ff6f00; /* 橘色外框 */
+  border: 2px solid #ff6f00;
 `;
 
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #FFD700; /* 金色文字 */
+  color: #FFD700;
 `;
 
 const Description = styled.p`
@@ -52,7 +50,7 @@ const StyledForm = styled.form`
 const StyledLabel = styled.label`
   margin: 0.5rem 0 0.25rem;
   font-size: 0.9rem;
-  color: #ffa500; /* 橘字 */
+  color: #ffa500;
 `;
 
 const StyledInput = styled.input`
@@ -125,13 +123,12 @@ export default function ProtectStep1() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 檔案上傳事件
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
   };
-  // 清除檔案
+
   const handleClearFile = () => {
     setFile(null);
   };
@@ -140,7 +137,9 @@ export default function ProtectStep1() {
     e.preventDefault();
     setError('');
 
-    if (!file) return setError('請先上傳檔案');
+    if (!file) {
+      return setError('請先上傳檔案');
+    }
     if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
       return setError('必填欄位不可空白');
     }
@@ -179,11 +178,9 @@ export default function ProtectStep1() {
           navigate('/register');
           return;
         }
-        // 402 => NEED_PAYMENT or other
         throw new Error(respData.error || '上傳失敗');
       }
 
-      // 成功 => 寫 localStorage
       console.log('step1 success =>', respData);
       localStorage.setItem('protectStep1', JSON.stringify(respData));
       navigate('/protect/step2');
@@ -201,8 +198,7 @@ export default function ProtectStep1() {
         <Title>Step 1: Upload &amp; Member Info</Title>
         <Description>
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。
-          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），
-          並完成 SHA-256 指紋 + 區塊鏈存證。
+          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
@@ -280,8 +276,7 @@ export default function ProtectStep1() {
             onChange={(e) => setKeywords(e.target.value)}
           />
 
-          <details style={{ margin: '1rem 0', background: '#2c2c2c', padding: '1rem',
-            border: '1px solid #ff6f00', borderRadius: '6px' }}>
+          <details style={{ margin: '1rem 0', background: '#2c2c2c', padding: '1rem', border: '1px solid #ff6f00', borderRadius: '6px' }}>
             <summary style={{ cursor: 'pointer', color: '#f97316' }}>
               閱讀隱私權與服務條款 (點此展開)
             </summary>
@@ -292,6 +287,7 @@ export default function ProtectStep1() {
               <p>3. 若有違反規範，本公司得終止服務...</p>
             </div>
           </details>
+
           <CheckboxRow>
             <input
               type="checkbox"
