@@ -3,18 +3,19 @@ FROM node:16-alpine
 
 WORKDIR /app
 
-# 安裝 ffmpeg (alpine)
+# 1) 安裝 ffmpeg (alpine)
 RUN apk add --no-cache ffmpeg
 
-# 1) COPY package.json / package-lock.json
+# 2) 複製並安裝套件
 COPY package*.json ./
 RUN npm install
 
-# 2) COPY 字型： ./fonts -> /app/fonts
+# 3) 複製字型 (若有)
 COPY ./fonts /app/fonts
 
-# 3) COPY 整個 express 專案檔
+# 4) 複製整個 express 專案
 COPY . .
 
 EXPOSE 3000
+
 CMD ["node", "server.js"]
