@@ -1,4 +1,3 @@
-// frontend/src/pages/ProtectStep3.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -27,9 +26,9 @@ const ErrorMsg = styled.p`
 
 const BackButton = styled.button`
   background-color: #444;
-  color: #fff;
+  color: #ffffff;
   font-weight: bold;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
   margin-right: 1rem;
@@ -74,15 +73,14 @@ export default function ProtectStep3() {
     }
   }
 
-  const handleGoBack = () => {
-    // 回到 Step2
-    navigate('/protect/step2');
+  const handleBack = () => {
+    // 返回上一頁
+    navigate(-1);
   };
 
   return (
     <Container>
       <Title>Step 3: 侵權偵測 (Scan)</Title>
-      <BackButton onClick={handleGoBack}>← 回上一頁</BackButton>
       {loading && <p>偵測中，請稍後...</p>}
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
@@ -105,6 +103,12 @@ export default function ProtectStep3() {
           )}
         </InfoBlock>
       )}
+
+      <div style={{ marginTop:'1rem' }}>
+        <BackButton onClick={handleBack}>
+          上一頁
+        </BackButton>
+      </div>
     </Container>
   );
 }
