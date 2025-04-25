@@ -85,9 +85,8 @@ export default function ProtectStep4Infringement() {
     window.open(pdfUrl, '_blank');
   };
 
-  const handleViewScan = () => {
-    // 假設想重新查看 Step3 or 直接帶 fileId
-    // 這裡示範：跳到 Step3
+  const handleCheckInfringement = () => {
+    // 回到 Step3 或重新執行 Scan
     navigate('/protect/step3');
   };
 
@@ -111,14 +110,15 @@ export default function ProtectStep4Infringement() {
               </div>
             ))
           ) : (
-            <div style={{ marginTop: '0.5rem' }}>
+            <div style={{ marginTop:'0.5rem' }}>
               <Highlight>尚未發現可疑連結</Highlight>
             </div>
           )}
         </InfoText>
 
         <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
-        <Button onClick={handleViewScan}>查看掃描結果頁面</Button>
+        <Button onClick={handleCheckInfringement}>查看侵權結果</Button>
+        <Button onClick={() => navigate('/')}>Back to Home</Button>
       </ContentBox>
     </Container>
   );
