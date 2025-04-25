@@ -1,3 +1,4 @@
+// frontend/src/pages/ProtectStep3.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -24,6 +25,20 @@ const ErrorMsg = styled.p`
   color: red;
 `;
 
+const BackButton = styled.button`
+  background-color: #444;
+  color: #fff;
+  font-weight: bold;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 4px;
+  margin-right: 1rem;
+  cursor: pointer;
+  &:hover {
+    background-color: #666;
+  }
+`;
+
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const [scanResult, setScanResult] = useState(null);
@@ -33,7 +48,6 @@ export default function ProtectStep3() {
   useEffect(() => {
     const stored2 = localStorage.getItem('protectStep2');
     if (!stored2) {
-      // 若沒有 step2資料 => 直接回 step1
       navigate('/protect/step1');
       return;
     }
@@ -60,9 +74,15 @@ export default function ProtectStep3() {
     }
   }
 
+  const handleGoBack = () => {
+    // 回到 Step2
+    navigate('/protect/step2');
+  };
+
   return (
     <Container>
       <Title>Step 3: 侵權偵測 (Scan)</Title>
+      <BackButton onClick={handleGoBack}>← 回上一頁</BackButton>
       {loading && <p>偵測中，請稍後...</p>}
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
