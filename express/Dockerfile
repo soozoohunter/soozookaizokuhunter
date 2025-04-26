@@ -1,25 +1,24 @@
-# express/Dockerfile
-FROM node:16-alpine
+# Dockerfile 範例
+FROM node:18
 
+# 安裝基本系統套件 (含 chromium、x11、fonts 等)
+RUN apt-get update && apt-get install -y \
+  wget gnupg2 ca-certificates apt-transport-https \
+  libx11-6 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 \
+  libxtst6 libnss3 libglib2.0-0 libxrandr2 libatk1.0-0 \
+  libatk-bridge2.0-0 libdrm2 libgbm1 libpangocairo-1.0-0 \
+  libasound2 libpng-dev \
+  chromium
+
+# 安裝你的專案依賴
 WORKDIR /app
-
-# 1) 安裝 ffmpeg + chromium + 字體相關依賴
-RUN apk add --no-cache ffmpeg \
-    && apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
-
-# 2) 複製 package.json + package-lock.json，並安裝套件
 COPY package*.json ./
 RUN npm install
 
-# 3) 複製單一 fonts/ 資料夾 → /app/fonts
-#    (只保留 NotoSansTC-VariableFont_wght.ttf 這個檔案)
-COPY ./fonts /app/fonts
-
-# 4) 複製 public/ → /app/public (stamp.png)
-COPY ./public /app/public
-
-# 5) 複製其他 express 專案檔案 (routes, models, server.js, etc.)
 COPY . .
 
+# Puppeteer 預設會去下載 chrome，但若要沿用系統 chromium，可在環境變數指定
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["npm","run","start"]
