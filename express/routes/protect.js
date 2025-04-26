@@ -135,6 +135,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       console.error('[IPFS error]', eIPFS);
     }
     try {
+      // 注意：若區塊鏈 sender 帳戶沒有足夠的餘額，這裡會拋錯
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
     } catch(eChain){
@@ -163,7 +164,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
 
-    // 產 PDF
+    // 產 PDF（重要！確保真正回傳Buffer）
     const pdfBuf = await generatePdf({
       realName,
       birthDate,
@@ -180,9 +181,11 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       fileBuffer: fileBuf,
       mimeType
     });
+
+    // 將 PDF Buffer 寫到硬碟
     const pdfFileName = `certificate_${newFile.id}.pdf`;
     const pdfFilePath = path.join(localDir, pdfFileName);
-    fs.writeFileSync(pdfFilePath, pdfBuf);
+    fs.writeFileSync(pdfFilePath, pdfBuf); // 這裡 pdfBuf 一定要是 Buffer
 
     return res.json({
       message:'上傳成功並建立會員＆PDF！',
@@ -371,11 +374,76 @@ router.get('/scan/:fileId', async (req, res)=>{
   }
 });
 
-/** 產 PDF 與您原本邏輯類似...省略... */
+/**
+ * 產生 PDF 函式：回傳 Buffer，避免 undefined
+ * @param {Object} params
+ * @returns {Promise<Buffer>}
+ */
 async function generatePdf({
-  /* 省略, 見上方 */
+  realName,
+  birthDate,
+  phone,
+  address,
+  email,
+  title,
+  keywords,
+  filename,
+  fingerprint,
+  ipfsHash,
+  txHash,
+  serialNumber,
+  fileBuffer,
+  mimeType
 }) {
-  // ...
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'A4',
+        margin: 50
+      });
+      const buffers = [];
+
+      // 監聽 PDF 資料流
+      doc.on('data', (chunk) => {
+        buffers.push(chunk);
+      });
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+      doc.on('error', (err) => {
+        reject(err);
+      });
+
+      doc.fontSize(18).text('KaiKaiShield 原創著作證明書', { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).text(`真實姓名: ${realName}`);
+      doc.text(`生日: ${birthDate}`);
+      doc.text(`手機: ${phone}`);
+      doc.text(`地址: ${address}`);
+      doc.text(`Email: ${email}`);
+      doc.text(`作品標題: ${title}`);
+      doc.text(`關鍵字: ${keywords}`);
+      doc.moveDown();
+      doc.text(`檔名: ${filename}`);
+      doc.text(`Fingerprint (SHA-256): ${fingerprint}`);
+      doc.text(`IPFS Hash: ${ipfsHash || 'N/A'}`);
+      doc.text(`Tx Hash: ${txHash || 'N/A'}`);
+      doc.text(`序號: ${serialNumber}`);
+      doc.moveDown();
+      doc.text(`檔案型態: ${mimeType}`);
+      doc.text(`產生日期: ${new Date().toLocaleString()}`);
+
+      // 若有需要，可以在 PDF 最後加一些聲明或條款
+      doc.moveDown();
+      doc.fontSize(10).text('本文件由 KaiKaiShield 系統自動產生，僅作為原創著作證明。');
+
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 module.exports = router;
