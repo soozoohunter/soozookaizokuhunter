@@ -1,7 +1,7 @@
 # express/Dockerfile
 FROM node:18
 
-# 安裝基本系統套件 (含 chromium、x11、fonts 等)
+# 1) 安裝基本系統套件 (chromium、fonts...等 Puppeteer + ffmpeg 依賴)
 RUN apt-get update && apt-get install -y \
   wget gnupg2 ca-certificates apt-transport-https \
   libx11-6 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 \
@@ -14,11 +14,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 1) 複製 package.json + package-lock.json => 並安裝所有依賴 (含 fluent-ffmpeg)
+# 2) 複製 package.json + package-lock.json 並安裝依賴 (含 "ffmpeg-static")
 COPY package*.json ./
 RUN npm install
 
-# 2) 複製剩餘程式
+# 3) 複製其餘專案檔
 COPY . .
 
 # Puppeteer 設定：使用系統 /usr/bin/chromium
