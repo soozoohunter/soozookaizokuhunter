@@ -1,4 +1,4 @@
-# Dockerfile
+# express/Dockerfile
 FROM node:18
 
 # 安裝基本系統套件 (含 chromium、x11、fonts 等)
@@ -14,20 +14,17 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 若您使用 ffmpeg-static + fluent-ffmpeg，可改在 package.json 內安裝即可
-# 這裡系統層安裝 ffmpeg，讓您可以在 execSync("ffmpeg ...") 時呼叫到
-# (若全部改用 ffmpeg-static，就可省略 apt-get install ffmpeg)
-
-# 複製 package.json + package-lock.json 並安裝
+# 1) 複製 package.json + package-lock.json => 並安裝所有依賴 (含 fluent-ffmpeg)
 COPY package*.json ./
 RUN npm install
 
-# 複製剩餘專案檔案
+# 2) 複製剩餘程式
 COPY . .
 
-# Puppeteer 預設會下載自身 Chromium，但若要沿用 apt 安裝好的 /usr/bin/chromium
+# Puppeteer 設定：使用系統 /usr/bin/chromium
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 EXPOSE 3000
+
 CMD ["npm","run","start"]
