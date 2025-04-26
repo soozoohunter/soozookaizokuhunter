@@ -3,7 +3,8 @@
  *
  * 統一只保留 Bing / TinEye / Baidu
  * - 透過 ginifab 聚合頁面
- * - 點擊對應引擎連結後，自動打開 popup，截圖結果部分(隱藏搜尋UI)
+ * - 點擊對應引擎連結後，自動打開 popup，盡量等到結果載入
+ * - 截圖結果部分(隱藏搜尋UI)
  * - 截圖可再上傳 IPFS + 區塊鏈
  * - 回傳 "Possible match => URL" 陣列
  */
@@ -38,10 +39,16 @@ async function doMultiReverseImage(imagePath, fileId) {
     }
 
     // 2) 啟動 Puppeteer (Stealth模式)
+    //    建議在 Docker 裝好 chromium，或用 headless: 'new'
     browser = await puppeteerExtra.launch({
-      headless: true, // 可改 "new" 或 true/false 看版本
+      headless: 'new',
       defaultViewport: { width: 1280, height: 800 },
-      args: ['--no-sandbox','--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
     });
     const page = await browser.newPage();
     console.log('Puppeteer launched...');
@@ -60,15 +67,15 @@ async function doMultiReverseImage(imagePath, fileId) {
       return foundLinks; 
     }
     await fileInput.uploadFile(imagePath);
-    // 等 3 秒，讓 ginifab 生成預覽
-    await page.waitForTimeout(3000);
+    // 等 5 秒，讓 ginifab 生成預覽
+    await page.waitForTimeout(5000);
 
-    // 5) 只保留 Bing / TinEye / Baidu
+    // 5) 三大引擎
     const engineConfigs = [
       { 
         name: 'Bing', 
         text: 'Bing', 
-        resultSelector: '.layoutWrap' // Bing 結果列表區 (popup)
+        resultSelector: '.layoutWrap' // Bing 結果列表區
       },
       { 
         name: 'TinEye', 
@@ -77,8 +84,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       },
       { 
         name: 'Baidu', 
-        text: 'Baidu', 
-        // Baidu 可能是 graph.baidu.com, 這裡先抓常見容器
+        text: 'Baidu',
         resultSelector: '.card-list, .soutu-section, #layout'
       }
     ];
@@ -87,24 +93,33 @@ async function doMultiReverseImage(imagePath, fileId) {
     for (const engine of engineConfigs) {
       try {
         console.log(`--- [${engine.name}] ---`);
+
         // 在 ginifab 主頁上找到該引擎按鈕
         const [linkEl] = await page.$x(`//a[contains(text(),"${engine.text}")]`);
         if(!linkEl) {
           console.warn(`[${engine.name}] Link not found on ginifab`);
-          // 若找不到引擎連結，就推一個「提示字串」
           foundLinks.push(`Possible match => (No link for ${engine.name})`);
           continue;
         }
 
-        // 監聽 popup
-        const popupPromise = page.waitForEvent('popup');
-        await linkEl.click();
+        // 開新 popup
+        const [popupPromise] = await Promise.all([
+          page.waitForEvent('popup'),
+          linkEl.click()
+        ]);
         const popup = await popupPromise;
 
-        // 等待頁面載入
+        // 盡量等到頁面載入
+        try {
+          await popup.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+        } catch(navErr) {
+          console.warn(`[${engine.name}] popup navigation timeout =>`, navErr.message);
+        }
+
+        // 再多等幾秒
         await popup.waitForTimeout(5000);
 
-        // 隱藏搜尋引擎 UI (popup)
+        // 隱藏搜尋引擎 UI
         try {
           await popup.addStyleTag({
             content: `
@@ -122,7 +137,7 @@ async function doMultiReverseImage(imagePath, fileId) {
           console.warn(`[${engine.name}] hide brand fail =>`, hideErr.message);
         }
 
-        // 只截「結果區域」(若找不到就截整頁)
+        // 截圖
         let screenshotPath;
         const regionHandle = await popup.$(engine.resultSelector);
         if(regionHandle) {
@@ -134,10 +149,9 @@ async function doMultiReverseImage(imagePath, fileId) {
           await popup.screenshot({ path: screenshotPath, fullPage:true });
         }
 
-        // 上傳 IPFS + 區塊鏈 (如有需要)
+        // 上傳 IPFS / 區塊鏈 (可省略)
         if(screenshotPath && fs.existsSync(screenshotPath)) {
           let ipfsHash = null;
-          let txHash = null;
           try {
             ipfsHash = await ipfsService.saveFile(screenshotPath);
             console.log(`[${engine.name}] IPFS Hash =>`, ipfsHash);
@@ -147,7 +161,7 @@ async function doMultiReverseImage(imagePath, fileId) {
           if(ipfsHash) {
             try {
               const chainRec = await chain.storeRecord(ipfsHash);
-              txHash = chainRec?.transactionHash || null;
+              const txHash = chainRec?.transactionHash || null;
               console.log(`[${engine.name}] chain txHash =>`, txHash);
             } catch(eChain) {
               console.error(`[${engine.name}] chain fail =>`, eChain);
@@ -155,9 +169,10 @@ async function doMultiReverseImage(imagePath, fileId) {
           }
         }
 
-        // 解析 popup 中所有 <a> => "Possible match => link"
+        // 解析所有 <a> => "Possible match => link"
+        // 排除 javascript: 的假連結
         const pageLinks = await popup.$$eval('a', (as) =>
-          as.map(a=>a.href).filter(h=> h && !h.includes('javascript'))
+          as.map(a => a.href).filter(h => h && !h.includes('javascript'))
         );
         for(const link of pageLinks) {
           foundLinks.push(`Possible match => ${link}`);
@@ -167,7 +182,6 @@ async function doMultiReverseImage(imagePath, fileId) {
         await popup.close();
         // 回到主頁
         await page.bringToFront();
-        // 等 2秒 => 避免過快操作
         await page.waitForTimeout(2000);
 
       } catch(engineErr) {
