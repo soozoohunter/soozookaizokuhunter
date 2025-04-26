@@ -1,101 +1,204 @@
+// frontend/src/pages/ProtectStep1.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
-const PageWrapper = styled.div`
-  max-width: 650px;
-  margin: 40px auto;
-  padding: 20px;
-  background: #f9f9f9;
-  border-radius: 8px;
-  font-family: 'Helvetica', 'Arial', sans-serif;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-`;
-
-const FormContainer = styled.div`
-  margin: 0 auto;
-`;
-
-const Title = styled.h2`
-  margin-bottom: 0.5rem;
-  color: #333;
-  text-align: center;
-  font-weight: 600;
-`;
-
-const Description = styled.p`
-  margin-bottom: 1.5rem;
-  color: #555;
-  line-height: 1.5;
-  text-align: center;
-`;
-
-const ErrorMsg = styled.p`
-  margin: 1rem 0;
-  color: #fff;
-  background: #dc3545;
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-`;
-
-const StyledForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const StyledLabel = styled.label`
-  font-weight: 500;
-  color: #444;
-`;
-
-const StyledInput = styled.input`
-  padding: 0.5rem;
-  font-size: 1rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-`;
-
-const FileName = styled.div`
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-  color: #666;
-`;
-
-const ClearButton = styled.button`
-  margin-top: 0.5rem;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.85rem;
-  background: #ff6b6b;
-  color: #fff;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  &:hover {
-    background: #fa5252;
+/* === 動畫定義 === */
+/* 背景漸層流動 */
+const gradientFlow = keyframes`
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 `;
 
-const CheckboxRow = styled.div`
+/* 霓虹光暈 */
+const neonGlow = keyframes`
+  0%, 100% {
+    box-shadow: 0 0 4px #ff6f00;
+  }
+  50% {
+    box-shadow: 0 0 15px #ff6f00;
+  }
+`;
+
+/* 旋轉 loader */
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+/* === 主要容器、背景 === */
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  /* 加入漸層背景 + 慢速流動 */
+  background: linear-gradient(-45deg, #2b2b2b, #1a1a1a, #343434, #202020);
+  background-size: 400% 400%;
+  animation: ${gradientFlow} 12s ease infinite;
+
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.9rem;
-  color: #333;
+  justify-content: center;
+  color: #fff;
 `;
 
-const SubmitButton = styled.button`
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  background: #28a745;
+/* 表單容器 */
+const FormContainer = styled.div`
+  background-color: rgba(30, 30, 30, 0.75);
+  width: 95%;
+  max-width: 600px;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  border: 1px solid #444;
+
+  /* 在 container 上加上霓虹 glow 動畫 */
+  animation: ${neonGlow} 2.5s ease-in-out infinite alternate;
+`;
+
+/* 標題 */
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.2rem;
+  color: #FFD700;
+  font-weight: 700;
+  letter-spacing: 1px;
+`;
+
+/* 文字描述(置中) */
+const Description = styled.p`
+  text-align: center;
+  font-size: 0.95rem;
+  color: #ccc;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+`;
+
+/* 錯誤訊息 */
+const ErrorMsg = styled.div`
+  background: #ff4444;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+`;
+
+/* 使用 Grid 排列表單 */
+const StyledForm = styled.form`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 1rem;
+  row-gap: 1rem;
+`;
+
+/* label整行 */
+const FullLabel = styled.label`
+  grid-column: 1 / 3;
+  font-size: 0.9rem;
+  color: #ffa500;
+  margin-bottom: 0.25rem;
+`;
+
+/* label半行 */
+const HalfLabel = styled.label`
+  font-size: 0.9rem;
+  color: #ffa500;
+  margin-bottom: 0.25rem;
+`;
+
+/* input */
+const StyledInput = styled.input`
+  background: #2c2c2c;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  width: 100%;
+`;
+
+/* show file name & remove button row */
+const FileRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+/* 檔案名顯示 */
+const FileName = styled.span`
+  font-size: 0.85rem;
+  color: #aaa;
+  word-break: break-all;
+`;
+
+/* 移除檔案按鈕 */
+const ClearButton = styled.button`
+  background: #444;
   color: #fff;
   border: none;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 4px;
   cursor: pointer;
   &:hover {
-    background: #218838;
+    background: #666;
   }
+`;
+
+/* 單列 */
+const FullRow = styled.div`
+  grid-column: 1 / 3;
+`;
+
+/* CheckBox Row */
+const CheckboxRow = styled.div`
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  color: #ffa500;
+  margin-top: 0.5rem;
+`;
+
+/* 按鈕 + 螢光 Hover */
+const SubmitButton = styled.button`
+  grid-column: 1 / 3;
+  background-color: #f97316;
+  color: #fff;
+  border: 2px solid transparent;
+  padding: 0.75rem 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  margin-top: 0.75rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    background-color: #ea580c;
+    border-color: #ffaa00;
+    box-shadow: 0 0 8px #ff9900;
+  }
+`;
+
+/* Loading Spinner */
+const Spinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  animation: ${spin} 0.8s linear infinite;
 `;
 
 export default function ProtectStep1() {
@@ -114,25 +217,29 @@ export default function ProtectStep1() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 檔案變更
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
   };
 
+  // 移除檔案
   const handleClearFile = () => {
     setFile(null);
   };
 
-  const handleNext = async (e) => {
+  // 提交
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 基本檢查
+    // 前端檢查
     if (!file) {
       return setError('請先上傳檔案');
     }
-    if (!realName.trim() || !birthDate.trim() || !phone.trim() || !address.trim() || !email.trim()) {
+    if (!realName.trim() || !birthDate.trim() || !phone.trim() ||
+        !address.trim() || !email.trim()) {
       return setError('必填欄位不可空白');
     }
     if (!title.trim()) {
@@ -165,34 +272,30 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        // 分析常見錯誤碼
-        switch(resp.status) {
+        switch(resp.status){
           case 400:
-            throw new Error(respData.error || '表單資料有誤');
+            throw new Error(respData.error || '表單資料有誤 (400)');
           case 402:
-            throw new Error(respData.error || '短影音上傳需付費');
+            throw new Error(respData.error || '短影音上傳需付費 (402)');
           case 409:
-            if (respData.code === 'ALREADY_MEMBER') {
-              alert(respData.error || '您已是會員，請直接登入或註冊');
-              navigate('/register');
-              return;
-            }
-            throw new Error(respData.error || '重複的Email/Phone');
+            // ALREADY_MEMBER
+            alert(respData.error || 'Email/手機已存在,請改用已有帳號');
+            return;
           case 413:
-            // 413 => Nginx or Express => Payload Too Large
-            throw new Error('檔案過大，請確認檔案大小或已放寬上限');
+            throw new Error('檔案過大 (413)，請壓縮或縮小後再上傳');
           default:
-            throw new Error(respData.error || `上傳失敗，錯誤碼 ${resp.status}`);
+            throw new Error(respData.error || `上傳失敗，狀態碼: ${resp.status}`);
         }
       }
 
       // 成功
-      console.log('step1 success =>', respData);
+      console.log('[ProtectStep1] success =>', respData);
       localStorage.setItem('protectStep1', JSON.stringify(respData));
       navigate('/protect/step2');
+
     } catch (err) {
-      console.error('step1 error =>', err);
-      setError(err.message || '連線失敗，請稍後再試');
+      console.error('[ProtectStep1] error =>', err);
+      setError(err.message || '上傳失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
@@ -203,16 +306,15 @@ export default function ProtectStep1() {
       <FormContainer>
         <Title>Step 1: Upload &amp; Member Info</Title>
         <Description>
-          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。<br/>
-          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），<br/>
-          並完成 SHA-256 指紋 + 區塊鏈存證。
+          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫以下資訊。<br/>
+          系統會自動為您建立會員帳號（手機為帳號、Email唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        <StyledForm onSubmit={handleNext}>
-          <div>
-            <StyledLabel>上傳作品檔案 (Upload File):</StyledLabel>
+        <StyledForm onSubmit={handleSubmit}>
+          <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
+          <FullRow>
             {!file ? (
               <StyledInput
                 type="file"
@@ -220,114 +322,100 @@ export default function ProtectStep1() {
                 onChange={handleFileChange}
               />
             ) : (
-              <>
+              <FileRow>
                 <FileName>已選檔案: {file.name}</FileName>
                 <ClearButton type="button" onClick={handleClearFile}>
                   移除檔案
                 </ClearButton>
-              </>
+              </FileRow>
             )}
-          </div>
+          </FullRow>
 
-          <div>
-            <StyledLabel>真實姓名 (RealName)</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="王小明 / John Wang"
-              value={realName}
-              onChange={(e) => setRealName(e.target.value)}
-            />
-          </div>
+          <HalfLabel>真實姓名 (RealName)</HalfLabel>
+          <HalfLabel>生日 (BirthDate)</HalfLabel>
+          <StyledInput
+            type="text"
+            placeholder="王小明 / John Wang"
+            value={realName}
+            onChange={e => setRealName(e.target.value)}
+          />
+          <StyledInput
+            type="text"
+            placeholder="1988-10-24"
+            value={birthDate}
+            onChange={e => setBirthDate(e.target.value)}
+          />
 
-          <div>
-            <StyledLabel>生日 (Birth Date)</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="1988-10-24"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-            />
-          </div>
+          <HalfLabel>手機 (Phone)</HalfLabel>
+          <HalfLabel>地址 (Address)</HalfLabel>
+          <StyledInput
+            type="text"
+            placeholder="09xx-xxx-xxx"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+          />
+          <StyledInput
+            type="text"
+            placeholder="台北市大安區..."
+            value={address}
+            onChange={e => setAddress(e.target.value)}
+          />
 
-          <div>
-            <StyledLabel>手機 (Phone) - 作為會員帳號</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="09xx-xxx-xxx"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <StyledLabel>地址 (Address)</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="台北市大安區..."
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <StyledLabel>Email</StyledLabel>
+          <FullLabel>Email</FullLabel>
+          <FullRow>
             <StyledInput
               type="email"
               placeholder="example@gmail.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
             />
-          </div>
+          </FullRow>
 
-          <div>
-            <StyledLabel>作品標題 (Title)</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="My Artwork"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
+          <HalfLabel>作品標題 (Title)</HalfLabel>
+          <HalfLabel>關鍵字 (Keywords)</HalfLabel>
+          <StyledInput
+            type="text"
+            placeholder="My Artwork"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+          />
+          <StyledInput
+            type="text"
+            placeholder="art; painting; cat"
+            value={keywords}
+            onChange={e => setKeywords(e.target.value)}
+          />
 
-          <div>
-            <StyledLabel>關鍵字 (Keywords)</StyledLabel>
-            <StyledInput
-              type="text"
-              placeholder="art; painting; cat"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-            />
-          </div>
-
-          <details style={{
-            margin: '1rem 0',
-            background: '#e9ecef',
-            padding: '1rem',
-            border: '1px solid #ced4da',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}>
-            <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
-              閱讀隱私權與服務條款 (點此展開)
-            </summary>
-            <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', color: '#444' }}>
-              <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策...</p>
-              <p>1. 您需年滿18歲...</p>
-              <p>2. 蒐集與使用個人資料之目的...</p>
-              <p>3. 若有違反規範，本公司得終止服務...</p>
-            </div>
-          </details>
+          {/* 條款 */}
+          <FullRow>
+            <details style={{
+              background:'#2c2c2c', padding:'1rem', border:'1px solid #444',
+              borderRadius:'4px', marginTop:'1rem'
+            }}>
+              <summary style={{ cursor:'pointer', color:'#f97316', fontWeight:'bold' }}>
+                閱讀隱私權與服務條款 (點此展開)
+              </summary>
+              <div style={{ fontSize:'0.85rem', marginTop:'0.5rem', lineHeight:'1.5' }}>
+                <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策...</p>
+                <p>1. 您需年滿18歲...</p>
+                <p>2. 蒐集與使用個人資料之目的...</p>
+                <p>3. 若有違反規範，本公司得終止服務...</p>
+              </div>
+            </details>
+          </FullRow>
 
           <CheckboxRow>
             <input
               type="checkbox"
               checked={agreePolicy}
-              onChange={() => setAgreePolicy(!agreePolicy)}
+              onChange={()=>setAgreePolicy(!agreePolicy)}
+              style={{ marginRight:'0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
 
           <SubmitButton type="submit" disabled={loading}>
+            {loading && <Spinner />}
             {loading ? 'Uploading...' : '下一步 / Next'}
           </SubmitButton>
         </StyledForm>
