@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   # PostgreSQL
   suzoo_postgres:
@@ -25,10 +27,6 @@ services:
       --accounts 4
       --defaultBalanceEther 100
       --account "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,100000000000000000000"
-    # ↑ ↑ ↑
-    # 這裡指定了：
-    #   1) 另外 4 組隨機帳戶 (各 100 ETH)
-    #   2) 您的 BLOCKCHAIN_PRIVATE_KEY=0x0123456... 帳戶也擁有 100 ETH (Wei=1e20)
     ports:
       - "8545:8545"
     networks:
@@ -74,6 +72,7 @@ services:
     depends_on:
       - suzoo_postgres
       - suzoo_fastapi
+    # ★ 指定同一份 .env
     env_file:
       - .env
     networks:
