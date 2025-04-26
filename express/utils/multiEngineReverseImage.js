@@ -14,9 +14,11 @@ puppeteerExtra.use(StealthPlugin());
 const fs = require('fs');
 const path = require('path');
 
-// TODO: 若 ipfsService, chain 路徑不同, 請依實際專案調整
+// 這行路徑不動：ipfsService 位於 ../services/ipfsService.js
 const ipfsService = require('../services/ipfsService');
-const chain = require('../services/chain');
+
+// 這行改為 './chain' => 因為 chain.js 與本檔在同一資料夾 (express/utils/)
+const chain = require('./chain');
 
 /**
  * 執行多引擎圖片反查 (經由 ginifab)
