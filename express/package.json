@@ -29,6 +29,7 @@
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
 
-    "fluent-ffmpeg": "^2.1.2"  
+    "fluent-ffmpeg": "^2.1.2",          
+    "ffmpeg-static": "^4.4.0"           
   }
 }
