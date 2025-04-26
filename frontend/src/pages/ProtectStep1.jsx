@@ -3,40 +3,99 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
-  /* ... same as before ... */
+  max-width: 650px;
+  margin: 40px auto;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 `;
+
 const FormContainer = styled.div`
-  /* ... same as before ... */
+  margin: 0 auto;
 `;
+
 const Title = styled.h2`
-  /* ... same as before ... */
+  margin-bottom: 0.5rem;
+  color: #333;
+  text-align: center;
+  font-weight: 600;
 `;
+
 const Description = styled.p`
-  /* ... same as before ... */
+  margin-bottom: 1.5rem;
+  color: #555;
+  line-height: 1.5;
+  text-align: center;
 `;
+
 const ErrorMsg = styled.p`
-  /* ... same as before ... */
+  margin: 1rem 0;
+  color: #fff;
+  background: #dc3545;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
 `;
+
 const StyledForm = styled.form`
-  /* ... same as before ... */
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 `;
+
 const StyledLabel = styled.label`
-  /* ... same as before ... */
+  font-weight: 500;
+  color: #444;
 `;
+
 const StyledInput = styled.input`
-  /* ... same as before ... */
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 `;
+
 const FileName = styled.div`
-  /* ... same as before ... */
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
 `;
+
 const ClearButton = styled.button`
-  /* ... same as before ... */
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  background: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  &:hover {
+    background: #fa5252;
+  }
 `;
+
 const CheckboxRow = styled.div`
-  /* ... same as before ... */
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #333;
 `;
+
 const SubmitButton = styled.button`
-  /* ... same as before ... */
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  &:hover {
+    background: #218838;
+  }
 `;
 
 export default function ProtectStep1() {
@@ -109,10 +168,8 @@ export default function ProtectStep1() {
         // 分析常見錯誤碼
         switch(resp.status) {
           case 400:
-            // 後端有給 error
             throw new Error(respData.error || '表單資料有誤');
           case 402:
-            // NEED_PAYMENT
             throw new Error(respData.error || '短影音上傳需付費');
           case 409:
             if (respData.code === 'ALREADY_MEMBER') {
@@ -147,89 +204,113 @@ export default function ProtectStep1() {
         <Title>Step 1: Upload &amp; Member Info</Title>
         <Description>
           為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。<br/>
-          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
+          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），<br/>
+          並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleNext}>
-          <StyledLabel>上傳作品檔案 (Upload File):</StyledLabel>
-          {!file ? (
+          <div>
+            <StyledLabel>上傳作品檔案 (Upload File):</StyledLabel>
+            {!file ? (
+              <StyledInput
+                type="file"
+                accept="image/*,video/*,application/pdf"
+                onChange={handleFileChange}
+              />
+            ) : (
+              <>
+                <FileName>已選檔案: {file.name}</FileName>
+                <ClearButton type="button" onClick={handleClearFile}>
+                  移除檔案
+                </ClearButton>
+              </>
+            )}
+          </div>
+
+          <div>
+            <StyledLabel>真實姓名 (RealName)</StyledLabel>
             <StyledInput
-              type="file"
-              accept="image/*,video/*,application/pdf"
-              onChange={handleFileChange}
+              type="text"
+              placeholder="王小明 / John Wang"
+              value={realName}
+              onChange={(e) => setRealName(e.target.value)}
             />
-          ) : (
-            <>
-              <FileName>已選檔案: {file.name}</FileName>
-              <ClearButton type="button" onClick={handleClearFile}>
-                移除檔案
-              </ClearButton>
-            </>
-          )}
+          </div>
 
-          <StyledLabel>真實姓名 (RealName)</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="王小明 / John Wang"
-            value={realName}
-            onChange={(e) => setRealName(e.target.value)}
-          />
+          <div>
+            <StyledLabel>生日 (Birth Date)</StyledLabel>
+            <StyledInput
+              type="text"
+              placeholder="1988-10-24"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>生日 (Birth Date)</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="1988-10-24"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-          />
+          <div>
+            <StyledLabel>手機 (Phone) - 作為會員帳號</StyledLabel>
+            <StyledInput
+              type="text"
+              placeholder="09xx-xxx-xxx"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>手機 (Phone) - 作為會員帳號</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="09xx-xxx-xxx"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <div>
+            <StyledLabel>地址 (Address)</StyledLabel>
+            <StyledInput
+              type="text"
+              placeholder="台北市大安區..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>地址 (Address)</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="台北市大安區..."
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
+          <div>
+            <StyledLabel>Email</StyledLabel>
+            <StyledInput
+              type="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>Email</StyledLabel>
-          <StyledInput
-            type="email"
-            placeholder="example@gmail.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div>
+            <StyledLabel>作品標題 (Title)</StyledLabel>
+            <StyledInput
+              type="text"
+              placeholder="My Artwork"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>作品標題 (Title)</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="My Artwork"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <div>
+            <StyledLabel>關鍵字 (Keywords)</StyledLabel>
+            <StyledInput
+              type="text"
+              placeholder="art; painting; cat"
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+            />
+          </div>
 
-          <StyledLabel>關鍵字 (Keywords)</StyledLabel>
-          <StyledInput
-            type="text"
-            placeholder="art; painting; cat"
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-          />
-
-          <details style={{ margin: '1rem 0', background: '#2c2c2c', padding: '1rem', border: '1px solid #ff6f00', borderRadius: '6px' }}>
-            <summary style={{ cursor: 'pointer', color: '#f97316' }}>
+          <details style={{
+            margin: '1rem 0',
+            background: '#e9ecef',
+            padding: '1rem',
+            border: '1px solid #ced4da',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}>
+            <summary style={{ cursor: 'pointer', color: '#007bff', fontWeight: 'bold' }}>
               閱讀隱私權與服務條款 (點此展開)
             </summary>
-            <div style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
+            <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', color: '#444' }}>
               <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策...</p>
               <p>1. 您需年滿18歲...</p>
               <p>2. 蒐集與使用個人資料之目的...</p>
@@ -242,7 +323,6 @@ export default function ProtectStep1() {
               type="checkbox"
               checked={agreePolicy}
               onChange={() => setAgreePolicy(!agreePolicy)}
-              style={{ marginRight: '0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
