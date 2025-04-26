@@ -62,33 +62,53 @@ export default function ProtectStep3() {
     try {
       setLoading(true);
       setError('');
+
       const resp = await fetch(`/api/protect/scan/${fileId}`);
       const data = await resp.json();
+
       if (!resp.ok) {
-        throw new Error(data.error || '掃描失敗');
+        // ★ 新增對常見錯誤碼的判斷，顯示更明確的錯誤
+        switch (resp.status) {
+          case 400:
+            // 可能：搜尋參數有誤 / 用戶輸入 fileId 格式不正確
+            throw new Error(data.error || '搜尋參數有誤(400)');
+          case 404:
+            // 可能：檔案或 FileID 不存在
+            throw new Error(data.error || '找不到此檔案或 FileID(404)');
+          case 409:
+            // 可能：檔案已存在、系統已有相同著作
+            throw new Error(data.error || '本系統已存在相同著作(409)');
+          case 500:
+            // 伺服器不明錯誤
+            throw new Error(data.error || '伺服器錯誤(500)，請稍後再試');
+          default:
+            throw new Error(data.error || `掃描失敗 => 狀態碼 ${resp.status}`);
+        }
       }
+
+      // resp.ok => 正常情況
       setScanResult(data);
     } catch (err) {
       console.error('[Step3 scan error]', err);
-      setError(err.message);
+      setError(err.message || '掃描發生未知錯誤');
     } finally {
       setLoading(false);
     }
   }
 
+  // 返回上一頁
   const handleGoBack = () => {
-    // 返回上一頁
     navigate(-1); // 或 navigate('/protect/step2')
   };
 
+  // 前往 Step4
   const handleGoStep4 = () => {
-    // 前往 Step4，順便將 suspiciousLinks 帶過去
     if (scanResult) {
       const { suspiciousLinks = [] } = scanResult;
       const stored2 = localStorage.getItem('protectStep2');
       const data2 = stored2 ? JSON.parse(stored2) : {};
-      // 把前面 Step2 取得的 fileId/pdfUrl/fingerprint... 都傳過去
-      // 再加 suspiciousLinks
+
+      // 把 Step2 取得的 fileId/pdfUrl/fingerprint 等都帶過去
       const passState = {
         ...data2,
         suspiciousLinks
@@ -100,6 +120,7 @@ export default function ProtectStep3() {
   return (
     <Container>
       <Title>Step 3: 侵權偵測 (Scan)</Title>
+
       {loading && <p>偵測中，請稍後...</p>}
       {error && <ErrorMsg>{error}</ErrorMsg>}
 
@@ -107,11 +128,17 @@ export default function ProtectStep3() {
         <InfoBlock>
           <p>偵測完成！</p>
           <p><strong>Suspicious Links:</strong></p>
+
           {scanResult.suspiciousLinks?.length ? (
             <ul>
               {scanResult.suspiciousLinks.map((link, idx) => (
                 <li key={idx}>
-                  <a href={link} target="_blank" rel="noreferrer" style={{ color: '#4caf50' }}>
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: '#4caf50' }}
+                  >
                     {link}
                   </a>
                 </li>
