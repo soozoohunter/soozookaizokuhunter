@@ -4,7 +4,7 @@ FROM node:16-alpine
 
 WORKDIR /app
 
-# 1) 安裝 ffmpeg (for 抽幀)、安裝 Puppeteer 所需瀏覽器依賴
+# 1) 安裝 ffmpeg、Puppeteer 所需瀏覽器依賴
 RUN apk add --no-cache ffmpeg \
     && apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
 
@@ -12,19 +12,13 @@ RUN apk add --no-cache ffmpeg \
 COPY package*.json ./
 RUN npm install
 
-# 3) 複製字體資料夾 (若確定有 express/fonts/)
-RUN mkdir -p /app/fonts
-COPY ./fonts /app/fonts || true
-
-# 4) 複製 public/ (stamp.png 等)；若沒有此資料夾，可改用 || true 讓它不報錯
-RUN mkdir -p /app/public
-COPY ./public /app/public || true
-
-# 5) 複製其餘 express 專案檔案 (routes, utils, services, etc.)
+# 3) 複製整個 express 專案檔案（含 routes, utils, fonts, public, etc.）
+#    確保 express/ 下有 fonts/、public/ 等資料夾（若 stamp.png / TTF 檔存在）。
+#    在 .dockerignore 排除 node_modules, .git 等不必要檔案。
 COPY . .
 
-# 6) 開放對外 port
+# 4) 開放 port 3000
 EXPOSE 3000
 
-# 7) 啟動伺服器
+# 5) 啟動
 CMD ["node", "server.js"]
