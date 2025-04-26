@@ -1,6 +1,9 @@
 /*************************************************************
  * express/routes/protect.js
- * (改良版：PDF 印章置於左上角 + 中文錯誤提示 + Fingerprint 重複處理)
+ * 
+ * - PDF：文字置中(含標題、內文等) + 底線改成黑色 + 插入圖片或影片截圖
+ * - 若影片且長度 <= 30秒，就抽一張關鍵幀嵌入 PDF。
+ * - 檔案 fingerprint 重複：白名單可直接回傳舊檔案；非白名單則報錯。
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -38,7 +41,7 @@ const ALLOW_UNLIMITED = [
 /**
  * POST /api/protect/step1
  * - 上傳檔案 + 新用戶(或使用舊用戶) + Fingerprint + IPFS + 區塊鏈 + 產 PDF
- * - 若 fingerprint 重複：白名單可直接複用舊檔案；非白名單則提示「已重複」錯誤
+ * - 若 fingerprint 重複：白名單可直接複用舊紀錄；非白名單則報錯。
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -58,7 +61,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       address,
       email,
       title,
-      keywords,      // 可選欄位
+      keywords, // 可選
       agreePolicy
     } = req.body;
 
@@ -101,8 +104,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     });
 
     if (oldUser) {
-      // 已存在 => 直接用舊帳號
-      finalUser = oldUser;
+      finalUser = oldUser; // 直接沿用
     } else {
       // 建新用戶
       const rawPass   = phone + '@KaiShield'; // 預設密碼
@@ -129,11 +131,11 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     // 先檢查是否已有相同 Fingerprint
     const existFile = await File.findOne({ where: { fingerprint } });
     if (existFile) {
-      // 若白名單 => 直接「複用」舊紀錄回傳
+      // 若白名單 => 直接「複用」舊紀錄
       if (isUnlimited) {
         fs.unlinkSync(req.file.path); // 刪除剛上傳的臨時檔
         return res.json({
-          message:'系統偵測到相同檔案已上傳過 (白名單允許重複使用)，回傳原紀錄',
+          message:'系統偵測到相同檔案已上傳過(白名單允許)，回傳原紀錄',
           fileId: existFile.id,
           pdfUrl: `/api/protect/certificates/${existFile.id}`,
           fingerprint: existFile.fingerprint,
@@ -189,7 +191,34 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
 
-    // 8) 產生 PDF (新版 - 印章位於左上角)
+    // 8) 若是圖片 => 直接 embed；若是影片且 <=30s，抽第一幀做 embed
+    let embeddedImagePath = null;
+    if (isVideo) {
+      try {
+        const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${targetPath}"`;
+        const durSec = parseFloat(execSync(cmdProbe).toString().trim()) || 9999;
+        if (durSec <= 30) {
+          // 抽關鍵幀
+          const framesDir = path.join(localDir, `frames_${newFile.id}`);
+          if(!fs.existsSync(framesDir)) fs.mkdirSync(framesDir);
+
+          // 只抽1張即可
+          const ffCmd = `ffmpeg -i "${targetPath}" -ss 00:00:01 -frames:v 1 "${framesDir}/thumb_1.jpg"`;
+          execSync(ffCmd);
+          embeddedImagePath = path.join(framesDir, 'thumb_1.jpg');
+          if(!fs.existsSync(embeddedImagePath)) {
+            embeddedImagePath = null;
+          }
+        }
+      } catch(eVideo){
+        console.error('[extract video frame error]', eVideo);
+      }
+    } else {
+      // 單純圖片 => 直接用原檔 path
+      embeddedImagePath = targetPath;
+    }
+
+    // 9) 產生 PDF (新版 - 文字置中 + 黑色底線 + 插入截圖)
     const pdfBuf = await generatePdf({
       realName:  finalUser.realName,
       birthDate: finalUser.birthDate,
@@ -203,13 +232,14 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       txHash,
       serialNumber: finalUser.serialNumber,
       fileBuffer: fileBuf,
-      mimeType
+      mimeType,
+      embeddedImagePath // ★ 新增
     });
     const pdfFileName = `certificate_${newFile.id}.pdf`;
     const pdfFilePath = path.join(localDir, pdfFileName);
     fs.writeFileSync(pdfFilePath, pdfBuf);
 
-    // 9) 新建帳號 => 回傳預設密碼；舊帳號 => null
+    // 10) 新建帳號 => 回傳預設密碼；舊帳號 => null
     const defaultPassword = oldUser ? null : (phone + '@KaiShield');
 
     return res.json({
@@ -335,7 +365,9 @@ router.get('/scan/:fileId', async (req, res)=>{
         if(durSec<=30){
           const outDir = path.join(localDir, `frames_${file.id}`);
           if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+          // 這裡用 extractKeyFrames，會抽多張
           const frames= await extractKeyFrames(localPath, outDir, 10);
+          // 多張關鍵幀逐一搜圖
           for(const framePath of frames){
             const found= await doMultiReverseImage(framePath, file.id);
             allLinks.push(...found);
@@ -405,7 +437,7 @@ router.get('/scanReports/:fileId', async (req, res) => {
 });
 
 /**
- * 產生 PDF（印章左上角 + Siri Number 紅色 + 中文錯誤提示）
+ * 產生 PDF（文字全置中 + 底線黑色 + 插入圖片/截圖）
  */
 async function generatePdf({
   realName,
@@ -420,7 +452,8 @@ async function generatePdf({
   txHash,
   serialNumber,
   fileBuffer,
-  mimeType
+  mimeType,
+  embeddedImagePath // 新增
 }) {
   return new Promise((resolve, reject) => {
     try {
@@ -459,54 +492,67 @@ async function generatePdf({
       }
       doc.restore();
 
-      // 3) 主標題
+      // 3) 主標題 (置中 + 底線黑色)
       doc.moveDown(1);
-      doc.fontSize(18).text(
+      doc.fontSize(18).fillColor('black').text(
         '原創著作證明書 / Certificate of Copyright',
         { align: 'center', underline: true }
       );
       doc.moveDown(2);
 
-      // 4) 用戶/作品資訊
-      doc.fontSize(12);
-      doc.text(`真實姓名 (Name): ${realName}`);
-      doc.text(`生日 (Date of Birth): ${birthDate}`);
-      doc.text(`手機 (Phone): ${phone}`);
-      doc.text(`地址 (Address): ${address}`);
-      doc.text(`Email: ${email}`);
+      // 4) 若有 embeddedImagePath => 插入縮圖 (置中)
+      if (embeddedImagePath && fs.existsSync(embeddedImagePath)) {
+        doc.fontSize(12).fillColor('black').text('作品預覽：', { align:'center' });
+        doc.moveDown(1);
+        // 設定最大寬度 ~250px
+        const imgWidth = 250;
+        // 取得當前 X (用來算出置中)
+        const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+        const centerX = doc.page.margins.left + (pageWidth - imgWidth)/2;
+        doc.image(embeddedImagePath, centerX, doc.y, { width: imgWidth });
+        doc.moveDown(1.5);
+      }
+
+      // 5) 用戶/作品資訊 (置中)
+      const infoOptions = { align: 'center' };
+      doc.fontSize(12).fillColor('black');
+      doc.text(`真實姓名 (Name): ${realName}`, infoOptions);
+      doc.text(`生日 (Date of Birth): ${birthDate}`, infoOptions);
+      doc.text(`手機 (Phone): ${phone}`, infoOptions);
+      doc.text(`地址 (Address): ${address}`, infoOptions);
+      doc.text(`Email: ${email}`, infoOptions);
       doc.moveDown(1);
 
-      doc.text(`作品標題 (Title): ${title}`);
-      doc.text(`檔名 (File Name): ${filename}`);
+      doc.text(`作品標題 (Title): ${title}`, infoOptions);
+      doc.text(`檔名 (File Name): ${filename}`, infoOptions);
       doc.moveDown(1);
 
-      doc.text(`Fingerprint (SHA-256): ${fingerprint}`);
-      doc.text(`IPFS Hash: ${ipfsHash || 'N/A'}`);
-      doc.text(`Tx Hash: ${txHash || 'N/A'}`);
-      doc.text(`序號 (Siri Number): ${serialNumber}`);
+      doc.text(`Fingerprint (SHA-256): ${fingerprint}`, infoOptions);
+      doc.text(`IPFS Hash: ${ipfsHash || 'N/A'}`, infoOptions);
+      doc.text(`Tx Hash: ${txHash || 'N/A'}`, infoOptions);
+      doc.text(`序號 (Siri Number): ${serialNumber}`, infoOptions);
       doc.moveDown(1);
 
-      doc.text(`檔案型態 (MIME): ${mimeType}`);
-      doc.text(`產生日期 (Issue Date): ${new Date().toLocaleString()}`);
-
-      // 5) 法律聲明
+      doc.text(`檔案型態 (MIME): ${mimeType}`, infoOptions);
+      doc.text(`產生日期 (Issue Date): ${new Date().toLocaleString()}`, infoOptions);
       doc.moveDown(2);
+
+      // 6) 法律聲明 (置中 + 黑色底線)
       doc.fontSize(10).fillColor('black').text(
-        '本證書根據國際著作權法及相關規定，具有全球法律效力。' +
-        '於台灣境內，依據《著作權法》之保護範圍，本證明同具法律效力。',
-        { align: 'justify' }
+        '本證書根據國際著作權法及相關規定，具有全球法律效力。於台灣境內，依據《著作權法》之保護範圍，本證明同具法律效力。',
+        { align: 'center', underline:false }
       );
       doc.moveDown(0.5);
       doc.text(
         'This certificate is recognized worldwide under international copyright provisions. ' +
         'In Taiwan, it is enforceable under the local Copyright Act.',
-        { align: 'justify' }
+        { align: 'center' }
       );
 
       doc.moveDown(1);
       doc.fontSize(9).fillColor('gray').text(
         '以上資訊由 Epid Global Int\'l Inc SUZOO IP GUARD 系統自動生成。如有任何疑問或爭議，請參考當地法律規範。',
-        { align: 'left' }
+        { align: 'center' }
       );
 
       doc.end();
@@ -517,8 +563,7 @@ async function generatePdf({
 }
 
 /**
- * 產生「偵測結果 PDF」
- * - 內含可疑連結 (Found Links)
+ * 產生「偵測結果 PDF」(scanReport)，列出 suspiciousLinks
  */
 async function generateScanReportPDF({ file, suspiciousLinks }) {
   return new Promise((resolve, reject) => {
@@ -529,29 +574,31 @@ async function generateScanReportPDF({ file, suspiciousLinks }) {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', err => reject(err));
 
+      // 標題置中
       doc.fontSize(18).text('偵測結果報告 / Scan Report', { align:'center' });
       doc.moveDown();
 
-      doc.fontSize(12).text(`File ID: ${file.id}`);
-      doc.text(`Filename: ${file.filename}`);
-      doc.text(`Fingerprint: ${file.fingerprint}`);
-      doc.text(`Status: ${file.status}`);
+      // 檔案資訊
+      doc.fontSize(12).text(`File ID: ${file.id}`, { align:'center' });
+      doc.text(`Filename: ${file.filename}`, { align:'center' });
+      doc.text(`Fingerprint: ${file.fingerprint}`, { align:'center' });
+      doc.text(`Status: ${file.status}`, { align:'center' });
       doc.moveDown();
 
       if(suspiciousLinks.length>0) {
-        doc.text(`以下為搜尋引擎/文字爬蟲之可疑連結 (Possible matches):`);
+        doc.text(`以下為搜尋引擎/文字爬蟲之可疑連結 (Possible matches):`, { align:'center' });
         doc.moveDown(0.5);
         suspiciousLinks.forEach(link => {
-          doc.text(link, { indent:20 });
+          doc.text(link, { indent:20, align:'left' });
         });
       } else {
-        doc.text(`未發現任何相似連結或可疑來源`);
+        doc.text(`未發現任何相似連結或可疑來源`, { align:'center' });
       }
 
-      doc.moveDown(1);
+      doc.moveDown(2);
       doc.fontSize(10).fillColor('gray').text(
         '本報告由 SUZOO IP GUARD 侵權偵測系統自動生成。',
-        { align: 'left' }
+        { align: 'center' }
       );
 
       doc.end();
