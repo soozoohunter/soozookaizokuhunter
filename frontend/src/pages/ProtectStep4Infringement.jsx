@@ -1,40 +1,55 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
-const Container = styled.div`
-  min-height: 100vh;
-  padding: 2rem;
-  background-color: #101010;
-  color: #fff;
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+const neonGlow = keyframes`
+  0%, 100% {
+    box-shadow: 0 0 8px #ff6f00;
+  }
+  50% {
+    box-shadow: 0 0 25px #ff6f00;
+  }
 `;
 
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
+  background-size: 500% 500%;
+  animation: ${gradientFlow} 12s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
 const ContentBox = styled.div`
+  width: 95%;
   max-width: 600px;
-  margin: 0 auto;
-  background: #1e1e1e;
+  background: rgba(30, 30, 30, 0.8);
   padding: 2rem;
   border-radius: 8px;
   border: 2px solid #ff6f00;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  animation: ${neonGlow} 2s ease-in-out infinite alternate;
 `;
 
 const Title = styled.h2`
   color: #ffd700;
   margin-bottom: 1rem;
 `;
-
 const InfoText = styled.p`
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 1rem;
 `;
-
 const Highlight = styled.span`
   color: #f97316;
   font-weight: bold;
 `;
-
 const Button = styled.button`
   background-color: #f97316;
   color: #fff;
@@ -46,6 +61,7 @@ const Button = styled.button`
   margin-right: 1rem;
   &:hover {
     background-color: #ea580c;
+    box-shadow: 0 0 8px #ff6f00;
   }
 `;
 
@@ -64,13 +80,13 @@ export default function ProtectStep4Infringement() {
 
   if (!info) {
     return (
-      <Container>
+      <PageWrapper>
         <ContentBox>
           <Title>Oops</Title>
           <p>無法取得資訊，請從 Step1 開始</p>
           <Button onClick={() => navigate('/protect/step1')}>Go Step1</Button>
         </ContentBox>
-      </Container>
+      </PageWrapper>
     );
   }
 
@@ -85,7 +101,7 @@ export default function ProtectStep4Infringement() {
   };
 
   return (
-    <Container>
+    <PageWrapper>
       <ContentBox>
         <Title>Step 4: Final Result</Title>
         <InfoText>
@@ -115,6 +131,6 @@ export default function ProtectStep4Infringement() {
           <Button onClick={() => navigate('/')}>Back to Home</Button>
         </div>
       </ContentBox>
-    </Container>
+    </PageWrapper>
   );
 }
