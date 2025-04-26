@@ -17,13 +17,13 @@ const gradientFlow = keyframes`
   }
 `;
 
-/* 霓虹光暈 */
+/* 霓虹光暈 (加強) */
 const neonGlow = keyframes`
   0%, 100% {
-    box-shadow: 0 0 4px #ff6f00;
+    box-shadow: 0 0 8px #ff6f00;
   }
   50% {
-    box-shadow: 0 0 15px #ff6f00;
+    box-shadow: 0 0 25px #ff6f00;
   }
 `;
 
@@ -36,10 +36,10 @@ const spin = keyframes`
 /* === 主要容器、背景 === */
 const PageWrapper = styled.div`
   min-height: 100vh;
-  /* 加入漸層背景 + 慢速流動 */
-  background: linear-gradient(-45deg, #2b2b2b, #1a1a1a, #343434, #202020);
-  background-size: 400% 400%;
-  animation: ${gradientFlow} 12s ease infinite;
+  /* 加入較強烈的漸層背景 + 慢速流動 */
+  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
+  background-size: 500% 500%;
+  animation: ${gradientFlow} 10s ease infinite;
 
   display: flex;
   align-items: center;
@@ -49,16 +49,15 @@ const PageWrapper = styled.div`
 
 /* 表單容器 */
 const FormContainer = styled.div`
-  background-color: rgba(30, 30, 30, 0.75);
+  background-color: rgba(20, 20, 20, 0.8);
   width: 95%;
   max-width: 600px;
   padding: 2rem 2.5rem;
   border-radius: 12px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
   border: 1px solid #444;
 
-  /* 在 container 上加上霓虹 glow 動畫 */
-  animation: ${neonGlow} 2.5s ease-in-out infinite alternate;
+  /* 加強霓虹 glow 動畫 */
+  animation: ${neonGlow} 2s ease-in-out infinite alternate;
 `;
 
 /* 標題 */
@@ -278,7 +277,6 @@ export default function ProtectStep1() {
           case 402:
             throw new Error(respData.error || '短影音上傳需付費 (402)');
           case 409:
-            // ALREADY_MEMBER
             alert(respData.error || 'Email/手機已存在,請改用已有帳號');
             return;
           case 413:
