@@ -1,6 +1,7 @@
 /*************************************************************
  * express/routes/protect.js
- * (改良版：PDF 美化 + 單一字體 NotoSansTC + 45°印章 + 內嵌序號)
+ * (改良版：PDF 美化 + 單一字體 NotoSansTC + 45°印章 + 內嵌序號
+ *  進階：掃描完成後產「偵測結果 PDF」，含 foundLinks)
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -12,13 +13,15 @@ const axios = require('axios');
 const { execSync } = require('child_process');
 const { Op } = require('sequelize');
 
+const PDFDocument = require('pdfkit');
+
 const { User, File } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
-const PDFDocument = require('pdfkit');
-
 const { extractKeyFrames } = require('../utils/extractFrames');
+
+// ★ 引入最終整合版 doMultiReverseImage ★
 const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
 
 // Multer 上傳限制
@@ -55,7 +58,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       address,
       email,
       title,
-      keywords,  // ← 之後不會在 PDF 顯示
+      keywords,
       agreePolicy
     } = req.body;
 
@@ -71,7 +74,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         error: '請輸入作品標題'
       });
     }
-    // keywords 不再是必要
     if (agreePolicy !== 'true') {
       return res.status(400).json({
         code: 'POLICY_REQUIRED',
@@ -92,7 +94,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 4) 檢查資料庫是否已有此 Email/Phone
+    // 4) 檢查 DB 是否已有此 Email/Phone
     let finalUser = null;
     const oldUser = await User.findOne({
       where:{ [Op.or]: [{ email }, { phone }] }
@@ -105,7 +107,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
           error: '此Email或手機已被使用，請改用已有帳號'
         });
       } else {
-        // 白名單 => 直接使用舊用戶
+        // 白名單 => 可直接使用舊用戶
         finalUser = oldUser;
       }
     } else {
@@ -115,7 +117,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
       finalUser = await User.create({
         username: phone,
-        serialNumber: 'SN-' + Date.now(), // or 'SNADMIN001' as you wish
+        serialNumber: 'SN-' + Date.now(),
         email,
         phone,
         password: hashedPass,
@@ -174,7 +176,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       address:   finalUser.address,
       email:     finalUser.email,
       title:     title.trim(),
-      // keywords:  (不顯示)
       filename:  req.file.originalname,
       fingerprint,
       ipfsHash,
@@ -188,7 +189,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const pdfFilePath = path.join(localDir, pdfFileName);
     fs.writeFileSync(pdfFilePath, pdfBuf);
 
-    // 9) 新建帳號 -> 預設密碼；舊帳號 -> null
+    // 9) 新建帳號 -> 回傳預設密碼；舊帳號 -> null
     const defaultPassword = oldUser ? null : (phone + '@KaiShield');
 
     return res.json({
@@ -242,6 +243,7 @@ router.get('/certificates/:fileId', async (req, res)=>{
 
 /**
  * GET /api/protect/scan/:fileId
+ * - 執行多引擎搜圖 + 文字爬蟲 (TikTok) + 產出「偵測結果 PDF」
  */
 router.get('/scan/:fileId', async (req, res)=>{
   try {
@@ -257,7 +259,7 @@ router.get('/scan/:fileId', async (req, res)=>{
     const apiKey = process.env.RAPIDAPI_KEY;
 
     // 文字爬蟲 (範例: TikTok)
-    if(apiKey){
+    if(apiKey) {
       const searchQuery = file.filename || file.fingerprint || 'default';
       try {
         const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search', {
@@ -268,7 +270,7 @@ router.get('/scan/:fileId', async (req, res)=>{
           }
         });
         const tiktokItems = rTT.data?.videos || [];
-        tiktokItems.forEach(it=>{
+        tiktokItems.forEach(it => {
           if(it.link) suspiciousLinks.push(it.link);
         });
       } catch(eTT){
@@ -278,11 +280,12 @@ router.get('/scan/:fileId', async (req, res)=>{
       console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawling');
     }
 
-    // 圖片 / 影片 => 多引擎搜圖
+    // 圖片 / 影片 => doMultiReverseImage
     const localDir = path.resolve(__dirname, '../../uploads');
     const ext = path.extname(file.filename) || '';
     const localPath= path.join(localDir, `imageForSearch_${file.id}${ext}`);
 
+    // 若檔案不存在，跳過圖搜
     if(!fs.existsSync(localPath)){
       file.status='scanned';
       file.infringingLinks = JSON.stringify([]);
@@ -293,10 +296,10 @@ router.get('/scan/:fileId', async (req, res)=>{
       });
     }
 
-    let allLinks = [];
-    allLinks.push(...suspiciousLinks);
+    let allLinks = [...suspiciousLinks];
     const user = await User.findByPk(file.user_id);
 
+    // 如果是影片，且長度 <= 30 秒，就抽關鍵幀再跑 doMultiReverseImage
     let isVideo = false;
     if(ext.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
       isVideo = true;
@@ -322,6 +325,7 @@ router.get('/scan/:fileId', async (req, res)=>{
       }
     }
     else if(!isVideo && user && user.uploadImages>0){
+      // 單張圖片 => 直接 doMultiReverseImage
       const found= await doMultiReverseImage(localPath, file.id);
       allLinks.push(...found);
     }
@@ -331,9 +335,19 @@ router.get('/scan/:fileId', async (req, res)=>{
     file.infringingLinks= JSON.stringify(uniqueLinks);
     await file.save();
 
-    return res.json({
-      message:'Scan done => text + multi-engine => IPFS => chain',
+    // 產生「偵測結果 PDF」(scanReport_xxx.pdf)
+    const scanPdfBuf = await generateScanReportPDF({
+      file,
       suspiciousLinks: uniqueLinks
+    });
+    const scanPdfName = `scanReport_${file.id}.pdf`;
+    const scanPdfPath = path.join(localDir, scanPdfName);
+    fs.writeFileSync(scanPdfPath, scanPdfBuf);
+
+    return res.json({
+      message:'Scan done => text + multi-engine => PDF generated',
+      suspiciousLinks: uniqueLinks,
+      scanReportUrl: `/api/protect/scanReports/${file.id}`
     });
 
   } catch(err){
@@ -341,6 +355,30 @@ router.get('/scan/:fileId', async (req, res)=>{
     return res.status(500).json({
       code:'SCAN_ERROR',
       error: err.message || '掃描時發生未知錯誤'
+    });
+  }
+});
+
+/**
+ * GET /api/protect/scanReports/:fileId
+ * - 提供下載「偵測結果 PDF」
+ */
+router.get('/scanReports/:fileId', async (req, res) => {
+  try {
+    const localDir = path.resolve(__dirname, '../../uploads');
+    const pdfPath = path.join(localDir, `scanReport_${req.params.fileId}.pdf`);
+    if(!fs.existsSync(pdfPath)) {
+      return res.status(404).json({
+        code:'NOT_FOUND',
+        error:'Scan PDF 不存在'
+      });
+    }
+    res.download(pdfPath, `KaiKaiShield_ScanReport_${req.params.fileId}.pdf`);
+  } catch(err) {
+    console.error('[download scan PDF error]', err);
+    return res.status(500).json({
+      code:'DOWNLOAD_SCAN_PDF_ERROR',
+      error: err.message
     });
   }
 });
@@ -390,11 +428,33 @@ async function generatePdf({
 
       doc.moveDown(1);
 
-      // 3) 先預留一些空間，準備放印章
-      //   之後我們會用 PDFKit 的 transform 旋轉印章 & Siri Number
+      // 3) 插入印章 & 序號(旋轉 45度)
+      doc.moveDown(2);
+      const stampPath = '/app/public/stamp.png';
+      if (fs.existsSync(stampPath)) {
+        doc.save();
+        const centerX = doc.page.width / 2;
+        const stampY = 150;
+        doc.translate(centerX, stampY);
+        doc.rotate(45, { origin: [0, 0] });
+
+        const stampWidth = 120;
+        doc.image(stampPath, -stampWidth / 2, -30, {
+          width: stampWidth
+        });
+
+        doc.fontSize(10)
+           .fillColor('red')
+           .text(`Siri No: ${serialNumber}`, -stampWidth / 2 + 5, 20, {
+             width: stampWidth - 10,
+             align: 'center'
+           });
+
+        doc.restore();
+      }
       doc.moveDown(2);
 
-      // 4) 個人/作品資訊 (中文 + 英文對照可自行調整)
+      // 4) 作品/用戶資訊
       doc.fontSize(12);
       doc.text(`真實姓名 (Name): ${realName}`);
       doc.text(`生日 (Date of Birth): ${birthDate}`);
@@ -416,42 +476,8 @@ async function generatePdf({
       doc.text(`檔案型態 (MIME): ${mimeType}`);
       doc.text(`產生日期 (Issue Date): ${new Date().toLocaleString()}`);
 
-      // 5) 在文字區域上方插入「旋轉的印章 + 紅字序號」
-      //   透過 doc.save() / doc.restore() 建立局部座標
-      const stampPath = '/app/public/stamp.png';
-      if (fs.existsSync(stampPath)) {
-        doc.save();
-        
-        // 移動畫布到(頁面中央寬度, 約 180px 高度)
-        const centerX = doc.page.width / 2;
-        const stampY = 150;
-        doc.translate(centerX, stampY);
-
-        // 旋轉 45度
-        doc.rotate(45, { origin: [0, 0] });
-
-        // stamp.png 大小
-        const stampWidth = 120;
-
-        // 圖片左上角往左移 stampWidth/2，以便「旋轉中心」在 stamp 的中心
-        doc.image(stampPath, -stampWidth / 2, -30, {
-          width: stampWidth
-        });
-
-        // 在印章上再印出序號 (紅字)
-        doc.fontSize(10)
-           .fillColor('red')
-           .text(`Siri No: ${serialNumber}`, -stampWidth / 2 + 5, 20, {
-             width: stampWidth - 10,
-             align: 'center'
-           });
-
-        doc.restore();
-      }
-
+      // 5) 法律聲明
       doc.moveDown(2);
-
-      // 6) 法律聲明: (示意)
       doc.fontSize(10).fillColor('black').text(
         '本證書根據國際著作權法及相關規定，具有全球法律效力。' +
         '於台灣境內，依據《著作權法》之保護範圍，本證明同具法律效力。',
@@ -466,13 +492,58 @@ async function generatePdf({
 
       doc.moveDown(1);
       doc.fontSize(9).fillColor('gray').text(
-        '以上資訊由 Epid Global Int'l Inc SUZOO IP GUARD 系統自動生成。如有任何疑問或爭議，請參考當地法律規範。',
+        '以上資訊由 Epid Global Int\'l Inc SUZOO IP GUARD 系統自動生成。如有任何疑問或爭議，請參考當地法律規範。',
         { align: 'left' }
       );
 
       doc.end();
 
     } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+/**
+ * 產生「偵測結果 PDF」
+ * - (示例) 包含檔案資訊 & suspiciousLinks
+ */
+async function generateScanReportPDF({ file, suspiciousLinks }) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const buffers = [];
+      doc.on('data', chunk => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', err => reject(err));
+
+      doc.fontSize(18).text('偵測結果報告 / Scan Report', { align:'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).text(`File ID: ${file.id}`);
+      doc.text(`Filename: ${file.filename}`);
+      doc.text(`Fingerprint: ${file.fingerprint}`);
+      doc.text(`Status: ${file.status}`);
+      doc.moveDown();
+
+      if(suspiciousLinks.length>0) {
+        doc.text(`以下為搜圖/文字爬蟲之可疑連結 (Possible matches):`);
+        doc.moveDown(0.5);
+        suspiciousLinks.forEach(link => {
+          doc.text(link, { indent:20 });
+        });
+      } else {
+        doc.text(`未發現任何相似連結或可疑來源。`, { underline:false });
+      }
+
+      doc.moveDown(1);
+      doc.fontSize(10).fillColor('gray').text(
+        '本報告由 SUZOO IP GUARD 侵權偵測系統自動生成。',
+        { align: 'left' }
+      );
+
+      doc.end();
+    } catch(err) {
       reject(err);
     }
   });
