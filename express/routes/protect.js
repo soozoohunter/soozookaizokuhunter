@@ -1,6 +1,6 @@
 /*************************************************************
  * express/routes/protect.js
- * 只使用單一字體 NotoSansTC-VariableFont_wght.ttf
+ * (改良版：PDF 美化 + 單一字體 NotoSansTC + 45°印章 + 內嵌序號)
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -55,7 +55,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       address,
       email,
       title,
-      keywords,
+      keywords,  // ← 之後不會在 PDF 顯示
       agreePolicy
     } = req.body;
 
@@ -71,12 +71,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         error: '請輸入作品標題'
       });
     }
-    if (!keywords) {
-      return res.status(400).json({
-        code: 'NO_KEYWORDS',
-        error: '請輸入關鍵字'
-      });
-    }
+    // keywords 不再是必要
     if (agreePolicy !== 'true') {
       return res.status(400).json({
         code: 'POLICY_REQUIRED',
@@ -120,7 +115,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
       finalUser = await User.create({
         username: phone,
-        serialNumber: 'SN-' + Date.now(),
+        serialNumber: 'SN-' + Date.now(), // or 'SNADMIN001' as you wish
         email,
         phone,
         password: hashedPass,
@@ -171,7 +166,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
 
-    // 8) 產生 PDF
+    // 8) 產生 PDF (新版外觀)
     const pdfBuf = await generatePdf({
       realName:  finalUser.realName,
       birthDate: finalUser.birthDate,
@@ -179,7 +174,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       address:   finalUser.address,
       email:     finalUser.email,
       title:     title.trim(),
-      keywords:  keywords.trim(),
+      // keywords:  (不顯示)
       filename:  req.file.originalname,
       fingerprint,
       ipfsHash,
@@ -298,7 +293,8 @@ router.get('/scan/:fileId', async (req, res)=>{
       });
     }
 
-    let allLinks = [...suspiciousLinks];
+    let allLinks = [];
+    allLinks.push(...suspiciousLinks);
     const user = await User.findByPk(file.user_id);
 
     let isVideo = false;
@@ -350,7 +346,7 @@ router.get('/scan/:fileId', async (req, res)=>{
 });
 
 /**
- * 產生 PDF
+ * 產生 PDF（新版排版 + 45度印章 + Siri Number in red）
  */
 async function generatePdf({
   realName,
@@ -359,7 +355,6 @@ async function generatePdf({
   address,
   email,
   title,
-  keywords,
   filename,
   fingerprint,
   ipfsHash,
@@ -370,16 +365,15 @@ async function generatePdf({
 }) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size:'A4', margin:50 });
+      const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const buffers = [];
 
       doc.on('data', chunk => buffers.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', err => reject(err));
 
-      // ★ 僅使用 NotoSansTC
+      // 1) 字體設定
       const notoTC = '/app/fonts/NotoSansTC-VariableFont_wght.ttf';
-
       if (fs.existsSync(notoTC)) {
         doc.registerFont('NotoChinese', notoTC);
         doc.font('NotoChinese');
@@ -388,36 +382,94 @@ async function generatePdf({
         doc.font('Helvetica');
       }
 
-      doc.fontSize(18).text('KaiKaiShield 原創著作證明書', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(12).text(`真實姓名: ${realName}`);
-      doc.text(`生日: ${birthDate}`);
-      doc.text(`手機: ${phone}`);
-      doc.text(`地址: ${address}`);
+      // 2) 主標題 (雙語)
+      doc.fontSize(20).text('原創著作證明書 / Certificate of Copyright', {
+        align: 'center',
+        underline: true
+      });
+
+      doc.moveDown(1);
+
+      // 3) 先預留一些空間，準備放印章
+      //   之後我們會用 PDFKit 的 transform 旋轉印章 & Siri Number
+      doc.moveDown(2);
+
+      // 4) 個人/作品資訊 (中文 + 英文對照可自行調整)
+      doc.fontSize(12);
+      doc.text(`真實姓名 (Name): ${realName}`);
+      doc.text(`生日 (Date of Birth): ${birthDate}`);
+      doc.text(`手機 (Phone): ${phone}`);
+      doc.text(`地址 (Address): ${address}`);
       doc.text(`Email: ${email}`);
-      doc.text(`作品標題: ${title}`);
-      doc.text(`關鍵字: ${keywords}`);
-      doc.moveDown();
-      doc.text(`檔名: ${filename}`);
+      doc.moveDown(1);
+
+      doc.text(`作品標題 (Title): ${title}`);
+      doc.text(`檔名 (File Name): ${filename}`);
+      doc.moveDown(1);
+
       doc.text(`Fingerprint (SHA-256): ${fingerprint}`);
       doc.text(`IPFS Hash: ${ipfsHash || 'N/A'}`);
       doc.text(`Tx Hash: ${txHash || 'N/A'}`);
-      doc.text(`序號: ${serialNumber}`);
-      doc.moveDown();
-      doc.text(`檔案型態: ${mimeType}`);
-      doc.text(`產生日期: ${new Date().toLocaleString()}`);
+      doc.text(`序號 (Siri Number): ${serialNumber}`);
+      doc.moveDown(1);
 
-      // ★ 印章檔 => /app/public/stamp.png (若有)
-      const stampAbsolute = '/app/public/stamp.png';
-      if (fs.existsSync(stampAbsolute)) {
-        doc.moveDown(1);
-        doc.image(stampAbsolute, doc.page.width - 130, doc.page.height - 180, {
-          width: 80
+      doc.text(`檔案型態 (MIME): ${mimeType}`);
+      doc.text(`產生日期 (Issue Date): ${new Date().toLocaleString()}`);
+
+      // 5) 在文字區域上方插入「旋轉的印章 + 紅字序號」
+      //   透過 doc.save() / doc.restore() 建立局部座標
+      const stampPath = '/app/public/stamp.png';
+      if (fs.existsSync(stampPath)) {
+        doc.save();
+        
+        // 移動畫布到(頁面中央寬度, 約 180px 高度)
+        const centerX = doc.page.width / 2;
+        const stampY = 150;
+        doc.translate(centerX, stampY);
+
+        // 旋轉 45度
+        doc.rotate(45, { origin: [0, 0] });
+
+        // stamp.png 大小
+        const stampWidth = 120;
+
+        // 圖片左上角往左移 stampWidth/2，以便「旋轉中心」在 stamp 的中心
+        doc.image(stampPath, -stampWidth / 2, -30, {
+          width: stampWidth
         });
+
+        // 在印章上再印出序號 (紅字)
+        doc.fontSize(10)
+           .fillColor('red')
+           .text(`Siri No: ${serialNumber}`, -stampWidth / 2 + 5, 20, {
+             width: stampWidth - 10,
+             align: 'center'
+           });
+
+        doc.restore();
       }
 
-      doc.moveDown();
-      doc.fontSize(10).text('本文件由 KaiKaiShield 系統自動產生，僅作為原創著作證明。');
+      doc.moveDown(2);
+
+      // 6) 法律聲明: (示意)
+      doc.fontSize(10).fillColor('black').text(
+        '本證書根據國際著作權法及相關規定，具有全球法律效力。' +
+        '於台灣境內，依據《著作權法》之保護範圍，本證明同具法律效力。',
+        { align: 'justify' }
+      );
+      doc.moveDown(0.5);
+      doc.text(
+        'This certificate is recognized worldwide under international copyright provisions. ' +
+        'In Taiwan, it is enforceable under the local Copyright Act.',
+        { align: 'justify' }
+      );
+
+      doc.moveDown(1);
+      doc.fontSize(9).fillColor('gray').text(
+        '以上資訊由 Epid Global Int'l Inc SUZOO IP GUARD 系統自動生成。如有任何疑問或爭議，請參考當地法律規範。',
+        { align: 'left' }
+      );
+
       doc.end();
 
     } catch (err) {
