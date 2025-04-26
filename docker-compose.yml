@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # PostgreSQL
   suzoo_postgres:
@@ -93,10 +95,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # 將 /etc/letsencrypt 掛載到容器內 /etc/nginx/certs，讀取 SSL 憑證
-    # 再將 suzoo.conf 掛載至 /etc/nginx/conf.d/default.conf
     volumes:
+      # 掛載 Let's Encrypt 憑證到容器內 /etc/nginx/certs
       - /etc/letsencrypt:/etc/nginx/certs:ro
+      # 將前端的 suzoo.conf 覆蓋到 /etc/nginx/conf.d/default.conf (只讀)
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
 
