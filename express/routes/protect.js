@@ -47,6 +47,10 @@ const ALLOW_UNLIMITED = [
  ***************************************************/
 const puppeteer = require('puppeteer');
 
+// 這裡設定您的繁體中文字型檔案路徑
+// 假設字型已放在 express/fonts/LXGWWenKaiMonoTC-Bold.ttf
+const fontPath = path.join(__dirname, '../fonts/LXGWWenKaiMonoTC-Bold.ttf');
+
 /**
  * 以 HTML template 產生 PDF
  * @param {object} data
@@ -97,7 +101,19 @@ async function generateCertificatePDF(data, outputPath) {
     <head>
       <meta charset="UTF-8">
       <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; }
+        /* 引用自訂字型 */
+        @font-face {
+          font-family: "WenKaiMonoBold";
+          src: url("file://${fontPath}") format("truetype");
+          font-weight: normal;
+          font-style: normal;
+        }
+
+        body {
+          font-family: "WenKaiMonoBold", sans-serif;
+          margin: 0; 
+          padding: 0; 
+        }
         .certificate-container {
           position: relative;
           width: 80%; margin: 0 auto; text-align: center;
@@ -514,13 +530,24 @@ async function generateScanPDF({ file, suspiciousLinks }, outPath) {
   const browser = await puppeteer.launch({ headless:true, args:['--no-sandbox','--disable-setuid-sandbox'] });
   const page = await browser.newPage();
 
-  // 簡易 HTML
+  // 同樣在掃描報告 PDF 內引入相同字型
   const htmlContent = `
   <html>
     <head>
       <meta charset="UTF-8" />
       <style>
-        body { font-family: sans-serif; text-align: center; }
+        @font-face {
+          font-family: "WenKaiMonoBold";
+          src: url("file://${fontPath}") format("truetype");
+          font-weight: normal;
+          font-style: normal;
+        }
+        body {
+          font-family: "WenKaiMonoBold", sans-serif;
+          text-align: center; 
+          margin: 0; 
+          padding: 0;
+        }
         h1 { margin-top: 30px; }
         .links { text-align: left; width: 60%; margin: 0 auto; }
         .link-item { margin: 3px 0; }
