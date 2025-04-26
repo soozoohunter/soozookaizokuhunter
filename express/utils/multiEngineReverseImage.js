@@ -3,9 +3,6 @@ const puppeteerExtra = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteerExtra.use(StealthPlugin());
 
-// 注意：這裡改成正確的相對路徑
-// 假設 ipfsService.js 位於 express/services/ipfsService.js
-// 假設 chain.js 位於   express/utils/chain.js
 const ipfsService = require('../services/ipfsService');
 const chain = require('./chain');
 
@@ -14,9 +11,9 @@ const path = require('path');
 
 /**
  * doMultiReverseImage(imagePath, fileId)
- *  - 在同一個瀏覽器中依序執行 (Google, Bing, Yandex, Baidu, Ginifab)
- *  - 各抓前5筆結果 => 截圖 => 上傳 IPFS => 區塊鏈
- *  - 回傳所有結果 link 陣列 string[]
+ *  - 透過「Ginifab 以圖搜圖」網站，先上傳圖片，再依序點選 Bing / Yandex / TinEye / Baidu (略過 Google)
+ *  - 對每個跳轉後的 popup 分頁做截圖 => 上傳 IPFS => 區塊鏈存紀錄
+ *  - 回傳所有 popup 網址陣列 foundLinks (可視需求加以調整)
  */
 async function doMultiReverseImage(imagePath, fileId) {
   const foundLinks = [];
@@ -28,222 +25,86 @@ async function doMultiReverseImage(imagePath, fileId) {
       args: ['--no-sandbox','--disable-setuid-sandbox']
     });
 
-    // 順序執行
-    const googleLinks = await doGoogleImageSearch(browser, imagePath, fileId);
-    foundLinks.push(...googleLinks);
+    const page = await browser.newPage();
+    // 1) 進到 Ginifab 站點
+    await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', { waitUntil:'networkidle2' });
 
-    const bingLinks = await doBingImageSearch(browser, imagePath, fileId);
-    foundLinks.push(...bingLinks);
+    // 2) 上傳圖片
+    const fileInputSelector = '#fileInput';
+    await page.waitForSelector(fileInputSelector, { timeout:10000 });
+    const fileInput = await page.$(fileInputSelector);
+    await fileInput.uploadFile(imagePath);
+    // 等待網站處理
+    await page.waitForTimeout(3000);
 
-    const yandexLinks = await doYandexImageSearch(browser, imagePath, fileId);
-    foundLinks.push(...yandexLinks);
+    // ==============  
+    // Ginifab 站上有幾個搜尋引擎按鈕 (Google, Bing, Yandex, TinEye, Baidu...)  
+    // 我們只點 Bing, Yandex, TinEye, Baidu，**跳過 Google**。
+    // 下列 selector 以該網站的實際 DOM 為準，如發生變動，請自行以瀏覽器檢查器修正
+    // ==============
 
-    const baiduLinks = await doBaiduImageSearch(browser, imagePath, fileId);
-    foundLinks.push(...baiduLinks);
+    // 3) 定義要點擊的引擎連結 (Selector 與引擎名稱)
+    //   - 依目前 ginifab 頁面實測，有可能是 <a> 文字包含"Bing" / "Yandex" / "TinEye" / "百度" / "Baidu"
+    //   - 或者查它的 data-engine, class name... 請視實際網頁結構調整
+    const engineLinks = [
+      { name: 'Bing',   textIncludes: 'Bing'    },
+      { name: 'Yandex', textIncludes: 'Yandex'  },
+      { name: 'TinEye', textIncludes: 'TinEye'  },
+      { name: 'Baidu',  textIncludes: 'Baidu'   },
+    ];
 
-    const ginifabLinks = await doGinifabImageSearch(browser, imagePath, fileId);
-    foundLinks.push(...ginifabLinks);
+    // 4) 依序點擊引擎 → popup → 截圖 → IPFS → 區塊鏈
+    for (const engine of engineLinks) {
+      const linkHandle = await page.$x(`//a[contains(text(),"${engine.textIncludes}")]`);
+      if (linkHandle && linkHandle.length > 0) {
+        // 等待 popup
+        const [popupPromise] = await Promise.all([
+          page.waitForEvent('popup'), 
+          linkHandle[0].click()  // 點擊該引擎連結
+        ]);
 
+        // 取得 popup Page
+        const popupPage = await popupPromise;
+        const popupUrl = popupPage.url();
+        console.log(`[Ginifab] ${engine.name} => opened popup: ${popupUrl}`);
+
+        // 等待頁面載入、搜索結果出現
+        // (每個引擎不同，這裡給個大約 5-6 秒等待即可，或自行加強判斷)
+        await popupPage.waitForTimeout(5000);
+
+        // 截圖 => IPFS => 區塊鏈
+        const screenshotPath = path.join(__dirname, `../../uploads/result_${fileId}_${engine.name}_${Date.now()}.png`);
+        await popupPage.screenshot({ path: screenshotPath, fullPage:true });
+        
+        // 上傳 IPFS
+        const ipfsHash = await ipfsService.saveFile(screenshotPath);
+        // 區塊鏈存紀錄
+        const receipt = await chain.storeRecord(ipfsHash);
+        const txHash = receipt?.transactionHash || null;
+
+        console.log(`[captureScreenshot] => ${engine.name}, IPFS=${ipfsHash}, tx=${txHash||'(None)'}`);
+
+        // 收集回傳 (可隨需求改更詳細資料)
+        foundLinks.push(`${engine.name} => ${popupUrl}`);
+
+        // 關閉該 popup 分頁
+        await popupPage.close();
+        // 回到 ginifab 主頁，再繼續下一個引擎
+        await page.bringToFront();
+      } else {
+        console.warn(`[Ginifab] Cannot find link for engine: ${engine.name}`);
+      }
+      // 小等一下再進行下一輪
+      await page.waitForTimeout(2000);
+    }
+
+    // 全部執行完
   } catch (err) {
     console.error('[doMultiReverseImage error]', err);
   } finally {
     if (browser) await browser.close();
   }
   return foundLinks;
-}
-
-// === 各搜尋引擎函式 ===
-
-async function doGoogleImageSearch(browser, imagePath, fileId) {
-  const result = [];
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.goto('https://images.google.com/', { waitUntil:'networkidle2' });
-
-    // 相機 icon
-    await page.waitForSelector('div[jsname="Q4LuWd"] a.Q4LuWd', { timeout:8000 });
-    await page.click('div[jsname="Q4LuWd"] a.Q4LuWd');
-
-    // "Upload an image" tab
-    const uploadTabSel = 'a[aria-label="Upload an image"]';
-    await page.waitForSelector(uploadTabSel, { timeout:8000 });
-    await page.click(uploadTabSel);
-
-    // 檔案上傳
-    const fileInputSel = 'input#qbfile';
-    await page.waitForSelector(fileInputSel, { timeout:8000 });
-    const fileInput = await page.$(fileInputSel);
-    await fileInput.uploadFile(imagePath);
-
-    await page.waitForTimeout(4000);
-
-    // 抓前 5 筆
-    const resSel = 'div.g a';
-    await page.waitForSelector(resSel, { timeout:15000 });
-    const links = await page.$$eval(resSel, arr => arr.slice(0,5).map(a=>a.href));
-
-    for(const link of links) {
-      result.push(link);
-      await captureScreenshotAndChain(page, link, fileId);
-    }
-  } catch(e) {
-    console.error('[doGoogleImageSearch]', e);
-  } finally {
-    if (page) await page.close().catch(()=>{});
-  }
-  return result;
-}
-
-async function doBingImageSearch(browser, imagePath, fileId) {
-  const arr = [];
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.goto('https://www.bing.com/images?FORM=SBIRDI', { waitUntil:'networkidle2' });
-
-    const camSel = 'button[aria-label="Search using an image"]';
-    await page.waitForSelector(camSel, { timeout:8000 });
-    await page.click(camSel);
-
-    const fileSel = 'input[type="file"][accept="image/*"]';
-    const fileInput = await page.waitForSelector(fileSel, { visible:true, timeout:15000 });
-    await fileInput.uploadFile(imagePath);
-
-    await page.waitForTimeout(5000);
-
-    // 前 5
-    const itemHandles = await page.$$('li a.iusc');
-    for (let i=0; i<Math.min(itemHandles.length,5); i++){
-      const href = await itemHandles[i].evaluate(a=>a.href);
-      arr.push(href);
-      await captureScreenshotAndChain(page, href, fileId);
-    }
-  } catch(e){
-    console.error('[doBingImageSearch]', e);
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return arr;
-}
-
-async function doYandexImageSearch(browser, imagePath, fileId) {
-  const arr = [];
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.goto('https://yandex.com/images/', { waitUntil:'networkidle2' });
-
-    // 相機
-    await page.waitForSelector('button[data-testid="search-input__camera"]', { timeout:8000 });
-    await page.click('button[data-testid="search-input__camera"]');
-
-    const fileInput = await page.waitForSelector('input[type="file"]', { visible:true, timeout:10000 });
-    await fileInput.uploadFile(imagePath);
-
-    await page.waitForTimeout(5000);
-
-    // 前 5
-    const anchors = await page.$$('.CbirSites-Item a');
-    for(let i=0; i<Math.min(anchors.length,5); i++){
-      const link = await anchors[i].evaluate(a=>a.href);
-      arr.push(link);
-      await captureScreenshotAndChain(page, link, fileId);
-    }
-  } catch(e){
-    console.error('[doYandexImageSearch]', e);
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return arr;
-}
-
-async function doBaiduImageSearch(browser, imagePath, fileId) {
-  const arr = [];
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.goto('https://graph.baidu.com/pcpage/index?tpl_from=pc', { waitUntil:'networkidle2' });
-
-    const upSel = 'div.upload-wrap input[type="file"]';
-    const up = await page.waitForSelector(upSel, { timeout:8000 });
-    await up.uploadFile(imagePath);
-
-    await page.waitForTimeout(5000);
-
-    const items = await page.$$('.result-list .result-item');
-    for(let i=0; i<Math.min(items.length,5); i++){
-      const href = await items[i].$eval('.result-title a', el=>el.href).catch(()=>null);
-      if(href) {
-        arr.push(href);
-        await captureScreenshotAndChain(page, href, fileId);
-      }
-    }
-  } catch(e){
-    console.error('[doBaiduImageSearch]', e);
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return arr;
-}
-
-async function doGinifabImageSearch(browser, imagePath, fileId) {
-  const arr = [];
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', { waitUntil:'networkidle2' });
-
-    const fileInput = await page.waitForSelector('#fileInput',{ timeout:10000 });
-    await fileInput.uploadFile(imagePath);
-
-    await page.waitForTimeout(3000);
-
-    // 可能出現 "Search by TinEye" => popup
-    const [popup] = await Promise.all([
-      page.waitForEvent('popup'),
-      page.evaluate(()=>{
-        const aList = Array.from(document.querySelectorAll('a'));
-        const tinEyeLink = aList.find(a=> /tin\s*eye/i.test(a.textContent||''));
-        if(tinEyeLink) tinEyeLink.click();
-      })
-    ]);
-    await popup.waitForTimeout(3000);
-
-    const anchors = await popup.$$('a.result--url');
-    for(let i=0; i<Math.min(anchors.length,5); i++){
-      const href = await anchors[i].evaluate(a=>a.href);
-      arr.push(href);
-      await captureScreenshotAndChain(popup, href, fileId);
-    }
-    if(!popup.isClosed()) await popup.close();
-  } catch(e){
-    console.error('[doGinifabImageSearch]', e);
-  } finally {
-    if(page && !page.isClosed()) await page.close().catch(()=>{});
-  }
-  return arr;
-}
-
-/**
- * 對每個搜尋結果連結 截圖 => 上傳 IPFS => 區塊鏈
- */
-async function captureScreenshotAndChain(page, url, fileId) {
-  try {
-    await page.goto(url, { waitUntil:'networkidle2', timeout:15000 });
-    const screenshotPath = path.join(__dirname, `../../uploads/result_${fileId}_${Date.now()}.png`);
-    await page.screenshot({ path: screenshotPath, fullPage:true });
-
-    // 上傳 IPFS
-    const ipfsHash = await ipfsService.saveFile(screenshotPath);
-
-    // 區塊鏈存紀錄
-    const receipt = await chain.storeRecord(ipfsHash);
-    const txHash = receipt?.transactionHash || null;
-    console.log(`[captureScreenshot] => ${url}, IPFS=${ipfsHash}, tx=${txHash||'(None)'}`);
-  } catch(e) {
-    console.warn('[captureScreenshotAndChain error]', e);
-  }
 }
 
 module.exports = { doMultiReverseImage };
