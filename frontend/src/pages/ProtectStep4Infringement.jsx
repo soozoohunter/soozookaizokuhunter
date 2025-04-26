@@ -1,4 +1,3 @@
-// frontend/src/pages/ProtectStep4Infringement.jsx
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
@@ -75,7 +74,7 @@ export default function ProtectStep4Infringement() {
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks } = info;
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks = [] } = info;
 
   const handleDownloadPdf = () => {
     if (!pdfUrl) {
@@ -83,11 +82,6 @@ export default function ProtectStep4Infringement() {
       return;
     }
     window.open(pdfUrl, '_blank');
-  };
-
-  const handleCheckInfringement = () => {
-    // 回到 Step3 或重新執行 Scan
-    navigate('/protect/step3');
   };
 
   return (
@@ -102,23 +96,24 @@ export default function ProtectStep4Infringement() {
         </InfoText>
 
         <InfoText>
-          侵權掃描結果：
-          {suspiciousLinks && suspiciousLinks.length > 0 ? (
-            suspiciousLinks.map((link, idx) => (
-              <div key={idx} style={{ margin: '0.25rem 0'}}>
-                <Highlight>{link}</Highlight>
-              </div>
-            ))
-          ) : (
-            <div style={{ marginTop:'0.5rem' }}>
-              <Highlight>尚未發現可疑連結</Highlight>
-            </div>
-          )}
+          <strong>侵權掃描結果：</strong>
         </InfoText>
+        {suspiciousLinks.length > 0 ? (
+          suspiciousLinks.map((link, idx) => (
+            <div key={idx} style={{ margin: '0.25rem 0'}}>
+              <Highlight>{link}</Highlight>
+            </div>
+          ))
+        ) : (
+          <div style={{ marginTop: '0.5rem' }}>
+            <Highlight>尚未發現可疑連結</Highlight>
+          </div>
+        )}
 
-        <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
-        <Button onClick={handleCheckInfringement}>查看侵權結果</Button>
-        <Button onClick={() => navigate('/')}>Back to Home</Button>
+        <div style={{ marginTop:'1.5rem' }}>
+          <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
+          <Button onClick={() => navigate('/')}>Back to Home</Button>
+        </div>
       </ContentBox>
     </Container>
   );
