@@ -14,11 +14,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 2) 複製 package.json + package-lock.json 並安裝依賴 (含 "ffmpeg-static")
+# 2) 複製 package.json + package-lock.json 並安裝依賴 (含 "ffmpeg-static" / "fluent-ffmpeg" 等)
 COPY package*.json ./
 RUN npm install
 
 # 3) 複製其餘專案檔
+#    - 特別注意將 fonts/ 目錄一併COPY => 裡面有 LXGWWenKaiMonoTC-Bold.ttf
 COPY . .
 
 # Puppeteer 設定：使用系統 /usr/bin/chromium
