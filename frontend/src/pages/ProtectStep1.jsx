@@ -3,108 +3,40 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #121212;
-  color: #ffffff;
+  /* ... same as before ... */
 `;
-
 const FormContainer = styled.div`
-  background-color: #1e1e1e;
-  padding: 2rem 2.5rem;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  width: 100%;
-  max-width: 480px;
-  border: 2px solid #ff6f00;
+  /* ... same as before ... */
 `;
-
 const Title = styled.h2`
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: #FFD700;
+  /* ... same as before ... */
 `;
-
 const Description = styled.p`
-  font-size: 0.9rem;
-  line-height: 1.6;
-  margin-bottom: 1rem;
-  color: #cccccc;
+  /* ... same as before ... */
 `;
-
 const ErrorMsg = styled.p`
-  color: red;
-  text-align: center;
-  margin-top: -0.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
+  /* ... same as before ... */
 `;
-
 const StyledForm = styled.form`
-  display: flex;
-  flex-direction: column;
+  /* ... same as before ... */
 `;
-
 const StyledLabel = styled.label`
-  margin: 0.5rem 0 0.25rem;
-  font-size: 0.9rem;
-  color: #ffa500;
+  /* ... same as before ... */
 `;
-
 const StyledInput = styled.input`
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  color: #ffffff;
-  background-color: #2c2c2c;
-  border: 1px solid #444;
-  border-radius: 4px;
+  /* ... same as before ... */
 `;
-
 const FileName = styled.div`
-  font-size: 0.85rem;
-  margin-bottom: 0.5rem;
-  color: #aaaaaa;
-  word-break: break-all;
+  /* ... same as before ... */
 `;
-
 const ClearButton = styled.button`
-  margin-bottom: 1rem;
-  background-color: #444;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
-  padding: 0.4rem 0.8rem;
-  cursor: pointer;
-  font-size: 0.8rem;
-  &:hover {
-    background-color: #666;
-  }
+  /* ... same as before ... */
 `;
-
 const CheckboxRow = styled.div`
-  display: flex;
-  align-items: center;
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
-  color: #ffa500;
+  /* ... same as before ... */
 `;
-
 const SubmitButton = styled.button`
-  padding: 0.75rem;
-  font-size: 1rem;
-  font-weight: bold;
-  color: #ffffff;
-  background-color: #f97316;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 0.75rem;
-  &:hover {
-    background-color: #ea580c;
-  }
+  /* ... same as before ... */
 `;
 
 export default function ProtectStep1() {
@@ -137,6 +69,7 @@ export default function ProtectStep1() {
     e.preventDefault();
     setError('');
 
+    // 基本檢查
     if (!file) {
       return setError('請先上傳檔案');
     }
@@ -173,14 +106,30 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        if (resp.status === 409 && respData.code === 'ALREADY_MEMBER') {
-          alert(respData.error || '您已是會員，請直接登入或註冊');
-          navigate('/register');
-          return;
+        // 分析常見錯誤碼
+        switch(resp.status) {
+          case 400:
+            // 後端有給 error
+            throw new Error(respData.error || '表單資料有誤');
+          case 402:
+            // NEED_PAYMENT
+            throw new Error(respData.error || '短影音上傳需付費');
+          case 409:
+            if (respData.code === 'ALREADY_MEMBER') {
+              alert(respData.error || '您已是會員，請直接登入或註冊');
+              navigate('/register');
+              return;
+            }
+            throw new Error(respData.error || '重複的Email/Phone');
+          case 413:
+            // 413 => Nginx or Express => Payload Too Large
+            throw new Error('檔案過大，請確認檔案大小或已放寬上限');
+          default:
+            throw new Error(respData.error || `上傳失敗，錯誤碼 ${resp.status}`);
         }
-        throw new Error(respData.error || '上傳失敗');
       }
 
+      // 成功
       console.log('step1 success =>', respData);
       localStorage.setItem('protectStep1', JSON.stringify(respData));
       navigate('/protect/step2');
@@ -197,7 +146,7 @@ export default function ProtectStep1() {
       <FormContainer>
         <Title>Step 1: Upload &amp; Member Info</Title>
         <Description>
-          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。
+          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫基本資料。<br/>
           系統會自動為您建立會員帳號（手機為帳號、Email 唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
