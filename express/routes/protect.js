@@ -1,6 +1,6 @@
 /*************************************************************
  * express/routes/protect.js
- * (最終企業級部署 + Stealth + 影片抽幀 + Ginifab 圖搜 + PDF字體印章)
+ * (最終整合版本：包含白名單檢查 & PDF 字體絕對路徑修正)
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -21,23 +21,25 @@ const PDFDocument = require('pdfkit');
 const { extractKeyFrames } = require('../utils/extractFrames');
 const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
 
-// Multer
+// Multer 上傳限制
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-// 白名單 (免付費)
+// ★ 白名單 (免付費)
 const ALLOW_UNLIMITED = [
-  '0900296168',
-  'jeffqqm@gmail.com'
+  '0900296168',           // phone
+  'jeffqqm@gmail.com'     // email
 ];
 
 /**
  * POST /api/protect/step1
+ * - 上傳檔案 + 新用戶(或使用舊用戶) + Fingerprint + IPFS + 區塊鏈 + 產 PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
+    // 1) 檔案檢查
     if (!req.file) {
       return res.status(400).json({
         code: 'NO_FILE_OR_TOO_BIG',
@@ -45,15 +47,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
+    // 2) 表單檢查
     const {
-      realName,
-      birthDate,
-      phone,
-      address,
-      email,
-      title,
-      keywords,
-      agreePolicy
+      realName, birthDate, phone, address, email,
+      title, keywords, agreePolicy
     } = req.body;
 
     if (!realName || !birthDate || !phone || !address || !email) {
@@ -81,48 +78,62 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
+    // 3) 判斷是否需付費
     const mimeType = req.file.mimetype;
     const isVideo  = mimeType.startsWith('video');
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
+
     if (isVideo && !isUnlimited) {
-      fs.unlinkSync(req.file.path);
+      // 短影音上傳，非白名單 => 收費
+      fs.unlinkSync(req.file.path); // 先刪除暫存檔
       return res.status(402).json({
         code: 'NEED_PAYMENT',
         error: '短影音上傳需付費，請聯繫客服或升級付費方案'
       });
     }
 
-    if (!isUnlimited) {
-      const oldUser = await User.findOne({
-        where:{ [Op.or]: [{ email }, { phone }] }
-      });
-      if (oldUser) {
+    // 4) 檢查資料庫是否已有此 Email/Phone
+    //    - 若有舊用戶 & 是白名單 => 後續直接用舊用戶
+    //    - 若有舊用戶 & 非白名單 => 409 重複
+    //    - 若無 => 建新用戶
+    let finalUser = null;
+    const oldUser = await User.findOne({
+      where:{ [Op.or]: [{ email }, { phone }] }
+    });
+
+    if (oldUser) {
+      if (!isUnlimited) {
+        // 非白名單，卻已存在 => 報錯 409
         return res.status(409).json({
           code: 'ALREADY_MEMBER',
           error: '此Email或手機已被使用，請改用已有帳號'
         });
+      } else {
+        // 是白名單 => 直接使用舊用戶，跳過建立
+        finalUser = oldUser;
       }
+    } else {
+      // 尚無舊用戶 => 建新用戶
+      const rawPass   = phone + '@KaiShield';
+      const hashedPass= await bcrypt.hash(rawPass, 10);
+
+      finalUser = await User.create({
+        username: phone,
+        serialNumber: 'SN-' + Date.now(),
+        email,
+        phone,
+        password: hashedPass,
+        realName,
+        birthDate,
+        address,
+        role: 'user',
+        plan: 'freeTrial'
+      });
     }
 
-    // 建立 User
-    const rawPass   = phone + '@KaiShield';
-    const hashedPass= await bcrypt.hash(rawPass, 10);
-    const newUser = await User.create({
-      username: phone,
-      serialNumber: 'SN-' + Date.now(),
-      email,
-      phone,
-      password: hashedPass,
-      realName,
-      birthDate,
-      address,
-      role: 'user',
-      plan: 'freeTrial'
-    });
-
-    // Fingerprint => IPFS => 區塊鏈
+    // 5) Fingerprint => IPFS => 區塊鏈
     const fileBuf = fs.readFileSync(req.file.path);
-    const fingerprint= fingerprintService.sha256(fileBuf);
+    const fingerprint = fingerprintService.sha256(fileBuf);
 
     let ipfsHash=null, txHash=null;
     try {
@@ -130,6 +141,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     } catch(eIPFS){
       console.error('[IPFS error]', eIPFS);
     }
+
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
@@ -137,20 +149,21 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       console.error('[Chain error]', eChain);
     }
 
-    // File紀錄
+    // 6) File紀錄
     const newFile = await File.create({
-      user_id: newUser.id,
+      user_id: finalUser.id,
       filename: req.file.originalname,
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash: txHash
     });
 
-    if (isVideo) newUser.uploadVideos++;
-    else newUser.uploadImages++;
-    await newUser.save();
+    // 依類型 +1
+    if (isVideo) finalUser.uploadVideos++;
+    else finalUser.uploadImages++;
+    await finalUser.save();
 
-    // rename => /uploads/
+    // 7) 移動檔案至 /uploads/
     const ext = path.extname(req.file.originalname) || '';
     const localDir = path.resolve(__dirname, '../../uploads');
     if (!fs.existsSync(localDir)){
@@ -159,20 +172,20 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
 
-    // 產生 PDF
+    // 8) 產生 PDF 證書
     const pdfBuf = await generatePdf({
-      realName,
-      birthDate,
-      phone,
-      address,
-      email,
-      title: title.trim(),
-      keywords: keywords.trim(),
-      filename: req.file.originalname,
+      realName:  finalUser.realName,
+      birthDate: finalUser.birthDate,
+      phone:     finalUser.phone,
+      address:   finalUser.address,
+      email:     finalUser.email,
+      title:     title.trim(),
+      keywords:  keywords.trim(),
+      filename:  req.file.originalname,
       fingerprint,
       ipfsHash,
       txHash,
-      serialNumber: newUser.serialNumber,
+      serialNumber: finalUser.serialNumber,
       fileBuffer: fileBuf,
       mimeType
     });
@@ -181,14 +194,18 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const pdfFilePath = path.join(localDir, pdfFileName);
     fs.writeFileSync(pdfFilePath, pdfBuf);
 
+    // 9) 若是新建帳號，回傳預設密碼；若是舊帳號(白名單)可視需求回傳
+    const defaultPassword = oldUser ? null : (phone + '@KaiShield');
+
     return res.json({
-      message:'上傳成功並建立會員＆PDF！',
+      message:'上傳成功並完成 PDF！',
       fileId: newFile.id,
       pdfUrl:`/api/protect/certificates/${newFile.id}`,
       fingerprint,
       ipfsHash,
       txHash,
-      defaultPassword: rawPass
+      // 若舊帳號就不回傳 password
+      defaultPassword
     });
 
   } catch(err) {
@@ -208,6 +225,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 /**
  * GET /api/protect/certificates/:fileId
+ * - 提供下載 PDF
  */
 router.get('/certificates/:fileId', async (req, res)=>{
   try {
@@ -220,6 +238,7 @@ router.get('/certificates/:fileId', async (req, res)=>{
         error:'PDF 證書不存在，可能尚未產生'
       });
     }
+    // 檔名可自行調整
     res.download(pdfPath, `KaiKaiShield_Certificate_${req.params.fileId}.pdf`);
   } catch(err){
     console.error('[Download PDF error]', err);
@@ -232,6 +251,7 @@ router.get('/certificates/:fileId', async (req, res)=>{
 
 /**
  * GET /api/protect/scan/:fileId
+ * - 文字爬蟲 + 圖片/影片搜圖
  */
 router.get('/scan/:fileId', async (req, res)=>{
   try {
@@ -246,39 +266,41 @@ router.get('/scan/:fileId', async (req, res)=>{
     let suspiciousLinks = [];
     const apiKey = process.env.RAPIDAPI_KEY;
 
-    // 文字爬蟲 (範例)
+    // (A) 文字爬蟲(範例: TikTok)
     if(apiKey){
       const searchQuery = file.filename || file.fingerprint || 'default';
       try {
-        const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
+        const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search', {
           params:{ keywords: searchQuery, region:'us', count:'5' },
           headers:{
             'X-RapidAPI-Key': apiKey,
             'X-RapidAPI-Host':'tiktok-scraper7.p.rapidapi.com'
           }
         });
-        const tiktokItems = rTT.data?.videos||[];
+        const tiktokItems = rTT.data?.videos || [];
         tiktokItems.forEach(it=>{
           if(it.link) suspiciousLinks.push(it.link);
         });
       } catch(eTT){
-        console.error('[TT error]', eTT.message);
+        console.error('[TT crawler error]', eTT.message);
       }
-      // 也可加 IG/FB 等爬蟲
+      // ...IG/FB/其他爬蟲可自行擴充
     } else {
       console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawling');
     }
 
-    // 圖片 / 影片 => multiEngine
+    // (B) 圖片/影片 => 多引擎以圖搜圖
     const localDir = path.resolve(__dirname, '../../uploads');
-    const ext = path.extname(file.filename)||'';
+    const ext = path.extname(file.filename) || '';
     const localPath= path.join(localDir, `imageForSearch_${file.id}${ext}`);
+
+    // 若實體檔案不在 => 只回傳文字爬蟲結果
     if(!fs.existsSync(localPath)){
       file.status='scanned';
       file.infringingLinks = JSON.stringify([]);
       await file.save();
       return res.json({
-        message:'no local file => only text-based done',
+        message:'file not found => only text-based crawling done',
         suspiciousLinks:[]
       });
     }
@@ -286,18 +308,20 @@ router.get('/scan/:fileId', async (req, res)=>{
     let allLinks = [...suspiciousLinks];
     const user = await User.findByPk(file.user_id);
 
+    // 檢查是否影片
     let isVideo = false;
     if(ext.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
       isVideo = true;
     }
 
-    // 抽幀
     if(isVideo && user && user.uploadVideos>0){
       try {
+        // 先 ffprobe 取得影片長度
         const cmdProbe=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
         const durStr= execSync(cmdProbe).toString().trim();
         const durSec= parseFloat(durStr)||9999;
 
+        // 若小於 30 秒 => 抽幀做多引擎搜圖
         if(durSec<=30){
           const outDir = path.join(localDir, `frames_${file.id}`);
           if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
@@ -312,17 +336,19 @@ router.get('/scan/:fileId', async (req, res)=>{
       }
     }
     else if(!isVideo && user && user.uploadImages>0){
+      // 圖片 => 直接多引擎搜圖
       const found= await doMultiReverseImage(localPath, file.id);
       allLinks.push(...found);
     }
 
+    // 去重
     const uniqueLinks= [...new Set(allLinks)];
     file.status='scanned';
     file.infringingLinks= JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message:'Scan done => text + multiEngine => IPFS => chain',
+      message:'Scan done => text + multi-engine => IPFS => chain',
       suspiciousLinks: uniqueLinks
     });
 
@@ -363,10 +389,9 @@ async function generatePdf({
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', err => reject(err));
 
-      // 嘗試載入繁體字體
-      const fontsDir = path.join(__dirname, '../../fonts');
-      const wenKai   = path.join(fontsDir, 'LXGWWenKaiMonoTC-Bold.ttf');
-      const notoTC   = path.join(fontsDir, 'NotoSansTC-VariableFont_wght.ttf');
+      // ★ 直接用絕對路徑 /app/fonts/*.ttf (與 Dockerfile 配合)
+      const wenKai = '/app/fonts/LXGWWenKaiMonoTC-Bold.ttf';
+      const notoTC = '/app/fonts/NotoSansTC-VariableFont_wght.ttf';
 
       let chosenFont = null;
       if (fs.existsSync(wenKai)) {
@@ -379,6 +404,7 @@ async function generatePdf({
         doc.registerFont('KaiKaiChinese', chosenFont);
         doc.font('KaiKaiChinese');
       } else {
+        // 若出現此訊息，代表容器內 /app/fonts 未正常複製
         console.warn('[generatePdf] 未找到繁體字體檔，改用 Helvetica');
         doc.font('Helvetica');
       }
@@ -402,18 +428,18 @@ async function generatePdf({
       doc.text(`檔案型態: ${mimeType}`);
       doc.text(`產生日期: ${new Date().toLocaleString()}`);
 
-      // 印章
-      const stampPath = path.join(__dirname, '../../public/stamp.png');
-      if (fs.existsSync(stampPath)) {
+      // ★ 印章，改用 /app/public/stamp.png (Dockerfile 有複製)
+      const stampAbsolute = '/app/public/stamp.png';
+      if (fs.existsSync(stampAbsolute)) {
+        // 放在右下方(簡易做法)
         doc.moveDown(1);
-        doc.image(stampPath, doc.page.width - 130, doc.page.height - 180, {
+        doc.image(stampAbsolute, doc.page.width - 130, doc.page.height - 180, {
           width: 80
         });
       }
 
       doc.moveDown();
       doc.fontSize(10).text('本文件由 KaiKaiShield 系統自動產生，僅作為原創著作證明。');
-
       doc.end();
     } catch (err) {
       reject(err);
