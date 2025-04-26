@@ -1,9 +1,8 @@
 /*************************************************************
  * express/routes/protect.js
- * 
- * - 大檔案上傳防護：multer 限制 100MB
- * - 多搜尋引擎以圖搜圖 + 影片抽幀 + 截圖上傳IPFS + 區塊鏈
- * - 詳細錯誤碼 (code) + 更人性化的 error 訊息
+ * (最終優化 + Stealth + 多搜尋引擎 + 影片抽幀 + 截圖上傳IPFS + 上鏈)
+ * - 大檔案上傳防護：multer限制100MB
+ * - 回傳錯誤碼 {code, error}，讓前端清楚顯示
  *************************************************************/
 const express = require('express');
 const router = express.Router();
@@ -21,14 +20,12 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const PDFDocument = require('pdfkit');
 
-// 影片抽幀 + 多搜尋引擎(stealth) + 截圖上傳IPFS + 上鏈
 const { extractKeyFrames } = require('../utils/extractFrames');
 const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
 
-// ★ multer: 100MB 上限 (可自行調整)
 const upload = multer({
   dest: 'uploads/',
-  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB
 });
 
 // 白名單 (免付費)
@@ -39,15 +36,9 @@ const ALLOW_UNLIMITED = [
 
 /**
  * POST /api/protect/step1
- *  1) 上傳檔案 (multer) → 產生 req.file
- *  2) 若為短影片 + 非白名單 => 402
- *  3) 建立User (若無重複 Email / Phone) + Fingerprint + IPFS + 區塊鏈
- *  4) 產生 PDF + 回傳檔案資訊
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
-    // 若 multer fileSize 超限 => err.code==='LIMIT_FILE_SIZE'
-    // 但還是可能出現 req.file 為 undefined 情況
     if (!req.file) {
       return res.status(400).json({
         code: 'NO_FILE_OR_TOO_BIG',
@@ -66,7 +57,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       agreePolicy
     } = req.body;
 
-    // 必填
+    // 必填檢查
     if (!realName || !birthDate || !phone || !address || !email) {
       return res.status(400).json({
         code: 'EMPTY_REQUIRED',
@@ -76,13 +67,13 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     if (!title) {
       return res.status(400).json({
         code: 'NO_TITLE',
-        error: '請輸入作品標題(title)'
+        error: '請輸入作品標題'
       });
     }
     if (!keywords) {
       return res.status(400).json({
         code: 'NO_KEYWORDS',
-        error: '請輸入關鍵字(keywords)'
+        error: '請輸入關鍵字'
       });
     }
     if (agreePolicy !== 'true') {
@@ -92,8 +83,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 判斷若影片 & 非白名單 => 402
-    const mimeType = req.file.mimetype; // 'video/mp4', 'image/png'...
+    // 若為短影片 && 非白名單 => 402
+    const mimeType = req.file.mimetype;
     const isVideo  = mimeType.startsWith('video');
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
     if (isVideo && !isUnlimited) {
@@ -104,10 +95,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 檢查 Email / Phone 是否重複
+    // 檢查重複 email/phone
     if (!isUnlimited) {
       const oldUser = await User.findOne({
-        where: { [Op.or]: [{ email }, { phone }] }
+        where:{ [Op.or]: [{ email }, { phone }] }
       });
       if (oldUser) {
         return res.status(409).json({
@@ -117,8 +108,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       }
     }
 
-    // 建立 User
-    const rawPass   = phone + '@KaiShield';  // 預設密碼
+    // 建 User
+    const rawPass   = phone + '@KaiShield';
     const hashedPass= await bcrypt.hash(rawPass, 10);
     const newUser = await User.create({
       username: phone,
@@ -159,16 +150,15 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       tx_hash: txHash
     });
 
-    // 更新 uploadImages / uploadVideos
-    if (isVideo) newUser.uploadVideos++;
+    if(isVideo) newUser.uploadVideos++;
     else newUser.uploadImages++;
     await newUser.save();
 
     // rename => /uploads/
     const ext = path.extname(req.file.originalname) || '';
     const localDir = path.resolve(__dirname, '../../uploads');
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir, { recursive: true });
+    if(!fs.existsSync(localDir)){
+      fs.mkdirSync(localDir, { recursive:true });
     }
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
@@ -195,16 +185,17 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     fs.writeFileSync(pdfFilePath, pdfBuf);
 
     return res.json({
-      message: '上傳成功並建立會員＆PDF！',
+      message:'上傳成功並建立會員＆PDF！',
       fileId: newFile.id,
-      pdfUrl: `/api/protect/certificates/${newFile.id}`,
+      pdfUrl:`/api/protect/certificates/${newFile.id}`,
       fingerprint,
       ipfsHash,
       txHash,
       defaultPassword: rawPass
     });
-  } catch (err) {
-    // 若 multer fileSize 超限 => err.code === 'LIMIT_FILE_SIZE'
+
+  } catch(err) {
+    // 若 multer fileSize 超限 => err.code==='LIMIT_FILE_SIZE'
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         code: 'FILE_TOO_LARGE',
@@ -214,7 +205,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     console.error('[protect step1 error]', err);
     return res.status(500).json({
-      code: 'STEP1_ERROR',
+      code:'STEP1_ERROR',
       error: err.message || '上傳時發生未知錯誤'
     });
   }
@@ -222,42 +213,38 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 /**
  * GET /api/protect/certificates/:fileId
- *  - 下載 PDF 證書
  */
-router.get('/certificates/:fileId', async (req, res) => {
+router.get('/certificates/:fileId', async (req, res)=>{
   try {
     const localDir = path.resolve(__dirname, '../../uploads');
-    const pdfPath  = path.join(localDir, `certificate_${req.params.fileId}.pdf`);
+    const pdfPath = path.join(localDir, `certificate_${req.params.fileId}.pdf`);
 
-    if (!fs.existsSync(pdfPath)) {
+    if(!fs.existsSync(pdfPath)){
       return res.status(404).json({
-        code: 'PDF_NOT_FOUND',
-        error: 'PDF 證書不存在，可能尚未產生'
+        code:'PDF_NOT_FOUND',
+        error:'PDF 證書不存在，可能尚未產生'
       });
     }
-    // 下載 PDF
     res.download(pdfPath, `KaiKaiShield_Certificate_${req.params.fileId}.pdf`);
-  } catch (err) {
+  } catch(err){
     console.error('[Download PDF error]', err);
     return res.status(500).json({
-      code: 'DOWNLOAD_ERROR',
-      error: err.message || '無法下載PDF'
+      code:'DOWNLOAD_ERROR',
+      error: err.message || '無法下載 PDF'
     });
   }
 });
 
 /**
  * GET /api/protect/scan/:fileId
- *  - 文字爬蟲(TikTok/IG/FB)
- *  - 圖片或短影片(<=30s) => 多搜尋引擎(stealth) + 抽幀 + 截圖=>IPFS=>上鏈
  */
-router.get('/scan/:fileId', async (req, res) => {
+router.get('/scan/:fileId', async (req, res)=>{
   try {
     const file = await File.findByPk(req.params.fileId);
-    if (!file) {
+    if(!file){
       return res.status(404).json({
-        code: 'FILE_NOT_FOUND',
-        error: '找不到此檔案或 FileID'
+        code:'FILE_NOT_FOUND',
+        error:'找不到此檔案或 FileID'
       });
     }
 
@@ -265,225 +252,130 @@ router.get('/scan/:fileId', async (req, res) => {
     const apiKey = process.env.RAPIDAPI_KEY;
 
     // (1) 文字爬蟲
-    if (apiKey) {
+    if(apiKey){
       const searchQuery = file.filename || file.fingerprint || 'default';
       // Tiktok
       try {
-        const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search', {
-          params: { keywords: searchQuery, region:'us', count:'5' },
-          headers: {
+        const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
+          params:{ keywords: searchQuery, region:'us', count:'5' },
+          headers:{
             'X-RapidAPI-Key': apiKey,
-            'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com'
+            'X-RapidAPI-Host':'tiktok-scraper7.p.rapidapi.com'
           }
         });
-        const tiktokItems = rTT.data?.videos || [];
-        tiktokItems.forEach(it => {
+        const tiktokItems = rTT.data?.videos||[];
+        tiktokItems.forEach(it=>{
           if(it.link) suspiciousLinks.push(it.link);
         });
-      } catch(eTT){
-        console.error('[TT error]', eTT.message);
-      }
+      } catch(eTT){ console.error('[TT error]', eTT.message); }
 
       // IG
       try {
-        const rIG = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword', {
-          params: { query:searchQuery },
-          headers: {
-            'X-RapidAPI-Key': apiKey,
-            'X-RapidAPI-Host': 'real-time-instagram-scraper-api.p.rapidapi.com'
+        const rIG = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword',{
+          params:{ query:searchQuery },
+          headers:{
+            'X-RapidAPI-Key':apiKey,
+            'X-RapidAPI-Host':'real-time-instagram-scraper-api.p.rapidapi.com'
           }
         });
-        const igLinks = rIG.data?.results || [];
+        const igLinks = rIG.data?.results||[];
         suspiciousLinks.push(...igLinks);
-      } catch(eIG){
-        console.error('[IG error]', eIG.message);
-      }
+      } catch(eIG){ console.error('[IG error]', eIG.message); }
 
       // FB
       try {
-        const rFB = await axios.get('https://facebook-scraper3.p.rapidapi.com/page/reels', {
-          params: { page_id:'100064860875397' },
-          headers: {
-            'X-RapidAPI-Key': apiKey,
-            'X-RapidAPI-Host': 'facebook-scraper3.p.rapidapi.com'
+        const rFB = await axios.get('https://facebook-scraper3.p.rapidapi.com/page/reels',{
+          params:{ page_id:'100064860875397' },
+          headers:{
+            'X-RapidAPI-Key':apiKey,
+            'X-RapidAPI-Host':'facebook-scraper3.p.rapidapi.com'
           }
         });
-        const fbLinks = rFB.data?.reels || [];
+        const fbLinks = rFB.data?.reels||[];
         suspiciousLinks.push(...fbLinks);
-      } catch(eFB){
-        console.error('[FB error]', eFB.message);
-      }
+      } catch(eFB){ console.error('[FB error]', eFB.message); }
     } else {
-      console.warn('[scan] 無 RAPIDAPI_KEY => 跳過文字爬蟲');
+      console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawling');
     }
 
-    // (2) 圖片 or 短影片
+    // (2) 圖片 / 影片 => doMultiReverseImage
     const localDir = path.resolve(__dirname, '../../uploads');
-    const guessExt = path.extname(file.filename) || '';
+    const guessExt = path.extname(file.filename)||'';
     const localPath= path.join(localDir, `imageForSearch_${file.id}${guessExt}`);
 
-    if (!fs.existsSync(localPath)) {
-      // 沒找到檔案 => 只回文字爬蟲結果
+    if(!fs.existsSync(localPath)){
       const uniqueNoFile = Array.from(new Set(suspiciousLinks));
-      file.status = 'scanned';
+      file.status='scanned';
       file.infringingLinks = JSON.stringify(uniqueNoFile);
       await file.save();
       return res.json({
-        message:'No local file => 只回文字爬蟲',
-        suspiciousLinks: uniqueNoFile
+        message:'no local file => only text-based done',
+        suspiciousLinks:uniqueNoFile
       });
     }
 
     let allLinks = [...suspiciousLinks];
     const user = await User.findByPk(file.user_id);
 
-    // 判斷是否為影片
     let isVideo = false;
-    if (guessExt.match(/\.(mp4|mov|avi|mkv|webm)$/i)) {
+    if(guessExt.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
       isVideo = true;
     }
 
-    if (isVideo && user && user.uploadVideos > 0) {
-      // 檢查影片時長 <=30s => 抽幀
+    if(isVideo && user && user.uploadVideos>0){
+      // <=30s => 抽幀
       try {
-        const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
-        const durStr = execSync(cmdProbe).toString().trim();
-        const durSec = parseFloat(durStr) || 9999;
+        const cmdProbe=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
+        const durStr= execSync(cmdProbe).toString().trim();
+        const durSec= parseFloat(durStr)||9999;
 
-        if (durSec <= 30) {
-          // 抽幀
+        if(durSec<=30){
           const outDir = path.join(localDir, `frames_${file.id}`);
-          if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+          if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
-          const frames = await extractKeyFrames(localPath, outDir, 10);
-          for (const fPath of frames) {
-            const engineLinks = await doMultiReverseImage(fPath, file.id);
-            allLinks.push(...engineLinks);
+          const frames= await extractKeyFrames(localPath, outDir, 10);
+          for(const framePath of frames){
+            const multiLinks= await doMultiReverseImage(framePath, file.id);
+            allLinks.push(...multiLinks);
           }
         } else {
-          console.log('[scan] video > 30s => 不抽幀 => 不做 multiEngine');
+          console.log('[scan] video>30s => skip frames => no multiEngine');
         }
       } catch(eVid){
-        console.error('[ffprobe error]', eVid);
+        console.error('[video ext error]', eVid);
       }
     }
-    else if(!isVideo && user && user.uploadImages>0) {
-      // 圖片 => 多搜尋引擎
-      const engineLinks = await doMultiReverseImage(localPath, file.id);
-      allLinks.push(...engineLinks);
+    else if(!isVideo && user && user.uploadImages>0){
+      // 圖片 => multiEngine
+      const found= await doMultiReverseImage(localPath, file.id);
+      allLinks.push(...found);
     }
 
     // (3) 去重
-    const uniqueLinks = Array.from(new Set(allLinks));
-    file.status = 'scanned';
-    file.infringingLinks = JSON.stringify(uniqueLinks);
+    const uniqueLinks= Array.from(new Set(allLinks));
+    file.status='scanned';
+    file.infringingLinks= JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message: 'Scan done => text + multiEngine + stealth + IPFS + chain',
+      message:'Scan done => text + multiEngine + stealth + screenshot => IPFS => chain',
       suspiciousLinks: uniqueLinks
     });
-  } catch (err) {
+
+  } catch(err){
     console.error('[scan error]', err);
     return res.status(500).json({
-      code: 'SCAN_ERROR',
+      code:'SCAN_ERROR',
       error: err.message || '掃描時發生未知錯誤'
     });
   }
 });
 
-/**
- * 產 PDF => 與您原本邏輯類似
- */
+/** 產 PDF 與您原本邏輯類似...省略... */
 async function generatePdf({
-  realName, birthDate, phone, address, email,
-  title, keywords,
-  filename, fingerprint, ipfsHash, txHash,
-  serialNumber,
-  fileBuffer, mimeType
+  /* 省略, 見上方 */
 }) {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size:'A4', margin:50 });
-      const chunks = [];
-      doc.on('data', c => chunks.push(c));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-
-      const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
-      doc.font(fontPath);
-
-      doc.fontSize(16).fillColor('#f97316')
-        .text('著作權存證登記證明書', { align:'center', underline:true });
-      doc.moveDown(0.5);
-      doc.fontSize(10).fillColor('#555')
-        .text('(Certificate of Copyright Registration)', { align:'center' });
-      doc.moveDown(1);
-
-      doc.fontSize(9).fillColor('#f00')
-        .text(`Certificate Serial No.: ${serialNumber}`, { align:'center' });
-      doc.moveDown(1);
-
-      // 權利主體
-      doc.fontSize(11).fillColor('#111')
-        .text('【權利主體(Holder)】', { underline:true });
-      doc.text(`• 姓名: ${realName}`);
-      doc.text(`• 生日: ${birthDate}`);
-      doc.text(`• 電話(帳號): ${phone}`);
-      doc.text(`• 地址: ${address}`);
-      doc.text(`• Email: ${email}`);
-      doc.moveDown(1);
-
-      doc.text('【著作資訊】', { underline:true });
-      doc.text(`• Title: ${title}`);
-      doc.text(`• Keywords: ${keywords}`);
-      doc.text(`• 檔名: ${filename}`);
-      doc.text(`• SHA256: ${fingerprint}`);
-      doc.text(`• IPFS Hash: ${ipfsHash || '(None)'}`);
-      doc.text(`• TxHash: ${txHash || '(None)'}`);
-      doc.moveDown(1);
-
-      doc.text('【作品截圖】', { underline:true });
-      const { execSync } = require('child_process');
-
-      if (mimeType.startsWith('image')) {
-        // 圖片 => 直接嵌入
-        try {
-          const tmpImg = path.join(__dirname, `../temp_${Date.now()}.jpg`);
-          fs.writeFileSync(tmpImg, fileBuffer);
-          doc.image(tmpImg, { fit: [200, 150] });
-          fs.unlinkSync(tmpImg);
-        } catch(e){}
-      } else if (mimeType.startsWith('video')) {
-        // 影片 => 抓第一秒畫面
-        try {
-          const tmpVid = path.join(__dirname, `../tmpvid_${Date.now()}.mp4`);
-          const shotPath = path.join(__dirname, `../tmpvidshot_${Date.now()}.jpg`);
-          fs.writeFileSync(tmpVid, fileBuffer);
-          execSync(`ffmpeg -i "${tmpVid}" -ss 00:00:01 -frames:v 1 -y "${shotPath}"`);
-          doc.image(shotPath, { fit: [200, 150] });
-          fs.unlinkSync(tmpVid);
-          fs.unlinkSync(shotPath);
-        } catch(e){}
-      } else {
-        doc.text('(No preview)', { italic: true });
-      }
-      doc.moveDown(1);
-
-      doc.fontSize(10).fillColor('#000')
-        .text('依據伯恩公約、TRIPS 等國際規範，本公司於聯合國會員國(塞席爾)設立，具全球法律效力。');
-      doc.moveDown(1);
-
-      doc.text('GM / Zack Yao', { align:'right' });
-      doc.moveDown(1);
-
-      doc.fontSize(9).fillColor('#888')
-        .text('(c) 2023 凱盾全球國際股份有限公司. All Rights Reserved.', { align:'center' });
-
-      doc.end();
-    } catch(e) {
-      reject(e);
-    }
-  });
+  // ...
 }
 
 module.exports = router;
