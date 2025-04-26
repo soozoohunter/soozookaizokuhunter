@@ -27,7 +27,8 @@
 
     "puppeteer": "^19.8.5",
     "puppeteer-extra": "^3.3.4",
-    "puppeteer-extra-plugin-stealth": "^2.11.1"
+    "puppeteer-extra-plugin-stealth": "^2.11.1",
 
+    "fluent-ffmpeg": "^2.1.2"  
   }
 }
