@@ -1,125 +1,134 @@
-// frontend/src/pages/ProtectStep4Infringement.jsx
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const Container = styled.div`
+  padding: 2rem;
+  color: #fff;
+  background-color: #111;
   min-height: 100vh;
-  padding: 2rem;
-  background-color: #101010;
-  color: #fff;
 `;
-
-const ContentBox = styled.div`
-  max-width: 600px;
-  margin: 0 auto;
-  background: #1e1e1e;
-  padding: 2rem;
-  border-radius: 8px;
-  border: 2px solid #ff6f00;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
-`;
-
 const Title = styled.h2`
-  color: #ffd700;
+  color: #FFD700;
   margin-bottom: 1rem;
 `;
-
-const InfoText = styled.p`
-  font-size: 0.95rem;
-  line-height: 1.5;
+const InfoBlock = styled.div`
+  background-color: #1e1e1e;
+  border: 2px solid #ff6f00;
+  padding: 1rem;
+  border-radius: 6px;
   margin-bottom: 1rem;
+  word-break: break-all;
+`;
+const ErrorMsg = styled.p`
+  color: red;
 `;
 
-const Highlight = styled.span`
-  color: #f97316;
-  font-weight: bold;
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 1rem;
 `;
 
-const Button = styled.button`
-  background-color: #f97316;
+const NavButton = styled.button`
+  background: #444;
   color: #fff;
-  font-weight: bold;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid #666;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
   cursor: pointer;
-  margin-right: 1rem;
   &:hover {
-    background-color: #ea580c;
+    background: #666;
   }
 `;
 
-export default function ProtectStep4Infringement() {
+export default function ProtectStep3() {
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const [info, setInfo] = useState(null);
+  const [scanResult, setScanResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!state || !state.fileId) {
+    const stored2 = localStorage.getItem('protectStep2');
+    if (!stored2) {
       navigate('/protect/step1');
-    } else {
-      setInfo(state);
-    }
-  }, [state, navigate]);
-
-  if (!info) {
-    return (
-      <Container>
-        <ContentBox>
-          <Title>Oops</Title>
-          <p>無法取得資訊，請從 Step1 開始</p>
-          <Button onClick={() => navigate('/protect/step1')}>Go Step1</Button>
-        </ContentBox>
-      </Container>
-    );
-  }
-
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks } = info;
-
-  const handleDownloadPdf = () => {
-    if (!pdfUrl) {
-      alert('無法找到 PDF URL');
       return;
     }
-    window.open(pdfUrl, '_blank');
+    const data2 = JSON.parse(stored2);
+    doScan(data2.fileId);
+    // eslint-disable-next-line
+  }, []);
+
+  async function doScan(fileId) {
+    try {
+      setLoading(true);
+      setError('');
+      const resp = await fetch(`/api/protect/scan/${fileId}`);
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || '掃描失敗');
+      }
+      setScanResult(data);
+    } catch (err) {
+      console.error('[Step3 scan error]', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleGoBack = () => {
+    // 返回上一頁
+    navigate(-1); // 或 navigate('/protect/step2')
   };
 
-  const handleCheckInfringement = () => {
-    // 回到 Step3 或重新執行 Scan
-    navigate('/protect/step3');
+  const handleGoStep4 = () => {
+    // 前往 Step4，順便將 suspiciousLinks 帶過去
+    if (scanResult) {
+      const { suspiciousLinks = [] } = scanResult;
+      const stored2 = localStorage.getItem('protectStep2');
+      const data2 = stored2 ? JSON.parse(stored2) : {};
+      // 把前面 Step2 取得的 fileId/pdfUrl/fingerprint... 都傳過去
+      // 再加 suspiciousLinks
+      const passState = {
+        ...data2,
+        suspiciousLinks
+      };
+      navigate('/protect/step4', { state: passState });
+    }
   };
 
   return (
     <Container>
-      <ContentBox>
-        <Title>Step 4: Final Result</Title>
-        <InfoText>
-          FileID: <Highlight>{fileId}</Highlight><br/>
-          Fingerprint: <Highlight>{fingerprint}</Highlight><br/>
-          IPFS Hash: <Highlight>{ipfsHash || '(None)'}</Highlight><br/>
-          Tx Hash: <Highlight>{txHash || '(None)'}</Highlight><br/>
-        </InfoText>
+      <Title>Step 3: 侵權偵測 (Scan)</Title>
+      {loading && <p>偵測中，請稍後...</p>}
+      {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        <InfoText>
-          侵權掃描結果：
-          {suspiciousLinks && suspiciousLinks.length > 0 ? (
-            suspiciousLinks.map((link, idx) => (
-              <div key={idx} style={{ margin: '0.25rem 0'}}>
-                <Highlight>{link}</Highlight>
-              </div>
-            ))
+      {scanResult && (
+        <InfoBlock>
+          <p>偵測完成！</p>
+          <p><strong>Suspicious Links:</strong></p>
+          {scanResult.suspiciousLinks?.length ? (
+            <ul>
+              {scanResult.suspiciousLinks.map((link, idx) => (
+                <li key={idx}>
+                  <a href={link} target="_blank" rel="noreferrer" style={{ color: '#4caf50' }}>
+                    {link}
+                  </a>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div style={{ marginTop:'0.5rem' }}>
-              <Highlight>尚未發現可疑連結</Highlight>
-            </div>
+            <p>沒有發現可疑連結</p>
           )}
-        </InfoText>
+        </InfoBlock>
+      )}
 
-        <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
-        <Button onClick={handleCheckInfringement}>查看侵權結果</Button>
-        <Button onClick={() => navigate('/')}>Back to Home</Button>
-      </ContentBox>
+      <ButtonRow>
+        <NavButton onClick={handleGoBack}>← 返回上一頁</NavButton>
+        {scanResult && (
+          <NavButton onClick={handleGoStep4}>查看最終結果 (Step4)</NavButton>
+        )}
+      </ButtonRow>
     </Container>
   );
 }
