@@ -14,15 +14,20 @@ const axios = require('axios');
 const { execSync } = require('child_process');
 const { Op } = require('sequelize');
 
+// Models / Services
 const { User, File } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
+
+// PDFKit
 const PDFDocument = require('pdfkit');
 
+// 抽幀與圖搜
 const { extractKeyFrames } = require('../utils/extractFrames');
 const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
 
+// ====== 上傳限制 ======
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB
@@ -36,6 +41,7 @@ const ALLOW_UNLIMITED = [
 
 /**
  * POST /api/protect/step1
+ * 上傳檔案 => 產生User & File => Fingerprint => IPFS => 區塊鏈 => 產生PDF
  */
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
@@ -46,6 +52,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
+    // 解構表單欄位
     const {
       realName,
       birthDate,
@@ -83,7 +90,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 若為短影片 && 非白名單 => 402
+    // 若為影片且非白名單 => 需付費
     const mimeType = req.file.mimetype;
     const isVideo  = mimeType.startsWith('video');
     const isUnlimited = ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
@@ -95,7 +102,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       });
     }
 
-    // 檢查重複 email/phone
+    // 若非白名單檢查 email/phone 重複
     if (!isUnlimited) {
       const oldUser = await User.findOne({
         where:{ [Op.or]: [{ email }, { phone }] }
@@ -108,7 +115,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       }
     }
 
-    // 建 User
+    // === 建立User ===
     const rawPass   = phone + '@KaiShield';
     const hashedPass= await bcrypt.hash(rawPass, 10);
     const newUser = await User.create({
@@ -124,25 +131,25 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       plan: 'freeTrial'
     });
 
-    // Fingerprint => IPFS => 區塊鏈
+    // === Fingerprint => IPFS => 區塊鏈 ===
     const fileBuf    = fs.readFileSync(req.file.path);
     const fingerprint= fingerprintService.sha256(fileBuf);
 
-    let ipfsHash=null, txHash=null;
+    let ipfsHash = null, txHash = null;
     try {
       ipfsHash = await ipfsService.saveFile(fileBuf);
     } catch(eIPFS){
       console.error('[IPFS error]', eIPFS);
     }
     try {
-      // 注意：若區塊鏈 sender 帳戶沒有足夠的餘額，這裡會拋錯
+      // 區塊鏈存證
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
     } catch(eChain){
       console.error('[Chain error]', eChain);
     }
 
-    // File 紀錄
+    // === File紀錄 ===
     const newFile = await File.create({
       user_id: newUser.id,
       filename: req.file.originalname,
@@ -155,16 +162,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     else newUser.uploadImages++;
     await newUser.save();
 
-    // rename => /uploads/
+    // move tmp => /uploads/
     const ext = path.extname(req.file.originalname) || '';
     const localDir = path.resolve(__dirname, '../../uploads');
-    if(!fs.existsSync(localDir)){
+    if (!fs.existsSync(localDir)) {
       fs.mkdirSync(localDir, { recursive:true });
     }
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
     fs.renameSync(req.file.path, targetPath);
 
-    // 產 PDF（重要！確保真正回傳Buffer）
+    // === 產生 PDF ===
     const pdfBuf = await generatePdf({
       realName,
       birthDate,
@@ -182,15 +189,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       mimeType
     });
 
-    // 將 PDF Buffer 寫到硬碟
-    const pdfFileName = `certificate_${newFile.id}.pdf`;
-    const pdfFilePath = path.join(localDir, pdfFileName);
-    fs.writeFileSync(pdfFilePath, pdfBuf); // 這裡 pdfBuf 一定要是 Buffer
+    // 寫檔
+    const pdfName = `certificate_${newFile.id}.pdf`;
+    const pdfPath = path.join(localDir, pdfName);
+    fs.writeFileSync(pdfPath, pdfBuf);
 
+    // 回傳
     return res.json({
-      message:'上傳成功並建立會員＆PDF！',
+      message: '上傳成功並建立會員＆PDF！',
       fileId: newFile.id,
-      pdfUrl:`/api/protect/certificates/${newFile.id}`,
+      pdfUrl: `/api/protect/certificates/${newFile.id}`,
       fingerprint,
       ipfsHash,
       txHash,
@@ -198,17 +206,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     });
 
   } catch(err) {
-    // 若 multer fileSize 超限 => err.code==='LIMIT_FILE_SIZE'
+    // multer fileSize 超限
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         code: 'FILE_TOO_LARGE',
-        error: '檔案過大，請壓縮或縮小檔案再上傳'
+        error: '檔案過大，請壓縮或縮小後再上傳'
       });
     }
-
     console.error('[protect step1 error]', err);
     return res.status(500).json({
-      code:'STEP1_ERROR',
+      code: 'STEP1_ERROR',
       error: err.message || '上傳時發生未知錯誤'
     });
   }
@@ -216,6 +223,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 /**
  * GET /api/protect/certificates/:fileId
+ * 下載 PDF 證書
  */
 router.get('/certificates/:fileId', async (req, res)=>{
   try {
@@ -224,7 +232,7 @@ router.get('/certificates/:fileId', async (req, res)=>{
 
     if(!fs.existsSync(pdfPath)){
       return res.status(404).json({
-        code:'PDF_NOT_FOUND',
+        code: 'PDF_NOT_FOUND',
         error:'PDF 證書不存在，可能尚未產生'
       });
     }
@@ -232,7 +240,7 @@ router.get('/certificates/:fileId', async (req, res)=>{
   } catch(err){
     console.error('[Download PDF error]', err);
     return res.status(500).json({
-      code:'DOWNLOAD_ERROR',
+      code: 'DOWNLOAD_ERROR',
       error: err.message || '無法下載 PDF'
     });
   }
@@ -240,13 +248,14 @@ router.get('/certificates/:fileId', async (req, res)=>{
 
 /**
  * GET /api/protect/scan/:fileId
+ * 圖片 / 影片 => 抽幀 => 以圖搜圖 => IPFS => 區塊鏈
  */
 router.get('/scan/:fileId', async (req, res)=>{
   try {
     const file = await File.findByPk(req.params.fileId);
     if(!file){
       return res.status(404).json({
-        code:'FILE_NOT_FOUND',
+        code: 'FILE_NOT_FOUND',
         error:'找不到此檔案或 FileID'
       });
     }
@@ -254,10 +263,9 @@ router.get('/scan/:fileId', async (req, res)=>{
     let suspiciousLinks = [];
     const apiKey = process.env.RAPIDAPI_KEY;
 
-    // (1) 文字爬蟲
+    // (1) 文字爬蟲範例
     if(apiKey){
       const searchQuery = file.filename || file.fingerprint || 'default';
-      // Tiktok
       try {
         const rTT = await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
           params:{ keywords: searchQuery, region:'us', count:'5' },
@@ -271,49 +279,22 @@ router.get('/scan/:fileId', async (req, res)=>{
           if(it.link) suspiciousLinks.push(it.link);
         });
       } catch(eTT){ console.error('[TT error]', eTT.message); }
-
-      // IG
-      try {
-        const rIG = await axios.get('https://real-time-instagram-scraper-api.p.rapidapi.com/v1/reels_by_keyword',{
-          params:{ query:searchQuery },
-          headers:{
-            'X-RapidAPI-Key':apiKey,
-            'X-RapidAPI-Host':'real-time-instagram-scraper-api.p.rapidapi.com'
-          }
-        });
-        const igLinks = rIG.data?.results||[];
-        suspiciousLinks.push(...igLinks);
-      } catch(eIG){ console.error('[IG error]', eIG.message); }
-
-      // FB
-      try {
-        const rFB = await axios.get('https://facebook-scraper3.p.rapidapi.com/page/reels',{
-          params:{ page_id:'100064860875397' },
-          headers:{
-            'X-RapidAPI-Key':apiKey,
-            'X-RapidAPI-Host':'facebook-scraper3.p.rapidapi.com'
-          }
-        });
-        const fbLinks = rFB.data?.reels||[];
-        suspiciousLinks.push(...fbLinks);
-      } catch(eFB){ console.error('[FB error]', eFB.message); }
+      // ... IG, FB
     } else {
       console.warn('[scan] No RAPIDAPI_KEY => skip text-based crawling');
     }
 
     // (2) 圖片 / 影片 => doMultiReverseImage
     const localDir = path.resolve(__dirname, '../../uploads');
-    const guessExt = path.extname(file.filename)||'';
-    const localPath= path.join(localDir, `imageForSearch_${file.id}${guessExt}`);
-
+    const ext = path.extname(file.filename)||'';
+    const localPath= path.join(localDir, `imageForSearch_${file.id}${ext}`);
     if(!fs.existsSync(localPath)){
-      const uniqueNoFile = Array.from(new Set(suspiciousLinks));
       file.status='scanned';
-      file.infringingLinks = JSON.stringify(uniqueNoFile);
+      file.infringingLinks = JSON.stringify([]);
       await file.save();
       return res.json({
         message:'no local file => only text-based done',
-        suspiciousLinks:uniqueNoFile
+        suspiciousLinks:[]
       });
     }
 
@@ -321,12 +302,12 @@ router.get('/scan/:fileId', async (req, res)=>{
     const user = await User.findByPk(file.user_id);
 
     let isVideo = false;
-    if(guessExt.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
+    if(ext.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
       isVideo = true;
     }
 
+    // 若是影片且長度<=30s => 抽幀
     if(isVideo && user && user.uploadVideos>0){
-      // <=30s => 抽幀
       try {
         const cmdProbe=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
         const durStr= execSync(cmdProbe).toString().trim();
@@ -335,33 +316,30 @@ router.get('/scan/:fileId', async (req, res)=>{
         if(durSec<=30){
           const outDir = path.join(localDir, `frames_${file.id}`);
           if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
-
           const frames= await extractKeyFrames(localPath, outDir, 10);
           for(const framePath of frames){
-            const multiLinks= await doMultiReverseImage(framePath, file.id);
-            allLinks.push(...multiLinks);
+            const found= await doMultiReverseImage(framePath, file.id);
+            allLinks.push(...found);
           }
-        } else {
-          console.log('[scan] video>30s => skip frames => no multiEngine');
         }
       } catch(eVid){
         console.error('[video ext error]', eVid);
       }
     }
     else if(!isVideo && user && user.uploadImages>0){
-      // 圖片 => multiEngine
+      // 直接對圖片跑 reverseImage
       const found= await doMultiReverseImage(localPath, file.id);
       allLinks.push(...found);
     }
 
-    // (3) 去重
+    // 去重
     const uniqueLinks= Array.from(new Set(allLinks));
     file.status='scanned';
     file.infringingLinks= JSON.stringify(uniqueLinks);
     await file.save();
 
     return res.json({
-      message:'Scan done => text + multiEngine + stealth + screenshot => IPFS => chain',
+      message:'Scan done => multiEngine => IPFS => chain',
       suspiciousLinks: uniqueLinks
     });
 
@@ -375,9 +353,7 @@ router.get('/scan/:fileId', async (req, res)=>{
 });
 
 /**
- * 產生 PDF 函式：回傳 Buffer，避免 undefined
- * @param {Object} params
- * @returns {Promise<Buffer>}
+ * 產生 PDF：嵌入繁體中文 & 圓形印章
  */
 async function generatePdf({
   realName,
@@ -397,27 +373,37 @@ async function generatePdf({
 }) {
   return new Promise((resolve, reject) => {
     try {
+      // 1) 註冊繁體中文字體
+      const fontsDir = path.join(__dirname, '../../fonts');
+      const wenKai = path.join(fontsDir, 'LXGWWenKaiMonoTC-Bold.ttf');
+      // 如果您另外有王羲之字體 => 
+      // const wangXizhi = path.join(fontsDir, 'WangXizhi.ttf');
+
+      // 若檔案存在 => register
+      if (fs.existsSync(wenKai)) {
+        PDFDocument.prototype.registerFont('KaiKaiChinese', wenKai);
+      }
+      // if (fs.existsSync(wangXizhi)) {
+      //   PDFDocument.prototype.registerFont('KaiKaiCalligraphy', wangXizhi);
+      // }
+
+      // 2) 建立 PDFDocument
       const doc = new PDFDocument({
         size: 'A4',
         margin: 50
       });
       const buffers = [];
 
-      // 監聽 PDF 資料流
-      doc.on('data', (chunk) => {
-        buffers.push(chunk);
-      });
-      doc.on('end', () => {
-        const pdfData = Buffer.concat(buffers);
-        resolve(pdfData);
-      });
-      doc.on('error', (err) => {
-        reject(err);
-      });
+      doc.on('data', (chunk) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', (err) => reject(err));
 
-      doc.fontSize(18).text('KaiKaiShield 原創著作證明書', { align: 'center' });
+      // 3) 使用繁體中文字體
+      // 如果沒有成功 register，這裡會 fallback 預設字型
+      doc.font('KaiKaiChinese').fontSize(18).text('KaiKaiShield 原創著作證明書', { align: 'center' });
       doc.moveDown();
 
+      // 4) 內容
       doc.fontSize(12).text(`真實姓名: ${realName}`);
       doc.text(`生日: ${birthDate}`);
       doc.text(`手機: ${phone}`);
@@ -435,9 +421,18 @@ async function generatePdf({
       doc.text(`檔案型態: ${mimeType}`);
       doc.text(`產生日期: ${new Date().toLocaleString()}`);
 
-      // 若有需要，可以在 PDF 最後加一些聲明或條款
       doc.moveDown();
       doc.fontSize(10).text('本文件由 KaiKaiShield 系統自動產生，僅作為原創著作證明。');
+
+      // 5) 插入圓形印章 stamp.png
+      const stampPath = path.join(__dirname, '../../public/stamp.png');
+      if (fs.existsSync(stampPath)) {
+        doc.image(stampPath, {
+          fit: [100, 100],
+          align: 'center',
+          valign: 'center'
+        });
+      }
 
       doc.end();
     } catch (err) {
