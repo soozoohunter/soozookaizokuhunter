@@ -17,18 +17,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 2) 複製 package.json + package-lock.json (或 yarn.lock) 並安裝依賴
+# 2) 複製 package.json + package-lock.json 並安裝依賴
 COPY package*.json ./
 RUN npm install
 
-# 3) 複製其餘專案檔 (包含 routes, utils, fonts 目錄等)
+# 3) 複製專案其他檔案 (包含 routes, utils, fonts 目錄等)
 COPY . .
 
 # Puppeteer 設定：使用系統安裝好的 /usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# ★ 新增：NVIDIA GPU 加速用
+# ★ GPU 加速設定 (nvidia driver)
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
 
@@ -40,6 +40,6 @@ CMD ["npm", "run", "start"]
 # 1) docker compose build --no-cache suzoo_express
 # 2) docker compose up -d
 #
-# 或若您想直接測試：
-#   docker build -t suzoo_express -f express/Dockerfile .
+# 若需單獨測試此映像，可在 /express 執行:
+#   docker build -t suzoo_express -f Dockerfile .
 #   docker run --gpus all -p 3000:3000 suzoo_express
