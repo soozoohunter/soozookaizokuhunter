@@ -8,8 +8,9 @@
  * - 產出 PDF（上傳證書 + 侵權掃描報告）
  * - 在 PDF 下方添加公司名稱「© 2025 凱盾全球國際股份有限公司 All Rights Reserved.」
  * - 在證書中顯示 SiriNumber 欄位 + 實際 SerialNumber
- * - Stamp (stamp.png) 旋轉 45°、圓形顯示
+ * - 圓形圖章 (stamp.png) 旋轉 45°
  * - 修正 Bing / TinEye 檔案上傳 Selector
+ * - 修正 EXDEV: cross-device link not permitted (使用 copy + unlink)
  *************************************************************/
 
 const express = require('express');
@@ -35,7 +36,7 @@ if (ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-// Multer 設定 (上傳限制100MB)
+// Multer 設定 (上傳限制100MB) => 暫存檔放在容器內的 uploads/ 資料夾
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 100 * 1024 * 1024 }
@@ -151,7 +152,7 @@ async function generateCertificatePDF(data, outputPath) {
           left: 0;
           width: 100px;
           opacity: 0.9;
-          transform: rotate(45deg);
+          transform: rotate(45deg); 
           border-radius: 50%;
         }
         .field {
@@ -237,7 +238,7 @@ async function generateCertificatePDF(data, outputPath) {
 /**
  * 產生「掃描報告」PDF
  * - 底部顯示公司名稱
- * - 同樣新增 stamp.png 旋轉45度 + 圓形 (右上角)
+ * - 同樣 stamp.png (右上角、旋轉45度、圓形)
  */
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outPath) {
   const browser = await puppeteer.launch({
@@ -259,7 +260,6 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outPat
       }
     `;
 
-  // stamp 放在右上角
   const htmlContent = `
   <html>
     <head>
@@ -434,8 +434,22 @@ router.post('/step1', upload.single('file'), async(req, res)=>{
     const ext = path.extname(req.file.originalname)||'';
     const localDir = path.resolve(__dirname, '../../uploads');
     if(!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive:true });
+
+    // 用 path.join 生成最終目標
     const targetPath = path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
-    fs.renameSync(req.file.path, targetPath);
+
+    // ====> 這裡加一個「若 EXDEV => copy + unlink」的防呆 <====
+    try {
+      fs.renameSync(req.file.path, targetPath);
+    } catch(renameErr) {
+      if(renameErr.code === 'EXDEV') {
+        // 無法直接 rename，就 copy 再 unlink
+        fs.copyFileSync(req.file.path, targetPath);
+        fs.unlinkSync(req.file.path);
+      } else {
+        throw renameErr;
+      }
+    }
 
     // 影片(<=30s) => 抽中間幀
     let finalPreviewPath=null;
@@ -747,7 +761,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     const file=await File.findByPk(req.params.fileId);
     if(!file){ return res.status(404).json({ code:'FILE_NOT_FOUND', error:'無此FileID' }); }
 
-    // 1) TikTok
+    // 1) TikTok 文字爬蟲 (需 RAPIDAPI_KEY)
     let suspiciousLinks=[];
     if(process.env.RAPIDAPI_KEY){
       try{
@@ -770,7 +784,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       console.warn('[TikTok] No RAPIDAPI_KEY => skip');
     }
 
-    // 2) aggregator + fallback
+    // 2) aggregator + fallback (圖搜)
     const localDir=path.resolve(__dirname, '../../uploads');
     const ext=path.extname(file.filename)||'';
     const localPath=path.join(localDir,`imageForSearch_${file.id}${ext}`);
@@ -788,6 +802,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     let isVideo=false;
     if(ext.match(/\.(mp4|mov|avi|mkv|webm)$/i)) isVideo=true;
 
+    // 如果是短影片 (<=30秒)，嘗試抽幀多次圖搜
     if(isVideo){
       console.log('[Scan] short video => frames...');
       try{
@@ -801,7 +816,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 
           for(const framePath of frames){
             console.log('[Scan] aggregator + fallback =>', path.basename(framePath));
-            // aggregatorFirst=true => 先試 aggregator (需上傳 imageUrl？)
+            // aggregatorFirst=true => 先試 aggregator (如果要上傳到外部 => aggregatorImageUrl)
             let aggregatorUrl='';
             let engineRes=await doSearchEngines(framePath,true,aggregatorUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
@@ -812,7 +827,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     } else {
       console.log('[Scan] single image => aggregator + fallback');
-      let aggregatorUrl=''; // 若您想先上傳 Cloudinary => aggregatorUrl=...
+      let aggregatorUrl=''; 
       let engineRes=await doSearchEngines(localPath,true,aggregatorUrl);
       allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
     }
@@ -826,7 +841,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     const scanPdfName=`scanReport_${file.id}.pdf`;
     const scanPdfPath=path.join(localDir, scanPdfName);
 
-    // stamp.png (同上)
+    // stamp.png (若有就帶入)
     const stampImagePath = path.join(__dirname, '../../public/stamp.png');
     await generateScanPDF(
       { file, suspiciousLinks:uniqueLinks, stampImagePath: fs.existsSync(stampImagePath)? stampImagePath:null },
