@@ -1,10 +1,13 @@
 /*************************************************************
  * express/routes/protect.js
  *
- * - Puppeteer 新頭less模式 + 內嵌 Base64 字型，避免 Docker 無字型時 PDF 出現亂碼
- * - 三保險 fallback (Cloudinary + GinifabEngine => 失敗 => multiEngineReverseImage)
- * - TikTok 爬蟲 + console.log，方便除錯
+ * - Puppeteer 新headless模式 + 內嵌 Base64 字型，避免 Docker 無字型時 PDF 出現亂碼
+ * - Ginifab Aggregator + fallback to Direct Engines (Bing/TinEye/Baidu)
+ * - TikTok 文字爬蟲
+ * - 影片抽幀
+ * - 產出 PDF（上傳證書 + 侵權掃描報告）
  *************************************************************/
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -21,41 +24,28 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const { extractKeyFrames } = require('../utils/extractFrames');
 
-// ffmpeg
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 if (ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-// ==================== Multer 設定 =====================
+// Multer 設定
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB
 });
 
-// ==================== 白名單 =====================
+// 白名單
 const ALLOW_UNLIMITED = [
   '0900296168',
   'jeffqqm@gmail.com'
 ];
 
-// ==================== 引入搜尋工具 =====================
-// (A) 您原先的多引擎搜圖 (直接 Bing/TinEye/Baidu)
-const { doMultiReverseImage } = require('../utils/multiEngineReverseImage');
-
-// (B) 若您已建立 scanFileWithFallback，可在此載入
-//     注意路徑請配合您的實際檔案位置
-const { scanFileWithFallback } = require('../utils/scanFileWithFallback');
-
-// ==================== Puppeteer 產 PDF 設定 =====================
-// 注意：下面 base64TTF 請換成您自己的 TTF 檔案 (NotoSansTC 之類) 的完整 Base64 字串
-//      若您在 Dockerfile 中已安裝繁體中文字型，也可改回 file://${path} 形式。
-//
-// 此處僅示範：將 TTF 文件讀取成 base64 內嵌，可避免 Docker 內沒裝字型的亂碼問題。
-// 您可以自行將 NotoSansTC.woff2 轉 base64 也行；TTF 也可。
+// ======== Puppeteer / PDF 產生相關 ========
 let base64TTF = ''; 
 try {
+  // 您若有自己的字型，可換檔名
   const fontBuffer = fs.readFileSync(path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf'));
   base64TTF = fontBuffer.toString('base64');
   console.log('[Font] Loaded NotoSansTC-VariableFont_wght.ttf as base64');
@@ -63,7 +53,6 @@ try {
   console.error('[Font] Loading error =>', eFont);
 }
 
-// Puppeteer (改用 headless: 'new'，避免舊版 deprecation)
 const puppeteer = require('puppeteer');
 
 /**
@@ -77,13 +66,13 @@ async function generateCertificatePDF(data, outputPath) {
   } = data;
 
   let previewImgTag = '';
-  // 如果是圖片 => base64 直接帶
+  // 圖片 => base64
   if (mimeType && mimeType.startsWith('image')) {
     const imgExt = path.extname(filePath).slice(1);
     const imgData = fs.readFileSync(filePath).toString('base64');
     previewImgTag = `<img src="data:image/${imgExt};base64,${imgData}" style="max-width: 50%; margin:20px auto; display:block;" alt="Preview Image">`;
-  } 
-  // 如果是影片 => 擷取中間幀
+  }
+  // 影片 => 擷取中間幀
   else if (mimeType && mimeType.startsWith('video')) {
     const thumbDir = path.join(__dirname, '../../uploads/tmp');
     if(!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive:true });
@@ -108,18 +97,15 @@ async function generateCertificatePDF(data, outputPath) {
     }
   }
 
-  // *** 內嵌 Base64 字型，避免亂碼 ***
+  // 內嵌 base64 字型
   const embeddedFontCSS = base64TTF
     ? `
       @font-face {
         font-family: "NotoSansTCVar";
         src: url("data:font/ttf;base64,${base64TTF}") format("truetype");
-        font-weight: normal;
-        font-style: normal;
       }
     `
     : `
-      /* 若 font base64 載入失敗，就 fallback 預設系統字型 */
       @font-face {
         font-family: "NotoSansTCVar", sans-serif;
       }
@@ -186,7 +172,7 @@ async function generateCertificatePDF(data, outputPath) {
   `;
 
   const browser = await puppeteer.launch({
-    headless: 'new',  // 指定 new headless
+    headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   const page = await browser.newPage();
@@ -205,12 +191,11 @@ async function generateCertificatePDF(data, outputPath) {
  */
 async function generateScanPDF({ file, suspiciousLinks }, outPath) {
   const browser = await puppeteer.launch({
-    headless: 'new', // 同樣使用新 headless
+    headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   const page = await browser.newPage();
 
-  // 同樣內嵌 base64 字型
   const embeddedFontCSS = base64TTF
     ? `
       @font-face {
@@ -265,10 +250,10 @@ async function generateScanPDF({ file, suspiciousLinks }, outPath) {
   await browser.close();
 }
 
-// ==================== /step1 上傳檔案 + Fingerprint + PDF =====================
+// ==================== step1 上傳檔案 + Fingerprint + PDF =====================
 router.post('/step1', upload.single('file'), async (req, res) => {
   try {
-    if(!req.file){
+    if(!req.file) {
       return res.status(400).json({ code:'NO_FILE_OR_TOO_BIG', error:'請上傳檔案或檔案過大' });
     }
 
@@ -297,7 +282,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const oldUser = await User.findOne({
       where: { [Op.or]: [{ email }, { phone }] }
     });
-    if(oldUser){
+    if(oldUser) {
       finalUser = oldUser;
     } else {
       const rawPass = phone + '@KaiShield';
@@ -308,7 +293,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         email, phone,
         password: hashedPass,
         realName, birthDate, address,
-        role: 'user', plan: 'freeTrial'
+        role: 'user',
+        plan: 'freeTrial'
       });
     }
 
@@ -318,8 +304,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     // fingerprint 重複
     const existFile = await File.findOne({ where: { fingerprint } });
-    if(existFile){
-      if(isUnlimited){
+    if(existFile) {
+      if(isUnlimited) {
         // 白名單允許重複 -> 回傳舊紀錄
         fs.unlinkSync(req.file.path);
         return res.json({
@@ -341,16 +327,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
 
     // IPFS & 區塊鏈
-    let ipfsHash=null, txHash=null;
+    let ipfsHash = null, txHash = null;
     try {
       ipfsHash = await ipfsService.saveFile(fileBuf);
-    } catch(eIPFS){
+    } catch(eIPFS) {
       console.error('[IPFS error]', eIPFS);
     }
     try {
       const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
       txHash = receipt?.transactionHash || null;
-    } catch(eChain){
+    } catch(eChain) {
       console.error('[Chain error]', eChain);
     }
 
@@ -361,7 +347,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash: txHash,
-      status:'pending'
+      status: 'pending'
     });
     if(isVideo) finalUser.uploadVideos++;
     else finalUser.uploadImages++;
@@ -376,21 +362,21 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     // 影片 & 長度<=30s => 抽中間幀
     let finalPreviewPath = null;
-    if(isVideo){
+    if(isVideo) {
       try {
         const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${targetPath}"`;
-        const durSec = parseFloat(execSync(cmdProbe).toString().trim())||9999;
+        const durSec = parseFloat(execSync(cmdProbe).toString().trim()) || 9999;
         if(durSec <= 30) {
           const tmpFrameDir = path.join(localDir, 'tmpFrames');
           if(!fs.existsSync(tmpFrameDir)) fs.mkdirSync(tmpFrameDir);
           const outThumbPath = path.join(tmpFrameDir, `thumb_${newFile.id}.png`);
           const timeSec = Math.floor(durSec/2);
           execSync(`ffmpeg -i "${targetPath}" -ss ${timeSec} -frames:v 1 "${outThumbPath}"`);
-          if(fs.existsSync(outThumbPath)){
+          if(fs.existsSync(outThumbPath)) {
             finalPreviewPath = outThumbPath;
           }
         }
-      } catch(eVid){
+      } catch(eVid) {
         console.error('[Video middle frame error]', eVid);
       }
     } else {
@@ -422,7 +408,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     const defaultPassword = oldUser ? null : (phone + '@KaiShield');
     return res.json({
-      message:'上傳成功並完成 PDF！',
+      message: '上傳成功並完成 PDF！',
       fileId: newFile.id,
       pdfUrl: `/api/protect/certificates/${newFile.id}`,
       fingerprint,
@@ -436,31 +422,269 @@ router.post('/step1', upload.single('file'), async (req, res) => {
       return res.status(413).json({ code:'FILE_TOO_LARGE', error:'檔案過大' });
     }
     console.error('[step1 error]', err);
-    return res.status(500).json({ code:'STEP1_ERROR', error: err.message||'未知錯誤' });
+    return res.status(500).json({ code:'STEP1_ERROR', error: err.message || '未知錯誤' });
   }
 });
 
 /***************************************************
  * GET /certificates/:fileId => 下載 PDF 證書
  ***************************************************/
-router.get('/certificates/:fileId', async (req,res)=>{
+router.get('/certificates/:fileId', async (req, res) => {
   try {
     const localDir = path.resolve(__dirname, '../../uploads');
     const pdfPath = path.join(localDir, `certificate_${req.params.fileId}.pdf`);
-    if(!fs.existsSync(pdfPath)){
+    if(!fs.existsSync(pdfPath)) {
       return res.status(404).json({ code:'PDF_NOT_FOUND', error:'PDF 證書不存在' });
     }
     res.download(pdfPath, `KaiKaiShield_Certificate_${req.params.fileId}.pdf`);
-  } catch(err){
+  } catch(err) {
     console.error('[Download PDF error]', err);
     return res.status(500).json({ code:'DOWNLOAD_ERROR', error: err.message });
   }
 });
 
 /***************************************************
- * /api/protect/scan/:fileId => 多引擎搜圖 + 文字爬蟲 + 產 PDF 報告
+ * /api/protect/scan/:fileId => 
+ * A) TikTok文字爬蟲 + 
+ * B) 先嘗試 Ginifab Aggregator => 若失敗 => fallback (Bing/TinEye/Baidu) 
+ * C) 如果是短影音 => 抽每個幀做搜索
+ * D) 產 PDF 報告
  ***************************************************/
-router.get('/scan/:fileId', async (req,res)=>{
+
+// ====== 以下為同檔案內部 "以圖搜圖" 整合版 ======
+
+// 1) aggregator: Ginifab
+async function aggregatorSearchGinifab(browser, imageUrl) {
+  const results = {
+    bing: { success:false, links:[], screenshot:'' },
+    tineye: { success:false, links:[], screenshot:'' },
+    baidu: { success:false, links:[], screenshot:'' }
+  };
+
+  // 三次重試
+  for (let attempt=1; attempt<=3; attempt++) {
+    let page;
+    try {
+      page = await browser.newPage();
+      await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
+        waitUntil:'domcontentloaded', timeout:15000
+      });
+      await page.waitForTimeout(1000);
+
+      // 點擊「指定圖片網址」
+      await page.evaluate(() => {
+        const link = [...document.querySelectorAll('a')]
+          .find(a => a.innerText.includes('指定圖片網址'));
+        if (link) link.click();
+      });
+      await page.waitForSelector('input[type=text]', { timeout:8000 });
+      await page.type('input[type=text]', imageUrl, { delay:50 });
+      await page.waitForTimeout(800);
+
+      // 順序 Bing / TinEye / Baidu
+      const engineList = [
+        { name:'bing', regex:/必應|Bing/i },
+        { name:'tineye', regex:/錫眼睛|TinEye/i },
+        { name:'baidu', regex:/百度|Baidu/i }
+      ];
+
+      for (const eng of engineList) {
+        try {
+          const newPagePromise = new Promise(resolve => {
+            browser.once('targetcreated', t => resolve(t.page()));
+          });
+          // 點擊 => new tab
+          await page.evaluate((rgx)=>{
+            const link = [...document.querySelectorAll('a')]
+              .find(a => new RegExp(rgx, 'i').test(a.innerText));
+            if(link) link.click();
+          }, eng.regex.source);
+
+          const popupPage = await newPagePromise;
+          await popupPage.bringToFront();
+          await popupPage.waitForTimeout(3000);
+
+          const shotPath = path.join('uploads', `${eng.name}_via_ginifab_${Date.now()}.png`);
+          await popupPage.screenshot({ path:shotPath, fullPage:true }).catch(()=>{});
+
+          // 收集前5
+          let hrefs = await popupPage.$$eval('a', as => as.map(a=>a.href));
+          hrefs = hrefs.filter(h => h && !h.includes('ginifab.com') &&
+                                       !h.includes('bing.com') &&
+                                       !h.includes('tineye.com') &&
+                                       !h.includes('baidu.com'));
+          let top5 = hrefs.slice(0, 5);
+          results[eng.name] = { success:true, links:top5, screenshot:shotPath };
+          await popupPage.close();
+        } catch(subErr){
+          console.error('[Ginifab aggregator sub-engine fail]', eng.name, subErr);
+        }
+      }
+      await page.close();
+      break; // aggregator成功 => 結束重試
+    } catch(err){
+      console.error('[aggregator ginifab attempt]', attempt, err);
+      if(page) await page.close().catch(()=>{});
+    }
+  }
+  return results;
+}
+
+// 2) Direct Bing
+async function directSearchBing(browser, imagePath) {
+  let ret = { success:false, links:[], screenshot:'' };
+  for(let attempt=1; attempt<=3; attempt++){
+    let page;
+    try {
+      page = await browser.newPage();
+      await page.goto('https://www.bing.com/images',{ waitUntil:'domcontentloaded', timeout:15000 });
+      await page.waitForTimeout(1000);
+      // 觸發檔案上傳
+      const [fileChooser] = await Promise.all([
+        page.waitForFileChooser(),
+        page.click('#sb_sbi')
+      ]);
+      await fileChooser.accept([imagePath]);
+      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
+      await page.waitForTimeout(2000);
+      const shotPath = path.join('uploads', `bing_direct_${Date.now()}.png`);
+      await page.screenshot({ path:shotPath, fullPage:true }).catch(()=>{});
+
+      let links = await page.$$eval('a', as => as.map(a=>a.href));
+      links = links.filter(l => l && !l.includes('bing.com')).slice(0,5);
+      ret = { success:true, links, screenshot:shotPath };
+      await page.close();
+      break; 
+    } catch(err) {
+      console.error('[Direct Bing attempt]', attempt, err);
+      if(page) await page.close().catch(()=>{});
+    }
+  }
+  return ret;
+}
+
+// 3) Direct TinEye
+async function directSearchTinEye(browser, imagePath) {
+  let ret = { success:false, links:[], screenshot:'' };
+  for(let attempt=1; attempt<=3; attempt++){
+    let page;
+    try {
+      page = await browser.newPage();
+      await page.goto('https://tineye.com/',{ waitUntil:'domcontentloaded', timeout:15000 });
+      const fileInput = await page.waitForSelector('input[type=file]', {timeout:8000});
+      await fileInput.uploadFile(imagePath);
+      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
+      await page.waitForTimeout(2000);
+      const shotPath = path.join('uploads', `tineye_direct_${Date.now()}.png`);
+      await page.screenshot({ path:shotPath, fullPage:true }).catch(()=>{});
+
+      let links = await page.$$eval('a', as => as.map(a=>a.href));
+      links = links.filter(l => l && !l.includes('tineye.com')).slice(0,5);
+      ret = { success:true, links, screenshot:shotPath };
+      await page.close();
+      break;
+    } catch(err){
+      console.error('[Direct TinEye attempt]', attempt, err);
+      if(page) await page.close().catch(()=>{});
+    }
+  }
+  return ret;
+}
+
+// 4) Direct Baidu
+async function directSearchBaidu(browser, imagePath) {
+  let ret = { success:false, links:[], screenshot:'' };
+  for(let attempt=1; attempt<=3; attempt++){
+    let page;
+    try {
+      page = await browser.newPage();
+      await page.goto('https://image.baidu.com/', { waitUntil:'domcontentloaded', timeout:15000 });
+      await page.waitForTimeout(1000);
+      // 點相機 => 上傳
+      const cameraBtn = await page.waitForSelector('span.soutu-btn', {timeout:8000});
+      await cameraBtn.click();
+      const fileInput = await page.waitForSelector('input#uploadImg, input[type=file]',{timeout:8000});
+      await fileInput.uploadFile(imagePath);
+      await page.waitForTimeout(5000);
+      const shotPath = path.join('uploads', `baidu_direct_${Date.now()}.png`);
+      await page.screenshot({ path:shotPath, fullPage:true }).catch(()=>{});
+
+      let links = await page.$$eval('a', as=> as.map(a=>a.href));
+      links = links.filter(l => l && !l.includes('baidu.com')).slice(0,5);
+      ret = { success:true, links, screenshot:shotPath };
+      await page.close();
+      break;
+    } catch(err){
+      console.error('[Direct Baidu attempt]', attempt, err);
+      if(page) await page.close().catch(()=>{});
+    }
+  }
+  return ret;
+}
+
+/**
+ * 整合「aggregator + fallback」的搜圖
+ * @param {string} localFilePath - 本機圖片路徑
+ * @param {boolean} aggregatorFirst - 是否優先走 Ginifab (true)
+ * @param {string} aggregatorImageUrl - 若 aggregator 要使用的圖片URL (可來自 Cloudinary)
+ * @returns {Object} => { bing: {links, screenshot}, tineye: {...}, baidu: {...} }
+ */
+async function doSearchEngines(localFilePath, aggregatorFirst, aggregatorImageUrl='') {
+  const puppeteerBrowser = await puppeteer.launch({
+    headless:true,
+    args:['--no-sandbox','--disable-setuid-sandbox']
+  });
+
+  let final = {
+    bing: { links:[], screenshot:'', success:false },
+    tineye: { links:[], screenshot:'', success:false },
+    baidu: { links:[], screenshot:'', success:false }
+  };
+
+  if (aggregatorFirst && aggregatorImageUrl) {
+    // 先嘗試 aggregator
+    const aggregatorResult = await aggregatorSearchGinifab(puppeteerBrowser, aggregatorImageUrl);
+    // 若三者中有任何成功，就直接使用
+    const successCount = ['bing','tineye','baidu'].filter(n => aggregatorResult[n].success).length;
+    if (successCount>0) {
+      final.bing = aggregatorResult.bing;
+      final.tineye = aggregatorResult.tineye;
+      final.baidu = aggregatorResult.baidu;
+      // 如果其中有失敗也可 fallback
+      if (!aggregatorResult.bing.success || !aggregatorResult.tineye.success || !aggregatorResult.baidu.success) {
+        // fallback 只對「失敗的」再個別查
+        if(!aggregatorResult.bing.success) {
+          const rBing = await directSearchBing(puppeteerBrowser, localFilePath);
+          final.bing = rBing;
+        }
+        if(!aggregatorResult.tineye.success) {
+          const rTinEye = await directSearchTinEye(puppeteerBrowser, localFilePath);
+          final.tineye = rTinEye;
+        }
+        if(!aggregatorResult.baidu.success) {
+          const rBaidu = await directSearchBaidu(puppeteerBrowser, localFilePath);
+          final.baidu = rBaidu;
+        }
+      }
+      await puppeteerBrowser.close();
+      return final;
+    }
+    // aggregator 整體都沒成功 => fallback
+  }
+
+  // fallback => 直接 bing / tineye / baidu
+  const rBing = await directSearchBing(puppeteerBrowser, localFilePath);
+  const rTinEye = await directSearchTinEye(puppeteerBrowser, localFilePath);
+  const rBaidu = await directSearchBaidu(puppeteerBrowser, localFilePath);
+  final.bing = rBing;
+  final.tineye = rTinEye;
+  final.baidu = rBaidu;
+  await puppeteerBrowser.close();
+  return final;
+}
+
+// ========== /scan/:fileId 路由：多引擎搜圖 + 文字爬蟲 + 產 PDF ==========
+router.get('/scan/:fileId', async (req, res) => {
   try {
     const file = await File.findByPk(req.params.fileId);
     if(!file) {
@@ -470,7 +694,7 @@ router.get('/scan/:fileId', async (req,res)=>{
     // A) 文字爬蟲 (TikTok)
     let suspiciousLinks = [];
     const apiKey = process.env.RAPIDAPI_KEY;
-    if(apiKey){
+    if(apiKey) {
       try {
         const searchQuery = file.filename || file.fingerprint || 'default';
         console.log('[TikTok] start searching =>', searchQuery);
@@ -491,12 +715,12 @@ router.get('/scan/:fileId', async (req,res)=>{
       console.warn('[TikTok] No RAPIDAPI_KEY provided, skip TikTok search');
     }
 
-    // B) 多引擎圖搜
+    // B) 準備多引擎圖搜
     const localDir = path.resolve(__dirname, '../../uploads');
     const ext = path.extname(file.filename)||'';
     const localPath = path.join(localDir, `imageForSearch_${file.id}${ext}`);
     if(!fs.existsSync(localPath)) {
-      // 找不到原圖 => 直接存檔
+      // 找不到原圖 => 只存文字爬蟲
       file.status = 'scanned';
       file.infringingLinks = JSON.stringify(suspiciousLinks);
       await file.save();
@@ -513,83 +737,75 @@ router.get('/scan/:fileId', async (req,res)=>{
 
     let allLinks = [...suspiciousLinks];
 
-    if(isVideo){
-      console.log('[Scan] file is a short video => try extracting frames...');
-      // 若長度 <=30s => 抽幀
+    // ======== 影片 => 抽幀 => 每幀做 aggregator + fallback ========
+    if(isVideo) {
+      console.log('[Scan] file is short video => try extracting frames...');
       try {
         const cmdProbe = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`;
         const durSec = parseFloat(execSync(cmdProbe).toString().trim())||9999;
         console.log('[Scan] video duration =>', durSec);
 
-        if(durSec<=30){
+        if(durSec <= 30) {
           const outDir = path.join(localDir, `frames_${file.id}`);
           if(!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
           const frames = await extractKeyFrames(localPath, outDir, 10);
           console.log('[Scan] extracted frames =>', frames.length);
 
-          // ★ 針對每個幀 => 先走 fallback，失敗則 doMultiReverseImage
-          for(const framePath of frames){
-            console.log('[Scan] fallback scanning =>', framePath);
-            let fallbackResult = await scanFileWithFallback(framePath, file.id);
-            if(fallbackResult.approach==='cloudy+ginifab'){
-              let combined = [
-                ...(fallbackResult.bingLinks||[]),
-                ...(fallbackResult.tineyeLinks||[]),
-                ...(fallbackResult.baiduLinks||[])
-              ];
-              allLinks.push(...combined);
-            } else {
-              // fallback 走 direct => 直接將 links 補上
-              allLinks.push(...(fallbackResult.links||[]));
-            }
+          for(const framePath of frames) {
+            console.log('[Scan] aggregator fallback scanning =>', path.basename(framePath));
 
-            // ★ 若您想最後再用 doMultiReverseImage 二次確認，也可在這裡再疊加
-            // console.log('[Scan] direct multiEngine =>', framePath);
-            // const directLinks = await doMultiReverseImage(framePath, file.id);
-            // allLinks.push(...directLinks);
+            // ★ (可選) 您可先上傳至 Cloudinary => aggregator imageUrl
+            const aggregatorUrl = '';
+            // aggregatorFirst = true => 先嘗試 ginifab
+            let engineRes = await doSearchEngines(framePath, true, aggregatorUrl);
+            // 收集連結
+            const combined = [
+              ...engineRes.bing.links,
+              ...engineRes.tineye.links,
+              ...engineRes.baidu.links
+            ];
+            allLinks.push(...combined);
           }
+        } else {
+          // 影片>30s => 不抽幀 => 可直接走 fallback
+          console.log('[Scan] video>30s => skip aggregator approach');
         }
-      } catch(eVid2){
+      } catch(eVid2) {
         console.error('[video frames error]', eVid2);
       }
-    } 
-    else {
-      // 單張圖片 => 直接 fallback
-      console.log('[Scan] single image => fallback scanning');
-      let fallbackResult = await scanFileWithFallback(localPath, file.id);
-      if(fallbackResult.approach==='cloudy+ginifab'){
-        allLinks.push(...(fallbackResult.bingLinks||[]));
-        allLinks.push(...(fallbackResult.tineyeLinks||[]));
-        allLinks.push(...(fallbackResult.baiduLinks||[]));
-      } else {
-        allLinks.push(...(fallbackResult.links||[]));
-      }
-
-      // 若想保留您原本 doMultiReverseImage => 可再疊加
-      // console.log('[Scan] doMultiReverseImage =>');
-      // const directLinks = await doMultiReverseImage(localPath, file.id);
-      // allLinks.push(...directLinks);
+    } else {
+      // ======== 單張圖片 => aggregator + fallback ========
+      console.log('[Scan] single image => aggregator fallback scanning');
+      // (可選) 先上傳 Cloudinary => aggregatorUrl
+      const aggregatorUrl = ''; // e.g. upRes.secure_url
+      const engineRes = await doSearchEngines(localPath, true, aggregatorUrl);
+      const combined = [
+        ...engineRes.bing.links,
+        ...engineRes.tineye.links,
+        ...engineRes.baidu.links
+      ];
+      allLinks.push(...combined);
     }
 
-    // 整理
+    // 最終去重
     const uniqueLinks = [...new Set(allLinks)];
-    file.status='scanned';
+    file.status = 'scanned';
     file.infringingLinks = JSON.stringify(uniqueLinks);
     await file.save();
 
-    // 產生掃描報告 PDF
+    // 產 PDF 報告
     const scanPdfName = `scanReport_${file.id}.pdf`;
     const scanPdfPath = path.join(localDir, scanPdfName);
     await generateScanPDF({ file, suspiciousLinks: uniqueLinks }, scanPdfPath);
 
     return res.json({
-      message:'圖搜 + 文字爬蟲完成 => 已產生掃描報告PDF',
+      message: '圖搜 + 文字爬蟲完成 => 已產生掃描報告PDF',
       suspiciousLinks: uniqueLinks,
       scanReportUrl: `/api/protect/scanReports/${file.id}`
     });
 
-  } catch(err){
+  } catch(err) {
     console.error('[scan error]', err);
     return res.status(500).json({ code:'SCAN_ERROR', error: err.message });
   }
@@ -598,15 +814,15 @@ router.get('/scan/:fileId', async (req,res)=>{
 /***************************************************
  * GET /scanReports/:fileId => 下載掃描報告
  ***************************************************/
-router.get('/scanReports/:fileId', async (req, res)=>{
+router.get('/scanReports/:fileId', async (req, res) => {
   try {
     const localDir = path.resolve(__dirname, '../../uploads');
     const pdfPath = path.join(localDir, `scanReport_${req.params.fileId}.pdf`);
-    if(!fs.existsSync(pdfPath)){
+    if(!fs.existsSync(pdfPath)) {
       return res.status(404).json({ code:'NOT_FOUND', error:'掃描報告不存在' });
     }
     res.download(pdfPath, `KaiKaiShield_ScanReport_${req.params.fileId}.pdf`);
-  } catch(err){
+  } catch(err) {
     console.error('[download scan pdf error]', err);
     return res.status(500).json({ code:'DOWNLOAD_SCAN_PDF_ERROR', error: err.message });
   }
