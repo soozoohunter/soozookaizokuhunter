@@ -36,10 +36,5 @@ CMD ["npm", "run", "start"]
 # docker compose build --no-cache suzoo_express
 # docker compose up -d
 #
-# 接著可在宿主機上執行:
-#   docker compose exec suzoo_express bash
-# 進入容器後可使用以下指令:
-#   ping bing.com
-#   curl -I https://tineye.com
-#   curl -v http://localhost:3000/api/protect/scan/1
-#   vim /app/express/routes/protect.js   (若要臨時修改檔案)
+# docker compose exec suzoo_express bash
+#   => 進入容器後可使用 ping、curl、vim /app/...
