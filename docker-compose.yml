@@ -77,11 +77,11 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
-    # ★ 新增檔案持久化設定：將宿主機的 ./express/uploads 綁定到容器 /app/uploads
+    # 檔案持久化：將宿主機的 ./express/uploads 綁定到容器 /app/uploads
     volumes:
       - ./express/uploads:/app/uploads
 
-    # ★ 這裡是關鍵：添加 GPU 資源配置
+    # ★ 新增 GPU 配置 (Swarm / Compose v3.8+)
     deploy:
       resources:
         reservations:
@@ -119,4 +119,4 @@ networks:
 
 volumes:
   suzoo_db_data:
-    # 這裡可保持預設，讓 Docker 幫你管理 PostgreSQL 資料
+    # Docker 幫你管理 PostgreSQL 資料
