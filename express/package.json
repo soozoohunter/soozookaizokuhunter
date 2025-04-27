@@ -25,11 +25,13 @@
     "sharp": "^0.32.1",
     "web3": "^1.10.0",
 
+    // Puppeteer + plugins (如需防止 Cloudflare 檢測，可再使用 stealth plugin)
     "puppeteer": "^19.8.5",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
 
-    "fluent-ffmpeg": "^2.1.2",          
-    "ffmpeg-static": "^4.4.0"           
+    // ffmpeg 相關
+    "fluent-ffmpeg": "^2.1.2",
+    "ffmpeg-static": "^4.4.0"
   }
 }
