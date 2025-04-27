@@ -2,7 +2,7 @@
 FROM node:18
 
 # 1) 安裝系統必要套件 (chromium + ffmpeg + fonts + Puppeteer 依賴)
-#    + 安裝 ping / dnsutils / vim / curl
+#    + 安裝 ping / dnsutils / vim / curl 以利容器內除錯
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg2 ca-certificates apt-transport-https \
     libx11-6 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 \
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg chromium \
     libgtk-3-0 \
     fonts-noto-cjk \
-    iputils-ping dnsutils nano curl \
+    iputils-ping dnsutils nano curl vim \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -30,17 +30,16 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 EXPOSE 3000
 
-# 以下為您原先的啟動命令 (若要預設改為 dev 模式，可自行調整)
 CMD ["npm", "run", "start"]
 
-
-# --- build & run 指令示例 ---
-# docker build -t suzoo_express:v3 .
-# docker run --name suzoo_express -p 3000:3000 suzoo_express:v3
-
-# --- 進入容器內測試 ---
-# docker compose exec suzoo_express bash
-# ping bing.com
-# curl -I https://tineye.com
-# dig ginifab.com
-# nano /app/express/routes/protect.js
+# --- 使用說明 ---
+# docker compose build --no-cache suzoo_express
+# docker compose up -d
+#
+# 接著可在宿主機上執行:
+#   docker compose exec suzoo_express bash
+# 進入容器後可使用以下指令:
+#   ping bing.com
+#   curl -I https://tineye.com
+#   curl -v http://localhost:3000/api/protect/scan/1
+#   vim /app/express/routes/protect.js   (若要臨時修改檔案)
