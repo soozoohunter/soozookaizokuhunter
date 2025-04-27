@@ -70,16 +70,17 @@ services:
     depends_on:
       - suzoo_postgres
       - suzoo_fastapi
+    # 與 FastAPI、Postgres 共用同一份 .env
     env_file:
       - .env
     networks:
       - suzoo_net
-    # ★ 額外加這一行 volumes，將宿主機的 ./uploads 綁定到容器內 /app/uploads
-    volumes:
-      - ./uploads:/app/uploads
     expose:
       - "3000"
     restart: unless-stopped
+    # ★ 新增檔案持久化設定：將宿主機的 ./express/uploads 綁定到容器 /app/uploads
+    volumes:
+      - ./express/uploads:/app/uploads
 
   # Frontend (React + Nginx)
   suzoo_frontend:
@@ -98,9 +99,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # Let's Encrypt 憑證掛載
+      # 掛載 Let's Encrypt 憑證到容器內 /etc/nginx/certs
       - /etc/letsencrypt:/etc/nginx/certs:ro
-      # 前端 Nginx 設定檔
+      # 將前端的 suzoo.conf 覆蓋到 /etc/nginx/conf.d/default.conf (只讀)
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
 
@@ -110,4 +111,4 @@ networks:
 
 volumes:
   suzoo_db_data:
-    driver: local
+    # 這裡可保持預設，讓 Docker 幫你管理 PostgreSQL 資料
