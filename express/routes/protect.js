@@ -1,6 +1,6 @@
 /*************************************************************
  * express/routes/protect.js
- * 
+ *
  * - 改用 Puppeteer + HTML template 產生 PDF (center-align, black underline)
  * - 若影片且長度 <=30s，擷取中間幀做預覽
  * - Fingerprint 重複：白名單可複用，非白名單擋
@@ -47,9 +47,9 @@ const ALLOW_UNLIMITED = [
  ***************************************************/
 const puppeteer = require('puppeteer');
 
-// 這裡設定您的繁體中文字型檔案路徑
-// 假設字型已放在 express/fonts/LXGWWenKaiMonoTC-Bold.ttf
-const fontPath = path.join(__dirname, '../fonts/LXGWWenKaiMonoTC-Bold.ttf');
+// 這裡改用 NotoSansTC-VariableFont_wght.ttf 作為繁體中文字型檔案
+// 請確保此檔案已放在 express/fonts/ 下
+const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
 
 /**
  * 以 HTML template 產生 PDF
@@ -103,16 +103,16 @@ async function generateCertificatePDF(data, outputPath) {
       <style>
         /* 引用自訂字型 */
         @font-face {
-          font-family: "WenKaiMonoBold";
+          font-family: "NotoSansTCVar";
           src: url("file://${fontPath}") format("truetype");
           font-weight: normal;
           font-style: normal;
         }
 
         body {
-          font-family: "WenKaiMonoBold", sans-serif;
-          margin: 0; 
-          padding: 0; 
+          font-family: "NotoSansTCVar", sans-serif;
+          margin: 0;
+          padding: 0;
         }
         .certificate-container {
           position: relative;
@@ -530,22 +530,22 @@ async function generateScanPDF({ file, suspiciousLinks }, outPath) {
   const browser = await puppeteer.launch({ headless:true, args:['--no-sandbox','--disable-setuid-sandbox'] });
   const page = await browser.newPage();
 
-  // 同樣在掃描報告 PDF 內引入相同字型
+  // 同樣替換字型為 NotoSansTC-VariableFont_wght.ttf
   const htmlContent = `
   <html>
     <head>
       <meta charset="UTF-8" />
       <style>
         @font-face {
-          font-family: "WenKaiMonoBold";
+          font-family: "NotoSansTCVar";
           src: url("file://${fontPath}") format("truetype");
           font-weight: normal;
           font-style: normal;
         }
         body {
-          font-family: "WenKaiMonoBold", sans-serif;
-          text-align: center; 
-          margin: 0; 
+          font-family: "NotoSansTCVar", sans-serif;
+          text-align: center;
+          margin: 0;
           padding: 0;
         }
         h1 { margin-top: 30px; }
