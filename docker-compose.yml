@@ -81,15 +81,6 @@ services:
     volumes:
       - ./express/uploads:/app/uploads
 
-    # ★ 新增 GPU 配置 (Swarm / Compose v3.8+)
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [compute, utility, graphics]
-
   # Frontend (React + Nginx)
   suzoo_frontend:
     build:
