@@ -1,40 +1,46 @@
 // express/utils/extractFrames.js
+
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 
 /**
- * 使用 ffmpeg 擷取關鍵影格
- * @param {string} videoPath - 本地影片檔路徑
- * @param {string} outDir - 輸出影格的資料夾
- * @param {number} frameCount - 最多擷取多少張影格 (預設10)
- * @returns {Promise<string[]>} 已排序好的 JPG 檔案路徑清單
+ * 從影片中提取關鍵影格圖像。
+ * @param {string} videoPath - 視頻檔案路徑。
+ * @param {string} outputDir - 輸出影格圖片的目錄。
+ * @param {number} intervalSec - 每隔多少秒擷取一張影像 (預設10秒)。
+ * @param {number} maxFrames - 最多擷取幾張影像 (預設5張)。
+ * @returns {string[]} 產生的影像檔路徑陣列。
  */
-async function extractKeyFrames(videoPath, outDir, frameCount = 10) {
-  if (!fs.existsSync(outDir)) {
-    fs.mkdirSync(outDir, { recursive:true });
-  }
-  return new Promise((resolve, reject) => {
-    const args = [
-      '-i', videoPath,
-      '-vf', 'fps=5',                  // 每秒 ~5fps
-      '-vframes', `${frameCount}`,     // 最多擷取多少張
-      path.join(outDir, 'frame_%05d.jpg')
-    ];
-    const ff = spawn('ffmpeg', args);
+function extractKeyFrames(videoPath, outputDir, intervalSec = 10, maxFrames = 5) {
+    // 確保輸出目錄存在
+    fs.mkdirSync(outputDir, { recursive: true });
 
-    ff.on('error', err => reject(err));
-    ff.on('exit', code => {
-      if (code !== 0) {
-        return reject(new Error(`ffmpeg exit code ${code}`));
-      }
-      const files = fs.readdirSync(outDir)
-        .filter(f => f.startsWith('frame_') && f.endsWith('.jpg'))
-        .map(f => path.join(outDir, f))
-        .sort();
-      resolve(files);
-    });
-  });
+    // 構建 ffmpeg 命令參數
+    //  - fps=1/intervalSec => 表示每 intervalSec 秒擷取1張
+    //  - -frames:v maxFrames => 最多擷取多少張
+    const outputPattern = path.join(outputDir, 'frame-%02d.png');
+    const args = [
+        '-hide_banner',
+        '-loglevel', 'error',
+        '-i', videoPath,
+        '-vf', `fps=1/${intervalSec}`,
+        '-frames:v', maxFrames,
+        outputPattern
+    ];
+
+    try {
+        execFileSync('ffmpeg', args);
+    } catch (err) {
+        console.error('[extractFrames] ffmpeg 執行錯誤:', err);
+        return [];
+    }
+
+    // 收集輸出圖片路徑
+    const files = fs.readdirSync(outputDir)
+        .filter(f => f.match(/^frame-\d+\.png$/))
+        .map(f => path.join(outputDir, f));
+    return files;
 }
 
 module.exports = { extractKeyFrames };
