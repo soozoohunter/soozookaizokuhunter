@@ -1,7 +1,6 @@
+// express/utils/multiEngineReverseImage.js
 /**
- * express/utils/multiEngineReverseImage.js
- * 
- * 執行多引擎圖搜(Bing/TinEye/Baidu)，並回傳所有找到的 link
+ * 執行多引擎圖搜(Bing/TinEye/Baidu)，並回傳所有找到的 link。
  * 若無結果，儲存 screenshot 以便除錯。
  */
 
@@ -11,17 +10,18 @@ const path = require('path');
 
 async function doMultiReverseImage(imagePath, fileId) {
   // 1) 檢查檔案
-  if(!imagePath || !fs.existsSync(imagePath)) {
+  if (!imagePath || !fs.existsSync(imagePath)) {
     console.warn('[doMultiReverseImage] file not found =>', imagePath);
     return [];
   }
 
   // 2) 啟動 Puppeteer
   const browser = await puppeteer.launch({
-    headless:true,
-    args:['--no-sandbox','--disable-setuid-sandbox']
+    headless: true,
+    args: ['--no-sandbox','--disable-setuid-sandbox']
   });
 
+  // === Bing ===
   async function searchBing() {
     const page = await browser.newPage();
     try {
@@ -38,7 +38,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:10000 }).catch(()=>{});
       await page.waitForTimeout(3000);
 
-      // 取得所有連結
+      // 取得所有連結 (排除 bing.com 連結)
       let links = await page.$$eval('a', as => as.map(a=>a.href));
       links = links.filter(l => l && !l.includes('bing.com')); 
       if(!links.length) {
@@ -48,13 +48,16 @@ async function doMultiReverseImage(imagePath, fileId) {
       return links;
     } catch(err) {
       console.error('[Bing error]', err);
-      try { await page.screenshot({ path:`bing_search_${fileId}_error.png` }); } catch(e){}
+      try {
+        await page.screenshot({ path: `bing_search_${fileId}_error.png` });
+      } catch(e){}
       return [];
     } finally {
       await page.close();
     }
   }
 
+  // === TinEye ===
   async function searchTinEye() {
     const page = await browser.newPage();
     try {
@@ -75,13 +78,16 @@ async function doMultiReverseImage(imagePath, fileId) {
       return links;
     } catch(err) {
       console.error('[TinEye error]', err);
-      try { await page.screenshot({ path:`tineye_search_${fileId}_error.png` }); } catch(e){}
+      try {
+        await page.screenshot({ path: `tineye_search_${fileId}_error.png` });
+      } catch(e){}
       return [];
     } finally {
       await page.close();
     }
   }
 
+  // === Baidu ===
   async function searchBaidu() {
     const page = await browser.newPage();
     try {
@@ -93,7 +99,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       const fileInput = await page.waitForSelector('input[type="file"]', { timeout:5000 });
       await fileInput.uploadFile(imagePath);
 
-      // 結果同頁動態載入 => 多等幾秒
+      // 等待結果同頁動態載入 => 多等幾秒
       await page.waitForTimeout(5000);
 
       let links = await page.$$eval('a', as => as.map(a=>a.href));
@@ -105,7 +111,9 @@ async function doMultiReverseImage(imagePath, fileId) {
       return links;
     } catch(err) {
       console.error('[Baidu error]', err);
-      try { await page.screenshot({ path:`baidu_search_${fileId}_error.png` }); } catch(e){}
+      try {
+        await page.screenshot({ path:`baidu_search_${fileId}_error.png` });
+      } catch(e){}
       return [];
     } finally {
       await page.close();
@@ -116,7 +124,9 @@ async function doMultiReverseImage(imagePath, fileId) {
   let [bingLinks, tineyeLinks, baiduLinks] = [[],[],[]];
   try {
     [bingLinks, tineyeLinks, baiduLinks] = await Promise.all([
-      searchBing(), searchTinEye(), searchBaidu()
+      searchBing(),
+      searchTinEye(),
+      searchBaidu()
     ]);
   } catch(eAll){
     console.error('[doMultiReverseImage] parallel error =>', eAll);
