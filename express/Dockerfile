@@ -28,13 +28,18 @@ COPY . .
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
+# ★ 新增：NVIDIA GPU 加速用
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+
 EXPOSE 3000
 
 CMD ["npm", "run", "start"]
 
 # --- 使用說明 ---
-# docker compose build --no-cache suzoo_express
-# docker compose up -d
+# 1) docker compose build --no-cache suzoo_express
+# 2) docker compose up -d
 #
-# docker compose exec suzoo_express bash
-#   => 進入容器後可使用 ping、curl、vim /app/...
+# 或若您想直接測試：
+#   docker build -t suzoo_express -f express/Dockerfile .
+#   docker run --gpus all -p 3000:3000 suzoo_express
