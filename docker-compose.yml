@@ -70,7 +70,6 @@ services:
     depends_on:
       - suzoo_postgres
       - suzoo_fastapi
-    # 與 FastAPI、Postgres 共用同一份 .env
     env_file:
       - .env
     networks:
@@ -81,6 +80,15 @@ services:
     # ★ 新增檔案持久化設定：將宿主機的 ./express/uploads 綁定到容器 /app/uploads
     volumes:
       - ./express/uploads:/app/uploads
+
+    # ★ 這裡是關鍵：添加 GPU 資源配置
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [compute, utility, graphics]
 
   # Frontend (React + Nginx)
   suzoo_frontend:
