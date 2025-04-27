@@ -8,7 +8,7 @@
  * - 產出 PDF（上傳證書 + 侵權掃描報告）
  * - 在 PDF 下方添加公司名稱「© 2025 凱盾全球國際股份有限公司 All Rights Reserved.」
  * - 在證書中顯示 SiriNumber 欄位 + 實際 SerialNumber
- * - Stamp (stamp.png) 旋轉 45°
+ * - Stamp (stamp.png) 旋轉 45°、圓形顯示
  * - 修正 Bing / TinEye 檔案上傳 Selector
  *************************************************************/
 
@@ -63,7 +63,7 @@ const puppeteer = require('puppeteer');
 /**
  * 產生「著作證明書」PDF
  * - 底部顯示公司名稱
- * - 蓋章 stamp.png 旋轉45度
+ * - 蓋章 stamp.png 旋轉45度 + 圓形
  * - SiriNumber + SerialNumber
  */
 async function generateCertificatePDF(data, outputPath) {
@@ -122,7 +122,7 @@ async function generateCertificatePDF(data, outputPath) {
       }
     `;
 
-  // 加入公司名稱 + SiriNumber + stamp旋轉45度
+  // 加入公司名稱 + SiriNumber + stamp旋轉45度 (圓形)
   const htmlContent = `
   <html>
     <head>
@@ -151,7 +151,8 @@ async function generateCertificatePDF(data, outputPath) {
           left: 0;
           width: 100px;
           opacity: 0.9;
-          transform: rotate(45deg); /* 旋轉45度 */
+          transform: rotate(45deg);
+          border-radius: 50%;
         }
         .field {
           font-size: 14px;
@@ -236,8 +237,9 @@ async function generateCertificatePDF(data, outputPath) {
 /**
  * 產生「掃描報告」PDF
  * - 底部顯示公司名稱
+ * - 同樣新增 stamp.png 旋轉45度 + 圓形 (右上角)
  */
-async function generateScanPDF({ file, suspiciousLinks }, outPath) {
+async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outPath) {
   const browser = await puppeteer.launch({
     headless:'new',
     args:['--no-sandbox','--disable-setuid-sandbox']
@@ -257,6 +259,7 @@ async function generateScanPDF({ file, suspiciousLinks }, outPath) {
       }
     `;
 
+  // stamp 放在右上角
   const htmlContent = `
   <html>
     <head>
@@ -265,35 +268,61 @@ async function generateScanPDF({ file, suspiciousLinks }, outPath) {
         ${embeddedFontCSS}
         body {
           font-family: "NotoSansTCVar", sans-serif;
-          margin:0; padding:0; text-align:center;
+          margin:0; padding:0;
+        }
+        .scan-container {
+          position: relative;
+          width: 80%;
+          margin: 0 auto;
+          text-align: center;
+          padding: 40px 0;
+        }
+        .stamp {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 80px;
+          opacity: 0.9;
+          transform: rotate(45deg);
+          border-radius: 50%;
         }
         h1 { margin-top:30px; }
         .links { text-align:left; width:60%; margin:0 auto; }
         .link-item { margin:3px 0; }
         .footer-company {
           margin-top:30px; font-size:12px; color:#666;
+          text-align: center;
         }
       </style>
     </head>
     <body>
-      <h1>偵測結果報告 / Scan Report</h1>
-      <p>File ID: ${file.id}</p>
-      <p>Filename: ${file.filename}</p>
-      <p>Fingerprint: ${file.fingerprint}</p>
-      <p>Status: ${file.status}</p>
-      ${
-        suspiciousLinks.length
-          ? `<h3>可疑連結 (Possible matches):</h3>
-             <div class="links">
-               ${ suspiciousLinks.map(l=>`<div class="link-item">${l}</div>`).join('') }
-             </div>`
-          : `<p>未發現任何相似連結</p>`
-      }
-      <p style="font-size:12px; color:gray; margin-top:30px;">
-        本報告由 SUZOO IP GUARD 侵權偵測系統自動生成。
-      </p>
-      <div class="footer-company">
-        © 2025 凱盾全球國際股份有限公司 All Rights Reserved.
+      <div class="scan-container">
+        ${
+          stampImagePath
+            ? `<img src="file://${stampImagePath}" class="stamp" alt="Stamp">`
+            : ''
+        }
+        <h1>偵測結果報告 / Scan Report</h1>
+        <p>File ID: ${file.id}</p>
+        <p>Filename: ${file.filename}</p>
+        <p>Fingerprint: ${file.fingerprint}</p>
+        <p>Status: ${file.status}</p>
+
+        ${
+          suspiciousLinks.length
+            ? `<h3>可疑連結 (Possible matches):</h3>
+               <div class="links">
+                 ${ suspiciousLinks.map(l=>`<div class="link-item">${l}</div>`).join('') }
+               </div>`
+            : `<p>未發現任何相似連結</p>`
+        }
+
+        <p style="font-size:12px; color:gray; margin-top:30px;">
+          本報告由 SUZOO IP GUARD 侵權偵測系統自動生成。
+        </p>
+        <div class="footer-company">
+          © 2025 凱盾全球國際股份有限公司 All Rights Reserved.
+        </div>
       </div>
     </body>
   </html>
@@ -429,7 +458,7 @@ router.post('/step1', upload.single('file'), async(req, res)=>{
       finalPreviewPath=targetPath;
     }
 
-    // 產 PDF
+    // 產 PDF (著作證明書)
     const stampImagePath = path.join(__dirname, '../../public/stamp.png');
     const pdfFileName = `certificate_${newFile.id}.pdf`;
     const pdfFilePath = path.join(localDir, pdfFileName);
@@ -666,7 +695,7 @@ async function directSearchBaidu(browser, imagePath){
  */
 async function doSearchEngines(localFilePath, aggregatorFirst, aggregatorImageUrl='') {
   const puppeteerBrowser = await puppeteer.launch({
-    headless:true,
+    headless:'new',
     args:['--no-sandbox','--disable-setuid-sandbox']
   });
 
@@ -796,7 +825,13 @@ router.get('/scan/:fileId', async(req,res)=>{
     // 產生掃描報告 PDF
     const scanPdfName=`scanReport_${file.id}.pdf`;
     const scanPdfPath=path.join(localDir, scanPdfName);
-    await generateScanPDF({ file, suspiciousLinks:uniqueLinks }, scanPdfPath);
+
+    // stamp.png (同上)
+    const stampImagePath = path.join(__dirname, '../../public/stamp.png');
+    await generateScanPDF(
+      { file, suspiciousLinks:uniqueLinks, stampImagePath: fs.existsSync(stampImagePath)? stampImagePath:null },
+      scanPdfPath
+    );
 
     return res.json({
       message:'圖搜+文字爬蟲完成 => PDF ok',
