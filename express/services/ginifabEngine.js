@@ -28,14 +28,11 @@ async function fallbackDirectEngines(imagePath) {
     try {
       const page = await browser.newPage();
       await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
-      // Bing 搜圖的「相機按鈕」或 input[type=file] 可能動態
-      // 這裡假設可以直接選到 input[type=file]
       const fileInput = await page.$('input[type=file]');
       if (fileInput) {
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(4000);
-        // 抓外部連結
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        let links = await page.$$eval('a', as => as.map(a=>a.href));
         links = links.filter(l => l && !l.includes('bing.com'));
         results.bing.push(...links);
       }
@@ -54,7 +51,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
         await page.waitForTimeout(2000);
 
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        let links = await page.$$eval('a', as => as.map(a=>a.href));
         links = links.filter(l => l && !l.includes('tineye.com'));
         results.tineye.push(...links);
       }
@@ -66,13 +63,12 @@ async function fallbackDirectEngines(imagePath) {
     // Baidu
     try {
       const page = await browser.newPage();
-      // 有時可能需要 "https://graph.baidu.com/pcpage/index?tpl_from=pc"...
       await page.goto('https://graph.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
       const baiduFile = await page.$('input[type=file]');
       if (baiduFile) {
         await baiduFile.uploadFile(imagePath);
         await page.waitForTimeout(5000);
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        let links = await page.$$eval('a', as => as.map(a=>a.href));
         links = links.filter(l => l && !l.includes('baidu.com'));
         results.baidu.push(...links);
       }
@@ -96,7 +92,7 @@ async function fallbackDirectEngines(imagePath) {
 
 /**
  * 使用「Ginifab Aggregator」：指定圖片 URL → 依序點擊 Bing / TinEye / Baidu
- * @param {string} publicImageUrl - 可公開存取的圖片網址 (e.g. Cloudinary URL / IPFS Gateway / ...)
+ * @param {string} publicImageUrl - 可公開存取的圖片網址 (e.g. Cloudinary URL)
  * @returns {Promise<{bing:string[], tineye:string[], baidu:string[]}>}
  */
 async function aggregatorSearchGinifab(publicImageUrl) {
@@ -116,8 +112,7 @@ async function aggregatorSearchGinifab(publicImageUrl) {
     });
     const page = await browser.newPage();
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
-      waitUntil:'domcontentloaded',
-      timeout:20000
+      waitUntil:'domcontentloaded', timeout:20000
     });
     await page.waitForTimeout(1000);
 
@@ -131,7 +126,7 @@ async function aggregatorSearchGinifab(publicImageUrl) {
     await page.type('input[type=text]', publicImageUrl, { delay:50 });
     await page.waitForTimeout(1500);
 
-    // 順序點擊三個搜索 (Bing / TinEye / Baidu)
+    // 順序點擊 (Bing / TinEye / Baidu)
     const engines = [
       { key:'bing',   label:['微軟必應','Microsoft Bing','Bing'] },
       { key:'tineye', label:['錫眼睛','TinEye'] },
@@ -143,7 +138,7 @@ async function aggregatorSearchGinifab(publicImageUrl) {
         const newTab = new Promise(resolve => {
           browser.once('targetcreated', async t => resolve(await t.page()));
         });
-        // 在 ginifab 主頁點擊對應文字
+        // 找到對應按鈕文字並點擊
         await page.evaluate((labels) => {
           const as = [...document.querySelectorAll('a')];
           for (let lab of labels) {
@@ -155,14 +150,12 @@ async function aggregatorSearchGinifab(publicImageUrl) {
         await subPage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
         await subPage.waitForTimeout(2000);
 
-        // 抓外部連結
         let links = await subPage.$$eval('a[href]', as => as.map(a => a.href));
-        // 過濾 ginifab / bing / tineye / baidu 自身
         links = links.filter(l => l && !l.includes('bing.com') && !l.includes('tineye.com') && !l.includes('baidu.com') && !l.includes('ginifab.com'));
         results[eng.key].push(...links);
         await subPage.close();
       } catch(subErr) {
-        console.error(`[aggregatorSearchGinifab][${eng.key}] err =>`, subErr);
+        console.error(`[aggregatorSearchGinifab][${eng.key}] =>`, subErr);
       }
     }
 
@@ -181,25 +174,15 @@ async function aggregatorSearchGinifab(publicImageUrl) {
 }
 
 /**
- * 綜合「aggregator + fallbackDirect」的搜尋邏輯：
- * 1. 若 aggregatorFirst=true & 提供 aggregatorUrl => 先 aggregator
- * 2. 若 aggregator 出錯或無結果，可進 fallbackDirectEngines
- * 3. 若 aggregatorFirst=false 則直接 fallback
- *
- * @param {string} localFilePath - 本地圖片/影片幀 路徑
- * @param {boolean} aggregatorFirst - 是否先試 aggregator
- * @param {string} aggregatorImageUrl - 可公開圖片URL
- * @returns {Promise<{bing: string[], tineye:string[], baidu: string[]}>}
+ * 綜合 aggregator + fallback
+ * @param {string} localFilePath - 本地檔路徑
+ * @param {boolean} aggregatorFirst - 是否先 aggregator
+ * @param {string} aggregatorImageUrl - 若 aggregatorFirst=true 時要的公開圖片URL
  */
 async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, aggregatorImageUrl='') {
-  let final = {
-    bing: [],
-    tineye: [],
-    baidu: []
-  };
+  let final = { bing: [], tineye: [], baidu: [] };
 
-  // aggregator
-  if (aggregatorFirst && aggregatorImageUrl) {
+  if(aggregatorFirst && aggregatorImageUrl) {
     try {
       const aggRes = await aggregatorSearchGinifab(aggregatorImageUrl);
       final.bing.push(...aggRes.bing);
@@ -208,9 +191,9 @@ async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, ag
     } catch(eAgg) {
       console.error('[searchImagesWithFallback aggregator error]', eAgg);
     }
-    // fallback => 若 aggregator 全部都沒抓到
-    const totalFound = final.bing.length + final.tineye.length + final.baidu.length;
-    if (totalFound === 0) {
+    // fallback if aggregator 無結果
+    const total = final.bing.length + final.tineye.length + final.baidu.length;
+    if(total === 0) {
       console.log('[searchImagesWithFallback] aggregator no result => fallback direct');
       const fb = await fallbackDirectEngines(localFilePath);
       final.bing.push(...fb.bing);
@@ -218,7 +201,6 @@ async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, ag
       final.baidu.push(...fb.baidu);
     }
   } else {
-    // 直接 fallback
     console.log('[searchImagesWithFallback] direct fallback only');
     const fb = await fallbackDirectEngines(localFilePath);
     final.bing.push(...fb.bing);
@@ -226,11 +208,9 @@ async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, ag
     final.baidu.push(...fb.baidu);
   }
 
-  // 去重
   final.bing = [...new Set(final.bing)];
   final.tineye = [...new Set(final.tineye)];
   final.baidu = [...new Set(final.baidu)];
-
   return final;
 }
 
