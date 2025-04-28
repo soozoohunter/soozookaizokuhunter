@@ -1,110 +1,131 @@
-const puppeteer = require('puppeteer');
-const path = require('path');
+// express/services/pdfService.js
 const fs = require('fs');
+const path = require('path');
+const PDFDocument = require('pdfkit');
 
 /**
- * 生成報告 PDF，包含提供的結果數據與截圖證據等。
- * @param {Object} data - 掃描結果數據，包含fingerprint, ipfsHash, txHash, results等。
- * @returns {Buffer} PDF文件的二進位內容 (可直接發送給客戶端)。
+ * 生成原創證明書 PDF，包含上傳檔案預覽與基本資訊
+ * @param {string} filePath - 本機檔案路徑
+ * @param {string} originalName - 使用者上傳時的原始檔名
+ * @param {string} previewUrl - Cloudinary（或其他）線上圖片/影片預覽 URL
+ * @return {Promise<string>} - 回傳生成之證書PDF檔案的完整路徑
  */
-async function generatePDF(data) {
-    // 構建 PDF 內容的 HTML 字串
-    const { fingerprint, ipfsHash, txHash, results, suspiciousLinks } = data;
-    // 內嵌 base64 字型（如 Noto Sans CJK，用於顯示中文）
-    let fontFaceStyle = '';
+async function generateCertificate(filePath, originalName, previewUrl) {
+  return new Promise((resolve, reject) => {
     try {
-        const fontData = fs.readFileSync(path.join(__dirname, '../public/NotoSansCJK-Regular.ttf'), 'base64');
-        fontFaceStyle = `
-            <style>
-            @font-face {
-                font-family: "NotoSansCJK";
-                src: url(data:font/ttf;base64,${fontData}) format("truetype");
-            }
-            body { font-family: "NotoSansCJK", sans-serif; }
-            </style>`;
-    } catch (e) {
-        console.warn('嵌入字型失敗，將使用系統字型', e);
-    }
-    // 內嵌 stamp.png 圖片（簽章/Logo等）
-    let stampImageHtml = '';
-    try {
-        const stampData = fs.readFileSync(path.join(__dirname, '../public/stamp.png'), 'base64');
-        stampImageHtml = `<img src="data:image/png;base64,${stampData}" alt="Stamp" style="position:absolute; top:20px; right:20px; width:100px; opacity:0.5;" />`;
-    } catch (e) {
-        console.warn('stamp.png 載入失敗', e);
-    }
+      // 建立目錄
+      const certDir = path.join('public', 'certificates');
+      if (!fs.existsSync(certDir)) {
+        fs.mkdirSync(certDir, { recursive: true });
+      }
+      // 產生檔名
+      const base = path.basename(filePath, path.extname(filePath));
+      const pdfName = `${base}_certificate.pdf`;
+      const pdfPath = path.join(certDir, pdfName);
 
-    // 構建結果條目 HTML 列表
-    let resultsHtml = '';
-    results.forEach((resSet, idx) => {
-        const { bing, tineye, baidu } = resSet;
-        resultsHtml += `<h3>搜索结果集 ${idx+1}：</h3><ul>`;
-        [bing, tineye, baidu].forEach(engineRes => {
-            resultsHtml += `<li><b>${engineRes.engine}：</b> `;
-            if (!engineRes.success) {
-                resultsHtml += `<span style="color:red;">搜尋失敗：${engineRes.error}</span>`;
-            } else if (engineRes.links.length === 0) {
-                resultsHtml += `未找到相符結果。`;
-            } else {
-                resultsHtml += `找到 ${engineRes.links.length} 個結果，包含連結：`;
-                resultsHtml += '<ul>';
-                engineRes.links.slice(0, 5).forEach(link => {
-                    resultsHtml += `<li>${link}</li>`;
-                });
-                if (engineRes.links.length > 5) {
-                    resultsHtml += `<li>...共${engineRes.links.length}條</li>`;
-                }
-                resultsHtml += '</ul>';
-            }
-            resultsHtml += `</li>`;
-        });
-        resultsHtml += `</ul>`;
-    });
-    let suspiciousHtml = suspiciousLinks && suspiciousLinks.length
-        ? `<p style="color:red;"><b>可疑鏈結:</b><br>${suspiciousLinks.join('<br>')}</p>`
-        : `<p><b>可疑鏈結:</b> 無</p>`;
+      const doc = new PDFDocument({ autoFirstPage: true });
+      const ws = fs.createWriteStream(pdfPath);
+      doc.pipe(ws);
 
-    const htmlContent = `
-        <html>
-        <head>
-            <meta charset="utf-8">
-            ${fontFaceStyle}
-            <style>
-                body { margin: 40px; font-size: 14px; }
-                h1 { text-align: center; }
-                h3 { margin-top: 20px; }
-                ul { margin-bottom: 20px; }
-            </style>
-        </head>
-        <body>
-            ${stampImageHtml}
-            <h1>掃描報告</h1>
-            <p><b>Fingerprint:</b> ${fingerprint}</p>
-            <p><b>IPFS Hash:</b> ${ipfsHash || '（無）'}</p>
-            <p><b>Tx Hash:</b> ${txHash || '（無）'}</p>
-            <hr>
-            <h2>侵權掃描結果：</h2>
-            ${suspiciousHtml}
-            ${resultsHtml}
-        </body>
-        </html>
-    `;
+      doc.fontSize(20).text('原創作品證明書', { align: 'center' });
+      doc.moveDown();
 
-    // 使用 Puppeteer 生成 PDF
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
-    try {
-        const page = await browser.newPage();
-        // 設置合適的紙張尺寸
-        await page.setViewport({ width: 1280, height: 800 });
-        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-        return pdfBuffer;
-    } finally {
-        await browser.close();
+      doc.fontSize(12).text(`檔案名稱：${originalName}`);
+      const now = new Date().toLocaleString();
+      doc.text(`上傳時間：${now}`);
+      // 若是影片，可提示「只顯示一個截圖」
+      if (/\.(mp4|mov|avi|webm)$/i.test(filePath)) {
+        doc.text('(此為影片檔案，預覽圖僅擷取影片截圖)');
+      }
+      doc.moveDown();
+
+      // 插入預覽圖（線上URL）
+      // pdfkit 若可直接拿URL顯示，需要 Node v10+ & pdfkit 0.12+ ；若失敗可先下載 Buffer 再嵌
+      doc.image(previewUrl, { fit: [300, 300], align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).text('以上圖片為使用者上傳之原創作品，可作為基本存證依據。', { align: 'left' });
+      doc.text('簽發單位：KaiShield', { align: 'right' });
+      doc.text(`簽發時間：${now}`, { align: 'right' });
+
+      doc.end();
+      ws.on('finish', () => resolve(pdfPath));
+    } catch (err) {
+      reject(err);
     }
+  });
 }
 
-module.exports = { generatePDF };
+/**
+ * 生成「侵權偵測報告 PDF」，包含 Bing/TinEye/Baidu 之搜尋結果鏈結
+ * @param {string} filePath - 原始上傳檔案 (本機路徑)
+ * @param {{bing: string[], tineye: string[], baidu: string[]}} results - 搜尋結果
+ * @return {Promise<string>} - 報告PDF完整路徑
+ */
+async function generateReport(filePath, results) {
+  return new Promise((resolve, reject) => {
+    try {
+      const reportDir = path.join('public', 'reports');
+      if (!fs.existsSync(reportDir)) {
+        fs.mkdirSync(reportDir, { recursive: true });
+      }
+      const base = path.basename(filePath, path.extname(filePath));
+      const pdfName = `${base}_report.pdf`;
+      const pdfPath = path.join(reportDir, pdfName);
+
+      const doc = new PDFDocument();
+      const ws = fs.createWriteStream(pdfPath);
+      doc.pipe(ws);
+
+      doc.fontSize(18).text('侵權偵測報告', { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).text(`檔案：${path.basename(filePath)}`);
+      doc.text(`掃描時間：${new Date().toLocaleString()}`);
+      doc.moveDown();
+
+      // Bing
+      doc.fontSize(14).text('Bing 搜尋結果：', { underline: true });
+      doc.fontSize(10);
+      if (results.bing.length === 0) {
+        doc.text('無發現相關結果');
+      } else {
+        results.bing.forEach(link => doc.text(link));
+      }
+      doc.moveDown();
+
+      // TinEye
+      doc.fontSize(14).text('TinEye 搜尋結果：', { underline: true });
+      doc.fontSize(10);
+      if (results.tineye.length === 0) {
+        doc.text('無發現相關結果');
+      } else {
+        results.tineye.forEach(link => doc.text(link));
+      }
+      doc.moveDown();
+
+      // Baidu
+      doc.fontSize(14).text('Baidu 搜尋結果：', { underline: true });
+      doc.fontSize(10);
+      if (results.baidu.length === 0) {
+        doc.text('無發現相關結果');
+      } else {
+        results.baidu.forEach(link => doc.text(link));
+      }
+      doc.moveDown();
+
+      doc.fontSize(12).text('以上鏈結僅供參考，請使用者自行比對是否構成侵權。', { align: 'left' });
+      doc.text('（本報告由系統自動生成）', { align: 'right' });
+
+      doc.end();
+      ws.on('finish', () => resolve(pdfPath));
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+module.exports = {
+  generateCertificate,
+  generateReport
+};
