@@ -1,4 +1,5 @@
 // express/controllers/uploadController.js
+
 const fs = require('fs');
 const { File, User } = require('../models');
 const chain = require('../utils/chain');
@@ -13,7 +14,7 @@ const uploadController = {
         return res.status(400).json({ error: '沒有收到檔案' });
       }
 
-      const userId = req.user.userId; // 由 JWT decode
+      const userId = req.user.userId; // 由 JWT decode (若您希望保留)
       const user = await User.findByPk(userId);
       if (!user) {
         return res.status(404).json({ error: '找不到使用者' });
@@ -76,6 +77,9 @@ const uploadController = {
       return res.status(500).json({ error: err.message });
     }
   },
+
+  // 如果您想直接在此 controller 中產生 PDF 憑證與報告，也可新增
+  // 例如 generateCertificate / generateReport 等函式 (如同前文示例)...
 };
 
 module.exports = uploadController;
