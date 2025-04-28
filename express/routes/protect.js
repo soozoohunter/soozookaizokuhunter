@@ -6,6 +6,7 @@
  * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示例)
  * - PDF 檔名: certificate_{fileId}.pdf / scanReport_{fileId}.pdf
  *************************************************************/
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -15,6 +16,10 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { execSync } = require('child_process');
 const { Op } = require('sequelize');
+
+// ========== (範例) JWT：若您需要驗證 Token，可打開以下兩行，並在路由中插入 protectAuth (請看最後範例) ==========
+// const jwt = require('jsonwebtoken');
+// const { protectAuth } = require('./protectAuth');  // 假設您另創一個檔案 express/routes/protectAuth.js
 
 // ========== Models ==========
 const { User, File } = require('../models');
@@ -38,6 +43,7 @@ const StealthPlugin= require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 // Multer: 上限 100MB
+// (保留您原先的設定: dest='uploads/', 限制檔案大小100MB)
 const upload = multer({
   dest: 'uploads/',
   limits:{ fileSize: 100 * 1024 * 1024 }
@@ -283,7 +289,6 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 //--------------------------------------
 // Aggregator + fallbackDirect (搜圖)
 //--------------------------------------
-// (以下所有 function 都是您原本的, 完整保留, 只示範保留結構, 沒有刪任何程式)
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
   const ret = {
@@ -362,7 +367,6 @@ async function directSearchBing(browser, imagePath){
     await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
     await page.waitForTimeout(2000);
 
-    // .camera 或 #sb_sbi
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser({ timeout:6000 }),
       page.click('#sb_sbi').catch(()=>{})
@@ -438,7 +442,6 @@ async function directSearchBaidu(browser, imagePath){
   return ret;
 }
 
-/** fallbackDirectEngines => 同時 Bing/TinEye/Baidu */
 async function fallbackDirectEngines(imagePath){
   let final = { bing:[], tineye:[], baidu:[] };
   let browser;
@@ -460,11 +463,6 @@ async function fallbackDirectEngines(imagePath){
   return final;
 }
 
-/**
- * doSearchEngines
- * aggregatorFirst => 先 aggregator => 若失敗 => fallback
- * aggregatorFirst=false => 直接 fallback
- */
 async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorImageUrl=''){
   console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
   const ret = { bing:{}, tineye:{}, baidu:{} };
@@ -789,7 +787,6 @@ router.get('/scan/:fileId', async(req,res)=>{
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
     console.log('[scan] file =>', fileRec.filename, ' isVideo=', isVideo);
     if(isVideo){
-      // 短影片(≤30秒) => 抽幀 => aggregator
       try {
         const durSec= parseFloat(execSync(
           `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`
@@ -812,7 +809,6 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.error('[scan video aggregator error]', eVid);
       }
     } else {
-      // 單圖 aggregator
       console.log('[scan] single image => aggregator+fallback =>', localPath);
       const engineRes= await doSearchEngines(localPath, true, '');
       allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
@@ -884,3 +880,30 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
 });
 
 module.exports = router;
+
+/* ----------------------------------------------------------------------------
+   (選擇性) 若您需要 JWT 驗證，可另外新增檔案 express/routes/protectAuth.js
+   內容示例：
+
+   const jwt = require('jsonwebtoken');
+
+   exports.protectAuth = (req, res, next) => {
+     const authHeader = req.headers.authorization || '';
+     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+     if (!token) {
+       return res.status(401).json({ message: '未提供授權令牌' });
+     }
+     try {
+       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+       req.user = decoded;
+       next();
+     } catch (err) {
+       console.error('JWT 驗證失敗:', err);
+       return res.status(401).json({ message: '無效或過期的授權令牌' });
+     }
+   };
+
+   使用時只要：
+     const { protectAuth } = require('./protectAuth');
+   並在任何路由中改為 router.get('/scan/:fileId', protectAuth, async(req,res)=>{...});
+---------------------------------------------------------------------------- */
