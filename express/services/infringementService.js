@@ -1,84 +1,69 @@
 // express/services/infringementService.js
-const puppeteer = require('puppeteer');
-const path = require('path');
 const fs = require('fs');
-
-// 四大爬蟲
+const path = require('path');
+const { launchBrowser } = require('../../utils/browserHelper');
 const { searchGinifab } = require('./crawlers/ginifabCrawler');
 const { searchBing } = require('./crawlers/bingCrawler');
 const { searchTinEye } = require('./crawlers/tinEyeCrawler');
-const { searchBaidu } = require('./crawlers/baiduCrawler');
-
-// 可選: PDF 報告
-const { generateSearchReport } = require('./pdf/pdfService');
+const { searchBaidu } = require('./baiduCrawler');  // or crawlers/baiduCrawler
+// optional: 也可將 ginifabEngine(增強版) 直接放這裡
 
 /**
  * detectInfringement
- * @param {string} localFilePath 本機圖片路徑
- * @param {string} publicUrlForGinifab 若 ginifab 需要遠端網址(可為 Cloudinary 後的 https://xxx)
- * @returns {Object} result = { success:boolean, data: {...} }
+ * 先嘗試 aggregator (Ginifab) => 若全部失敗 => fallback 直連
+ * @param {string} localFilePath - 供 Bing/TinEye/Baidu 做本機上傳
+ * @param {string} [publicUrl]   - 供 Ginifab aggregator 貼上 (圖片必須可公開存取)
+ * @returns {Promise<{success:boolean, results:any[], pdfPath?:string}>}
  */
-async function detectInfringement(localFilePath, publicUrlForGinifab) {
-  // 簡易檢查
-  if (!fs.existsSync(localFilePath)) {
-    throw new Error('檔案不存在: ' + localFilePath);
+async function detectInfringement(localFilePath, publicUrl='') {
+  if(!fs.existsSync(localFilePath)){
+    throw new Error(`File not found => ${localFilePath}`);
   }
+  const browser = await launchBrowser();
+  let aggregatorResults=null;
 
-  const browser = await puppeteer.launch({
-    headless:true,
-    args:['--no-sandbox','--disable-setuid-sandbox']
-  });
-
-  // 預設使用 aggregator
-  let aggregatorResults = null;
   try {
-    aggregatorResults = await searchGinifab(browser, publicUrlForGinifab);
-    // aggregatorResults: { bing:{success, links}, tineye:{...}, baidu:{...} }
-  } catch (aggError) {
-    console.warn('[infringementService] aggregator fail => fallback => direct engines', aggError);
+    // aggregator => ginifab
+    aggregatorResults = await searchGinifab(browser, publicUrl);
+  } catch(e){
+    console.warn('[detectInfringement] aggregator fail => fallback direct. err=', e);
   }
 
-  let finalResults = [];
-  if (aggregatorResults && (
-    aggregatorResults.bing.success ||
-    aggregatorResults.tineye.success ||
-    aggregatorResults.baidu.success
-  )) {
-    // 有至少一個引擎成功 => aggregator route OK
+  let finalResults=[];
+  if(aggregatorResults &&
+    (aggregatorResults.bing.success ||
+     aggregatorResults.tineye.success ||
+     aggregatorResults.baidu.success)
+  ){
+    console.log('[detectInfringement] aggregator at least one success => use aggregator results');
     finalResults.push({
-      engine:'bing',
-      screenshotPath: aggregatorResults.bing.screenshot,
-      links: aggregatorResults.bing.links
+      engine:'bing', links:aggregatorResults.bing.links,
+      screenshotPath:aggregatorResults.bing.screenshot,
+      success:aggregatorResults.bing.success
     });
     finalResults.push({
-      engine:'tineye',
-      screenshotPath: aggregatorResults.tineye.screenshot,
-      links: aggregatorResults.tineye.links
+      engine:'tineye', links:aggregatorResults.tineye.links,
+      screenshotPath:aggregatorResults.tineye.screenshot,
+      success:aggregatorResults.tineye.success
     });
     finalResults.push({
-      engine:'baidu',
-      screenshotPath: aggregatorResults.baidu.screenshot,
-      links: aggregatorResults.baidu.links
+      engine:'baidu', links:aggregatorResults.baidu.links,
+      screenshotPath:aggregatorResults.baidu.screenshot,
+      success:aggregatorResults.baidu.success
     });
   } else {
-    // fallback 依序 direct
-    const rBing = await searchBing(browser, localFilePath);
+    // fallback direct
+    console.log('[detectInfringement] aggregator fail => do direct approach');
+    const rBing   = await searchBing(browser, localFilePath);
     const rTinEye = await searchTinEye(browser, localFilePath);
-    const rBaidu = await searchBaidu(browser, localFilePath);
-    finalResults.push({ engine:'bing', screenshotPath:rBing.screenshotPath, links:rBing.links });
-    finalResults.push({ engine:'tineye', screenshotPath:rTinEye.screenshotPath, links:rTinEye.links });
-    finalResults.push({ engine:'baidu', screenshotPath:rBaidu.screenshotPath, links:rBaidu.links });
+    const rBaidu  = await searchBaidu(browser, localFilePath);
+    finalResults.push(rBing, rTinEye, rBaidu);
   }
 
   await browser.close();
 
-  // 產 PDF or 直接回傳
-  // ★ 如果您不需要 PDF，可以省略
-  const pdfPath = await generateSearchReport(finalResults);
-
   return {
-    success:true,
-    pdfPath,
+    success: true,
     results: finalResults
   };
 }
