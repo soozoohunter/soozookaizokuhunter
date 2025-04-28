@@ -2,41 +2,29 @@
 const fs = require('fs');
 const path = require('path');
 
-/**
- * 確保目錄存在，若不存在則建立
- */
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+/** 確保目錄存在 */
+function ensureDir(dirPath) {
+  if(!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive:true });
   }
 }
 
-/**
- * 儲存截圖
- * @param {object} page Puppeteer 的 Page 實例
- * @param {string} filename 包含路徑或檔名
- */
-async function saveScreenshot(page, filename) {
-  ensureDir(path.dirname(filename));
+/** 儲存截圖，會自動建立目錄 */
+async function saveScreenshot(page, filePath) {
+  ensureDir(path.dirname(filePath));
   try {
-    await page.screenshot({ path: filename, fullPage: true });
-    console.log('Screenshot saved:', filename);
-  } catch (err) {
-    console.error('Screenshot failed:', err);
+    await page.screenshot({ path: filePath, fullPage:true });
+    console.log('[saveScreenshot] done =>', filePath);
+  } catch(e) {
+    console.error('[saveScreenshot] failed =>', e);
   }
 }
 
-/**
- * 引擎錯誤處理 (帶截圖)
- */
+/** 引擎發生錯誤時做截圖 */
 async function handleEngineError(page, engineName, attempt, error) {
   console.error(`[${engineName}] attempt #${attempt} error:`, error);
-  const errShot = path.join('uploads', `${engineName}_error_${Date.now()}.png`);
-  try {
-    await saveScreenshot(page, errShot);
-  } catch (e) {
-    console.error(`[${engineName}] error screenshot failed:`, e);
-  }
+  const shotPath = path.join('uploads', `${engineName}_error_${Date.now()}.png`);
+  await saveScreenshot(page, shotPath);
 }
 
 module.exports = {
