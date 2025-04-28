@@ -1,7 +1,7 @@
 FROM node:18
 
 # 1) 安裝系統必要套件 (chromium + ffmpeg + fonts + Puppeteer 依賴)
-#    + 安裝 ping / dnsutils / vim / curl 以利容器內除錯
+#    + 安裝一些常見指令 (ping / dnsutils / vim / curl) 以利容器內除錯
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg2 ca-certificates apt-transport-https \
     libx11-6 libx11-xcb1 libxcomposite1 libxcursor1 libxi6 \
