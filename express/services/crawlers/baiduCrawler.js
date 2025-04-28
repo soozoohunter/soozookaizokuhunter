@@ -1,59 +1,60 @@
 // express/services/crawlers/baiduCrawler.js
-const fs = require('fs');
 const path = require('path');
 const { saveScreenshot, handleEngineError } = require('../../utils/screenshotUtil');
 
 async function searchBaidu(browser, imagePath) {
-  const engineName = 'baidu';
+  const engineName='baidu';
   let page;
-  let resultScreenshot = '';
-  let foundLinks = [];
-  const maxAttempts = 3;
+  let resultScreenshot='';
+  let foundLinks=[];
+  const maxAttempts=3;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      page = await browser.newPage();
-      // Baidu 圖片搜尋介面
-      await page.goto('https://image.baidu.com/', { waitUntil:'domcontentloaded', timeout:15000 });
+  for(let attempt=1; attempt<=maxAttempts; attempt++){
+    try{
+      page=await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/113');
+      await page.goto('https://image.baidu.com/', {
+        waitUntil:'domcontentloaded',
+        timeout:15000
+      });
+      await page.waitForTimeout(2000);
 
-      // 截圖 => 首頁
       const homeShot = path.join('uploads', `${engineName}_home_${Date.now()}.png`);
       await saveScreenshot(page, homeShot);
 
-      // 相機按鈕 => 觸發 file input
-      const cameraBtn = await page.waitForSelector('span.soutu-btn', { timeout:8000 });
-      await cameraBtn.click();
+      // 可能需要點擊相機按鈕
+      const cameraBtn=await page.$('span.soutu-btn');
+      if(cameraBtn){
+        await cameraBtn.click();
+        await page.waitForTimeout(1000);
+      }
 
-      // 等待 file input
-      const fileInput = await page.waitForSelector('input#uploadImg, input[type=file]', { timeout:8000 });
+      const fileInputSel='input#uploadImg, input[type=file]';
+      const fileInput=await page.waitForSelector(fileInputSel, { timeout:8000 });
       await fileInput.uploadFile(imagePath);
-
-      // 等待結果
       await page.waitForTimeout(5000);
 
-      // 截圖 => 結果頁
-      resultScreenshot = path.join('uploads', `${engineName}_results_${Date.now()}.png`);
+      resultScreenshot=path.join('uploads', `${engineName}_results_${Date.now()}.png`);
       await saveScreenshot(page, resultScreenshot);
 
-      // 取得外部連結
-      let links = await page.$$eval('a', as => as.map(a => a.href));
-      // 過濾 baidu.com
-      links = links.filter(h => h && !h.includes('baidu.com'));
-      foundLinks = links.slice(0, 5);
+      let links=await page.$$eval('a', as=>as.map(a=>a.href));
+      links=links.filter(l => l && !l.includes('baidu.com'));
+      foundLinks=links.slice(0,5);
 
       console.log(`[Baidu] found ${foundLinks.length} links at attempt #${attempt}`);
       break;
-    } catch (error) {
-      await handleEngineError(page, engineName, attempt, error);
+    } catch(err){
+      await handleEngineError(page, engineName, attempt, err);
     } finally {
-      if (page) await page.close().catch(()=>{});
+      if(page) await page.close().catch(()=>{});
     }
   }
 
   return {
-    engine: engineName,
-    screenshotPath: resultScreenshot,
-    links: foundLinks
+    engine:engineName,
+    screenshotPath:resultScreenshot,
+    links:foundLinks,
+    success: foundLinks.length>0
   };
 }
 
