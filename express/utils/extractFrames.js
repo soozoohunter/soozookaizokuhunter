@@ -1,46 +1,54 @@
 // express/utils/extractFrames.js
-
-const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+
+if(ffmpegPath){
+  ffmpeg.setFfmpegPath(ffmpegPath);
+}
 
 /**
- * 從影片中提取關鍵影格圖像。
- * @param {string} videoPath - 視頻檔案路徑。
- * @param {string} outputDir - 輸出影格圖片的目錄。
- * @param {number} intervalSec - 每隔多少秒擷取一張影像 (預設10秒)。
- * @param {number} maxFrames - 最多擷取幾張影像 (預設5張)。
- * @returns {string[]} 產生的影像檔路徑陣列。
+ * extractKeyFrames
+ * 依固定秒數 interval 抽幀，最多 maxCount 張
+ * @param {string} videoPath 
+ * @param {string} outputDir 
+ * @param {number} intervalSec 
+ * @param {number} maxCount 
+ * @returns {Promise<string[]>} 抽取到的 frame 檔路徑
  */
-function extractKeyFrames(videoPath, outputDir, intervalSec = 10, maxFrames = 5) {
-    // 確保輸出目錄存在
-    fs.mkdirSync(outputDir, { recursive: true });
-
-    // 構建 ffmpeg 命令參數
-    //  - fps=1/intervalSec => 表示每 intervalSec 秒擷取1張
-    //  - -frames:v maxFrames => 最多擷取多少張
-    const outputPattern = path.join(outputDir, 'frame-%02d.png');
-    const args = [
-        '-hide_banner',
-        '-loglevel', 'error',
-        '-i', videoPath,
-        '-vf', `fps=1/${intervalSec}`,
-        '-frames:v', maxFrames,
-        outputPattern
-    ];
-
-    try {
-        execFileSync('ffmpeg', args);
-    } catch (err) {
-        console.error('[extractFrames] ffmpeg 執行錯誤:', err);
-        return [];
+function extractKeyFrames(videoPath, outputDir, intervalSec=10, maxCount=5){
+  return new Promise((resolve, reject)=>{
+    if(!fs.existsSync(videoPath)) {
+      return reject(new Error('Video file not found => '+videoPath));
     }
-
-    // 收集輸出圖片路徑
-    const files = fs.readdirSync(outputDir)
-        .filter(f => f.match(/^frame-\d+\.png$/))
-        .map(f => path.join(outputDir, f));
-    return files;
+    if(!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir,{recursive:true});
+    }
+    // 建立 timemarks
+    const timemarks=[];
+    for(let i=0; i<maxCount; i++){
+      timemarks.push(String(i*intervalSec));
+    }
+    ffmpeg(videoPath)
+      .on('error', err=>reject(err))
+      .on('end', ()=>{
+        const frames=[];
+        for(let i=1; i<=maxCount; i++){
+          const fp = path.join(outputDir, `frame_${i}.png`);
+          if(fs.existsSync(fp)){
+            frames.push(fp);
+          }
+        }
+        resolve(frames);
+      })
+      .screenshots({
+        count:maxCount,
+        folder:outputDir,
+        filename:'frame_%i.png',
+        timemarks
+      });
+  });
 }
 
 module.exports = { extractKeyFrames };
