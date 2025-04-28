@@ -1,194 +1,241 @@
 // express/services/ginifabEngine.js
 const puppeteer = require('puppeteer');
 const path = require('path');
-const fs   = require('fs');
+const fs = require('fs');
 
 /**
- * 使用 Ginifab 網站，以「指定圖片網址」模式進行 Bing / TinEye / Baidu 反向搜尋。
- * 依序點擊三個按鈕，監聽新分頁(Target)，抓取外部連結注入到 result。
- *
- * 四大步驟 (4-Band)：
- *   [Band A] 打開 Ginifab 主頁 + 輸入圖片 URL
- *   [Band B] 點擊「微軟必應」=> 擷取 Bing links
- *   [Band C] 點擊「錫眼睛」=> 擷取 TinEye links
- *   [Band D] 點擊「百度」=> 擷取 Baidu links
- *
- * @param {string} publicImageUrl - 例如 https://mysite.com/uploads/xxx.jpg
- * @param {number} fileId - DB PK，可用於命名截圖檔
- * @returns {Object} { bingLinks:[], tineyeLinks:[], baiduLinks:[], screenshots:{} }
+ * 直接對 Bing/TinEye/Baidu 做「上傳本地檔案」式以圖搜 (fallback)
+ * @param {string} imagePath - 本地圖片路徑
+ * @returns {Promise<{bing:string[], tineye:string[], baidu:string[]}>}
  */
-async function doGinifabEngine(publicImageUrl, fileId) {
-  const result = {
-    bingLinks: [],
-    tineyeLinks: [],
-    baiduLinks: [],
-    screenshots: {}
+async function fallbackDirectEngines(imagePath) {
+  const results = {
+    bing: [],
+    tineye: [],
+    baidu: []
   };
-  let browser = null, mainPage = null;
-
+  let browser;
   try {
     browser = await puppeteer.launch({
       headless: true,
       args: [
         '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-popup-blocking'
+        '--disable-setuid-sandbox'
       ]
     });
-    mainPage = await browser.newPage();
 
-    // ========== [Band A] 打開 Ginifab 主頁 + 輸入 URL ==========
+    // Bing
     try {
-      await mainPage.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
-        waitUntil: 'domcontentloaded'
-      });
-      // 切換到「指定圖片網址」模式
-      await mainPage.waitForSelector('a', { timeout:5000 });
-      await mainPage.evaluate(() => {
-        const link = [...document.querySelectorAll('a')]
-          .find(a => a.innerText.includes('指定圖片網址'));
-        if (link) link.click();
-      });
-      // 輸入圖片 URL
-      await mainPage.waitForSelector('input[type=text]', { timeout: 5000 });
-      await mainPage.type('input[type=text]', publicImageUrl, { delay:50 });
-    } catch (errBandA) {
-      console.error('[GinifabEngine][BandA] fail =>', errBandA);
-      // 可做截圖
-      const shotPath = path.join(__dirname, `../uploads/errors/ginifab_bandA_${fileId||'x'}_${Date.now()}.png`);
-      await mainPage.screenshot({ path: shotPath }).catch(()=>{});
-      result.screenshots.bandA = shotPath;
-      throw errBandA;
-    }
-
-    // 依序點擊 3 個按鈕，取得連結
-    // 通常 Ginifab 頁面上對應 "微軟必應"、"錫眼睛"、"百度" 三段文字
-    // 每次點擊都會彈出新分頁 => 需監聽 targetcreated or waitForTarget
-
-    // ========== [Band B] 點擊「微軟必應」==========
-    try {
-      const [bingPage] = await Promise.all([
-        new Promise(resolve => {
-          browser.once('targetcreated', t => resolve(t.page()));
-        }),
-        mainPage.evaluate(() => {
-          // 在 Ginifab 找到內含「必應」字樣的 a 標籤
-          const anchor = [...document.querySelectorAll('a')]
-            .find(a => a.innerText.includes('必應'));
-          if (anchor) anchor.click();
-        })
-      ]);
-      await bingPage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 });
-      await bingPage.waitForTimeout(2000);
-
-      // 蒐集連結
-      let links = await bingPage.evaluate(() => {
-        return Array.from(document.querySelectorAll('a[href]'), a => a.href)
-          .filter(href => !href.includes('ginifab.com') && !href.includes('bing.com'));
-      });
-      links = [...new Set(links)];
-      result.bingLinks = links;
-
-      if(!links.length) {
-        // 若沒找到 => 截圖
-        const shotPath = path.join(__dirname, `../uploads/errors/ginifab_bing_nores_${fileId||'x'}_${Date.now()}.png`);
-        await bingPage.screenshot({ path: shotPath }).catch(()=>{});
-        result.screenshots.bing = shotPath;
+      const page = await browser.newPage();
+      await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
+      // Bing 搜圖的「相機按鈕」或 input[type=file] 可能動態
+      // 這裡假設可以直接選到 input[type=file]
+      const fileInput = await page.$('input[type=file]');
+      if (fileInput) {
+        await fileInput.uploadFile(imagePath);
+        await page.waitForTimeout(4000);
+        // 抓外部連結
+        let links = await page.$$eval('a', as => as.map(a => a.href));
+        links = links.filter(l => l && !l.includes('bing.com'));
+        results.bing.push(...links);
       }
-
-      await bingPage.close();
-    } catch (errBandB) {
-      console.error('[GinifabEngine][BandB: Bing] fail =>', errBandB);
-      const shotPath = path.join(__dirname, `../uploads/errors/ginifab_bing_error_${fileId||'x'}_${Date.now()}.png`);
-      await mainPage.screenshot({ path: shotPath }).catch(()=>{});
-      result.screenshots.bing = shotPath;
+      await page.close();
+    } catch(eBing) {
+      console.error('[fallback Bing error]', eBing);
     }
 
-    // ========== [Band C] 點擊「錫眼睛」==========
+    // TinEye
     try {
-      const [tineyePage] = await Promise.all([
-        new Promise(resolve => {
-          browser.once('targetcreated', t => resolve(t.page()));
-        }),
-        mainPage.evaluate(() => {
-          const anchor = [...document.querySelectorAll('a')]
-            .find(a => a.innerText.includes('錫眼睛'));
-          if (anchor) anchor.click();
-        })
-      ]);
-      await tineyePage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 });
-      await tineyePage.waitForTimeout(2000);
+      const page = await browser.newPage();
+      await page.goto('https://tineye.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+      const fileInput = await page.$('input[type=file]');
+      if (fileInput) {
+        await fileInput.uploadFile(imagePath);
+        await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
+        await page.waitForTimeout(2000);
 
-      let links = await tineyePage.evaluate(() => {
-        return Array.from(document.querySelectorAll('a[href]'), a => a.href)
-          .filter(href => !href.includes('tineye.com'));
-      });
-      links = [...new Set(links)];
-      result.tineyeLinks = links;
-
-      if(!links.length){
-        const shotPath = path.join(__dirname, `../uploads/errors/ginifab_tineye_nores_${fileId||'x'}_${Date.now()}.png`);
-        await tineyePage.screenshot({ path: shotPath }).catch(()=>{});
-        result.screenshots.tineye = shotPath;
+        let links = await page.$$eval('a', as => as.map(a => a.href));
+        links = links.filter(l => l && !l.includes('tineye.com'));
+        results.tineye.push(...links);
       }
-
-      await tineyePage.close();
-    } catch (errBandC) {
-      console.error('[GinifabEngine][BandC: TinEye] fail =>', errBandC);
-      const shotPath = path.join(__dirname, `../uploads/errors/ginifab_tineye_error_${fileId||'x'}_${Date.now()}.png`);
-      await mainPage.screenshot({ path: shotPath }).catch(()=>{});
-      result.screenshots.tineye = shotPath;
+      await page.close();
+    } catch(eTine) {
+      console.error('[fallback TinEye error]', eTine);
     }
 
-    // ========== [Band D] 點擊「百度」==========
+    // Baidu
     try {
-      const [baiduPage] = await Promise.all([
-        new Promise(resolve => {
-          browser.once('targetcreated', t => resolve(t.page()));
-        }),
-        mainPage.evaluate(() => {
-          const anchor = [...document.querySelectorAll('a')]
-            .find(a => a.innerText.includes('百度'));
-          if (anchor) anchor.click();
-        })
-      ]);
-      await baiduPage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 });
-      await baiduPage.waitForTimeout(2000);
-
-      let links = await baiduPage.evaluate(() => {
-        return Array.from(document.querySelectorAll('a[href]'), a => a.href)
-          .filter(href => !href.includes('baidu.com'));
-      });
-      links = [...new Set(links)];
-      result.baiduLinks = links;
-
-      if(!links.length){
-        const shotPath = path.join(__dirname, `../uploads/errors/ginifab_baidu_nores_${fileId||'x'}_${Date.now()}.png`);
-        await baiduPage.screenshot({ path: shotPath }).catch(()=>{});
-        result.screenshots.baidu = shotPath;
+      const page = await browser.newPage();
+      // 有時可能需要 "https://graph.baidu.com/pcpage/index?tpl_from=pc"...
+      await page.goto('https://graph.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+      const baiduFile = await page.$('input[type=file]');
+      if (baiduFile) {
+        await baiduFile.uploadFile(imagePath);
+        await page.waitForTimeout(5000);
+        let links = await page.$$eval('a', as => as.map(a => a.href));
+        links = links.filter(l => l && !l.includes('baidu.com'));
+        results.baidu.push(...links);
       }
-
-      await baiduPage.close();
-    } catch (errBandD) {
-      console.error('[GinifabEngine][BandD: Baidu] fail =>', errBandD);
-      const shotPath = path.join(__dirname, `../uploads/errors/ginifab_baidu_error_${fileId||'x'}_${Date.now()}.png`);
-      await mainPage.screenshot({ path: shotPath }).catch(()=>{});
-      result.screenshots.baidu = shotPath;
+      await page.close();
+    } catch(eBaidu) {
+      console.error('[fallback Baidu error]', eBaidu);
     }
 
-  } catch (err) {
-    console.error('doGinifabEngine top-level error:', err);
-    // 最上層錯誤截圖 (若尚未截圖)
-    const shotPath = path.join(__dirname, `../uploads/errors/ginifab_error_${fileId||'x'}_${Date.now()}.png`);
-    if (mainPage) {
-      await mainPage.screenshot({ path: shotPath }).catch(()=>{});
-      result.screenshots.all = shotPath;
-    }
+  } catch(allErr) {
+    console.error('[fallbackDirectEngines error]', allErr);
   } finally {
     if (browser) await browser.close();
   }
 
-  return result;
+  // 去重
+  results.bing = [...new Set(results.bing)];
+  results.tineye = [...new Set(results.tineye)];
+  results.baidu = [...new Set(results.baidu)];
+  return results;
 }
 
-module.exports = { doGinifabEngine };
+/**
+ * 使用「Ginifab Aggregator」：指定圖片 URL → 依序點擊 Bing / TinEye / Baidu
+ * @param {string} publicImageUrl - 可公開存取的圖片網址 (e.g. Cloudinary URL / IPFS Gateway / ...)
+ * @returns {Promise<{bing:string[], tineye:string[], baidu:string[]}>}
+ */
+async function aggregatorSearchGinifab(publicImageUrl) {
+  const results = {
+    bing: [],
+    tineye: [],
+    baidu: []
+  };
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox'
+      ]
+    });
+    const page = await browser.newPage();
+    await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
+      waitUntil:'domcontentloaded',
+      timeout:20000
+    });
+    await page.waitForTimeout(1000);
+
+    // 點擊「指定圖片網址」
+    await page.evaluate(() => {
+      const link = [...document.querySelectorAll('a')]
+        .find(a => a.innerText.includes('指定圖片網址'));
+      if (link) link.click();
+    });
+    await page.waitForSelector('input[type=text]', { timeout:5000 });
+    await page.type('input[type=text]', publicImageUrl, { delay:50 });
+    await page.waitForTimeout(1500);
+
+    // 順序點擊三個搜索 (Bing / TinEye / Baidu)
+    const engines = [
+      { key:'bing',   label:['微軟必應','Microsoft Bing','Bing'] },
+      { key:'tineye', label:['錫眼睛','TinEye'] },
+      { key:'baidu',  label:['百度','Baidu'] }
+    ];
+
+    for (let eng of engines) {
+      try {
+        const newTab = new Promise(resolve => {
+          browser.once('targetcreated', async t => resolve(await t.page()));
+        });
+        // 在 ginifab 主頁點擊對應文字
+        await page.evaluate((labels) => {
+          const as = [...document.querySelectorAll('a')];
+          for (let lab of labels) {
+            const a = as.find(x => x.innerText.includes(lab));
+            if(a) { a.click(); return; }
+          }
+        }, eng.label);
+        const subPage = await newTab;
+        await subPage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
+        await subPage.waitForTimeout(2000);
+
+        // 抓外部連結
+        let links = await subPage.$$eval('a[href]', as => as.map(a => a.href));
+        // 過濾 ginifab / bing / tineye / baidu 自身
+        links = links.filter(l => l && !l.includes('bing.com') && !l.includes('tineye.com') && !l.includes('baidu.com') && !l.includes('ginifab.com'));
+        results[eng.key].push(...links);
+        await subPage.close();
+      } catch(subErr) {
+        console.error(`[aggregatorSearchGinifab][${eng.key}] err =>`, subErr);
+      }
+    }
+
+  } catch(err) {
+    console.error('[aggregatorSearchGinifab] fail =>', err);
+    throw err;
+  } finally {
+    if(browser) await browser.close();
+  }
+
+  // 去重
+  results.bing = [...new Set(results.bing)];
+  results.tineye = [...new Set(results.tineye)];
+  results.baidu = [...new Set(results.baidu)];
+  return results;
+}
+
+/**
+ * 綜合「aggregator + fallbackDirect」的搜尋邏輯：
+ * 1. 若 aggregatorFirst=true & 提供 aggregatorUrl => 先 aggregator
+ * 2. 若 aggregator 出錯或無結果，可進 fallbackDirectEngines
+ * 3. 若 aggregatorFirst=false 則直接 fallback
+ *
+ * @param {string} localFilePath - 本地圖片/影片幀 路徑
+ * @param {boolean} aggregatorFirst - 是否先試 aggregator
+ * @param {string} aggregatorImageUrl - 可公開圖片URL
+ * @returns {Promise<{bing: string[], tineye:string[], baidu: string[]}>}
+ */
+async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, aggregatorImageUrl='') {
+  let final = {
+    bing: [],
+    tineye: [],
+    baidu: []
+  };
+
+  // aggregator
+  if (aggregatorFirst && aggregatorImageUrl) {
+    try {
+      const aggRes = await aggregatorSearchGinifab(aggregatorImageUrl);
+      final.bing.push(...aggRes.bing);
+      final.tineye.push(...aggRes.tineye);
+      final.baidu.push(...aggRes.baidu);
+    } catch(eAgg) {
+      console.error('[searchImagesWithFallback aggregator error]', eAgg);
+    }
+    // fallback => 若 aggregator 全部都沒抓到
+    const totalFound = final.bing.length + final.tineye.length + final.baidu.length;
+    if (totalFound === 0) {
+      console.log('[searchImagesWithFallback] aggregator no result => fallback direct');
+      const fb = await fallbackDirectEngines(localFilePath);
+      final.bing.push(...fb.bing);
+      final.tineye.push(...fb.tineye);
+      final.baidu.push(...fb.baidu);
+    }
+  } else {
+    // 直接 fallback
+    console.log('[searchImagesWithFallback] direct fallback only');
+    const fb = await fallbackDirectEngines(localFilePath);
+    final.bing.push(...fb.bing);
+    final.tineye.push(...fb.tineye);
+    final.baidu.push(...fb.baidu);
+  }
+
+  // 去重
+  final.bing = [...new Set(final.bing)];
+  final.tineye = [...new Set(final.tineye)];
+  final.baidu = [...new Set(final.baidu)];
+
+  return final;
+}
+
+module.exports = {
+  fallbackDirectEngines,
+  aggregatorSearchGinifab,
+  searchImagesWithFallback
+};
