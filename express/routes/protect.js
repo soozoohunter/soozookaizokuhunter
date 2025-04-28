@@ -21,20 +21,20 @@ const { User, File } = require('../models');
 
 // ========== Services/Utils ==========
 const fingerprintService = require('../services/fingerprintService');
-const ipfsService = require('../services/ipfsService');
-const chain = require('../utils/chain');
+const ipfsService        = require('../services/ipfsService');
+const chain              = require('../utils/chain');
 
 // ffmpeg: 抽影格
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
+const ffmpeg      = require('fluent-ffmpeg');
+const ffmpegPath  = require('ffmpeg-static');
 if(ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
 const { extractKeyFrames } = require('../utils/extractFrames');
 
 // Puppeteer + Stealth
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const puppeteer    = require('puppeteer-extra');
+const StealthPlugin= require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 // Multer: 上限 100MB
@@ -65,8 +65,8 @@ try {
 async function launchBrowser(){
   console.log('[launchBrowser] starting stealth browser...');
   return puppeteer.launch({
-    headless: 'new',
-    args: [
+    headless:'new',
+    args:[
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-gpu',
@@ -75,7 +75,7 @@ async function launchBrowser(){
       '--disable-features=IsolateOrigins',
       '--disable-blink-features=AutomationControlled'
     ],
-    defaultViewport: { width:1280, height:800 }
+    defaultViewport:{ width:1280, height:800 }
   });
 }
 
@@ -100,7 +100,7 @@ async function generateCertificatePDF(data, outputPath){
       stampImagePath
     } = data;
 
-    // 嵌字體
+    // ========== 嵌字體 ==========
     const embeddedFont = base64TTF ? `
       @font-face {
         font-family: "NotoSansTCVar";
@@ -108,7 +108,7 @@ async function generateCertificatePDF(data, outputPath){
       }
     ` : '';
 
-    // 預覽圖 (圖片 => base64 / 影片 => 顯示文字)
+    // ========== 圖片/影片預覽 ==========
     let previewTag='';
     if(filePath && fs.existsSync(filePath) && mimeType.startsWith('image')){
       const ext= path.extname(filePath).replace('.','');
@@ -118,11 +118,12 @@ async function generateCertificatePDF(data, outputPath){
       previewTag= `<p style="color:gray;">(短影片檔案示意，不顯示畫面)</p>`;
     }
 
-    // stamp
+    // ========== 浮水印 (stamp) ==========
     const stampTag = (stampImagePath && fs.existsSync(stampImagePath))
       ? `<img src="file://${stampImagePath}" style="position:absolute; top:40px; left:40px; width:100px; opacity:0.3; transform:rotate(45deg);" alt="stamp" />`
       : '';
 
+    // ========== HTML 模板 ==========
     const html= `
     <html>
     <head>
@@ -161,10 +162,11 @@ async function generateCertificatePDF(data, outputPath){
     </html>
     `;
 
-    console.log('[generateCertificatePDF] rendering HTML =>', html.length, 'chars');
+    console.log('[generateCertificatePDF] rendering HTML => length=', html.length);
     await page.setContent(html, { waitUntil:'networkidle0' });
     await page.emulateMediaType('screen');
 
+    // 產 PDF
     await page.pdf({
       path: outputPath,
       format:'A4',
@@ -264,7 +266,7 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 }
 
 //--------------------------------------
-// Aggregator + fallbackDirect
+// Aggregator + fallbackDirect (搜圖)
 //--------------------------------------
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
@@ -313,7 +315,7 @@ async function aggregatorSearchGinifab(browser, publicImageUrl){
         const popup= await newTab;
         await popup.waitForTimeout(3000);
 
-        let hrefs= await popup.$$eval('a', as=> as.map(a=>a.href));
+        let hrefs= await popup.$$eval('a', as=> as.map(a=> a.href));
         hrefs= hrefs.filter(h=>
           h && !h.includes('ginifab') &&
           !h.includes('bing.com') &&
@@ -507,7 +509,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       return res.status(400).json({ error:'POLICY_REQUIRED', message:'請勾選服務條款' });
     }
 
-    const isVideo= req.file.mimetype.startsWith('video');
+    const mimeType   = req.file.mimetype;
+    const isVideo    = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
     if(isVideo && !isUnlimited){
       fs.unlinkSync(req.file.path);
@@ -530,12 +533,12 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         plan:'free'
       });
       defaultPassword= rawPass;
-      console.log('[step1] created new user =>', user.id);
+      console.log('[step1] created new user => ID=', user.id);
     }
 
     // fingerprint
-    const buf= fs.readFileSync(req.file.path);
-    const fingerprint= fingerprintService.sha256(buf);
+    const buf = fs.readFileSync(req.file.path);
+    const fingerprint = fingerprintService.sha256(buf);
     console.log('[step1] fingerprint =>', fingerprint);
 
     // 查重
@@ -561,12 +564,11 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     console.log('[step1] about to call ipfsService.saveFile...');
     let ipfsHash='';
     try {
-      ipfsHash = await ipfsService.saveFile(buf);
+      ipfsHash= await ipfsService.saveFile(buf);
       console.log('[step1] IPFS =>', ipfsHash);
     } catch(eIPFS){
       console.error('[step1 IPFS error]', eIPFS);
-      // （可視情況決定是否要在此處直接回傳錯誤）
-      // return res.status(500).json({ error:'IPFS_FAIL', detail:eIPFS.message });
+      // （可視情況決定是否要在此處中斷回傳錯誤）
     }
 
     // =========== Chain ============
@@ -578,31 +580,32 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.log('[step1] chain => txHash=', txHash);
     } catch(eChain){
       console.error('[step1 chain error]', eChain);
-      // （可視情況決定是否要在此處直接回傳錯誤）
-      // return res.status(500).json({ error:'CHAIN_FAIL', detail:eChain.message });
+      // （可視情況決定是否要在此處中斷回傳錯誤）
     }
 
-    console.log('[step1] creating DB record for File...');
+    // 建立 DB 記錄
     const newFile= await File.create({
-      user_id:user.id,
-      filename:req.file.originalname,
+      user_id : user.id,
+      filename: req.file.originalname,
       fingerprint,
       ipfs_hash: ipfsHash,
-      tx_hash: txHash,
-      status:'pending'
+      tx_hash : txHash,
+      status  :'pending'
     });
-    console.log('[step1] File record created => ID:', newFile.id);
+    console.log('[step1] File record created => ID=', newFile.id);
 
+    // 統計上傳次數
     if(isVideo) user.uploadVideos=(user.uploadVideos||0)+1;
     else user.uploadImages=(user.uploadImages||0)+1;
     await user.save();
 
-    // 移動 => uploads
-    const localDir= path.resolve(__dirname, '../../uploads');
-    if(!fs.existsSync(localDir)) fs.mkdirSync(localDir,{recursive:true});
+    // 移動原始上傳檔 => uploads 目錄
+    console.log('[step1] moving local file => /uploads');
+    const uploadDir= path.resolve(__dirname, '../../uploads');
+    if(!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir,{recursive:true});
+
     const ext= path.extname(req.file.originalname)||'';
-    const finalPath= path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
-    console.log('[step1] moving file =>', finalPath);
+    const finalPath= path.join(uploadDir, `imageForSearch_${newFile.id}${ext}`);
     try {
       fs.renameSync(req.file.path, finalPath);
     } catch(eRen){
@@ -615,67 +618,73 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // 短影片 => 抽中幀
+    // 若短影片 => 抽一張中間幀
     let previewPath=null;
     if(isVideo){
       try {
-        console.log('[step1] checking video duration...');
-        const cmd=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${finalPath}"`;
-        const durSec= parseFloat(execSync(cmd).toString().trim())||9999;
+        console.log('[step1] checking video duration => ffprobe...');
+        const durSec= parseFloat(
+          execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${finalPath}"`)
+            .toString().trim()
+        )||9999;
         console.log('[step1] video durSec =>', durSec);
+
         if(durSec<=30){
           const mid= Math.floor(durSec/2);
-          const outP= path.join(localDir, `preview_${newFile.id}.png`);
+          const outP= path.join(uploadDir, `preview_${newFile.id}.png`);
           execSync(`ffmpeg -i "${finalPath}" -ss ${mid} -frames:v 1 "${outP}"`);
           if(fs.existsSync(outP)){
             previewPath= outP;
             console.log('[step1] got middle frame =>', outP);
           } else {
-            console.warn('[step1] 影片中幀截圖失敗(檔案不存在)', outP);
+            console.warn('[step1] middle frame not found =>', outP);
           }
         }
       } catch(eVid){
         console.error('[Video middle frame error]', eVid);
       }
     } else {
-      previewPath= finalPath;
+      previewPath= finalPath; // 圖片直接預覽
     }
 
-    // 產生證書 PDF
-    console.log('[step1] generating PDF => certificate_{fileId}.pdf...');
+    // ========== 產生「證書 PDF」存放到 uploads/certificates/ ==========
+    const certDir= path.join(uploadDir, 'certificates');
+    if(!fs.existsSync(certDir)) fs.mkdirSync(certDir, { recursive:true });
+
     const pdfName= `certificate_${newFile.id}.pdf`;
-    const pdfPath= path.join(localDir, pdfName);
+    const pdfPath= path.join(certDir, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
+
+    console.log('[step1] generating PDF =>', pdfPath);
     try {
       await generateCertificatePDF({
-        name: user.realName,
-        dob: user.birthDate,
+        name : user.realName,
+        dob  : user.birthDate,
         phone: user.phone,
         address: user.address,
-        email: user.email,
+        email : user.email,
         title,
-        fileName: req.file.originalname,
+        fileName  : req.file.originalname,
         fingerprint,
         ipfsHash,
         txHash,
-        serial: user.serialNumber,
-        mimeType: req.file.mimetype,
-        issueDate: new Date().toLocaleString(),
-        filePath: previewPath,
+        serial    : user.serialNumber,
+        mimeType  : mimeType,
+        issueDate : new Date().toLocaleString(),
+        filePath  : previewPath,
         stampImagePath: fs.existsSync(stampImg)? stampImg:null
       }, pdfPath);
     } catch(ePDF){
       console.error('[step1 generateCertificatePDF error]', ePDF);
-      // 看情況可回傳錯誤，或繼續流程
     }
 
     const pdfExists= fs.existsSync(pdfPath);
     console.log('[step1] PDF done =>', pdfPath, 'pdfExists?', pdfExists);
 
     return res.json({
-      message:'上傳成功並完成證書PDF',
-      fileId:newFile.id,
-      pdfUrl:`/api/protect/certificates/${newFile.id}`,
+      message : '上傳成功並完成證書PDF',
+      fileId  : newFile.id,
+      pdfUrl  : `/api/protect/certificates/${newFile.id}`, // GET 路由
       fingerprint, ipfsHash, txHash,
       defaultPassword
     });
@@ -694,16 +703,18 @@ router.get('/certificates/:fileId', async(req,res)=>{
     const fileId=req.params.fileId;
     console.log('[GET /certificates] fileId=', fileId);
 
-    const localDir= path.resolve(__dirname,'../../uploads');
-    const pdfPath= path.join(localDir, `certificate_${fileId}.pdf`);
+    // 從 uploads/certificates/ 讀取
+    const uploadDir= path.resolve(__dirname,'../../uploads');
+    const certDir  = path.join(uploadDir, 'certificates');
+    const pdfPath  = path.join(certDir, `certificate_${fileId}.pdf`);
 
     if(!fs.existsSync(pdfPath)){
       console.warn('[GET /certificates] PDF not exist =>', pdfPath);
       return res.status(404).json({ error:'NOT_FOUND', message:'證書PDF不存在' });
     }
     console.log('[GET /certificates] => download =>', pdfPath);
-    return res.download(pdfPath, `KaiKaiShield_Certificate_${fileId}.pdf`);
 
+    return res.download(pdfPath, `KaiKaiShield_Certificate_${fileId}.pdf`);
   } catch(e){
     console.error('[certificates error]', e);
     return res.status(500).json({ error:'CERT_DOWNLOAD_ERROR', detail:e.message });
@@ -723,10 +734,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此File ID' });
     }
 
-    //=== 1) 多平台文字爬蟲 (TikTok/FB/IG/YouTube) - 只示範
+    // 1) 多平台文字爬蟲 (示範)
     const query= fileRec.filename || fileRec.fingerprint;
     let suspiciousLinks=[];
-    // TikTok
+    // TikTok (需 RAPIDAPI_KEY)
     if(process.env.RAPIDAPI_KEY){
       try {
         console.log('[scan] tiktok search =>', query);
@@ -741,15 +752,13 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.error('[scan Tiktok error]', eTT);
       }
     }
-    // FB / IG / YT => placeholder
-    try {
-      // e.g. suspiciousLinks.push('https://facebook.com/fakePost/123');
-    } catch(eFB){ console.error('[scan FB error]', eFB); }
+    // FB / IG / YT => placeholder ...
+    // suspiciousLinks.push('...');
 
-    //=== 2) 檢查檔案是否存在
-    const localDir= path.resolve(__dirname, '../../uploads');
+    // 2) 檢查檔案是否存在
+    const uploadDir= path.resolve(__dirname, '../../uploads');
     const ext= path.extname(fileRec.filename)||'';
-    const localPath= path.join(localDir, `imageForSearch_${fileRec.id}${ext}`);
+    const localPath= path.join(uploadDir, `imageForSearch_${fileRec.id}${ext}`);
     if(!fs.existsSync(localPath)){
       console.warn('[scan] localPath not found =>', localPath);
       fileRec.status='scanned';
@@ -761,7 +770,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       });
     }
 
-    //=== 3) aggregator + fallback
+    // 3) aggregator + fallback
     let allLinks=[...suspiciousLinks];
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
     console.log('[scan] file =>', fileRec.filename, ' isVideo=', isVideo);
@@ -774,8 +783,9 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.log('[scan] video durSec =>', durSec);
 
         if(durSec<=30){
-          const frameDir= path.join(localDir, `frames_${fileRec.id}`);
+          const frameDir= path.join(uploadDir, `frames_${fileRec.id}`);
           if(!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
+
           const frames= await extractKeyFrames(localPath, frameDir, 10,5);
           console.log('[scan] extracted frames =>', frames.length);
 
@@ -800,9 +810,13 @@ router.get('/scan/:fileId', async(req,res)=>{
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
 
-    //=== 4) 產「掃描報告 PDF」
+    // 4) 產「掃描報告 PDF」=> 放 uploads/reports/
+    const reportsDir= path.join(uploadDir, 'reports');
+    if(!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive:true });
+
     const scanPdfName= `scanReport_${fileRec.id}.pdf`;
-    const scanPdfPath= path.join(localDir, scanPdfName);
+    const scanPdfPath= path.join(reportsDir, scanPdfName);
+
     const stampPath= path.join(__dirname, '../../public/stamp.png');
     console.log('[scan] generating PDF =>', scanPdfPath);
 
@@ -813,7 +827,6 @@ router.get('/scan/:fileId', async(req,res)=>{
     }, scanPdfPath);
 
     console.log('[scan] done =>', scanPdfPath);
-    // 最後檢查檔案
     const rptExists= fs.existsSync(scanPdfPath);
     console.log('[scan] PDF fileExists?', rptExists);
 
@@ -837,15 +850,17 @@ router.get('/scanReports/:fileId', async(req,res)=>{
     console.log('[GET /scanReports] =>', req.params.fileId);
     const fileId= req.params.fileId;
 
-    const localDir= path.resolve(__dirname,'../../uploads');
-    const pdfPath= path.join(localDir, `scanReport_${fileId}.pdf`);
+    const uploadDir = path.resolve(__dirname,'../../uploads');
+    const reportsDir= path.join(uploadDir, 'reports');
+    const pdfPath   = path.join(reportsDir, `scanReport_${fileId}.pdf`);
+
     if(!fs.existsSync(pdfPath)){
       console.warn('[scanReports] not found =>', pdfPath);
       return res.status(404).json({ error:'NOT_FOUND', message:'掃描報告不存在' });
     }
     console.log('[scanReports] => download =>', pdfPath);
-    return res.download(pdfPath, `KaiShield_ScanReport_${fileId}.pdf`);
 
+    return res.download(pdfPath, `KaiShield_ScanReport_${fileId}.pdf`);
   } catch(e){
     console.error('[scanReports error]', e);
     return res.status(500).json({ error:e.message });
