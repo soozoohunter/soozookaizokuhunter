@@ -1,5 +1,3 @@
-# express/Dockerfile
-
 FROM node:18
 
 # 1) 安裝系統必要套件 (chromium + ffmpeg + fonts + Puppeteer 依賴)
@@ -19,29 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # 2) 複製 package.json + package-lock.json 並安裝依賴
-#    (您的 package.json 已含 puppeteer-extra / stealth / ffmpeg-static 等)
 COPY package*.json ./
 RUN npm install
 
-# 3) 複製專案其他檔案 (包含 routes, utils, fonts 目錄等)
+# 3) 複製專案其他檔案 (包含 routes, services, utils, models, fonts…)
 COPY . .
 
 # Puppeteer 設定：使用系統安裝好的 /usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# ★ GPU 加速設定 (若宿主機無 GPU 也可保留不影響正常運作)
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
-
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
-
-# --- 使用說明 ---
-# 1) docker compose build --no-cache suzoo_express
-# 2) docker compose up -d
-#
-# 若需單獨測試此映像，可在 /express 執行:
-#   docker build -t suzoo_express -f Dockerfile .
-#   docker run --gpus all -p 3000:3000 suzoo_express
+CMD ["npm", "start"]
