@@ -1,4 +1,5 @@
 // express/routes/uploadRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -9,6 +10,7 @@ const planMiddleware = require('../middleware/planMiddleware');
 const uploadController = require('../controllers/uploadController');
 
 // 1) 使用本地暫存: multer 會先將檔案存到 "uploads/" (相對 or 絕對?)
+//   - 您原本的設定保留
 const upload = multer({ dest: 'uploads/' });
 
 /**
