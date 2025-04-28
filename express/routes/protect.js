@@ -60,6 +60,24 @@ try {
 }
 
 //----------------------------------------
+// [ 新增 ] 用於確保 uploads/certificates & uploads/reports 目錄存在
+//----------------------------------------
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+const CERT_DIR        = path.join(UPLOAD_BASE_DIR, 'certificates');
+const REPORTS_DIR     = path.join(UPLOAD_BASE_DIR, 'reports');
+
+function ensureUploadDirs(){
+  try {
+    if(!fs.existsSync(UPLOAD_BASE_DIR)) fs.mkdirSync(UPLOAD_BASE_DIR, { recursive:true });
+    if(!fs.existsSync(CERT_DIR))        fs.mkdirSync(CERT_DIR, { recursive:true });
+    if(!fs.existsSync(REPORTS_DIR))     fs.mkdirSync(REPORTS_DIR, { recursive:true });
+  } catch(e) {
+    console.error('[ensureUploadDirs error]', e);
+    // 視情況決定是否要 throw
+  }
+}
+
+//----------------------------------------
 // Helpers: 建立 Puppeteer Browser
 //----------------------------------------
 async function launchBrowser(){
@@ -161,7 +179,6 @@ async function generateCertificatePDF(data, outputPath){
     </body>
     </html>
     `;
-
     console.log('[generateCertificatePDF] rendering HTML => length=', html.length);
     await page.setContent(html, { waitUntil:'networkidle0' });
     await page.emulateMediaType('screen');
@@ -226,7 +243,6 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
           margin:40px;
           font-family:"NotoSansTCVar", sans-serif;
         }
-        .stamp {}
         h1 { text-align:center; }
         .footer { margin-top:20px; text-align:center; color:#666; font-size:12px; }
       </style>
@@ -245,7 +261,6 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
     </body>
     </html>
     `;
-
     console.log('[generateScanPDF] rendering HTML =>', html.length, 'chars');
     await page.setContent(html, { waitUntil:'networkidle0' });
     await page.emulateMediaType('screen');
@@ -268,6 +283,7 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 //--------------------------------------
 // Aggregator + fallbackDirect (搜圖)
 //--------------------------------------
+// (以下所有 function 都是您原本的, 完整保留, 只示範保留結構, 沒有刪任何程式)
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
   const ret = {
@@ -492,6 +508,9 @@ async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorI
 //--------------------------------------
 router.post('/step1', upload.single('file'), async(req,res)=>{
   try {
+    // [ 新增 ] 先確保目錄
+    ensureUploadDirs();
+
     console.log('[POST /step1] start...');
     if(!req.file){
       return res.status(400).json({ error:'NO_FILE', message:'請上傳檔案' });
@@ -568,7 +587,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.log('[step1] IPFS =>', ipfsHash);
     } catch(eIPFS){
       console.error('[step1 IPFS error]', eIPFS);
-      // （可視情況決定是否要在此處中斷回傳錯誤）
     }
 
     // =========== Chain ============
@@ -580,7 +598,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.log('[step1] chain => txHash=', txHash);
     } catch(eChain){
       console.error('[step1 chain error]', eChain);
-      // （可視情況決定是否要在此處中斷回傳錯誤）
     }
 
     // 建立 DB 記錄
@@ -601,11 +618,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     // 移動原始上傳檔 => uploads 目錄
     console.log('[step1] moving local file => /uploads');
-    const uploadDir= path.resolve(__dirname, '../../uploads');
-    if(!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir,{recursive:true});
-
     const ext= path.extname(req.file.originalname)||'';
-    const finalPath= path.join(uploadDir, `imageForSearch_${newFile.id}${ext}`);
+    const finalPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${newFile.id}${ext}`);
     try {
       fs.renameSync(req.file.path, finalPath);
     } catch(eRen){
@@ -631,7 +645,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
         if(durSec<=30){
           const mid= Math.floor(durSec/2);
-          const outP= path.join(uploadDir, `preview_${newFile.id}.png`);
+          const outP= path.join(UPLOAD_BASE_DIR, `preview_${newFile.id}.png`);
           execSync(`ffmpeg -i "${finalPath}" -ss ${mid} -frames:v 1 "${outP}"`);
           if(fs.existsSync(outP)){
             previewPath= outP;
@@ -647,12 +661,9 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       previewPath= finalPath; // 圖片直接預覽
     }
 
-    // ========== 產生「證書 PDF」存放到 uploads/certificates/ ==========
-    const certDir= path.join(uploadDir, 'certificates');
-    if(!fs.existsSync(certDir)) fs.mkdirSync(certDir, { recursive:true });
-
+    // ========== 產生「證書 PDF」 => uploads/certificates/ ==========
     const pdfName= `certificate_${newFile.id}.pdf`;
-    const pdfPath= path.join(certDir, pdfName);
+    const pdfPath= path.join(CERT_DIR, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
 
     console.log('[step1] generating PDF =>', pdfPath);
@@ -700,13 +711,14 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 //--------------------------------------
 router.get('/certificates/:fileId', async(req,res)=>{
   try {
+    // [ 新增 ] 確保目錄
+    ensureUploadDirs();
+
     const fileId=req.params.fileId;
     console.log('[GET /certificates] fileId=', fileId);
 
     // 從 uploads/certificates/ 讀取
-    const uploadDir= path.resolve(__dirname,'../../uploads');
-    const certDir  = path.join(uploadDir, 'certificates');
-    const pdfPath  = path.join(certDir, `certificate_${fileId}.pdf`);
+    const pdfPath  = path.join(CERT_DIR, `certificate_${fileId}.pdf`);
 
     if(!fs.existsSync(pdfPath)){
       console.warn('[GET /certificates] PDF not exist =>', pdfPath);
@@ -726,6 +738,9 @@ router.get('/certificates/:fileId', async(req,res)=>{
 //--------------------------------------
 router.get('/scan/:fileId', async(req,res)=>{
   try {
+    // [ 新增 ] 確保目錄
+    ensureUploadDirs();
+
     console.log('[GET /scan/:fileId] =>', req.params.fileId);
     const fileId= req.params.fileId;
     const fileRec= await File.findByPk(fileId);
@@ -756,9 +771,8 @@ router.get('/scan/:fileId', async(req,res)=>{
     // suspiciousLinks.push('...');
 
     // 2) 檢查檔案是否存在
-    const uploadDir= path.resolve(__dirname, '../../uploads');
     const ext= path.extname(fileRec.filename)||'';
-    const localPath= path.join(uploadDir, `imageForSearch_${fileRec.id}${ext}`);
+    const localPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${ext}`);
     if(!fs.existsSync(localPath)){
       console.warn('[scan] localPath not found =>', localPath);
       fileRec.status='scanned';
@@ -783,9 +797,8 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.log('[scan] video durSec =>', durSec);
 
         if(durSec<=30){
-          const frameDir= path.join(uploadDir, `frames_${fileRec.id}`);
+          const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
           if(!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
-
           const frames= await extractKeyFrames(localPath, frameDir, 10,5);
           console.log('[scan] extracted frames =>', frames.length);
 
@@ -811,11 +824,8 @@ router.get('/scan/:fileId', async(req,res)=>{
     await fileRec.save();
 
     // 4) 產「掃描報告 PDF」=> 放 uploads/reports/
-    const reportsDir= path.join(uploadDir, 'reports');
-    if(!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive:true });
-
     const scanPdfName= `scanReport_${fileRec.id}.pdf`;
-    const scanPdfPath= path.join(reportsDir, scanPdfName);
+    const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
 
     const stampPath= path.join(__dirname, '../../public/stamp.png');
     console.log('[scan] generating PDF =>', scanPdfPath);
@@ -847,12 +857,13 @@ router.get('/scan/:fileId', async(req,res)=>{
 //--------------------------------------
 router.get('/scanReports/:fileId', async(req,res)=>{
   try {
+    // [ 新增 ] 確保目錄
+    ensureUploadDirs();
+
     console.log('[GET /scanReports] =>', req.params.fileId);
     const fileId= req.params.fileId;
 
-    const uploadDir = path.resolve(__dirname,'../../uploads');
-    const reportsDir= path.join(uploadDir, 'reports');
-    const pdfPath   = path.join(reportsDir, `scanReport_${fileId}.pdf`);
+    const pdfPath   = path.join(REPORTS_DIR, `scanReport_${fileId}.pdf`);
 
     if(!fs.existsSync(pdfPath)){
       console.warn('[scanReports] not found =>', pdfPath);
