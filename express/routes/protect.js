@@ -42,8 +42,31 @@ const puppeteer    = require('puppeteer-extra');
 const StealthPlugin= require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
+//----------------------------------------------------
+// [1] 先建立 /uploads /uploads/certificates /uploads/reports
+//----------------------------------------------------
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+const CERT_DIR        = path.join(UPLOAD_BASE_DIR, 'certificates');
+const REPORTS_DIR     = path.join(UPLOAD_BASE_DIR, 'reports');
+
+function ensureUploadDirs(){
+  try {
+    [UPLOAD_BASE_DIR, CERT_DIR, REPORTS_DIR].forEach(dir => {
+      if(!fs.existsSync(dir)){
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`[DEBUG] Created directory => ${dir}`);
+      }
+    });
+  } catch(e) {
+    console.error('[ensureUploadDirs error]', e);
+    // 若要中斷流程可 throw e
+  }
+}
+// 開始前執行一次，確保目錄存在
+ensureUploadDirs();
+
 // Multer: 上限 100MB
-// (保留您原先的設定: dest='uploads/', 限制檔案大小100MB)
+// (保留你原先的設定: dest='uploads/', 限制檔案大小100MB)
 const upload = multer({
   dest: 'uploads/',
   limits:{ fileSize: 100 * 1024 * 1024 }
@@ -55,7 +78,9 @@ const ALLOW_UNLIMITED = [
   'jeffqqm@gmail.com'
 ];
 
-// ========== 內嵌字體 (PDF 中文) ==========
+//----------------------------------------
+// [2] 內嵌字體 (PDF 中文) - 供 Puppeteer 產 PDF 時嵌入
+//----------------------------------------
 let base64TTF='';
 try {
   const fontBuf = fs.readFileSync(path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf'));
@@ -66,30 +91,14 @@ try {
 }
 
 //----------------------------------------
-// [ 新增 ] 用於確保 uploads/certificates & uploads/reports 目錄存在
-//----------------------------------------
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
-const CERT_DIR        = path.join(UPLOAD_BASE_DIR, 'certificates');
-const REPORTS_DIR     = path.join(UPLOAD_BASE_DIR, 'reports');
-
-function ensureUploadDirs(){
-  try {
-    if(!fs.existsSync(UPLOAD_BASE_DIR)) fs.mkdirSync(UPLOAD_BASE_DIR, { recursive:true });
-    if(!fs.existsSync(CERT_DIR))        fs.mkdirSync(CERT_DIR, { recursive:true });
-    if(!fs.existsSync(REPORTS_DIR))     fs.mkdirSync(REPORTS_DIR, { recursive:true });
-  } catch(e) {
-    console.error('[ensureUploadDirs error]', e);
-    // 視情況決定是否要 throw
-  }
-}
-
-//----------------------------------------
-// Helpers: 建立 Puppeteer Browser
+// [3] Helpers: 建立 Puppeteer Browser (headless+stealth)
+//     可在 Docker/伺服器上透過 CHROMIUM_PATH 指定 chromium 路徑
 //----------------------------------------
 async function launchBrowser(){
   console.log('[launchBrowser] starting stealth browser...');
   return puppeteer.launch({
     headless:'new',
+    executablePath: process.env.CHROMIUM_PATH || undefined,
     args:[
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -104,7 +113,7 @@ async function launchBrowser(){
 }
 
 //----------------------------------------
-// 產生「原創證書 PDF」(Puppeteer)
+// [4] 產生「原創證書 PDF」(Puppeteer)
 //----------------------------------------
 async function generateCertificatePDF(data, outputPath){
   console.log('[generateCertificatePDF] =>', outputPath);
@@ -157,11 +166,14 @@ async function generateCertificatePDF(data, outputPath){
       body {
         font-family: "NotoSansTCVar", sans-serif;
         margin: 40px;
+        position: relative;
       }
-      .stamp {}
       h1 { text-align:center; }
       .field { margin:4px 0; }
-      .footer { text-align:center; margin-top:20px; color:#666; font-size:12px; }
+      .footer {
+        text-align:center; margin-top:20px; color:#666; font-size:12px;
+        position: relative; z-index: 99;
+      }
       </style>
     </head>
     <body>
@@ -206,7 +218,7 @@ async function generateCertificatePDF(data, outputPath){
 }
 
 //----------------------------------------
-// 產生「侵權偵測報告 PDF」(Puppeteer)
+// [5] 產生「侵權偵測報告 PDF」(Puppeteer)
 //----------------------------------------
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outputPath){
   console.log('[generateScanPDF] =>', outputPath);
@@ -248,9 +260,13 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
         body {
           margin:40px;
           font-family:"NotoSansTCVar", sans-serif;
+          position: relative;
         }
         h1 { text-align:center; }
-        .footer { margin-top:20px; text-align:center; color:#666; font-size:12px; }
+        .footer {
+          margin-top:20px; text-align:center; color:#666; font-size:12px;
+          position: relative; z-index: 99;
+        }
       </style>
     </head>
     <body>
@@ -287,7 +303,7 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 }
 
 //--------------------------------------
-// Aggregator + fallbackDirect (搜圖)
+// [6] Aggregator + fallbackDirect (搜圖) - Ginifab / Bing / TinEye / Baidu
 //--------------------------------------
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
@@ -341,7 +357,8 @@ async function aggregatorSearchGinifab(browser, publicImageUrl){
           h && !h.includes('ginifab') &&
           !h.includes('bing.com') &&
           !h.includes('tineye.com') &&
-          !h.includes('baidu.com'));
+          !h.includes('baidu.com')
+        );
         ret[eng.key].links= hrefs.slice(0,5);
         ret[eng.key].success= ret[eng.key].links.length>0;
         await popup.close();
@@ -364,7 +381,9 @@ async function directSearchBing(browser, imagePath){
   let page;
   try {
     page = await browser.newPage();
-    await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
+    await page.goto('https://www.bing.com/images', {
+      waitUntil:'domcontentloaded', timeout:20000
+    });
     await page.waitForTimeout(2000);
 
     const [fileChooser] = await Promise.all([
@@ -394,7 +413,9 @@ async function directSearchTinEye(browser, imagePath){
   let page;
   try {
     page = await browser.newPage();
-    await page.goto('https://tineye.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+    await page.goto('https://tineye.com/', {
+      waitUntil:'domcontentloaded', timeout:20000
+    });
     await page.waitForTimeout(1500);
 
     const fileInput= await page.waitForSelector('input[type=file]', { timeout:8000 });
@@ -422,7 +443,9 @@ async function directSearchBaidu(browser, imagePath){
   try {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    await page.goto('https://graph.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+    await page.goto('https://graph.baidu.com/', {
+      waitUntil:'domcontentloaded', timeout:20000
+    });
     await page.waitForTimeout(2000);
 
     const fInput= await page.$('input[type=file]');
@@ -476,9 +499,9 @@ async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorI
       const total = aggRes.bing.links.length + aggRes.tineye.links.length + aggRes.baidu.links.length;
       if(total>0){
         aggregatorOk= true;
-        ret.bing = { links: aggRes.bing.links, success:true };
+        ret.bing   = { links: aggRes.bing.links,   success:true };
         ret.tineye = { links: aggRes.tineye.links, success:true };
-        ret.baidu = { links: aggRes.baidu.links, success:true };
+        ret.baidu  = { links: aggRes.baidu.links,  success:true };
       }
     } catch(eAg){
       console.error('[aggregatorSearchGinifab error]', eAg);
@@ -488,27 +511,24 @@ async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorI
     if(!aggregatorOk){
       console.log('[doSearchEngines] aggregator fail => fallbackDirect');
       const fb = await fallbackDirectEngines(localFilePath);
-      ret.bing = { links: fb.bing, success: fb.bing.length>0 };
-      ret.tineye = { links: fb.tineye, success: fb.tineye.length>0 };
-      ret.baidu = { links: fb.baidu, success: fb.baidu.length>0 };
+      ret.bing   = { links: fb.bing,    success: fb.bing.length>0 };
+      ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
+      ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
     }
   } else {
     const fb = await fallbackDirectEngines(localFilePath);
-    ret.bing = { links: fb.bing, success: fb.bing.length>0 };
-    ret.tineye = { links: fb.tineye, success: fb.tineye.length>0 };
-    ret.baidu = { links: fb.baidu, success: fb.baidu.length>0 };
+    ret.bing   = { links: fb.bing,    success: fb.bing.length>0 };
+    ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
+    ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
   }
   return ret;
 }
 
 //--------------------------------------
-// POST /protect/step1 => 上傳 & 產生證書
+// [7] POST /protect/step1 => 上傳 & 產生證書
 //--------------------------------------
 router.post('/step1', upload.single('file'), async(req,res)=>{
   try {
-    // [ 新增 ] 先確保目錄
-    ensureUploadDirs();
-
     console.log('[POST /step1] start...');
     if(!req.file){
       return res.status(400).json({ error:'NO_FILE', message:'請上傳檔案' });
@@ -530,6 +550,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     const isVideo    = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
     if(isVideo && !isUnlimited){
+      // 若要改成「非白名單者允許 30 秒內上傳」，可參考 partial snippet 做 ffprobe
+      // 但目前你的邏輯是「非白名單者 => 402 錯誤」直接阻擋
       fs.unlinkSync(req.file.path);
       return res.status(402).json({ error:'UPGRADE_REQUIRED', message:'短影片需升級付費' });
     }
@@ -630,7 +652,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // 若短影片 => 抽一張中間幀
+    // 若短影片 => 抽一張中間幀(限 ≤ 30 秒)
     let previewPath=null;
     if(isVideo){
       try {
@@ -651,6 +673,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           } else {
             console.warn('[step1] middle frame not found =>', outP);
           }
+        } else {
+          console.warn('[step1] Video is longer than 30s => 無法抽預覽幀');
         }
       } catch(eVid){
         console.error('[Video middle frame error]', eVid);
@@ -705,19 +729,15 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 });
 
 //--------------------------------------
-// GET /protect/certificates/:fileId => 下載PDF
+// [8] GET /protect/certificates/:fileId => 下載PDF
 //--------------------------------------
 router.get('/certificates/:fileId', async(req,res)=>{
   try {
-    // [ 新增 ] 確保目錄
-    ensureUploadDirs();
-
     const fileId=req.params.fileId;
     console.log('[GET /certificates] fileId=', fileId);
 
-    // 從 uploads/certificates/ 讀取
+    // 讀取 uploads/certificates/ 內 PDF
     const pdfPath  = path.join(CERT_DIR, `certificate_${fileId}.pdf`);
-
     if(!fs.existsSync(pdfPath)){
       console.warn('[GET /certificates] PDF not exist =>', pdfPath);
       return res.status(404).json({ error:'NOT_FOUND', message:'證書PDF不存在' });
@@ -732,15 +752,13 @@ router.get('/certificates/:fileId', async(req,res)=>{
 });
 
 //--------------------------------------
-// GET /protect/scan/:fileId => 侵權掃描
+// [9] GET /protect/scan/:fileId => 侵權掃描
 //--------------------------------------
 router.get('/scan/:fileId', async(req,res)=>{
   try {
-    // [ 新增 ] 確保目錄
-    ensureUploadDirs();
-
-    console.log('[GET /scan/:fileId] =>', req.params.fileId);
     const fileId= req.params.fileId;
+    console.log('[GET /scan/:fileId] =>', fileId);
+
     const fileRec= await File.findByPk(fileId);
     if(!fileRec){
       console.warn('[scan] file not found =>', fileId);
@@ -750,7 +768,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     // 1) 多平台文字爬蟲 (示範)
     const query= fileRec.filename || fileRec.fingerprint;
     let suspiciousLinks=[];
-    // TikTok (需 RAPIDAPI_KEY)
+    // 例如 TikTok (需 RAPIDAPI_KEY)
     if(process.env.RAPIDAPI_KEY){
       try {
         console.log('[scan] tiktok search =>', query);
@@ -794,6 +812,7 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.log('[scan] video durSec =>', durSec);
 
         if(durSec<=30){
+          // 短影片 -> 分段抽幀
           const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
           if(!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
           const frames= await extractKeyFrames(localPath, frameDir, 10,5);
@@ -849,18 +868,14 @@ router.get('/scan/:fileId', async(req,res)=>{
 });
 
 //--------------------------------------
-// GET /protect/scanReports/:fileId => 下載報告 PDF
+// [10] GET /protect/scanReports/:fileId => 下載報告 PDF
 //--------------------------------------
 router.get('/scanReports/:fileId', async(req,res)=>{
   try {
-    // [ 新增 ] 確保目錄
-    ensureUploadDirs();
-
-    console.log('[GET /scanReports] =>', req.params.fileId);
     const fileId= req.params.fileId;
+    console.log('[GET /scanReports] =>', fileId);
 
     const pdfPath   = path.join(REPORTS_DIR, `scanReport_${fileId}.pdf`);
-
     if(!fs.existsSync(pdfPath)){
       console.warn('[scanReports] not found =>', pdfPath);
       return res.status(404).json({ error:'NOT_FOUND', message:'掃描報告不存在' });
