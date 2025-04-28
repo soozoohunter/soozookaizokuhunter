@@ -18,25 +18,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 2) 複製 package.json + package-lock.json
+# 2) 複製 package.json + package-lock.json 並安裝依賴
+#    (您的 package.json 已含 puppeteer-extra / stealth / ffmpeg-static 等)
 COPY package*.json ./
-
-# (NEW) 先安裝 puppeteer-extra / puppeteer-extra-plugin-stealth / ffmpeg-static
-#       以確保 package.json 若未記載，也能先行安裝
-#       (若您已在 package.json dependencies 中宣告，就不需要這步了)
-RUN npm install puppeteer-extra puppeteer-extra-plugin-stealth ffmpeg-static
-
-# 3) 執行 npm install，安裝其他依賴
 RUN npm install
 
-# 4) 複製專案其他檔案 (包含 routes, utils, fonts 目錄等)
+# 3) 複製專案其他檔案 (包含 routes, utils, fonts 目錄等)
 COPY . .
 
 # Puppeteer 設定：使用系統安裝好的 /usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# ★ GPU 加速設定 (若無需GPU可省略)
+# ★ GPU 加速設定 (若宿主機無 GPU 也可保留不影響正常運作)
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
 
