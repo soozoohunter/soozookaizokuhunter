@@ -79,7 +79,7 @@ services:
     restart: unless-stopped
 
     # 檔案持久化：將宿主機的 ./uploads 綁定到容器 /app/uploads
-    # 在程式中就可使用 /app/uploads/certificates & /app/uploads/reports 儲存 PDF
+    # 在程式中可使用 /app/uploads/certificates & /app/uploads/reports 儲存 PDF
     volumes:
       - ./uploads:/app/uploads
 
