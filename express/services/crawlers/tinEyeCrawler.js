@@ -52,4 +52,4 @@ async function searchTinEye(browser, imagePath){
   };
 }
 
-module.exports = { searchTinEye };ｃｃ
+module.exports = { searchTinEye };
