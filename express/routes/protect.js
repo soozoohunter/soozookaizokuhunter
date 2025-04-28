@@ -65,8 +65,8 @@ try {
 async function launchBrowser(){
   console.log('[launchBrowser] starting stealth browser...');
   return puppeteer.launch({
-    headless:'new',
-    args:[
+    headless: 'new',
+    args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-gpu',
@@ -75,7 +75,7 @@ async function launchBrowser(){
       '--disable-features=IsolateOrigins',
       '--disable-blink-features=AutomationControlled'
     ],
-    defaultViewport:{ width:1280, height:800 }
+    defaultViewport: { width:1280, height:800 }
   });
 }
 
@@ -557,23 +557,32 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    let ipfsHash='', txHash='';
-    // IPFS
+    // =========== IPFS ============
+    console.log('[step1] about to call ipfsService.saveFile...');
+    let ipfsHash='';
     try {
-      ipfsHash= await ipfsService.saveFile(buf);
+      ipfsHash = await ipfsService.saveFile(buf);
       console.log('[step1] IPFS =>', ipfsHash);
     } catch(eIPFS){
       console.error('[step1 IPFS error]', eIPFS);
+      // （可視情況決定是否要在此處直接回傳錯誤）
+      // return res.status(500).json({ error:'IPFS_FAIL', detail:eIPFS.message });
     }
-    // Chain
+
+    // =========== Chain ============
+    console.log('[step1] about to call chain.storeRecord...');
+    let txHash='';
     try {
       const rec= await chain.storeRecord(fingerprint, ipfsHash||'');
       txHash= rec?.transactionHash||'';
       console.log('[step1] chain => txHash=', txHash);
     } catch(eChain){
       console.error('[step1 chain error]', eChain);
+      // （可視情況決定是否要在此處直接回傳錯誤）
+      // return res.status(500).json({ error:'CHAIN_FAIL', detail:eChain.message });
     }
 
+    console.log('[step1] creating DB record for File...');
     const newFile= await File.create({
       user_id:user.id,
       filename:req.file.originalname,
@@ -582,6 +591,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       tx_hash: txHash,
       status:'pending'
     });
+    console.log('[step1] File record created => ID:', newFile.id);
+
     if(isVideo) user.uploadVideos=(user.uploadVideos||0)+1;
     else user.uploadImages=(user.uploadImages||0)+1;
     await user.save();
@@ -591,19 +602,24 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     if(!fs.existsSync(localDir)) fs.mkdirSync(localDir,{recursive:true});
     const ext= path.extname(req.file.originalname)||'';
     const finalPath= path.join(localDir, `imageForSearch_${newFile.id}${ext}`);
+    console.log('[step1] moving file =>', finalPath);
     try {
       fs.renameSync(req.file.path, finalPath);
     } catch(eRen){
       if(eRen.code==='EXDEV'){
         fs.copyFileSync(req.file.path, finalPath);
         fs.unlinkSync(req.file.path);
-      } else throw eRen;
+        console.log('[step1] fallback copyFile =>', finalPath);
+      } else {
+        throw eRen;
+      }
     }
 
     // 短影片 => 抽中幀
     let previewPath=null;
     if(isVideo){
       try {
+        console.log('[step1] checking video duration...');
         const cmd=`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${finalPath}"`;
         const durSec= parseFloat(execSync(cmd).toString().trim())||9999;
         console.log('[step1] video durSec =>', durSec);
@@ -613,6 +629,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           execSync(`ffmpeg -i "${finalPath}" -ss ${mid} -frames:v 1 "${outP}"`);
           if(fs.existsSync(outP)){
             previewPath= outP;
+            console.log('[step1] got middle frame =>', outP);
           } else {
             console.warn('[step1] 影片中幀截圖失敗(檔案不存在)', outP);
           }
@@ -625,33 +642,35 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     }
 
     // 產生證書 PDF
+    console.log('[step1] generating PDF => certificate_{fileId}.pdf...');
     const pdfName= `certificate_${newFile.id}.pdf`;
     const pdfPath= path.join(localDir, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
-    console.log('[step1] generating PDF =>', pdfPath);
+    try {
+      await generateCertificatePDF({
+        name: user.realName,
+        dob: user.birthDate,
+        phone: user.phone,
+        address: user.address,
+        email: user.email,
+        title,
+        fileName: req.file.originalname,
+        fingerprint,
+        ipfsHash,
+        txHash,
+        serial: user.serialNumber,
+        mimeType: req.file.mimetype,
+        issueDate: new Date().toLocaleString(),
+        filePath: previewPath,
+        stampImagePath: fs.existsSync(stampImg)? stampImg:null
+      }, pdfPath);
+    } catch(ePDF){
+      console.error('[step1 generateCertificatePDF error]', ePDF);
+      // 看情況可回傳錯誤，或繼續流程
+    }
 
-    await generateCertificatePDF({
-      name: user.realName,
-      dob: user.birthDate,
-      phone: user.phone,
-      address: user.address,
-      email: user.email,
-      title,
-      fileName: req.file.originalname,
-      fingerprint,
-      ipfsHash,
-      txHash,
-      serial: user.serialNumber,
-      mimeType: req.file.mimetype,
-      issueDate: new Date().toLocaleString(),
-      filePath: previewPath,
-      stampImagePath: fs.existsSync(stampImg)? stampImg:null
-    }, pdfPath);
-
-    console.log('[step1] done =>', pdfPath);
-    // 最後檢查檔案是否真的生成
     const pdfExists= fs.existsSync(pdfPath);
-    console.log('[step1] PDF fileExists?', pdfExists);
+    console.log('[step1] PDF done =>', pdfPath, 'pdfExists?', pdfExists);
 
     return res.json({
       message:'上傳成功並完成證書PDF',
