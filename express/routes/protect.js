@@ -5,13 +5,14 @@
  * - 短影片(≤30秒) => 抽幀 => aggregator(Ginifab) + fallback(Bing/TinEye/Baidu)
  * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示範)
  * - PDF 檔名: certificate_{fileId}.pdf / scanReport_{fileId}.pdf
- * 
+ *
  * [本檔案調整項目]
  * 1. Puppeteer headless => true (防舊版Chromium不支援 'new')
  * 2. 預設 aggregatorFirst = true (先走Ginifab)
  * 3. 增加關鍵 console.log 幫助排查錯誤
  * 4. 新增 const PUBLIC_HOST = 'https://suzookaizokuhunter.com'，並在 /scan/:fileId 最後自動刪除暫存檔
  * 5. 若「白名單使用者重複上傳同一檔案」且之前的 PDF 或本地檔不見時，會重新補齊/產生。
+ * 6. ★ 新增多階段嘗試：先直入 Ginifab，若遇到廣告且無法關閉 -> 關頁 -> Google 搜尋 Ginifab -> 再試一次。 
  *************************************************************/
 
 const express = require('express');
@@ -319,6 +320,136 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 //--------------------------------------
 // [6] Aggregator + fallbackDirect (搜圖): Ginifab / Bing / TinEye / Baidu
 //--------------------------------------
+
+/**
+ * 嘗試在當前頁面尋找並關閉「廣告/防機器人彈窗」的 XX 按鈕
+ * 您需要根據實際廣告 DOM 去調整 selector
+ */
+async function tryCloseAd(page) {
+  try {
+    // 範例: 假設出現一個 class="adCloseBtn" 的 X
+    // 或者某個 button 帶 "close" 文字
+    // 您需依實際網頁廣告結構來修改
+    const closeBtnSelector = 'button.ad-close, .adCloseBtn, .close';
+    
+    // 等待 2 秒觀察是否出現
+    await page.waitForTimeout(2000);
+    const closeBtn = await page.$(closeBtnSelector);
+    if(closeBtn){
+      console.log('[tryCloseAd] found close button, clicking...');
+      await closeBtn.click();
+      // 再等一秒看是否真的關掉
+      await page.waitForTimeout(1000);
+      return true;
+    } else {
+      console.log('[tryCloseAd] ad close button not found...');
+      return false;
+    }
+  } catch(e){
+    console.error('[tryCloseAd error]', e);
+    return false;
+  }
+}
+
+/**
+ * 在已進入 ginifab 頁面後，嘗試進行「指定圖片網址」+ 送出動作
+ * 如果成功=> 回傳 true
+ * 如果找不到欄位或失敗=> 回傳 false
+ */
+async function tryGinifabFlow(page, publicImageUrl){
+  console.log('[tryGinifabFlow] =>', publicImageUrl);
+  try {
+    // 檢查是否有彈出廣告 => 關閉
+    const closedAd = await tryCloseAd(page);
+    if(closedAd) {
+      console.log('[tryGinifabFlow] successfully closed ad, proceed...');
+    } else {
+      console.log('[tryGinifabFlow] no ad or cannot close, still proceed...');
+    }
+
+    // 檢查是否能找到「指定圖片網址」按鈕
+    await page.waitForTimeout(1000);
+    const hasLink = await page.evaluate(()=>{
+      const link = [...document.querySelectorAll('a')]
+        .find(a => a.innerText.includes('指定圖片網址'));
+      if(link) { link.click(); return true; }
+      return false;
+    });
+    if(!hasLink) {
+      console.warn('[tryGinifabFlow] can not find "指定圖片網址" link');
+      return false;
+    }
+
+    // 等 input[type=text]
+    await page.waitForSelector('input[type=text]', { timeout:5000 });
+    await page.type('input[type=text]', publicImageUrl, { delay:50 });
+    await page.waitForTimeout(500);
+    console.log('[tryGinifabFlow] typed URL =>', publicImageUrl);
+
+    return true;
+  } catch(e){
+    console.error('[tryGinifabFlow error]', e);
+    return false;
+  }
+}
+
+/**
+ * Google 流程：打開 google.com -> 搜尋 "圖搜引擎" -> 找到 ginifab.com.tw -> 前往 -> tryGinifabFlow
+ */
+async function gotoGinifabViaGoogle(page, publicImageUrl){
+  console.log('[gotoGinifabViaGoogle]');
+  try {
+    await page.goto('https://www.google.com', {
+      waitUntil:'domcontentloaded', timeout:20000
+    });
+    await page.waitForTimeout(2000);
+
+    // 找搜尋框
+    const searchBox= await page.$('input[name="q"]');
+    if(!searchBox){
+      console.warn('[gotoGinifabViaGoogle] can not find google search box');
+      return false;
+    }
+    // 輸入 "圖搜引擎"
+    await searchBox.type('圖搜引擎', { delay:50 });
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(3000);
+
+    // 取連結
+    const links = await page.$$eval('a', as => as.map(a => ({
+      href: a.href || '',
+      text: a.innerText || ''
+    })));
+    // 找 ginifab
+    let target = links.find(x => x.href.includes('ginifab.com.tw'));
+    if(!target){
+      console.warn('[gotoGinifabViaGoogle] ginifab link not found');
+      return false;
+    }
+    console.log('[gotoGinifabViaGoogle] found =>', target.href);
+
+    // 前往 ginifab
+    await page.goto(target.href, {
+      waitUntil:'domcontentloaded', timeout:20000
+    });
+    await page.waitForTimeout(2000);
+
+    const ok = await tryGinifabFlow(page, publicImageUrl);
+    return ok;
+  } catch(e){
+    console.error('[gotoGinifabViaGoogle error]', e);
+    return false;
+  }
+}
+
+/**
+ * aggregatorSearchGinifab:  
+ * 1) 先直接打開 "https://www.ginifab.com.tw/tools/search_image_by_image/"  
+ *    -> 若遇到廣告 => 嘗試關 => tryGinifabFlow  
+ *    -> 若失敗 => 關閉該 tab, 改走 google  
+ * 2) google => 搜尋 "圖搜引擎" => 點擊 ginifab => tryGinifabFlow  
+ *    -> 若還是失敗 => 就放棄 aggregator
+ */
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
   const ret = {
@@ -326,30 +457,43 @@ async function aggregatorSearchGinifab(browser, publicImageUrl){
     tineye:{ success:false, links:[] },
     baidu:{ success:false, links:[] }
   };
+
   let page;
   try {
+    // [1] 先嘗試直接打開 ginifab
     page = await browser.newPage();
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
       waitUntil:'domcontentloaded', timeout:20000
     });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
 
-    // 點擊「指定圖片網址」
-    await page.evaluate(()=>{
-      const a= [...document.querySelectorAll('a')]
-        .find(x=> x.innerText.includes('指定圖片網址'));
-      if(a) a.click();
-    });
-    await page.waitForSelector('input[type=text]', { timeout:8000 });
-    await page.type('input[type=text]', publicImageUrl, { delay:50 });
-    await page.waitForTimeout(500);
+    const firstOk = await tryGinifabFlow(page, publicImageUrl);
+    if(!firstOk){
+      // 關閉此頁
+      await page.close().catch(()=>{});
+      page = null;
 
+      // [2] 改走 google
+      const newPage = await browser.newPage();
+      const secondOk = await gotoGinifabViaGoogle(newPage, publicImageUrl);
+      if(!secondOk){
+        console.warn('[aggregatorSearchGinifab] google path also fail => give up aggregator');
+        await newPage.close().catch(()=>{});
+        return ret; // 直接回傳, ret預設都success=false
+      } else {
+        console.log('[aggregatorSearchGinifab] success via google => do aggregator steps...');
+        page = newPage;
+      }
+    }
+
+    // === 若能到此, 代表我們已在 ginifab 頁面, 且已輸入 publicImageUrl ===
     // 順序點擊 Bing / TinEye / Baidu
     const engList = [
       { key:'bing',   label:['微軟必應','Bing'] },
       { key:'tineye', label:['錫眼睛','TinEye'] },
       { key:'baidu',  label:['百度','Baidu'] }
     ];
+
     for(const eng of engList){
       try {
         const newTab = new Promise(resolve=>{
@@ -389,6 +533,8 @@ async function aggregatorSearchGinifab(browser, publicImageUrl){
   return ret;
 }
 
+
+//=== 以下 directSearchBing / directSearchTinEye / directSearchBaidu 不變 ===//
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -401,7 +547,7 @@ async function directSearchBing(browser, imagePath){
     await page.waitForTimeout(2000);
 
     const [fileChooser] = await Promise.all([
-      page.waitForFileChooser({ timeout:6000 }),
+      page.waitForFileChooser({ timeout:10000 }), // 調長一點
       page.click('#sb_sbi').catch(()=>{})
     ]);
     await fileChooser.accept([imagePath]);
@@ -497,6 +643,8 @@ async function fallbackDirectEngines(imagePath){
   } catch(e){
     console.error('[fallbackDirectEngines error]', e);
   } finally {
+    // 關閉
+    // 不能保證全部執行完後 page 都關了，所以把 browser 關掉
     if(browser) await browser.close().catch(()=>{});
   }
   return final;
@@ -514,7 +662,9 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
       browser = await launchBrowser();
       const aggRes = await aggregatorSearchGinifab(browser, aggregatorImageUrl);
       console.log('[doSearchEngines] aggregator =>', aggRes);
-      const total = aggRes.bing.links.length + aggRes.tineye.links.length + aggRes.baidu.links.length;
+      const total = aggRes.bing.links.length 
+                  + aggRes.tineye.links.length 
+                  + aggRes.baidu.links.length;
       if(total>0){
         aggregatorOk= true;
         ret.bing   = { links: aggRes.bing.links,   success:true };
@@ -758,7 +908,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         console.error('[Video middle frame error]', eVid);
       }
     } else {
-      previewPath= finalPath; 
+      previewPath= finalPath;
     }
 
     // ========== 產生「證書 PDF」 => uploads/certificates/
