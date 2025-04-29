@@ -90,14 +90,23 @@ export default function ProtectStep4Infringement() {
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, suspiciousLinks = [] } = info;
+  const {
+    fileId,
+    fingerprint,
+    ipfsHash,
+    txHash,
+    suspiciousLinks = [],
+    // ★ 改為使用 scanReportUrl
+    scanReportUrl
+  } = info;
 
-  const handleDownloadPdf = () => {
-    if (!pdfUrl) {
-      alert('無法找到 PDF URL');
+  // 改為「下載侵權偵測報告 PDF」
+  const handleDownloadScanPdf = () => {
+    if (!scanReportUrl) {
+      alert('無法找到「侵權偵測報告 PDF」的下載連結');
       return;
     }
-    window.open(pdfUrl, '_blank');
+    window.open(scanReportUrl, '_blank');
   };
 
   return (
@@ -127,7 +136,7 @@ export default function ProtectStep4Infringement() {
         )}
 
         <div style={{ marginTop:'1.5rem' }}>
-          <Button onClick={handleDownloadPdf}>下載證書 PDF</Button>
+          <Button onClick={handleDownloadScanPdf}>下載侵權偵測報告 PDF</Button>
           <Button onClick={() => navigate('/')}>Back to Home</Button>
         </div>
       </ContentBox>
