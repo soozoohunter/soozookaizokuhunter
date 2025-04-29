@@ -80,7 +80,7 @@ services:
     volumes:
       # 將宿主機的 ./uploads 綁定到容器 /app/uploads
       - ./uploads:/app/uploads
-
+      - ./debugShots:/app/debugShots
   # Frontend (React + Nginx)
   suzoo_frontend:
     build:
