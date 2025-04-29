@@ -11,6 +11,7 @@
  * 2. 預設 aggregatorFirst = true (先走Ginifab)
  * 3. 增加關鍵 console.log 幫助排查錯誤
  * 4. 新增 const PUBLIC_HOST = 'https://suzookaizokuhunter.com'，並在 /scan/:fileId 最後自動刪除暫存檔
+ * 5. 若「白名單使用者重複上傳同一檔案」且之前的 PDF 或本地檔不見時，會重新補齊/產生。
  *************************************************************/
 
 const express = require('express');
@@ -567,6 +568,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     const mimeType   = req.file.mimetype;
     const isVideo    = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
+
     if(isVideo && !isUnlimited){
       fs.unlinkSync(req.file.path);
       return res.status(402).json({ error:'UPGRADE_REQUIRED', message:'短影片需升級付費' });
@@ -599,21 +601,81 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     // 查重
     const exist= await File.findOne({ where:{ fingerprint }});
     if(exist){
-      fs.unlinkSync(req.file.path);
+      console.log(`[step1] detected duplicated fingerprint => File ID=${exist.id}`);
+      // 預設動作：刪除剛上傳的暫存檔(避免浪費空間)
+      // 但若需要「還原本地檔」，就要先 renameSync 再刪除(或根本不刪除)；以下採「若本地檔已遺失則復原」的做法
+      const extExist = path.extname(exist.filename) || path.extname(req.file.originalname) || '';
+      const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
+      const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
+
       if(isUnlimited){
+        // 1) 若 local 檔案不存在，才用這次上傳的檔案覆蓋回去
+        if(!fs.existsSync(finalPathExist)){
+          console.log('[step1] local file is missing => restore from newly uploaded =>', finalPathExist);
+          try {
+            fs.renameSync(req.file.path, finalPathExist);
+          } catch(eRen){
+            if(eRen.code==='EXDEV'){
+              fs.copyFileSync(req.file.path, finalPathExist);
+              fs.unlinkSync(req.file.path);
+              console.log('[step1] fallback copyFile =>', finalPathExist);
+            } else {
+              throw eRen;
+            }
+          }
+        } else {
+          // 若本地檔已存在，就刪除剛上傳的暫存檔
+          fs.unlinkSync(req.file.path);
+        }
+
+        // 2) 若 PDF 不存在 => 重新產生
+        if(!fs.existsSync(pdfExistPath)){
+          console.log(`[step1] PDF not found => re-generate certificate_${exist.id}.pdf`);
+          try {
+            const oldUser = await User.findByPk(exist.user_id);
+            const stampImg = path.join(__dirname, '../../public/stamp.png');
+
+            await generateCertificatePDF({
+              name : oldUser?.realName || '',
+              dob  : oldUser?.birthDate || '',
+              phone: oldUser?.phone || '',
+              address: oldUser?.address || '',
+              email : oldUser?.email || '',
+              title, // 本次上傳帶的 title，可自由決定是否覆蓋
+              fileName  : exist.filename || req.file.originalname,
+              fingerprint: exist.fingerprint,
+              ipfsHash   : exist.ipfs_hash,
+              txHash     : exist.tx_hash,
+              serial     : oldUser?.serialNumber || '',
+              mimeType   : (isVideo ? 'video/mp4' : 'image/jpeg'), // 也可更精細判斷
+              issueDate  : new Date().toLocaleString(),
+              filePath   : fs.existsSync(finalPathExist) ? finalPathExist : null,
+              stampImagePath: fs.existsSync(stampImg) ? stampImg : null
+            }, pdfExistPath);
+            console.log('[step1] re-generate PDF done =>', pdfExistPath);
+          } catch(ePDF){
+            console.error('[step1] re-generate PDF error =>', ePDF);
+          }
+        }
+
+        // 回傳舊 fileId、舊 ipfsHash、舊 txHash
         return res.json({
-          message:'已上傳相同檔案(白名單允許重複)',
+          message:'已上傳相同檔案(白名單允許重複)，自動補齊缺失的 PDF / 本地檔。',
           fileId: exist.id,
           pdfUrl:`/api/protect/certificates/${exist.id}`,
           fingerprint: exist.fingerprint,
           ipfsHash: exist.ipfs_hash,
           txHash: exist.tx_hash,
-          defaultPassword:null
+          defaultPassword: null
         });
       } else {
+        // 若非白名單 => 不允許重複檔案
+        fs.unlinkSync(req.file.path);
         return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
       }
     }
+
+    // === 真的不存在 => 新增記錄 & 生成 PDF ===
 
     // =========== IPFS ============
     console.log('[step1] about to call ipfsService.saveFile...');
