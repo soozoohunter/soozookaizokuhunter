@@ -1,7 +1,8 @@
 /**
- * express/routes/protect.js (最終整合+更詳盡除錯紀錄 + 小幅修正)
+ * express/routes/protect.js (最終整合+更詳盡除錯紀錄 + 小幅修正 + 圖片轉檔公開URL)
  *
  * - Step1: 上傳檔案 => fingerprint, IPFS, 區塊鏈 => 產生「原創證書 PDF」
+ *   ★ 若為圖片 => convertAndUpload(...) 產生 publicImageUrl => 回傳
  * - 短影片(≤30秒) => 抽幀 => aggregator(Ginifab) + fallback(Bing/TinEye/Baidu)
  * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示範)
  * - PDF 檔名: certificate_{fileId}.pdf / scanReport_{fileId}.pdf
@@ -15,6 +16,7 @@
  * 6. ★ 新增多階段嘗試：先直入 Ginifab，若遇到廣告且無法關閉 -> 關頁 -> Google 搜尋 Ginifab -> 再試一次。
  * 7. ★ 新增「優先嘗試本機上傳」的 aggregatorSearchGinifab 流程 (若失敗才改用指定圖片網址+Google fallback)
  * 8. ★ 新增除錯機制：saveDebugInfo，把截圖與 HTML dump 存到 /app/debugShots
+ * 9. ★ 新增：convertAndUpload(...) 用於圖片檔轉 PNG 並產生公開訪問連結 publicImageUrl
  *************************************************************/
 
 const express = require('express');
@@ -34,6 +36,9 @@ const { User, File } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService        = require('../services/ipfsService');
 const chain              = require('../utils/chain');
+
+// ★ 新增：匯入 convertAndUpload，用於圖片轉檔、產生公開URL
+const { convertAndUpload } = require('../utils/convertAndUpload');
 
 // ffmpeg: 抽影格
 const ffmpeg      = require('fluent-ffmpeg');
@@ -70,7 +75,7 @@ function ensureUploadDirs(){
 // 開始前執行一次
 ensureUploadDirs();
 
-// ★ 新增你的公開網域，讓 aggregator 能存取到檔案
+// ★ 新增你的公開網域，讓 aggregator/其他地方都能存取到檔案
 const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
 
 // Multer: 上限 100MB
@@ -375,10 +380,8 @@ async function tryCloseAd(page) {
 }
 
 /**
- * [新增] 在流程要點取 screenshot/html
+ * [已於檔案最上方宣告] saveDebugInfo(page, tag)
  *  在 aggregator 及 direct search 皆會用到
- *  (請往下看 aggregatorSearchGinifab 與 directSearchXXX)
- *  ★ 已在檔案最上方新增了 saveDebugInfo()，此處只會呼叫
  */
 
 //--------------------------------------
@@ -850,6 +853,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     const isVideo    = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
 
+    // 短影片上傳檢查
     if(isVideo && !isUnlimited){
       fs.unlinkSync(req.file.path);
       return res.status(402).json({ error:'UPGRADE_REQUIRED', message:'短影片需升級付費' });
@@ -888,6 +892,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
 
       if(isUnlimited){
+        // 白名單允許重複
         if(!fs.existsSync(finalPathExist)){
           console.log('[step1] local file is missing => restore from newly uploaded =>', finalPathExist);
           try {
@@ -905,6 +910,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           fs.unlinkSync(req.file.path);
         }
 
+        // 若舊 PDF 不存在 => 重產
         if(!fs.existsSync(pdfExistPath)){
           console.log(`[step1] PDF not found => re-generate certificate_${exist.id}.pdf`);
           try {
@@ -944,13 +950,13 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           defaultPassword: null
         });
       } else {
+        // 非白名單 => 禁止上傳重複
         fs.unlinkSync(req.file.path);
         return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
       }
     }
 
     // === 真的不存在 => 新增記錄 & 生成 PDF ===
-
     console.log('[step1] about to call ipfsService.saveFile...');
     let ipfsHash='';
     try {
@@ -999,8 +1005,12 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
+    // ★ 新增：若是圖片 => convertAndUpload => 產生 publicImageUrl
     let previewPath=null;
+    let publicImageUrl=null;
+
     if(isVideo){
+      // 影片抽預覽圖
       try {
         console.log('[step1] checking video duration => ffprobe...');
         const durSec= parseFloat(
@@ -1026,9 +1036,21 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         console.error('[Video middle frame error]', eVid);
       }
     } else {
+      // 若是圖片 => 呼叫 convertAndUpload
       previewPath= finalPath;
+      try {
+        publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
+        console.log('[step1] => publicImageUrl =', publicImageUrl);
+
+        // 若需在資料庫保存 publicImageUrl，可加上下行：
+        // newFile.publicUrl = publicImageUrl;
+        // await newFile.save();
+      } catch(eConv){
+        console.error('[step1 convertAndUpload error]', eConv);
+      }
     }
 
+    // 產 PDF
     const pdfName= `certificate_${newFile.id}.pdf`;
     const pdfPath= path.join(CERT_DIR, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
@@ -1064,8 +1086,12 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       message : '上傳成功並完成證書PDF',
       fileId  : newFile.id,
       pdfUrl  : `/api/protect/certificates/${newFile.id}`,
-      fingerprint, ipfsHash, txHash,
-      defaultPassword
+      fingerprint, 
+      ipfsHash, 
+      txHash,
+      defaultPassword,
+      // ★ 新增回傳 publicImageUrl，圖片時才會有
+      publicImageUrl
     });
 
   } catch(err){
@@ -1270,13 +1296,12 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
 
 /* 
   =================================================================
-  ★ 以下是新增的函式: iOS/Android/Desktop 三合一 (只增不減)
+  ★ 以下是您既有的 iOS/Android/Desktop 三合一上傳流程函式，悉數保留
   =================================================================
 */
 
 /**
  * iOS 模擬流程：上傳本機圖片 -> 選擇檔案 -> 照片圖庫 -> 完成 -> input[type=file]
- * 若 DOM 找不到(throw Error) 就會回傳 false
  */
 async function tryGinifabUploadLocal_iOS(page, localImagePath){
   console.log('[tryGinifabUploadLocal_iOS] Start iOS-like flow...');
@@ -1376,7 +1401,7 @@ async function tryGinifabUploadLocal_Desktop(page, localImagePath){
 
 /**
  * 三合一：先 iOS -> 再 Android -> 再 Desktop。
- *  只要有一種成功就算成功
+ * 只要有一種成功就算成功
  */
 async function tryGinifabUploadLocalAllFlow(page, localImagePath){
   console.log('[tryGinifabUploadLocalAllFlow] => start iOS/Android/Desktop attempts...');
