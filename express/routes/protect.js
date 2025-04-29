@@ -10,6 +10,7 @@
  * 1. Puppeteer headless => true (防舊版Chromium不支援 'new')
  * 2. 預設 aggregatorFirst = true (先走Ginifab)
  * 3. 增加關鍵 console.log 幫助排查錯誤
+ * 4. 新增 const PUBLIC_HOST = 'https://suzookaizokuhunter.com'，並在 /scan/:fileId 最後自動刪除暫存檔
  *************************************************************/
 
 const express = require('express');
@@ -64,6 +65,9 @@ function ensureUploadDirs(){
 }
 // 開始前執行一次
 ensureUploadDirs();
+
+// ★ 新增你的公開網域，讓 aggregator 能存取到檔案
+const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
 
 // Multer: 上限 100MB
 // (保留你原先的設定: dest='uploads/')
@@ -814,8 +818,15 @@ router.get('/scan/:fileId', async(req,res)=>{
     let allLinks=[...suspiciousLinks];
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
     console.log('[scan] file =>', fileRec.filename, ' isVideo=', isVideo);
+
+    // 產生公開連結 (若 aggregator 需要)
+    function getPublicUrl(fileId, extension){
+      return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
+    }
+
     if(isVideo){
       try {
+        console.log('[scan] checking video duration => ffprobe...');
         const durSec= parseFloat(execSync(
           `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`
         ).toString().trim())||9999;
@@ -830,7 +841,10 @@ router.get('/scan/:fileId', async(req,res)=>{
 
           for(const fPath of frames){
             console.log('[scan] aggregator on frame =>', fPath);
-            const engineRes= await doSearchEngines(fPath, true, '');
+            // 預設 aggregatorFirst = true，這裡需要 frame 的公開 URL
+            const baseName = path.basename(fPath); // frame_xxx.png
+            const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
+            const engineRes= await doSearchEngines(fPath, true, frameUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
           }
         }
@@ -839,7 +853,8 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     } else {
       console.log('[scan] single image => aggregator+fallback =>', localPath);
-      const engineRes= await doSearchEngines(localPath, true, '');
+      const publicUrl= getPublicUrl(fileId, ext);
+      const engineRes= await doSearchEngines(localPath, true, publicUrl);
       allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
     }
 
@@ -864,6 +879,31 @@ router.get('/scan/:fileId', async(req,res)=>{
     console.log('[scan] done =>', scanPdfPath);
     const rptExists= fs.existsSync(scanPdfPath);
     console.log('[scan] PDF fileExists?', rptExists);
+
+    // ★ 新增：圖搜完成後刪除暫存檔(影片 / 圖片 / 抽幀資料夾)
+    try {
+      if(isVideo){
+        // 刪除短影片原始檔
+        if(fs.existsSync(localPath)){
+          fs.unlinkSync(localPath);
+          console.log('[scan] removed local video =>', localPath);
+        }
+        // 刪除抽幀資料夾
+        const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
+        if(fs.existsSync(frameDir)){
+          fs.rmSync(frameDir, { recursive: true, force: true });
+          console.log('[scan] removed frame dir =>', frameDir);
+        }
+      } else {
+        // 單張圖片
+        if(fs.existsSync(localPath)){
+          fs.unlinkSync(localPath);
+          console.log('[scan] removed local image =>', localPath);
+        }
+      }
+    } catch(eDel){
+      console.error('[scan] remove ephemeral error =>', eDel);
+    }
 
     return res.json({
       message:'圖搜+文字爬蟲完成 => PDF OK',
@@ -905,30 +945,3 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
 });
 
 module.exports = router;
-
-/* ----------------------------------------------------------------------------
-   (選擇性) 若您需要 JWT 驗證，可另外新增檔案 express/routes/protectAuth.js
-   內容示例：
-
-   const jwt = require('jsonwebtoken');
-
-   exports.protectAuth = (req, res, next) => {
-     const authHeader = req.headers.authorization || '';
-     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
-     if (!token) {
-       return res.status(401).json({ message: '未提供授權令牌' });
-     }
-     try {
-       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-       req.user = decoded;
-       next();
-     } catch (err) {
-       console.error('JWT 驗證失敗:', err);
-       return res.status(401).json({ message: '無效或過期的授權令牌' });
-     }
-   };
-
-   使用時只要：
-     const { protectAuth } = require('./protectAuth');
-   並在任何路由中改為 router.get('/scan/:fileId', protectAuth, async(req,res)=>{...});
----------------------------------------------------------------------------- */
