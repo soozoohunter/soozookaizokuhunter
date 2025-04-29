@@ -324,13 +324,12 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 
 /**
  * 嘗試在當前頁面尋找並關閉「廣告/防機器人彈窗」的 XX 按鈕
- * 您需要根據實際廣告 DOM 去調整 selector
+ * 您需要根據實際網頁廣告結構來修改
  */
 async function tryCloseAd(page) {
   try {
     // 範例: 假設出現一個 class="adCloseBtn" 的 X
     // 或者某個 button 帶 "close" 文字
-    // 您需依實際網頁廣告結構來修改
     const closeBtnSelector = 'button.ad-close, .adCloseBtn, .close';
     
     // 等待 2 秒觀察是否出現
@@ -354,8 +353,7 @@ async function tryCloseAd(page) {
 
 /**
  * 在 ginifab 頁面嘗試「本機檔案上傳」
- *  - 如果找到 input[type=file] 並成功上傳檔案，回傳 true
- *  - 否則回傳 false
+ *  (您原有的function，保留不動)
  */
 async function tryGinifabUploadLocal(page, localImagePath) {
   try {
@@ -384,17 +382,15 @@ async function tryGinifabUploadLocal(page, localImagePath) {
 }
 
 /**
- * 在 ginifab 頁面嘗試「指定圖片網址」（與您原本 tryGinifabFlow 類似）
+ * 在 ginifab 頁面嘗試「指定圖片網址」
+ * (您原本的function，保留不動)
  */
 async function tryGinifabWithUrl(page, publicImageUrl) {
   try {
-    // 關閉廣告
     const closedAd = await tryCloseAd(page);
     if(closedAd) {
       console.log('[tryGinifabWithUrl] closed ad, proceed...');
     }
-    
-    // 點擊「指定圖片網址」
     await page.waitForTimeout(1000);
     const linkFound = await page.evaluate(()=>{
       const link = [...document.querySelectorAll('a')]
@@ -406,12 +402,9 @@ async function tryGinifabWithUrl(page, publicImageUrl) {
       console.warn('[tryGinifabWithUrl] can not find link');
       return false;
     }
-    
-    // 輸入網址
     await page.waitForSelector('input[type=text]', { timeout:5000 });
     await page.type('input[type=text]', publicImageUrl, { delay:50 });
     await page.waitForTimeout(1000);
-    
     console.log('[tryGinifabWithUrl] typed URL =>', publicImageUrl);
     return true;
   } catch(e) {
@@ -421,7 +414,7 @@ async function tryGinifabWithUrl(page, publicImageUrl) {
 }
 
 /**
- * Google 流程：打開 google.com -> 搜尋 "圖搜引擎" -> 找到 ginifab.com.tw -> 前往 -> 再執行 tryGinifabFlow
+ * Google 流程 (保留您原本的 gotoGinifabViaGoogle)
  */
 async function gotoGinifabViaGoogle(page, publicImageUrl){
   console.log('[gotoGinifabViaGoogle]');
@@ -431,23 +424,19 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
     });
     await page.waitForTimeout(2000);
 
-    // 找搜尋框
     const searchBox= await page.$('input[name="q"]');
     if(!searchBox){
       console.warn('[gotoGinifabViaGoogle] can not find google search box');
       return false;
     }
-    // 輸入 "圖搜引擎"
     await searchBox.type('圖搜引擎', { delay:50 });
     await page.keyboard.press('Enter');
     await page.waitForTimeout(3000);
 
-    // 取連結
     const links = await page.$$eval('a', as => as.map(a => ({
       href: a.href || '',
       text: a.innerText || ''
     })));
-    // 找 ginifab
     let target = links.find(x => x.href.includes('ginifab.com.tw'));
     if(!target){
       console.warn('[gotoGinifabViaGoogle] ginifab link not found');
@@ -455,14 +444,12 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
     }
     console.log('[gotoGinifabViaGoogle] found =>', target.href);
 
-    // 前往 ginifab
     await page.goto(target.href, {
       waitUntil:'domcontentloaded', timeout:20000
     });
     await page.waitForTimeout(2000);
 
-    // 此處可直接再嘗試本機上傳或指定網址
-    // 例如僅嘗試 URL 版 (但視需求而定)
+    // 再嘗試 URL 版 (此處保留您原邏輯)
     const ok = await tryGinifabWithUrl(page, publicImageUrl);
     return ok;
   } catch(e){
@@ -473,13 +460,9 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
 
 /**
  * aggregatorSearchGinifab:
- *  1) 先直接打開 ginifab
- *     -> 先嘗試「本機上傳」
- *     -> 若失敗，再嘗試「指定圖片網址」
- *     -> 若仍失敗 => 關閉頁面 => 走 google fallback
- *  2) google => 搜尋 "圖搜引擎" => 點 ginifab => tryGinifabWithUrl
- *     -> 若還是失敗 => 放棄 aggregator
- *  3) 若成功 => 順序點擊 Bing / TinEye / Baidu 收集連結
+ *  (保留您原本的 aggregatorSearchGinifab，但在「3) 嘗試本機上傳」那邊，
+ *   先插入一個「iOS/Android/Desktop 三合一流程」的函式 => tryGinifabUploadLocalAllFlow。
+ *   若三合一流程失敗，再回到您原本的 tryGinifabUploadLocal => tryGinifabWithUrl => google fallback)
  */
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) {
   console.log('[aggregatorSearchGinifab] => local=', localImagePath, ' url=', publicImageUrl);
@@ -499,15 +482,21 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
     });
     await page.waitForTimeout(2000);
 
-    // 先嘗試【本機上傳】
-    let successLocal = await tryGinifabUploadLocal(page, localImagePath);
-    // 如果本機上傳失敗，就改嘗試「指定圖片網址」
+    // === 新增：先嘗試 iOS/Android/Desktop 三合一 ===
+    let successLocal = await tryGinifabUploadLocalAllFlow(page, localImagePath);
+    // 若三合一流程都失敗，才回到您原本的 tryGinifabUploadLocal
+    if(!successLocal){
+      console.log('[aggregatorSearchGinifab] allFlow fail => fallback old tryGinifabUploadLocal...');
+      successLocal = await tryGinifabUploadLocal(page, localImagePath);
+    }
+
+    // 如果本機上傳失敗 => 改嘗試「指定圖片網址」
     if(!successLocal) {
       console.log('[aggregatorSearchGinifab] local upload fail => try URL approach...');
       successLocal = await tryGinifabWithUrl(page, publicImageUrl);
     }
 
-    // 如果還是失敗 => 關閉該 tab，改走 google fallback
+    // 若還是不行 => google fallback
     if(!successLocal) {
       console.warn('[aggregatorSearchGinifab] local+URL both fail => goto google fallback...');
       await page.close().catch(()=>{});
@@ -520,18 +509,31 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         await newPage.close().catch(()=>{});
         return ret; // 直接回傳, ret預設都success=false
       } else {
-        // 代表成功進到 ginifab 頁面
+        // 成功進到 ginifab 頁面 => 再試一次
         page = newPage;
+        let ok2 = await tryGinifabUploadLocalAllFlow(page, localImagePath);
+        if(!ok2){
+          console.log('[aggregatorSearchGinifab] allFlow again fail => fallback old tryGinifabUploadLocal...');
+          ok2 = await tryGinifabUploadLocal(page, localImagePath);
+        }
+        if(!ok2){
+          console.log('[aggregatorSearchGinifab] local upload (2) fail => try URL approach (2) ...');
+          ok2 = await tryGinifabWithUrl(page, publicImageUrl);
+        }
+        if(!ok2){
+          console.warn('[aggregatorSearchGinifab] still fail => aggregator stop');
+          await page.close().catch(()=>{});
+          return ret;
+        }
       }
     }
 
-    // === 若能到此, 代表我們已在 ginifab 頁面，可以點擊 Bing / TinEye / Baidu 聚合 ===
+    // === 若能到此, 代表已成功上傳 => 順序點 Bing / TinEye / Baidu
     const engList = [
       { key:'bing',   label:['微軟必應','Bing'] },
       { key:'tineye', label:['錫眼睛','TinEye'] },
       { key:'baidu',  label:['百度','Baidu'] }
     ];
-
     for(const eng of engList){
       try {
         const newTab = new Promise(resolve=>{
@@ -571,8 +573,8 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
   return ret;
 }
 
-
-//=== 以下 directSearchBing / directSearchTinEye / directSearchBaidu 不變 ===//
+//=== 以下 directSearchBing / directSearchTinEye 不動 ===//
+//=== 只在 directSearchBaidu 中加「再次進入 image.baidu.com」示範 ===//
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -585,7 +587,7 @@ async function directSearchBing(browser, imagePath){
     await page.waitForTimeout(2000);
 
     const [fileChooser] = await Promise.all([
-      page.waitForFileChooser({ timeout:10000 }), // 調長一點
+      page.waitForFileChooser({ timeout:10000 }), 
       page.click('#sb_sbi').catch(()=>{})
     ]);
     await fileChooser.accept([imagePath]);
@@ -641,6 +643,7 @@ async function directSearchBaidu(browser, imagePath){
   try {
     page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    // 原本您只去過 https://graph.baidu.com/，這裡先保留
     await page.goto('https://graph.baidu.com/', {
       waitUntil:'domcontentloaded', timeout:20000
     });
@@ -651,6 +654,29 @@ async function directSearchBaidu(browser, imagePath){
     await fInput.uploadFile(imagePath);
     await page.waitForTimeout(5000);
 
+    // ★ 新增：再次進入 image.baidu.com => 再點相機 => 再上傳
+    try {
+      console.log('[directSearchBaidu] second approach => go image.baidu.com');
+      await page.goto('https://image.baidu.com/', {
+        waitUntil:'domcontentloaded', timeout:20000
+      });
+      await page.waitForTimeout(2000);
+      // 點相機 (class= "soutu-btn")
+      const cameraBtn = await page.$('span.soutu-btn');
+      if(cameraBtn){
+        await cameraBtn.click();
+        await page.waitForTimeout(1500);
+      }
+      const f2 = await page.$('input[type=file]');
+      if(f2){
+        await f2.uploadFile(imagePath);
+        await page.waitForTimeout(3000);
+      }
+    } catch(e2){
+      console.warn('[directSearchBaidu second approach error]', e2);
+    }
+
+    // 收集連結
     let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
     hrefs= hrefs.filter(h=> h && !h.includes('baidu.com'));
     ret.links= [...new Set(hrefs)].slice(0,5);
@@ -686,9 +712,7 @@ async function fallbackDirectEngines(imagePath){
   return final;
 }
 
-/** aggregatorFirst 預設改為 true => Ginifab 先行
- *  修改：呼叫 aggregatorSearchGinifab(...) 時，需傳 (browser, localFilePath, aggregatorImageUrl)
- */
+/** aggregatorFirst 預設為 true => Ginifab，若失敗再 fallbackDirect */
 async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=''){
   console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
   const ret = { bing:{}, tineye:{}, baidu:{} };
@@ -698,7 +722,6 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
     let browser;
     try {
       browser = await launchBrowser();
-      // 改為同時傳 localFilePath 與 aggregatorImageUrl
       const aggRes = await aggregatorSearchGinifab(browser, localFilePath, aggregatorImageUrl);
       console.log('[doSearchEngines] aggregator =>', aggRes);
       const total = aggRes.bing.links.length 
@@ -715,6 +738,8 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
     } finally {
       if(browser) await browser.close().catch(()=>{});
     }
+
+    // fallback
     if(!aggregatorOk){
       console.log('[doSearchEngines] aggregator fail => fallbackDirect');
       const fb = await fallbackDirectEngines(localFilePath);
@@ -792,7 +817,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     if(exist){
       console.log(`[step1] detected duplicated fingerprint => File ID=${exist.id}`);
       // 預設動作：刪除剛上傳的暫存檔(避免浪費空間)
-      // 但若需要「還原本地檔」，就要先 renameSync 再刪除(或根本不刪除)
       const extExist = path.extname(exist.filename) || path.extname(req.file.originalname) || '';
       const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
       const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
@@ -813,7 +837,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             }
           }
         } else {
-          // 若本地檔已存在，就刪除剛上傳的暫存檔
           fs.unlinkSync(req.file.path);
         }
 
@@ -847,7 +870,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           }
         }
 
-        // 回傳舊 fileId、舊 ipfsHash、舊 txHash
         return res.json({
           message:'已上傳相同檔案(白名單允許重複)，自動補齊缺失的 PDF / 本地檔。',
           fileId: exist.id,
@@ -858,7 +880,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           defaultPassword: null
         });
       } else {
-        // 若非白名單 => 不允許重複檔案
         fs.unlinkSync(req.file.path);
         return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
       }
@@ -866,7 +887,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     // === 真的不存在 => 新增記錄 & 生成 PDF ===
 
-    // =========== IPFS ============
     console.log('[step1] about to call ipfsService.saveFile...');
     let ipfsHash='';
     try {
@@ -876,7 +896,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.error('[step1 IPFS error]', eIPFS);
     }
 
-    // =========== Chain ============
     console.log('[step1] about to call chain.storeRecord...');
     let txHash='';
     try {
@@ -887,7 +906,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.error('[step1 chain error]', eChain);
     }
 
-    // 建立 DB 記錄
     const newFile= await File.create({
       user_id : user.id,
       filename: req.file.originalname,
@@ -898,12 +916,10 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     });
     console.log('[step1] File record created => ID=', newFile.id);
 
-    // 統計上傳次數
     if(isVideo) user.uploadVideos=(user.uploadVideos||0)+1;
     else user.uploadImages=(user.uploadImages||0)+1;
     await user.save();
 
-    // 移動原始上傳檔 => uploads 目錄
     console.log('[step1] moving local file => /uploads');
     const ext= path.extname(req.file.originalname)||'';
     const finalPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${newFile.id}${ext}`);
@@ -919,7 +935,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // 若短影片 => 抽中間幀(限 ≤ 30 秒)
     let previewPath=null;
     if(isVideo){
       try {
@@ -950,7 +965,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       previewPath= finalPath;
     }
 
-    // ========== 產生「證書 PDF」 => uploads/certificates/
     const pdfName= `certificate_${newFile.id}.pdf`;
     const pdfPath= path.join(CERT_DIR, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
@@ -1051,7 +1065,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     }
 
-    // 2) 檢查檔案是否存在
+    // 2) 檔案是否存在
     const ext= path.extname(fileRec.filename)||'';
     const localPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${ext}`);
     if(!fs.existsSync(localPath)){
@@ -1070,7 +1084,6 @@ router.get('/scan/:fileId', async(req,res)=>{
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
     console.log('[scan] file =>', fileRec.filename, ' isVideo=', isVideo);
 
-    // 產生公開連結 (若 aggregator 需要)
     function getPublicUrl(fileId, extension){
       return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
     }
@@ -1092,8 +1105,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 
           for(const fPath of frames){
             console.log('[scan] aggregator on frame =>', fPath);
-            // 預設 aggregatorFirst = true => 需要 frame 的公開 URL
-            const baseName = path.basename(fPath); // frame_xxx.png
+            const baseName = path.basename(fPath); 
             const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
@@ -1114,7 +1126,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
 
-    // 4) 產「掃描報告 PDF」=> 放 uploads/reports/
+    // 4) 產「掃描報告 PDF」
     const scanPdfName= `scanReport_${fileRec.id}.pdf`;
     const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
 
@@ -1134,19 +1146,16 @@ router.get('/scan/:fileId', async(req,res)=>{
     // ★ 新增：圖搜完成後刪除暫存檔(影片 / 圖片 / 抽幀資料夾)
     try {
       if(isVideo){
-        // 刪除短影片原始檔
         if(fs.existsSync(localPath)){
           fs.unlinkSync(localPath);
           console.log('[scan] removed local video =>', localPath);
         }
-        // 刪除抽幀資料夾
         const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
         if(fs.existsSync(frameDir)){
           fs.rmSync(frameDir, { recursive: true, force: true });
           console.log('[scan] removed frame dir =>', frameDir);
         }
       } else {
-        // 單張圖片
         if(fs.existsSync(localPath)){
           fs.unlinkSync(localPath);
           console.log('[scan] removed local image =>', localPath);
@@ -1194,5 +1203,130 @@ router.get('/scanReports/:fileId', async(req,res)=>{
 router.post('/protect', upload.single('file'), async(req,res)=>{
   return res.json({ success:true, message:'(示範) direct protect route' });
 });
+
+/* 
+  =================================================================
+  ★ 以下是新增的函式: iOS/Android/Desktop 三合一 (只增不減)
+  =================================================================
+*/
+
+/**
+ * iOS 模擬流程：上傳本機圖片 -> 選擇檔案 -> 照片圖庫 -> 完成 -> input[type=file]
+ * 若 DOM 找不到(throw Error) 就會回傳 false
+ */
+async function tryGinifabUploadLocal_iOS(page, localImagePath){
+  console.log('[tryGinifabUploadLocal_iOS] Start iOS-like flow...');
+  try {
+    await tryCloseAd(page);
+
+    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if(!uploadLink) throw new Error('No "上傳本機圖片" link for iOS flow');
+    await uploadLink.click();
+    await page.waitForTimeout(1000);
+
+    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
+    if(!chooseFileBtn) throw new Error('No "選擇檔案" link for iOS flow');
+    await chooseFileBtn.click();
+    await page.waitForTimeout(1000);
+
+    const [photoBtn] = await page.$x("//a[contains(text(),'照片圖庫') or contains(text(),'相簿') or contains(text(),'Photo Library')]");
+    if(!photoBtn) throw new Error('No "照片圖庫/相簿/Photo Library" link for iOS flow');
+    await photoBtn.click();
+    await page.waitForTimeout(1500);
+
+    const [finishBtn] = await page.$x("//a[contains(text(),'完成') or contains(text(),'Done') or contains(text(),'OK')]");
+    if(finishBtn){
+      await finishBtn.click();
+      await page.waitForTimeout(1000);
+    }
+
+    const fileInput = await page.$('input[type=file]');
+    if(!fileInput) throw new Error('No input[type=file] for iOS flow');
+    await fileInput.uploadFile(localImagePath);
+    await page.waitForTimeout(2000);
+
+    console.log('[tryGinifabUploadLocal_iOS] success');
+    return true;
+  } catch(e){
+    console.warn('[tryGinifabUploadLocal_iOS] fail =>', e.message);
+    return false;
+  }
+}
+
+/**
+ * Android 模擬流程：上傳本機圖片 -> 選擇檔案 -> 直接相簿 -> input[type=file]
+ */
+async function tryGinifabUploadLocal_Android(page, localImagePath){
+  console.log('[tryGinifabUploadLocal_Android] Start Android-like flow...');
+  try {
+    await tryCloseAd(page);
+
+    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if(!uploadLink) throw new Error('No "上傳本機圖片" link for Android flow');
+    await uploadLink.click();
+    await page.waitForTimeout(1000);
+
+    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
+    if(!chooseFileBtn) throw new Error('No "選擇檔案" link for Android flow');
+    await chooseFileBtn.click();
+    await page.waitForTimeout(2000);
+
+    const fileInput = await page.$('input[type=file]');
+    if(!fileInput) throw new Error('No input[type=file] for Android flow');
+    await fileInput.uploadFile(localImagePath);
+    await page.waitForTimeout(2000);
+
+    console.log('[tryGinifabUploadLocal_Android] success');
+    return true;
+  } catch(e){
+    console.warn('[tryGinifabUploadLocal_Android] fail =>', e.message);
+    return false;
+  }
+}
+
+/**
+ * Desktop 模擬流程：上傳本機圖片 -> 直接出現 input[type=file] -> upload
+ */
+async function tryGinifabUploadLocal_Desktop(page, localImagePath){
+  console.log('[tryGinifabUploadLocal_Desktop] Start Desktop-like flow...');
+  try {
+    await tryCloseAd(page);
+
+    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'Upload from PC')]");
+    if(!uploadLink) throw new Error('No "上傳本機圖片" link for Desktop flow');
+    await uploadLink.click();
+    await page.waitForTimeout(1000);
+
+    const fileInput = await page.$('input[type=file]');
+    if(!fileInput) throw new Error('No input[type=file] in Desktop flow');
+    await fileInput.uploadFile(localImagePath);
+    await page.waitForTimeout(2000);
+
+    console.log('[tryGinifabUploadLocal_Desktop] success');
+    return true;
+  } catch(e){
+    console.warn('[tryGinifabUploadLocal_Desktop] fail =>', e.message);
+    return false;
+  }
+}
+
+/**
+ * 三合一：先 iOS -> 再 Android -> 再 Desktop。
+ *  只要有一種成功就算成功
+ */
+async function tryGinifabUploadLocalAllFlow(page, localImagePath){
+  console.log('[tryGinifabUploadLocalAllFlow] => start iOS/Android/Desktop attempts...');
+  let ok = await tryGinifabUploadLocal_iOS(page, localImagePath);
+  if(ok) return true;
+
+  ok = await tryGinifabUploadLocal_Android(page, localImagePath);
+  if(ok) return true;
+
+  ok = await tryGinifabUploadLocal_Desktop(page, localImagePath);
+  if(ok) return true;
+
+  // 全部失敗
+  return false;
+}
 
 module.exports = router;
