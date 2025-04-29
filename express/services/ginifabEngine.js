@@ -27,12 +27,15 @@ async function fallbackDirectEngines(imagePath) {
     // Bing
     try {
       const page = await browser.newPage();
-      await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
+      await page.goto('https://www.bing.com/images', {
+        waitUntil:'domcontentloaded', timeout:20000
+      });
       const fileInput = await page.$('input[type=file]');
       if (fileInput) {
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(4000);
         let links = await page.$$eval('a', as => as.map(a=>a.href));
+        // 過濾非 Bing.com
         links = links.filter(l => l && !l.includes('bing.com'));
         results.bing.push(...links);
       }
@@ -44,7 +47,9 @@ async function fallbackDirectEngines(imagePath) {
     // TinEye
     try {
       const page = await browser.newPage();
-      await page.goto('https://tineye.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+      await page.goto('https://tineye.com/', {
+        waitUntil:'domcontentloaded', timeout:20000
+      });
       const fileInput = await page.$('input[type=file]');
       if (fileInput) {
         await fileInput.uploadFile(imagePath);
@@ -52,6 +57,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForTimeout(2000);
 
         let links = await page.$$eval('a', as => as.map(a=>a.href));
+        // 過濾非 tineye.com
         links = links.filter(l => l && !l.includes('tineye.com'));
         results.tineye.push(...links);
       }
@@ -63,12 +69,15 @@ async function fallbackDirectEngines(imagePath) {
     // Baidu
     try {
       const page = await browser.newPage();
-      await page.goto('https://graph.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+      await page.goto('https://graph.baidu.com/', {
+        waitUntil:'domcontentloaded', timeout:20000
+      });
       const baiduFile = await page.$('input[type=file]');
       if (baiduFile) {
         await baiduFile.uploadFile(imagePath);
         await page.waitForTimeout(5000);
         let links = await page.$$eval('a', as => as.map(a=>a.href));
+        // 過濾非 baidu.com
         links = links.filter(l => l && !l.includes('baidu.com'));
         results.baidu.push(...links);
       }
@@ -84,22 +93,22 @@ async function fallbackDirectEngines(imagePath) {
   }
 
   // 去重
-  results.bing = [...new Set(results.bing)];
+  results.bing   = [...new Set(results.bing)];
   results.tineye = [...new Set(results.tineye)];
-  results.baidu = [...new Set(results.baidu)];
+  results.baidu  = [...new Set(results.baidu)];
   return results;
 }
 
 /**
  * 使用「Ginifab Aggregator」：指定圖片 URL → 依序點擊 Bing / TinEye / Baidu
- * @param {string} publicImageUrl - 可公開存取的圖片網址 (e.g. Cloudinary URL)
- * @returns {Promise<{bing:string[], tineye:string[], baidu:string[]}>}
+ * @param {string} publicImageUrl - 可公開存取的圖片網址
+ * @returns {Promise<{bing:{links:string[]}, tineye:{links:string[]}, baidu:{links:string[]}}>}
  */
 async function aggregatorSearchGinifab(publicImageUrl) {
   const results = {
-    bing: [],
-    tineye: [],
-    baidu: []
+    bing: { links: [] },
+    tineye: { links: [] },
+    baidu: { links: [] }
   };
   let browser;
   try {
@@ -122,40 +131,44 @@ async function aggregatorSearchGinifab(publicImageUrl) {
         .find(a => a.innerText.includes('指定圖片網址'));
       if (link) link.click();
     });
-    await page.waitForSelector('input[type=text]', { timeout:5000 });
+    await page.waitForSelector('input[type=text]', { timeout:8000 });
     await page.type('input[type=text]', publicImageUrl, { delay:50 });
     await page.waitForTimeout(1500);
 
-    // 順序點擊 (Bing / TinEye / Baidu)
+    // 順序點擊 Bing / TinEye / Baidu
     const engines = [
-      { key:'bing',   label:['微軟必應','Microsoft Bing','Bing'] },
+      { key:'bing',   label:['微軟必應','Bing'] },
       { key:'tineye', label:['錫眼睛','TinEye'] },
       { key:'baidu',  label:['百度','Baidu'] }
     ];
 
-    for (let eng of engines) {
+    for (let eng of engines){
       try {
         const newTab = new Promise(resolve => {
           browser.once('targetcreated', async t => resolve(await t.page()));
         });
-        // 找到對應按鈕文字並點擊
-        await page.evaluate((labels) => {
+        await page.evaluate(labels => {
           const as = [...document.querySelectorAll('a')];
-          for (let lab of labels) {
-            const a = as.find(x => x.innerText.includes(lab));
-            if(a) { a.click(); return; }
+          for(const lab of labels){
+            const found = as.find(x=> x.innerText.includes(lab));
+            if(found) { found.click(); return; }
           }
         }, eng.label);
-        const subPage = await newTab;
-        await subPage.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
-        await subPage.waitForTimeout(2000);
 
-        let links = await subPage.$$eval('a[href]', as => as.map(a => a.href));
-        links = links.filter(l => l && !l.includes('bing.com') && !l.includes('tineye.com') && !l.includes('baidu.com') && !l.includes('ginifab.com'));
-        results[eng.key].push(...links);
-        await subPage.close();
-      } catch(subErr) {
-        console.error(`[aggregatorSearchGinifab][${eng.key}] =>`, subErr);
+        const popup = await newTab;
+        await popup.waitForTimeout(3000);
+
+        let hrefs = await popup.$$eval('a', as => as.map(a => a.href));
+        hrefs = hrefs.filter(h =>
+          h && !h.includes('ginifab') &&
+          !h.includes('bing.com') &&
+          !h.includes('tineye.com') &&
+          !h.includes('baidu.com')
+        );
+        results[eng.key].links = hrefs.slice(0, 5);
+        await popup.close();
+      } catch(eSub){
+        console.error(`[aggregatorSearchGinifab][${eng.key}] =>`, eSub);
       }
     }
 
@@ -165,52 +178,45 @@ async function aggregatorSearchGinifab(publicImageUrl) {
   } finally {
     if(browser) await browser.close();
   }
-
-  // 去重
-  results.bing = [...new Set(results.bing)];
-  results.tineye = [...new Set(results.tineye)];
-  results.baidu = [...new Set(results.baidu)];
   return results;
 }
 
 /**
- * 綜合 aggregator + fallback
- * @param {string} localFilePath - 本地檔路徑
- * @param {boolean} aggregatorFirst - 是否先 aggregator
- * @param {string} aggregatorImageUrl - 若 aggregatorFirst=true 時要的公開圖片URL
+ * (可選) 同時具備 aggregator + fallback
+ * @param {string} localFilePath
+ * @param {boolean} aggregatorFirst
+ * @param {string} aggregatorImageUrl
  */
 async function searchImagesWithFallback(localFilePath, aggregatorFirst=false, aggregatorImageUrl='') {
-  let final = { bing: [], tineye: [], baidu: [] };
+  const final = { bing: [], tineye: [], baidu: [] };
 
-  if(aggregatorFirst && aggregatorImageUrl) {
+  if(aggregatorFirst && aggregatorImageUrl){
     try {
       const aggRes = await aggregatorSearchGinifab(aggregatorImageUrl);
-      final.bing.push(...aggRes.bing);
-      final.tineye.push(...aggRes.tineye);
-      final.baidu.push(...aggRes.baidu);
-    } catch(eAgg) {
+      final.bing.push(...aggRes.bing.links);
+      final.tineye.push(...aggRes.tineye.links);
+      final.baidu.push(...aggRes.baidu.links);
+    } catch(eAgg){
       console.error('[searchImagesWithFallback aggregator error]', eAgg);
     }
-    // fallback if aggregator 無結果
     const total = final.bing.length + final.tineye.length + final.baidu.length;
-    if(total === 0) {
-      console.log('[searchImagesWithFallback] aggregator no result => fallback direct');
+    if(total === 0){
+      // fallback
       const fb = await fallbackDirectEngines(localFilePath);
       final.bing.push(...fb.bing);
       final.tineye.push(...fb.tineye);
       final.baidu.push(...fb.baidu);
     }
   } else {
-    console.log('[searchImagesWithFallback] direct fallback only');
     const fb = await fallbackDirectEngines(localFilePath);
     final.bing.push(...fb.bing);
     final.tineye.push(...fb.tineye);
     final.baidu.push(...fb.baidu);
   }
 
-  final.bing = [...new Set(final.bing)];
+  final.bing   = [...new Set(final.bing)];
   final.tineye = [...new Set(final.tineye)];
-  final.baidu = [...new Set(final.baidu)];
+  final.baidu  = [...new Set(final.baidu)];
   return final;
 }
 
