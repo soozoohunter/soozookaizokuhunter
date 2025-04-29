@@ -132,24 +132,28 @@ async function tryCloseAd(page){
   return false;
 }
 
-/** 在 ginifab 頁面嘗試「上傳本機圖片」 */
+/** 在 ginifab 頁面嘗試「本機上傳」，增加 scrollIntoView + 點擊保險 */
 async function tryGinifabUploadLocal(page, localImagePath) {
   try {
-    // 可能需要點擊「上傳本機圖片」按鈕
-    // 假設文字是「上傳本機圖片」
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片')]");
-    if(uploadLink){
-      await uploadLink.click();
+    // 先嘗試關閉廣告
+    await tryCloseAd(page);
+
+    // 可能需點「上傳本機圖片」或「選擇本機檔案」之類
+    // 下例：假設該文字就是「上傳本機圖片」
+    const [buttonEl] = await page.$x("//a[contains(text(),'上傳本機圖片')]");
+    if(buttonEl){
+      await safeClick(page, buttonEl);
       await page.waitForTimeout(1000);
     }
 
     // 找 input[type=file]
     const fileInput = await page.waitForSelector('input[type=file]', { timeout:5000 });
+    // 嘗試先點擊 input[type=file]
+    await safeClick(page, fileInput);
     await fileInput.uploadFile(localImagePath);
 
-    // 等2秒看是否成功
+    // 等2秒
     await page.waitForTimeout(2000);
-
     console.log('[tryGinifabUploadLocal] success =>', localImagePath);
     return true;
   } catch(e){
@@ -223,12 +227,12 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
 
 /**
  * aggregatorSearchGinifab:
- *  1) 打開 ginifab
- *  2) 先嘗試本機上傳 -> 若失敗 -> 指定圖片網址
- *  3) 都失敗 -> google fallback -> 再試一次
- *  4) 成功 => 順序點 Bing/TinEye/Baidu
+ *  1) 進 ginifab，先嘗試本機上傳 -> 若失敗 -> 指定圖片網址
+ *  2) 若仍失敗 -> google fallback -> 再試一次
+ *  3) 成功後 => 順序點 Bing/TinEye/Baidu，擷取 screenshot + 抓外部連結
  */
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
+  // 回傳結構與原先一致，保留 screenshot 欄位
   const ret = {
     bing:   { success:false, links:[], screenshot:'' },
     tineye: { success:false, links:[], screenshot:'' },
@@ -237,48 +241,62 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
 
   let page;
   try {
-    // 1) 打開 ginifab
+    // 1) 新開頁面前，先設定桌面用 UA 和 viewport
     page = await browser.newPage();
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+      'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+      'Chrome/113.0.0.0 Safari/537.36'
+    );
+    await page.setViewport({ width:1280, height:800, deviceScaleFactor:1 });
+
+    // 2) 進入 ginifab
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
       waitUntil:'domcontentloaded', timeout:20000
     });
     await page.waitForTimeout(2000);
 
-    // 2) 先嘗試本機上傳
+    // 3) 嘗試本機上傳
     let ok = await tryGinifabUploadLocal(page, localImagePath);
     if(!ok){
-      console.log('[aggregatorSearchGinifab] local upload fail => try url...');
+      console.log('[aggregatorSearchGinifab] local upload fail => try URL approach...');
       ok = await tryGinifabWithUrl(page, publicImageUrl);
     }
 
-    // 3) 若仍失敗 => google fallback
+    // 4) 若都失敗 => google fallback
     if(!ok){
-      console.warn('[aggregatorSearchGinifab] local+url both fail => google fallback...');
+      console.warn('[aggregatorSearchGinifab] local+URL both fail => goto google fallback...');
       await page.close().catch(()=>{});
       page = null;
 
       const newPage = await browser.newPage();
+      await newPage.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+        'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/113.0.0.0 Safari/537.36'
+      );
+      await newPage.setViewport({ width:1280, height:800, deviceScaleFactor:1 });
+
       const googleOk = await gotoGinifabViaGoogle(newPage, publicImageUrl);
       if(!googleOk){
-        console.warn('[aggregatorSearchGinifab] google also fail => stop aggregator');
+        console.warn('[aggregatorSearchGinifab] google path also fail => give up aggregator');
         await newPage.close().catch(()=>{});
         return ret;
       } else {
         page = newPage;
-        // google 進 ginifab 後, 再嘗試 local / url
         let ok2 = await tryGinifabUploadLocal(page, localImagePath);
         if(!ok2){
           ok2 = await tryGinifabWithUrl(page, publicImageUrl);
         }
         if(!ok2){
-          console.warn('[aggregatorSearchGinifab] still fail => give up aggregator');
+          console.warn('[aggregatorSearchGinifab] still fail => aggregator stop');
           await page.close().catch(()=>{});
           return ret;
         }
       }
     }
 
-    // 4) 成功 => 依序點 Bing/TinEye/Baidu
+    // 5) 成功 => 順序點 Bing, TinEye, Baidu
     const engList = [
       { key:'bing',   label:['微軟必應','Bing'] },
       { key:'tineye', label:['錫眼睛','TinEye'] },
@@ -286,24 +304,38 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
     ];
     for(const eng of engList){
       try {
+        // 監聽新 tab
         const newTab = new Promise(resolve=>{
           browser.once('targetcreated', async t => resolve(await t.page()));
         });
+
+        // 在 ginifab 主頁面上，依文字找對應 <a>，先 scrollIntoView 再點擊
         await page.evaluate((labels)=>{
           const as= [...document.querySelectorAll('a')];
           for(const lab of labels){
             const found= as.find(x=> x.innerText.includes(lab));
-            if(found){ found.click(); return; }
+            if(found){ found.scrollIntoView(); found.click(); return; }
           }
         }, eng.label);
 
+        // 等待彈出新頁面
         const popup = await newTab;
+        // 一樣設定 UA / viewport
+        await popup.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+          'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+          'Chrome/113.0.0.0 Safari/537.36'
+        );
+        await popup.setViewport({ width:1280, height:800 });
+
         await popup.waitForTimeout(3000);
 
+        // 截圖
         const shotPath = path.join(__dirname, `../../uploads/agg_${eng.key}_${Date.now()}.png`);
         await popup.screenshot({ path:shotPath, fullPage:true }).catch(()=>{});
         ret[eng.key].screenshot = shotPath;
 
+        // 抓連結 (排除 ginifab/bing/tineye/baidu 本身)
         let hrefs= await popup.$$eval('a', as=> as.map(a=> a.href));
         hrefs= hrefs.filter(h=>
           h && !h.includes('ginifab') &&
@@ -312,11 +344,11 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
           !h.includes('baidu.com')
         );
         ret[eng.key].links= hrefs.slice(0,5);
-        ret[eng.key].success= ret[eng.key].links.length>0;
+        ret[eng.key].success= (ret[eng.key].links.length>0);
 
         await popup.close();
       } catch(subErr){
-        console.error(`[Ginifab aggregator sub-engine fail => ${eng.key}]`, subErr);
+        console.error(`[aggregatorSearchGinifab => ${eng.key}] fail`, subErr);
       }
     }
 
@@ -327,6 +359,20 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
   }
 
   return ret;
+}
+
+/**
+ * safeClick: 先 scrollIntoView，再點擊 element
+ * 避免「Node is not clickable / 被蓋住」等問題
+ */
+async function safeClick(page, elementHandle) {
+  if(!elementHandle) return;
+  // Scroll into view
+  await page.evaluate(el => {
+    el.scrollIntoView({ block:'center', inline:'center', behavior:'instant' });
+  }, elementHandle);
+  // 再 click
+  await elementHandle.click({ delay:100 });
 }
 
 
