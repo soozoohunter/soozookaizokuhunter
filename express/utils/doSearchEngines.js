@@ -1,22 +1,55 @@
 // express/utils/doSearchEngines.js
 
 const path = require('path');
-const puppeteerExtra = require('./puppeteerExtra');
+const fs = require('fs');
+const puppeteerExtra = require('./puppeteerExtra'); // 你原本的 puppeteer extra
+// ... 若有其他 require，也一併保留
 
 //==================================================//
-// 1) Direct Engines: Bing / TinEye / Baidu (保留基礎邏輯)
+// (1) 新增輔助函式: 儲存截圖 + HTML dump 到 /app/debugShots
+//==================================================//
+async function saveDebugInfo(page, tag){
+  try {
+    const debugDir = '/app/debugShots'; 
+    const now = Date.now();
+
+    const shotPath = path.join(debugDir, `debug_${tag}_${now}.png`);
+    await page.screenshot({ path: shotPath, fullPage:true }).catch(err=>{
+      console.warn('[saveDebugInfo] screenshot fail =>', err);
+    });
+
+    const html = await page.content().catch(()=>'<html>fail to get content</html>');
+    const htmlPath = path.join(debugDir, `debug_${tag}_${now}.html`);
+    fs.writeFileSync(htmlPath, html, 'utf8');
+
+    const currentUrl = page.url();
+    const currentTitle = await page.title().catch(()=>null);
+    console.log(`[saveDebugInfo] => screenshot=${shotPath} url=${currentUrl} title=${currentTitle}`);
+  } catch(e){
+    console.warn('[saveDebugInfo] error =>', e);
+  }
+}
+
+//==================================================//
+// (2) Direct Engines: Bing / TinEye / Baidu
+//    (在每個try-catch中加入 saveDebugInfo 可視需要自行取名)
 //==================================================//
 
-/**
- * Bing: 進入 bing.com/images => 點攝影機(#sb_sbi) => waitForFileChooser => upload
- */
 async function directSearchBing(browser, imagePath){
   const ret = { success:false, links:[], screenshot:'' };
   let page;
   try {
     page = await browser.newPage();
     await page.setViewport({ width:1280, height:800 });
-    await page.goto('https://www.bing.com/images', { waitUntil:'domcontentloaded', timeout:20000 });
+
+    await page.goto('https://www.bing.com/images', {
+      waitUntil:'domcontentloaded', 
+      timeout:20000
+    });
+
+    // ★ goto後先截圖
+    await saveDebugInfo(page, 'bing_afterGoto');
+
     await page.waitForTimeout(2000);
 
     const [fc] = await Promise.all([
@@ -24,11 +57,10 @@ async function directSearchBing(browser, imagePath){
       page.click('#sb_sbi').catch(()=>{}) // 攝影機 icon
     ]);
     await fc.accept([imagePath]);
-    // 等待結果頁
     await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
     await page.waitForTimeout(3000);
 
-    // 截圖
+    // 再次截圖 (可自由調整是否需要)
     const shot = path.join(__dirname, `../../uploads/bing_direct_${Date.now()}.png`);
     await page.screenshot({ path:shot, fullPage:true }).catch(()=>{});
     ret.screenshot = shot;
@@ -38,23 +70,29 @@ async function directSearchBing(browser, imagePath){
     hrefs = hrefs.filter(x => x && !x.includes('bing.com'));
     ret.links = [...new Set(hrefs)].slice(0,5);
     ret.success = true;
+
   } catch(e){
     console.error('[directSearchBing] fail =>', e);
+    if(page) await saveDebugInfo(page, 'bing_error');
   } finally {
     if(page) await page.close().catch(()=>{});
   }
   return ret;
 }
 
-/**
- * TinEye: 進入 tineye.com => input[type=file] => uploadFile
- */
 async function directSearchTinEye(browser, imagePath){
   const ret = { success:false, links:[], screenshot:'' };
   let page;
   try {
     page = await browser.newPage();
-    await page.goto('https://tineye.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+    await page.goto('https://tineye.com/', {
+      waitUntil:'domcontentloaded', 
+      timeout:20000
+    });
+
+    // ★ goto後先截圖
+    await saveDebugInfo(page, 'tineye_afterGoto');
+
     await page.waitForTimeout(1500);
 
     const fileInput = await page.waitForSelector('input[type=file]', { timeout:8000 });
@@ -72,29 +110,32 @@ async function directSearchTinEye(browser, imagePath){
     hrefs = hrefs.filter(x=> x && !x.includes('tineye.com'));
     ret.links = [...new Set(hrefs)].slice(0,5);
     ret.success = true;
+
   } catch(e){
     console.error('[directSearchTinEye] fail =>', e);
+    if(page) await saveDebugInfo(page, 'tineye_error');
   } finally {
     if(page) await page.close().catch(()=>{});
   }
   return ret;
 }
 
-/**
- * Baidu: 有您特別提到「再次進入 baidu 圖搜頁面後再次點選...」
- * 此示範: 
- *   1) 進入 image.baidu.com => 點相機(.soutu-btn)
- *   2) uploadFile => 等結果
- *   3) (可選) 再次進入 image.baidu.com => 再次點相機 => ...
- */
 async function directSearchBaidu(browser, imagePath){
   const ret = { success:false, links:[], screenshot:'' };
   let page;
   try {
-    // 第一次
     page = await browser.newPage();
     await page.setViewport({width:1280, height:800});
-    await page.goto('https://image.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
+
+    // 1) 先進入 image.baidu.com
+    await page.goto('https://image.baidu.com/', {
+      waitUntil:'domcontentloaded', 
+      timeout:20000
+    });
+
+    // ★ goto後先截圖
+    await saveDebugInfo(page, 'baidu_afterGoto');
+
     await page.waitForTimeout(2000);
 
     // 點相機
@@ -104,17 +145,11 @@ async function directSearchBaidu(browser, imagePath){
       await page.waitForTimeout(1000);
     }
 
-    // 上傳檔案
     const fileInput = await page.waitForSelector('input#uploadImg, input[type=file]', {timeout:8000});
     await fileInput.uploadFile(imagePath);
     await page.waitForTimeout(4000);
 
-    // 截圖
-    const shot1 = path.join(__dirname, `../../uploads/baidu_direct_1_${Date.now()}.png`);
-    await page.screenshot({ path:shot1, fullPage:true }).catch(()=>{});
-
-    // 這裡示範「再次」進入 image.baidu.com
-    // 若您不需要可註解掉
+    // (可選) 再次進入 image.baidu.com => 再次點相機 => ...
     await page.goto('https://image.baidu.com/', { waitUntil:'domcontentloaded', timeout:20000 });
     await page.waitForTimeout(2000);
     const cameraBtn2 = await page.$('span.soutu-btn');
@@ -122,25 +157,25 @@ async function directSearchBaidu(browser, imagePath){
       await cameraBtn2.click();
       await page.waitForTimeout(1000);
     }
-    // 再傳一次
     const fileInput2 = await page.$('input#uploadImg, input[type=file]');
     if(fileInput2) {
       await fileInput2.uploadFile(imagePath);
       await page.waitForTimeout(3000);
     }
 
-    // 最後截圖
+    // 再次截圖
     const shot2 = path.join(__dirname, `../../uploads/baidu_direct_2_${Date.now()}.png`);
     await page.screenshot({ path:shot2, fullPage:true }).catch(()=>{});
     ret.screenshot = shot2;
 
-    // 收集連結 (排除含 baidu.com)
     let hrefs = await page.$$eval('a', as => as.map(a=> a.href));
     hrefs = hrefs.filter(x=> x && !x.includes('baidu.com'));
     ret.links = [...new Set(hrefs)].slice(0,5);
     ret.success = true;
+
   } catch(e){
     console.error('[directSearchBaidu] fail =>', e);
+    if(page) await saveDebugInfo(page, 'baidu_error');
   } finally {
     if(page) await page.close().catch(()=>{});
   }
@@ -148,74 +183,63 @@ async function directSearchBaidu(browser, imagePath){
 }
 
 //============================================================//
-// 2) Aggregator: iOS / Android / Desktop - ginifab + fallback
+// (3) Aggregator: iOS / Android / Desktop - ginifab + fallback
+//    (★ 需搭配 tryCloseAd, tryGinifabUploadLocal_iOS/Android/Desktop 等邏輯)
 //============================================================//
 
-/** 關閉廣告 */
+/** 假設在 aggregatorSearchGinifab 需要關廣告/彈窗 */
 async function tryCloseAd(page){
   try {
     await page.waitForTimeout(2000);
-    const closeBtn = await page.$('.adCloseBtn');
-    if(closeBtn){
-      await closeBtn.click();
+    const adCloseBtn = await page.$('.adCloseBtn, .close, button.ad-close');
+    if(adCloseBtn){
+      await adCloseBtn.click();
       await page.waitForTimeout(1000);
-      console.log('[tryCloseAd] ad closed');
+      console.log('[tryCloseAd] closed an ad popup');
       return true;
     }
-  } catch(e){
-    console.warn('[tryCloseAd] error =>', e);
+  } catch(err){
+    console.warn('[tryCloseAd] fail =>', err);
   }
   return false;
 }
 
-/** 滑動後點擊 */
-async function safeClick(page, el){
-  if(!el) return;
-  await page.evaluate(elem => {
-    elem.scrollIntoView({ block:'center', inline:'center', behavior:'instant' });
-  }, el);
-  await el.click({ delay:100 });
-}
-
 /** 
- * iOS 流程：上傳本機圖片 => 選擇檔案 => 照片圖庫 => 完成 => input[type=file]
+ * iOS/Android/Desktop 模擬上傳 
+ * (各版本若找不到對應DOM即回傳false) 
  */
 async function tryGinifabUploadLocal_iOS(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_iOS] Start iOS-like flow...');
+  console.log('[tryGinifabUploadLocal_iOS] Start iOS flow...');
   try {
+    // 先關廣告
     await tryCloseAd(page);
-    // 1) 上傳本機圖片
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片" link for iOS flow');
-    await safeClick(page, uploadLink);
+
+    const [linkiOS] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if(!linkiOS) throw new Error('no "上傳本機圖片" link for iOS flow');
+    await linkiOS.click();
     await page.waitForTimeout(1000);
 
-    // 2) 選擇檔案
     const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
-    if(!chooseFileBtn) throw new Error('No "選擇檔案" link for iOS flow');
-    await safeClick(page, chooseFileBtn);
+    if(!chooseFileBtn) throw new Error('no "選擇檔案" link for iOS flow');
+    await chooseFileBtn.click();
     await page.waitForTimeout(1000);
 
-    // 3) 照片圖庫
     const [photoBtn] = await page.$x("//a[contains(text(),'照片圖庫') or contains(text(),'相簿') or contains(text(),'Photo Library')]");
-    if(!photoBtn) throw new Error('No "照片圖庫/相簿/Photo Library" link for iOS flow');
-    await safeClick(page, photoBtn);
-    await page.waitForTimeout(2000);
+    if(!photoBtn) throw new Error('no "照片圖庫/相簿/Photo Library" link for iOS flow');
+    await photoBtn.click();
+    await page.waitForTimeout(1500);
 
-    // 4) 完成
     const [finishBtn] = await page.$x("//a[contains(text(),'完成') or contains(text(),'Done') or contains(text(),'OK')]");
     if(finishBtn){
-      await safeClick(page, finishBtn);
-      await page.waitForTimeout(1000);
+      await finishBtn.click();
+      await page.waitForTimeout(800);
     }
 
-    // 5) input[type=file]
     const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] for iOS flow');
-    await safeClick(page, fileInput);
+    if(!fileInput) throw new Error('no fileInput in iOS flow');
     await fileInput.uploadFile(localImagePath);
-
     await page.waitForTimeout(2000);
+
     console.log('[tryGinifabUploadLocal_iOS] success');
     return true;
   } catch(e){
@@ -224,33 +248,26 @@ async function tryGinifabUploadLocal_iOS(page, localImagePath){
   }
 }
 
-/** 
- * Android 流程：上傳本機圖片 => 選擇檔案 => 直接彈出相簿 => (無完成) => input[type=file]
- */
 async function tryGinifabUploadLocal_Android(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_Android] Start Android-like flow...');
+  console.log('[tryGinifabUploadLocal_Android] Start Android flow...');
   try {
     await tryCloseAd(page);
-    // 1) 上傳本機圖片
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片" link for Android flow');
-    await safeClick(page, uploadLink);
+
+    const [linkAndroid] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if(!linkAndroid) throw new Error('no "上傳本機圖片" link for Android flow');
+    await linkAndroid.click();
     await page.waitForTimeout(1000);
 
-    // 2) 選擇檔案
     const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
-    if(!chooseFileBtn) throw new Error('No "選擇檔案" link for Android flow');
-    await safeClick(page, chooseFileBtn);
-    await page.waitForTimeout(2000);
+    if(!chooseFileBtn) throw new Error('no "選擇檔案" link for Android flow');
+    await chooseFileBtn.click();
+    await page.waitForTimeout(1000);
 
-    // (Android 多半系統會直接彈出相簿 / 檔案管理器, puppeteer 無法操作, 這裡只做網頁DOM層)
-    // 3) input[type=file]
     const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] for Android flow');
-    await safeClick(page, fileInput);
+    if(!fileInput) throw new Error('no fileInput in Android flow');
     await fileInput.uploadFile(localImagePath);
-
     await page.waitForTimeout(2000);
+
     console.log('[tryGinifabUploadLocal_Android] success');
     return true;
   } catch(e){
@@ -259,26 +276,21 @@ async function tryGinifabUploadLocal_Android(page, localImagePath){
   }
 }
 
-/** 
- * Desktop 流程：上傳本機圖片 => input[type=file] 可能直接顯示 => 直接 uploadFile
- */
 async function tryGinifabUploadLocal_Desktop(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_Desktop] Start Desktop-like flow...');
+  console.log('[tryGinifabUploadLocal_Desktop] Start Desktop flow...');
   try {
     await tryCloseAd(page);
-    // 1) 上傳本機圖片
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'Upload from PC')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片" link for Desktop flow');
-    await safeClick(page, uploadLink);
+
+    const [linkDesktop] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'Upload from PC')]");
+    if(!linkDesktop) throw new Error('no "上傳本機圖片" link for Desktop flow');
+    await linkDesktop.click();
     await page.waitForTimeout(1000);
 
-    // 2) input[type=file]
     const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] in Desktop flow');
-    await safeClick(page, fileInput);
+    if(!fileInput) throw new Error('no fileInput in Desktop flow');
     await fileInput.uploadFile(localImagePath);
-
     await page.waitForTimeout(2000);
+
     console.log('[tryGinifabUploadLocal_Desktop] success');
     return true;
   } catch(e){
@@ -288,209 +300,245 @@ async function tryGinifabUploadLocal_Desktop(page, localImagePath){
 }
 
 /**
- * 針對 ginifab 做「本機上傳」的三合一函式：
- *  1) 先嘗試 iOS flow
- *  2) 若失敗 => Android flow
- *  3) 若再失敗 => Desktop flow
- *  (只要有一種成功就回傳 true)
+ * 三合一 => iOS -> Android -> Desktop
+ * 只要一種成功就 return true
  */
-async function tryGinifabUploadLocal_AllInOne(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_AllInOne] Attempt iOS => Android => Desktop...');
-  
-  // iOS
-  let ok = await tryGinifabUploadLocal_iOS(page, localImagePath);
-  if(ok) return true;
-
-  // Android
-  ok = await tryGinifabUploadLocal_Android(page, localImagePath);
-  if(ok) return true;
-
-  // Desktop
-  ok = await tryGinifabUploadLocal_Desktop(page, localImagePath);
-  if(ok) return true;
-
-  // 全部失敗
+async function tryGinifabUploadLocalAllFlow(page, localImagePath){
+  if(await tryGinifabUploadLocal_iOS(page, localImagePath)) return true;
+  if(await tryGinifabUploadLocal_Android(page, localImagePath)) return true;
+  if(await tryGinifabUploadLocal_Desktop(page, localImagePath)) return true;
   return false;
 }
 
-// aggregatorSearchGinifab: 整合
+//============================================================//
+// aggregatorSearchGinifab(…) -- 參考 protect.js 版本
+//============================================================//
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl){
-  const ret = { 
-    bing:{ success:false, links:[], screenshot:'' }, 
-    tineye:{ success:false, links:[], screenshot:'' }, 
-    baidu:{ success:false, links:[], screenshot:'' }
+  // 這裡示範「完整 aggregator」，若您已有部署可整合
+  // 僅示範加上 try-catch + saveDebugInfo
+  const ret = {
+    bing:   { success:false, links:[] },
+    tineye: { success:false, links:[] },
+    baidu:  { success:false, links:[] }
   };
+
   let page;
   try {
-    // 打開 ginifab
     page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     await page.setViewport({ width:1280, height:800 });
-
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
-      waitUntil:'domcontentloaded', timeout:20000
+      waitUntil:'domcontentloaded',
+      timeout:20000
     });
+
+    await saveDebugInfo(page, 'ginifab_afterGoto');
     await page.waitForTimeout(2000);
 
-    // 先嘗試 [iOS => Android => Desktop]
-    let ok = await tryGinifabUploadLocal_AllInOne(page, localImagePath);
-    if(!ok){
-      console.log('[aggregatorSearchGinifab] local upload fail => try URL...');
-      // 如果 local 全 fail => 指定圖片網址
-      ok = await tryGinifabWithUrl(page, publicImageUrl);
+    // 1) 先嘗試 iOS->Android->Desktop
+    let successLocal = await tryGinifabUploadLocalAllFlow(page, localImagePath);
+    if(!successLocal){
+      // fallback 既有的 tryGinifabUploadLocal
+      console.log('[aggregator] allFlow fail => fallback tryGinifabUploadLocal...');
+      successLocal = await tryGinifabUploadLocal(page, localImagePath);
     }
 
-    // 如果還是失敗 => google fallback
-    if(!ok){
-      console.warn('[aggregatorSearchGinifab] local+URL both fail => goto google fallback...');
-      await page.close().catch(()=>{});
-      page=null;
-
-      const newPage = await browser.newPage();
-      await newPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-      await newPage.setViewport({ width:1280, height:800 });
-
-      // google => ginifab
-      const googleOk = await gotoGinifabViaGoogle(newPage);
-      if(!googleOk){
-        console.warn('[aggregatorSearchGinifab] google also fail => aggregator stop');
-        await newPage.close().catch(()=>{});
-        return ret;
-      }
-      page = newPage;
-
-      let ok2 = await tryGinifabUploadLocal_AllInOne(page, localImagePath);
-      if(!ok2){
-        ok2 = await tryGinifabWithUrl(page, publicImageUrl);
-      }
-      if(!ok2){
-        console.warn('[aggregatorSearchGinifab] still fail => aggregator stop');
-        await page.close().catch(()=>{});
-        return ret;
-      }
+    // 2) 若本機失敗 => try 指定圖片網址
+    if(!successLocal){
+      console.log('[aggregator] local fail => try url =>', publicImageUrl);
+      await tryCloseAd(page);
+      successLocal = await tryGinifabWithUrl(page, publicImageUrl);
     }
 
-    // 如果能跑到這 => 上傳成功 => 順序點 Bing/TinEye/Baidu
-    const engList = [
-      { key:'bing',   label:['微軟必應','Bing'] },
-      { key:'tineye', label:['錫眼睛','TinEye'] },
-      { key:'baidu',  label:['百度','Baidu'] }
+    // 3) 若仍失敗 => aggregator fail (可再做 google fallback)
+    if(!successLocal){
+      console.warn('[aggregator] all local/url fail => return ret');
+      await saveDebugInfo(page, 'ginifab_fail');
+      return ret;
+    }
+
+    // === 如果成功上傳 => 順序點 Bing / TinEye / Baidu
+    const engines = [
+      { key:'bing', label:['Bing','微軟必應'] },
+      { key:'tineye', label:['TinEye','錫眼睛'] },
+      { key:'baidu', label:['Baidu','百度'] }
     ];
-    for(const eng of engList){
+    for(const eng of engines){
       try {
-        // 監聽 newTab
+        // 監聽新tab
         const newTab = new Promise(resolve => {
-          browser.once('targetcreated', async t => resolve(await t.page()));
+          browser.once('targetcreated', async t => {
+            const p = await t.page();
+            resolve(p);
+          });
         });
-        await page.evaluate(labels => {
+        // 找到對應按鈕
+        await page.evaluate(engineLabels => {
           const as = [...document.querySelectorAll('a')];
-          for(const lab of labels){
-            const found = as.find(x => x.innerText.includes(lab));
-            if(found) {
-              found.scrollIntoView({behavior:'instant', block:'center', inline:'center'});
-              found.click();
-              return;
-            }
+          for(const lb of engineLabels){
+            const found = as.find(a => a.innerText.includes(lb));
+            if(found){ found.click(); return; }
           }
         }, eng.label);
 
+        // 等新視窗
         const popup = await newTab;
-        await popup.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-        await popup.setViewport({ width:1280, height:800 });
         await popup.waitForTimeout(3000);
 
         // 截圖
-        const shot = path.join(__dirname, `../../uploads/agg_${eng.key}_${Date.now()}.png`);
-        await popup.screenshot({ path:shot, fullPage:true }).catch(()=>{});
-        ret[eng.key].screenshot = shot;
+        await saveDebugInfo(popup, `agg_${eng.key}_popup`);
 
-        let hrefs= await popup.$$eval('a', as => as.map(a=> a.href));
-        hrefs= hrefs.filter(h=>
-          h && !h.includes('ginifab') &&
-          !h.includes('bing.com') &&
-          !h.includes('tineye.com') &&
-          !h.includes('baidu.com')
+        let hrefs = await popup.$$eval('a', as => as.map(a => a.href));
+        hrefs = hrefs.filter(x =>
+          x && !x.includes('ginifab') &&
+          !x.includes('bing.com') &&
+          !x.includes('tineye.com') &&
+          !x.includes('baidu.com')
         );
         ret[eng.key].links = hrefs.slice(0,5);
         ret[eng.key].success = (ret[eng.key].links.length>0);
 
         await popup.close();
       } catch(subErr){
-        console.error(`[aggregatorSearchGinifab => ${eng.key}]`, subErr);
+        console.error(`[aggregatorSearchGinifab][${eng.key}] fail =>`, subErr);
+        await saveDebugInfo(page, `agg_${eng.key}_error`);
       }
     }
 
   } catch(e){
-    console.error('[aggregatorSearchGinifab error]', e);
+    console.error('[aggregatorSearchGinifab] main catch =>', e);
+    if(page) await saveDebugInfo(page, 'aggregatorSearchGinifab_error');
   } finally {
     if(page) await page.close().catch(()=>{});
   }
   return ret;
 }
 
-//==================================================//
-// 3) doSearchEngines: 主入口, fallback direct if aggregator fails
-//==================================================//
-async function doSearchEngines(imagePath, aggregatorFirst, aggregatorImageUrl=''){
-  const puppeteer = require('./puppeteerExtra');
-  const browser = await puppeteer.launch({
-    headless:true,
-    args:['--no-sandbox','--disable-setuid-sandbox']
-  });
+/** 
+ * 需搭配 tryGinifabWithUrl 
+*/
+async function tryGinifabWithUrl(page, publicImageUrl){
+  try {
+    await page.waitForTimeout(1000);
+    // 點「指定圖片網址」
+    const clicked = await page.evaluate(() => {
+      const el = [...document.querySelectorAll('a')]
+        .find(a => a.innerText.includes('指定圖片網址'));
+      if(el){ el.click(); return true; }
+      return false;
+    });
+    if(!clicked) return false;
 
-  let final = {
-    bing:{ success:false, links:[], screenshot:'' },
-    tineye:{ success:false, links:[], screenshot:'' },
-    baidu:{ success:false, links:[], screenshot:'' }
+    await page.waitForSelector('input[type=text]', { timeout:5000 });
+    await page.type('input[type=text]', publicImageUrl, { delay:50 });
+    await page.waitForTimeout(1000);
+    console.log('[tryGinifabWithUrl] typed =>', publicImageUrl);
+    return true;
+  } catch(e){
+    console.warn('[tryGinifabWithUrl] fail =>', e.message);
+    return false;
+  }
+}
+
+//==================================================//
+// (4) doSearchEngines: 主入口, fallback direct if aggregator fails
+//==================================================//
+async function doSearchEngines(imagePath, aggregatorFirst, aggregatorImageUrl){
+  console.log('[doSearchEngines] => aggregatorFirst=', aggregatorFirst, ' aggregatorImageUrl=', aggregatorImageUrl);
+  const final = {
+    bing: {success:false, links:[]},
+    tineye: {success:false, links:[]},
+    baidu: {success:false, links:[]}
   };
 
-  try {
-    if(aggregatorFirst && aggregatorImageUrl){
-      // 先 aggregator
+  if(aggregatorFirst && aggregatorImageUrl){
+    let browser;
+    try {
+      browser = await puppeteerExtra.launch({
+        headless:true,
+        args:['--no-sandbox','--disable-setuid-sandbox']
+      });
       const aggRes = await aggregatorSearchGinifab(browser, imagePath, aggregatorImageUrl);
       const total = aggRes.bing.links.length 
-                  + aggRes.tineye.links.length 
+                  + aggRes.tineye.links.length
                   + aggRes.baidu.links.length;
-      if(total>0){
-        final = aggRes;
+      if(total > 0){
+        console.log('[doSearchEngines] aggregator success =>', aggRes);
+        final.bing   = { success: true, links: aggRes.bing.links };
+        final.tineye = { success: true, links: aggRes.tineye.links };
+        final.baidu  = { success: true, links: aggRes.baidu.links };
       } else {
         console.log('[doSearchEngines] aggregator fail => fallback direct');
-        // direct
-        const [rBing, rTine, rBaidu] = await Promise.all([
-          directSearchBing(browser, imagePath),
-          directSearchTinEye(browser, imagePath),
-          directSearchBaidu(browser, imagePath)
-        ]);
-        final.bing   = rBing;
-        final.tineye = rTine;
-        final.baidu  = rBaidu;
+        const fb = await fallbackDirectEngines(imagePath);
+        final.bing   = { success: fb.bing.length>0,   links: fb.bing };
+        final.tineye = { success: fb.tineye.length>0, links: fb.tineye };
+        final.baidu  = { success: fb.baidu.length>0,  links: fb.baidu };
       }
-    } else {
-      // 純 direct
-      const [rBing, rTine, rBaidu] = await Promise.all([
-        directSearchBing(browser, imagePath),
-        directSearchTinEye(browser, imagePath),
-        directSearchBaidu(browser, imagePath)
-      ]);
-      final.bing   = rBing;
-      final.tineye = rTine;
-      final.baidu  = rBaidu;
+    } catch(e){
+      console.error('[doSearchEngines aggregatorFirst catch]', e);
+      if(browser){
+        await saveDebugInfo(await browser.newPage().catch(()=>null), 'doSearchEngines_aggError');
+      }
+      // aggregator掛了 => fallback direct
+      const fb = await fallbackDirectEngines(imagePath);
+      final.bing   = { success: fb.bing.length>0,   links: fb.bing };
+      final.tineye = { success: fb.tineye.length>0, links: fb.tineye };
+      final.baidu  = { success: fb.baidu.length>0,  links: fb.baidu };
+    } finally {
+      if(browser) await browser.close().catch(()=>{});
     }
+  } else {
+    // 純 direct
+    console.log('[doSearchEngines] aggregatorFirst=false => direct only');
+    const fb = await fallbackDirectEngines(imagePath);
+    final.bing   = { success: fb.bing.length>0,   links: fb.bing };
+    final.tineye = { success: fb.tineye.length>0, links: fb.tineye };
+    final.baidu  = { success: fb.baidu.length>0,  links: fb.baidu };
+  }
+
+  return final;
+}
+
+/**
+ * fallbackDirectEngines
+ * 若 aggregator失敗或沒開啟 => 同時抓 Bing/TinEye/Baidu
+ */
+async function fallbackDirectEngines(imagePath){
+  const final = { bing:[], tineye:[], baidu:[] };
+  let browser;
+  try {
+    browser = await puppeteerExtra.launch({
+      headless:true,
+      args:['--no-sandbox','--disable-setuid-sandbox']
+    });
+
+    console.log('[fallbackDirectEngines] started...');
+    const [rBing, rTine, rBaidu] = await Promise.all([
+      directSearchBing(browser, imagePath),
+      directSearchTinEye(browser, imagePath),
+      directSearchBaidu(browser, imagePath)
+    ]);
+    final.bing   = rBing.links;
+    final.tineye = rTine.links;
+    final.baidu  = rBaidu.links;
+    console.log('[fallbackDirectEngines] done =>', final);
   } catch(e){
-    console.error('[doSearchEngines error]', e);
+    console.error('[fallbackDirectEngines] error =>', e);
   } finally {
-    await browser.close().catch(()=>{});
+    if(browser) await browser.close().catch(()=>{});
   }
   return final;
 }
 
 //-------------------------------------------------//
-// 4) module.exports
+// (5) module.exports
 //-------------------------------------------------//
 module.exports = {
+  // 原本的 directSearchBing / directSearchTinEye / directSearchBaidu
   directSearchBing,
   directSearchTinEye,
   directSearchBaidu,
+
+  // 新增/整合: aggregatorSearchGinifab, doSearchEngines
   aggregatorSearchGinifab,
   doSearchEngines
 };
