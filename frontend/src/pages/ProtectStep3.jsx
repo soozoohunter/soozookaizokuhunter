@@ -114,7 +114,7 @@ export default function ProtectStep3() {
         }
       }
 
-      // 正常
+      // 後端回傳的對象中包含 suspiciousLinks, scanReportUrl (我們會在 Step4 需要用到)
       setScanResult(data);
 
     } catch (err) {
@@ -128,12 +128,17 @@ export default function ProtectStep3() {
   const handleGoBack = () => {
     navigate(-1);
   };
+
   const handleGoStep4 = () => {
     if (scanResult) {
-      const { suspiciousLinks=[] } = scanResult;
+      // 取存於 Step2 的資訊
       const data2 = JSON.parse(localStorage.getItem('protectStep2') || '{}');
-      const passState = { ...data2, suspiciousLinks };
-      // 修正路由 => step4-infringement
+      // 合併：將後端回傳的 suspiciousLinks 與 scanReportUrl 帶到 Step4
+      const passState = {
+        ...data2,
+        suspiciousLinks: scanResult.suspiciousLinks || [],
+        scanReportUrl: scanResult.scanReportUrl
+      };
       navigate('/protect/step4-infringement', { state: passState });
     }
   };
@@ -153,13 +158,20 @@ export default function ProtectStep3() {
               <ul>
                 {scanResult.suspiciousLinks.map((link, idx) => (
                   <li key={idx}>
-                    <a href={link} target="_blank" rel="noreferrer" style={{ color: '#4caf50' }}>
+                    <a
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#4caf50' }}
+                    >
                       {link}
                     </a>
                   </li>
                 ))}
               </ul>
-            ) : <p>沒有發現可疑連結</p>}
+            ) : (
+              <p>沒有發現可疑連結</p>
+            )}
           </InfoBlock>
         )}
 
