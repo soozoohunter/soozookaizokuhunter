@@ -1,10 +1,15 @@
 /*************************************************************
- * express/routes/protect.js (最終整合+更詳盡除錯紀錄)
+ * express/routes/protect.js (最終整合+更詳盡除錯紀錄 + 小幅修正)
  *
  * - Step1: 上傳檔案 => fingerprint, IPFS, 區塊鏈 => 產生「原創證書 PDF」
  * - 短影片(≤30秒) => 抽幀 => aggregator(Ginifab) + fallback(Bing/TinEye/Baidu)
- * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示例)
+ * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示範)
  * - PDF 檔名: certificate_{fileId}.pdf / scanReport_{fileId}.pdf
+ * 
+ * [本檔案調整項目]
+ * 1. Puppeteer headless => true (防舊版Chromium不支援 'new')
+ * 2. 預設 aggregatorFirst = true (先走Ginifab)
+ * 3. 增加關鍵 console.log 幫助排查錯誤
  *************************************************************/
 
 const express = require('express');
@@ -16,10 +21,6 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const { execSync } = require('child_process');
 const { Op } = require('sequelize');
-
-// ========== (範例) JWT：若您需要驗證 Token，可打開以下兩行，並在路由中插入 protectAuth (請看最後範例) ==========
-// const jwt = require('jsonwebtoken');
-// const { protectAuth } = require('./protectAuth');  // 假設您另創一個檔案 express/routes/protectAuth.js
 
 // ========== Models ==========
 const { User, File } = require('../models');
@@ -43,7 +44,7 @@ const StealthPlugin= require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 //----------------------------------------------------
-// [1] 先建立 /uploads /uploads/certificates /uploads/reports
+// [1] 建立 /uploads /uploads/certificates /uploads/reports
 //----------------------------------------------------
 const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
 const CERT_DIR        = path.join(UPLOAD_BASE_DIR, 'certificates');
@@ -59,14 +60,13 @@ function ensureUploadDirs(){
     });
   } catch(e) {
     console.error('[ensureUploadDirs error]', e);
-    // 若要中斷流程可 throw e
   }
 }
-// 開始前執行一次，確保目錄存在
+// 開始前執行一次
 ensureUploadDirs();
 
 // Multer: 上限 100MB
-// (保留你原先的設定: dest='uploads/', 限制檔案大小100MB)
+// (保留你原先的設定: dest='uploads/')
 const upload = multer({
   dest: 'uploads/',
   limits:{ fileSize: 100 * 1024 * 1024 }
@@ -79,7 +79,7 @@ const ALLOW_UNLIMITED = [
 ];
 
 //----------------------------------------
-// [2] 內嵌字體 (PDF 中文) - 供 Puppeteer 產 PDF 時嵌入
+// [2] 內嵌字體 (PDF 中文) - Puppeteer 產 PDF 時嵌入
 //----------------------------------------
 let base64TTF='';
 try {
@@ -91,13 +91,12 @@ try {
 }
 
 //----------------------------------------
-// [3] Helpers: 建立 Puppeteer Browser (headless+stealth)
-//     可在 Docker/伺服器上透過 CHROMIUM_PATH 指定 chromium 路徑
+// [3] 建立 Puppeteer Browser (headless = true)
 //----------------------------------------
 async function launchBrowser(){
   console.log('[launchBrowser] starting stealth browser...');
   return puppeteer.launch({
-    headless:'new',
+    headless: true,  // 改用true，避免舊Chromium不支援 'new'
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args:[
       '--no-sandbox',
@@ -119,7 +118,9 @@ async function generateCertificatePDF(data, outputPath){
   console.log('[generateCertificatePDF] =>', outputPath);
   let browser;
   try {
+    console.log('[generateCertificatePDF] about to launch browser...');
     browser = await launchBrowser();
+    console.log('[generateCertificatePDF] launched, new page...');
     const page = await browser.newPage();
 
     page.on('console', msg => {
@@ -141,7 +142,7 @@ async function generateCertificatePDF(data, outputPath){
       }
     ` : '';
 
-    // ========== 圖片/影片預覽 ==========
+    // ========== 圖片/影片預覽標籤 ==========
     let previewTag='';
     if(filePath && fs.existsSync(filePath) && mimeType.startsWith('image')){
       const ext= path.extname(filePath).replace('.','');
@@ -156,7 +157,7 @@ async function generateCertificatePDF(data, outputPath){
       ? `<img src="file://${stampImagePath}" style="position:absolute; top:40px; left:40px; width:100px; opacity:0.3; transform:rotate(45deg);" alt="stamp" />`
       : '';
 
-    // ========== HTML 模板 ==========
+    // ========== HTML ==========
     const html= `
     <html>
     <head>
@@ -201,7 +202,7 @@ async function generateCertificatePDF(data, outputPath){
     await page.setContent(html, { waitUntil:'networkidle0' });
     await page.emulateMediaType('screen');
 
-    // 產 PDF
+    // 產出 PDF
     await page.pdf({
       path: outputPath,
       format:'A4',
@@ -213,7 +214,10 @@ async function generateCertificatePDF(data, outputPath){
     console.error('[generateCertificatePDF error]', err);
     throw err;
   } finally {
-    if(browser) await browser.close().catch(()=>{});
+    if(browser) {
+      console.log('[generateCertificatePDF] closing browser...');
+      await browser.close().catch(()=>{});
+    }
   }
 }
 
@@ -224,7 +228,9 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
   console.log('[generateScanPDF] =>', outputPath);
   let browser;
   try {
+    console.log('[generateScanPDF] about to launch browser...');
     browser = await launchBrowser();
+    console.log('[generateScanPDF] browser launched, new page...');
     const page = await browser.newPage();
 
     page.on('console', msg => {
@@ -298,12 +304,15 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
     console.error('[generateScanPDF error]', err);
     throw err;
   } finally {
-    if(browser) await browser.close().catch(()=>{});
+    if(browser) {
+      console.log('[generateScanPDF] closing browser...');
+      await browser.close().catch(()=>{});
+    }
   }
 }
 
 //--------------------------------------
-// [6] Aggregator + fallbackDirect (搜圖) - Ginifab / Bing / TinEye / Baidu
+// [6] Aggregator + fallbackDirect (搜圖): Ginifab / Bing / TinEye / Baidu
 //--------------------------------------
 async function aggregatorSearchGinifab(browser, publicImageUrl){
   console.log('[aggregatorSearchGinifab] =>', publicImageUrl);
@@ -470,6 +479,7 @@ async function fallbackDirectEngines(imagePath){
   let browser;
   try {
     browser = await launchBrowser();
+    console.log('[fallbackDirectEngines] browser launched...');
     const [rBing, rTine, rBai] = await Promise.all([
       directSearchBing(browser, imagePath),
       directSearchTinEye(browser, imagePath),
@@ -478,6 +488,7 @@ async function fallbackDirectEngines(imagePath){
     final.bing= rBing.links;
     final.tineye= rTine.links;
     final.baidu= rBai.links;
+    console.log('[fallbackDirectEngines] done =>', final);
   } catch(e){
     console.error('[fallbackDirectEngines error]', e);
   } finally {
@@ -486,7 +497,8 @@ async function fallbackDirectEngines(imagePath){
   return final;
 }
 
-async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorImageUrl=''){
+/** aggregatorFirst 預設改為 true => Ginifab 先行 */
+async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=''){
   console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
   const ret = { bing:{}, tineye:{}, baidu:{} };
   let aggregatorOk=false;
@@ -496,6 +508,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorI
     try {
       browser = await launchBrowser();
       const aggRes = await aggregatorSearchGinifab(browser, aggregatorImageUrl);
+      console.log('[doSearchEngines] aggregator =>', aggRes);
       const total = aggRes.bing.links.length + aggRes.tineye.links.length + aggRes.baidu.links.length;
       if(total>0){
         aggregatorOk= true;
@@ -516,6 +529,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=false, aggregatorI
       ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
     }
   } else {
+    console.log('[doSearchEngines] fallbackDirect only');
     const fb = await fallbackDirectEngines(localFilePath);
     ret.bing   = { links: fb.bing,    success: fb.bing.length>0 };
     ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
@@ -550,8 +564,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     const isVideo    = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
     if(isVideo && !isUnlimited){
-      // 若要改成「非白名單者允許 30 秒內上傳」，可參考 partial snippet 做 ffprobe
-      // 但目前你的邏輯是「非白名單者 => 402 錯誤」直接阻擋
       fs.unlinkSync(req.file.path);
       return res.status(402).json({ error:'UPGRADE_REQUIRED', message:'短影片需升級付費' });
     }
@@ -652,7 +664,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // 若短影片 => 抽一張中間幀(限 ≤ 30 秒)
+    // 若短影片 => 抽中間幀(限 ≤ 30 秒)
     let previewPath=null;
     if(isVideo){
       try {
@@ -674,16 +686,16 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             console.warn('[step1] middle frame not found =>', outP);
           }
         } else {
-          console.warn('[step1] Video is longer than 30s => 無法抽預覽幀');
+          console.warn('[step1] Video is longer than 30s => no preview frame');
         }
       } catch(eVid){
         console.error('[Video middle frame error]', eVid);
       }
     } else {
-      previewPath= finalPath; // 圖片直接預覽
+      previewPath= finalPath; 
     }
 
-    // ========== 產生「證書 PDF」 => uploads/certificates/ ==========
+    // ========== 產生「證書 PDF」 => uploads/certificates/
     const pdfName= `certificate_${newFile.id}.pdf`;
     const pdfPath= path.join(CERT_DIR, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
@@ -707,6 +719,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         filePath  : previewPath,
         stampImagePath: fs.existsSync(stampImg)? stampImg:null
       }, pdfPath);
+      console.log('[step1] PDF generation done =>', pdfPath);
     } catch(ePDF){
       console.error('[step1 generateCertificatePDF error]', ePDF);
     }
@@ -717,7 +730,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     return res.json({
       message : '上傳成功並完成證書PDF',
       fileId  : newFile.id,
-      pdfUrl  : `/api/protect/certificates/${newFile.id}`, // GET 路由
+      pdfUrl  : `/api/protect/certificates/${newFile.id}`,
       fingerprint, ipfsHash, txHash,
       defaultPassword
     });
@@ -736,7 +749,6 @@ router.get('/certificates/:fileId', async(req,res)=>{
     const fileId=req.params.fileId;
     console.log('[GET /certificates] fileId=', fileId);
 
-    // 讀取 uploads/certificates/ 內 PDF
     const pdfPath  = path.join(CERT_DIR, `certificate_${fileId}.pdf`);
     if(!fs.existsSync(pdfPath)){
       console.warn('[GET /certificates] PDF not exist =>', pdfPath);
@@ -783,8 +795,6 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.error('[scan Tiktok error]', eTT);
       }
     }
-    // FB / IG / YT => placeholder ...
-    // suspiciousLinks.push('...');
 
     // 2) 檢查檔案是否存在
     const ext= path.extname(fileRec.filename)||'';
