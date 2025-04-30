@@ -1,0 +1,8 @@
+# requirements.txt
+
+Flask==2.2.5
+towhee==0.10.1
+pymilvus==2.2.16
+requests==2.31.0
+# 若您需要 ffmpeg-python:
+# ffmpeg-python==0.2.0
