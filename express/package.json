@@ -4,7 +4,7 @@
   "description": "Soozoo Express server",
   "main": "server.js",
   "scripts": {
-   
+    // ★ 確保有定義 "start"
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
@@ -27,12 +27,15 @@
     "sequelize": "^6.31.1",
     "sharp": "^0.32.1",
     "web3": "^1.10.0",
+
     "puppeteer": "^19.8.5",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
+
     "fluent-ffmpeg": "^2.1.2",
     "ffmpeg-static": "^4.4.0",
-    // 新增 cheerio，確保可使用
+
+    // ★ 確保 cheerio 已安裝
     "cheerio": "^1.0.0-rc.12"
   }
 }
