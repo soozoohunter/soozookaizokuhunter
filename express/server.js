@@ -1,6 +1,7 @@
 /*************************************************************
- * express/server.js  (可直接覆蓋您的 server.js)
+ * server.js (請覆蓋原先的 server.js)
  *************************************************************/
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -95,7 +96,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForTimeout(3000);
 
         let links = await page.$$eval('a', as => as.map(a=> a.href));
-        links = links.filter(l => l && !l.includes('tineye.com'));
+        links = links.filter(l=> l && !l.includes('tineye.com'));
         finalLinks.push(...links);
       } catch(e) {
         console.error('[fallback TinEye error]', e);
@@ -114,7 +115,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForTimeout(5000);
 
         let links = await page.$$eval('a', as => as.map(a=> a.href));
-        links = links.filter(l => l && !l.includes('baidu.com'));
+        links = links.filter(l=> l && !l.includes('baidu.com'));
         finalLinks.push(...links);
       } catch(e) {
         console.error('[fallback Baidu error]', e);
