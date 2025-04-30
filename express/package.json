@@ -11,7 +11,7 @@
     "axios": "^1.3.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "cloudinary": "^1.32.0", 
+    "cloudinary": "^1.32.0",
     "dotenv": "^16.3.1",
     "ethers": "^6.6.0",
     "express": "^4.18.2",
@@ -27,13 +27,14 @@
     "sharp": "^0.32.1",
     "web3": "^1.10.0",
 
-    
     "puppeteer": "^19.8.5",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
 
-    
     "fluent-ffmpeg": "^2.1.2",
-    "ffmpeg-static": "^4.4.0"
+    "ffmpeg-static": "^4.4.0",
+
+    // ★ 新增 cheerio 依賴
+    "cheerio": "^1.0.0-rc.12"
   }
 }
