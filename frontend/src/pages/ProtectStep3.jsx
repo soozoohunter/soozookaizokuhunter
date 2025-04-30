@@ -42,6 +42,7 @@ const Title = styled.h2`
   margin-bottom: 1rem;
   text-align: center;
 `;
+
 const InfoBlock = styled.div`
   background-color: #1e1e1e;
   border: 1px solid #ff6f00;
@@ -50,15 +51,18 @@ const InfoBlock = styled.div`
   margin-bottom: 1rem;
   word-break: break-all;
 `;
+
 const ErrorMsg = styled.p`
   color: red;
 `;
+
 const ButtonRow = styled.div`
   display: flex;
   gap: 1rem;
   justify-content: center;
   margin-top: 1rem;
 `;
+
 const NavButton = styled.button`
   background: #444;
   color: #fff;
@@ -95,7 +99,13 @@ export default function ProtectStep3() {
       setError('');
 
       const resp = await fetch(`/api/protect/scan/${fileId}`);
-      const data = await resp.json();
+
+      let data = {};
+      try {
+        data = await resp.json();
+      } catch (e) {
+        throw new Error('伺服器回傳格式錯誤，無法解析 JSON');
+      }
 
       if (!resp.ok) {
         switch(resp.status){
@@ -114,7 +124,6 @@ export default function ProtectStep3() {
         }
       }
 
-      // 後端回傳的對象中包含 suspiciousLinks, scanReportUrl (我們會在 Step4 需要用到)
       setScanResult(data);
 
     } catch (err) {
@@ -131,13 +140,11 @@ export default function ProtectStep3() {
 
   const handleGoStep4 = () => {
     if (scanResult) {
-      // 取存於 Step2 的資訊
       const data2 = JSON.parse(localStorage.getItem('protectStep2') || '{}');
-      // 合併：將後端回傳的 suspiciousLinks 與 scanReportUrl 帶到 Step4
       const passState = {
         ...data2,
-        suspiciousLinks: scanResult.suspiciousLinks || [],
-        scanReportUrl: scanResult.scanReportUrl
+        suspiciousLinks: Array.isArray(scanResult.suspiciousLinks) ? scanResult.suspiciousLinks : [],
+        scanReportUrl: scanResult.scanReportUrl || ''
       };
       navigate('/protect/step4-infringement', { state: passState });
     }
@@ -154,7 +161,7 @@ export default function ProtectStep3() {
           <InfoBlock>
             <p>偵測完成！</p>
             <p><strong>Suspicious Links:</strong></p>
-            {scanResult.suspiciousLinks?.length ? (
+            {Array.isArray(scanResult.suspiciousLinks) && scanResult.suspiciousLinks.length > 0 ? (
               <ul>
                 {scanResult.suspiciousLinks.map((link, idx) => (
                   <li key={idx}>
