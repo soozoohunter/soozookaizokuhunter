@@ -11,19 +11,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 2) 複製 package.json + package-lock.json (若有)
+# 2) 複製 package.json / package-lock.json (若有)
 COPY package*.json ./
 
-# 3) 安裝其餘依賴 (包含您所有 dependencies 以及 cheerio)
+# 3) 安裝依賴
 RUN npm install
 
-# 4) 複製專案其他檔案 (包含 server.js, protect.js, routes 等)
+# 4) 複製專案其他檔案 (包含 server.js、routes、protect.js 等)
 COPY . .
 
-# Puppeteer: 使用系統安裝的 Chromium
+# Puppeteer: 系統使用的 Chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
+# 若您的 server.js 監聽 3000 端口，則 EXPOSE 3000
 EXPOSE 3000
 
+# 5) 容器啟動執行
 CMD ["npm", "start"]
