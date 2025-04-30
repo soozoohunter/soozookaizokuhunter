@@ -68,6 +68,13 @@ const { searchImageByVector } = require('../utils/vectorSearch');  // 您的Pyth
 // [ADDED FOR PDF MATCHES]
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 
+// ★★ (1) 新增匯入：文字轉 embedding + Milvus
+const { embedTextByPython } = require('../services/textVectorService');
+const {
+  initCollection,
+  insertAggregatorLinks
+} = require('../services/milvusService');
+
 //----------------------------------------------------
 // [1] 建立 /uploads /uploads/certificates /uploads/reports
 //----------------------------------------------------
@@ -888,8 +895,8 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
       browser = await launchBrowser();
       const aggRes = await aggregatorSearchGinifab(browser, localFilePath, aggregatorImageUrl);
       console.log('[doSearchEngines] aggregator =>', aggRes);
-      const total = aggRes.bing.links.length 
-                  + aggRes.tineye.links.length 
+      const total = aggRes.bing.links.length
+                  + aggRes.tineye.links.length
                   + aggRes.baidu.links.length;
       if(total>0){
         aggregatorOk= true;
@@ -1299,8 +1306,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       message : '上傳成功並完成證書PDF',
       fileId  : newFile.id,
       pdfUrl  : `/api/protect/certificates/${newFile.id}`,
-      fingerprint, 
-      ipfsHash, 
+      fingerprint,
+      ipfsHash,
       txHash,
       defaultPassword,
       // ★ 新增回傳 publicImageUrl (圖片時才會有)
@@ -1336,7 +1343,7 @@ router.get('/certificates/:fileId', async(req,res)=>{
 });
 
 //--------------------------------------
-// [9] GET /protect/scan/:fileId => 侵權掃描 (已新增向量檢索+相似圖PDF)
+// [9] GET /protect/scan/:fileId => 侵權掃描 (已新增向量檢索+相似圖PDF + ★ Milvus Insert)
 //--------------------------------------
 router.get('/scan/:fileId', async(req,res)=>{
   try {
@@ -1412,7 +1419,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 
           for(const fPath of frames){
             console.log('[scan] aggregator on frame =>', fPath);
-            const baseName = path.basename(fPath); 
+            const baseName = path.basename(fPath);
             const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
             // aggregator
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
@@ -1463,10 +1470,26 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     }
 
+    // 將 aggregator 取得的連結去重
     const unique= [...new Set(allLinks)];
     fileRec.status='scanned';
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
+
+    // ============== 重要：存到 Milvus =============
+    //   (假設我們要把 aggregator 的連結也做 text embedding)
+    try {
+      console.log('[scan] insert aggregator links => milvus...');
+      await initCollection();
+      await insertAggregatorLinks({
+        fingerprint: fileRec.fingerprint,
+        linkArray: unique,
+        embedFunction: embedTextByPython
+      });
+    } catch(eMilvus){
+      console.error('[scan] milvus insert error =>', eMilvus);
+    }
+    // ===========================================
 
     // 4) 產「掃描報告 PDF」=> 改用含相似圖片的版本 generateScanPDFWithMatches
     const scanPdfName= `scanReport_${fileRec.id}.pdf`;
@@ -1551,7 +1574,7 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
 
 //--------------------------------------
 // [★ 新增] GET /protect/scanLink?url=xxx
-//    => 抓該連結主圖 => aggregator/fallback + 向量檢索 => 產 PDF
+//    => 抓該連結主圖 => aggregator/fallback + 向量檢索 => PDF 報告
 //--------------------------------------
 router.get('/scanLink', async(req,res)=>{
   try {
@@ -1565,7 +1588,7 @@ router.get('/scanLink', async(req,res)=>{
     const tmpFilePath = path.join(UPLOAD_BASE_DIR, `linkImage_${Date.now()}.jpg`);
 
     // 用 aggregatorSearchLink 抓主圖 + aggregator/fallback + 向量檢索
-    const { aggregatorResult, vectorResult, mainImgUrl, error } = 
+    const { aggregatorResult, vectorResult, mainImgUrl, error } =
       await aggregatorSearchLink(pageUrl, tmpFilePath, true);
 
     if(!aggregatorResult){
