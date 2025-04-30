@@ -1,127 +1,126 @@
-// milvusService.js
+// express/services/milvusService.js
 const { MilvusClient, DataType } = require('@zilliz/milvus2-sdk-node');
 
-// 連線參數
+// 環境變數 or 預設
 const MILVUS_ADDRESS = process.env.MILVUS_ADDRESS || 'localhost:19530';
-const client = new MilvusClient(MILVUS_ADDRESS);
+// 建立 Milvus client
+const milvusClient = new MilvusClient(MILVUS_ADDRESS);
 
-// 假設我們建好一個 collection => aggregator_links
-// schema => 
-//   link_id: DataType.Int64 (auto?), 
-//   fingerprint: DataType.VarChar, 
-//   link_text: DataType.VarChar, 
-//   embedding: DataType.FloatVector(768)
-
+// 假設我們想存 aggregator link => aggregator_links collection
 const COLLECTION_NAME = 'aggregator_links';
-const VECTOR_DIM = 768; // 依你的模型而定
+const VECTOR_DIM = 768; // 依據你的 text embedding 維度自行調整
 
 async function initCollection() {
-  // 先檢查 collection 是否存在，若不存在則建立
-  const has = await client.hasCollection({ collection_name: COLLECTION_NAME });
+  // 檢查 collection 是否存在，不存在則建
+  const has = await milvusClient.hasCollection({ collection_name: COLLECTION_NAME });
   if (!has.value) {
-    // create
-    await client.createCollection({
+    await milvusClient.createCollection({
       collection_name: COLLECTION_NAME,
       fields: [
         {
           name: "link_id",
-          description: "Primary Key",
           data_type: DataType.Int64,
           is_primary_key: true,
-          autoID: true
+          autoID: true, // 自動遞增
         },
         {
           name: "image_fingerprint",
           data_type: DataType.VarChar,
-          max_length: 200
+          max_length: 200,
         },
         {
           name: "link_text",
           data_type: DataType.VarChar,
-          max_length: 2000
+          max_length: 2000,
         },
         {
           name: "embedding",
           data_type: DataType.FloatVector,
-          dim: VECTOR_DIM
-        }
+          dim: VECTOR_DIM,
+        },
       ],
     });
-    console.log(`[Milvus] Collection ${COLLECTION_NAME} created.`);
+    console.log(`[Milvus] Collection created => ${COLLECTION_NAME}`);
+    // TODO: createIndex, loadCollection, ...
   }
-  // 也可以 createIndex
-  // await client.createIndex(...);
 }
 
+/**
+ * 將 aggregator 搜圖得到的 link list => embedding => insert
+ * @param {object} options
+ * @param {string} options.fingerprint
+ * @param {string[]} options.linkArray
+ * @param {(text:string)=>Promise<number[]>} options.embedFunction
+ */
 async function insertAggregatorLinks({ fingerprint, linkArray, embedFunction }) {
-  // linkArray: string[] => aggregator 結果
-  // embedFunction: (text)=>Promise<float[]> => embedding 函式
-  if(!linkArray || linkArray.length===0) return;
+  if (!linkArray || !linkArray.length) return;
 
-  // batch embedding
   const dataList = [];
-  for (let txt of linkArray) {
-    const vec = await embedFunction(txt);
+  for (const link of linkArray) {
+    const vec = await embedFunction(link);
     if (!vec) {
-      console.warn('embedding fail => skip', txt);
+      console.warn('[insertAggregatorLinks] embed fail => skip link=', link);
       continue;
     }
     dataList.push({
       image_fingerprint: fingerprint,
-      link_text: txt,
+      link_text: link,
       embedding: vec,
     });
   }
-  // Milvus 要求批次插入 structured
-  // link_id 若 autoID=true 可以不用塞
+  if (!dataList.length) {
+    console.warn('[insertAggregatorLinks] no valid embeddings => skip');
+    return;
+  }
+
+  // 組成 fields_data
   const fields_data = {
-    image_fingerprint: dataList.map(d=> d.image_fingerprint),
-    link_text: dataList.map(d=> d.link_text),
-    embedding: dataList.map(d=> d.embedding),
+    image_fingerprint: dataList.map(d => d.image_fingerprint),
+    link_text: dataList.map(d => d.link_text),
+    embedding: dataList.map(d => d.embedding),
   };
-  
-  // insert
-  const r = await client.insert({
+
+  const r = await milvusClient.insert({
     collection_name: COLLECTION_NAME,
-    fields_data: fields_data,
+    fields_data,
   });
   console.log('[insertAggregatorLinks] done =>', r);
 }
 
-// 簡易用 PK / filter 找出同 fingerprint 之 aggregator links
-async function getAggregatorLinksByFingerprint(fingerprint) {
-  // method 1: query  (Milvus SDK v2 會有 query API)
-  const r = await client.query({
+/**
+ * (可選) 以 fingerprint 讀取該圖的 aggregator links
+ */
+async function getLinksByFingerprint(fingerprint) {
+  const r = await milvusClient.query({
     collection_name: COLLECTION_NAME,
     expr: `image_fingerprint == "${fingerprint}"`,
-    output_fields: ["link_text", "embedding"]
+    output_fields: ["link_text", "embedding"],
   });
-  // r.data => [{ link_text, embedding, ...}, ...]
+  // r.data => [ { link_text, embedding, ... }, ...]
   return r.data;
 }
 
-// 如果你要用向量查跟 aggregator link “語意相似”的 link，也可以做 search
-// (例如, 給定一段文字 embedding 來匹配 link_text)
-async function searchSimilarLinksByText(queryText, embedFunction, topK=5) {
+/**
+ * (可選) 給定 queryText，透過 embeddings search 找到最相似的 aggregator link
+ */
+async function searchLinksByText(queryText, embedFunction, topK=5) {
   const queryVec = await embedFunction(queryText);
-  if(!queryVec) return [];
-
-  const searchRes = await client.search({
+  if (!queryVec) return [];
+  const r = await milvusClient.search({
     collection_name: COLLECTION_NAME,
     vectors: [ queryVec ],
-    output_fields: ["link_text","image_fingerprint"],
+    output_fields: ["image_fingerprint","link_text"],
     top_k: topK,
-    metric_type: "IP",
-    vector_type: "float",
-    vector_field_name: "embedding"
+    metric_type: "IP",       // or "L2"
+    vector_type: "float",    // float vector
+    vector_field_name: "embedding",
   });
-  // return searchRes.results => [{score, id, link_text, image_fingerprint}, ...]
-  return searchRes.results;
+  return r.results; // array of { score, id, link_text, image_fingerprint }
 }
 
 module.exports = {
   initCollection,
   insertAggregatorLinks,
-  getAggregatorLinksByFingerprint,
-  searchSimilarLinksByText,
+  getLinksByFingerprint,
+  searchLinksByText,
 };
