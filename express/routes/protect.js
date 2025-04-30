@@ -75,6 +75,20 @@ const {
   insertAggregatorLinks
 } = require('../services/milvusService');
 
+//----------------------------------------
+// [★ 新增] 讀取 express/data/manual_links.json => 取得人工搜圖連結
+//----------------------------------------
+const MANUAL_LINKS_PATH = path.join(__dirname, '../', 'data', 'manual_links.json');
+function getAllManualLinks() {
+  try {
+    const raw = fs.readFileSync(MANUAL_LINKS_PATH, 'utf-8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('[getAllManualLinks] Failed to read manual_links.json:', err);
+    return {};
+  }
+}
+
 //----------------------------------------------------
 // [1] 建立 /uploads /uploads/certificates /uploads/reports
 //----------------------------------------------------
@@ -1470,16 +1484,25 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     }
 
-    // 將 aggregator 取得的連結去重
+    // ★ [新增] 讀取手動連結 JSON => "fingerprint_<fileRec.fingerprint>"
+    const allManual = getAllManualLinks();  // e.g. { "fingerprint_0b237161": [...], "fingerprint_abc123":[...] }
+    const manKey = `fingerprint_${fileRec.fingerprint}`;
+    const manualLinks = allManual[manKey] || [];
+    console.log('[scan] found manualLinks =>', manualLinks);
+
+    // 將 aggregator + 文字爬蟲 + 人工連結 全部合併
+    allLinks.push(...manualLinks);
+
+    // 去重
     const unique= [...new Set(allLinks)];
     fileRec.status='scanned';
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
 
     // ============== 重要：存到 Milvus =============
-    //   (假設我們要把 aggregator 的連結也做 text embedding)
+    //   (假設我們要把 aggregator + manual 的連結都做 text embedding)
     try {
-      console.log('[scan] insert aggregator links => milvus...');
+      console.log('[scan] insert aggregator + manual links => milvus...');
       await initCollection();
       await insertAggregatorLinks({
         fingerprint: fileRec.fingerprint,
