@@ -1,15 +1,11 @@
 const { MilvusClient, DataType } = require('@zilliz/milvus2-sdk-node');
 
-// 改為使用 .env 環境變數（可透過 docker-compose 傳入）
+// 支援 .env 或 fallback 至 docker-compose 預設名稱
 const MILVUS_ADDRESS = process.env.MILVUS_ADDRESS || `${process.env.MILVUS_HOST || 'suzoo_milvus'}:${process.env.MILVUS_PORT || '19530'}`;
 
-// 初始化 Milvus Client
-const milvusClient = new MilvusClient({
-  address: MILVUS_ADDRESS
-});
-
+const milvusClient = new MilvusClient({ address: MILVUS_ADDRESS });
 const COLLECTION_NAME = 'aggregator_links';
-const VECTOR_DIM = 384;
+const VECTOR_DIM = 384; // 根據 all-MiniLM-L6-v2 模型
 
 async function initCollection() {
   try {
@@ -19,23 +15,23 @@ async function initCollection() {
         collection_name: COLLECTION_NAME,
         fields: [
           {
-            name: "link_id",
+            name: 'link_id',
             data_type: DataType.Int64,
             is_primary_key: true,
             autoID: true,
           },
           {
-            name: "image_fingerprint",
+            name: 'image_fingerprint',
             data_type: DataType.VarChar,
             max_length: 200,
           },
           {
-            name: "link_text",
+            name: 'link_text',
             data_type: DataType.VarChar,
             max_length: 2000,
           },
           {
-            name: "embedding",
+            name: 'embedding',
             data_type: DataType.FloatVector,
             dim: VECTOR_DIM,
           },
@@ -53,38 +49,38 @@ async function initCollection() {
       });
 
       await milvusClient.loadCollection({ collection_name: COLLECTION_NAME });
+
+      console.log(`[Milvus] Index + Load success`);
     }
   } catch (err) {
-    console.error('[initCollection] error =>', err);
+    console.error('[initCollection] error =>', err.message || err);
   }
 }
 
 async function insertAggregatorLinks({ fingerprint, linkArray, embedFunction }) {
-  if (!linkArray || !linkArray.length) return;
+  if (!Array.isArray(linkArray) || linkArray.length === 0) return;
 
   const dataList = [];
+
   for (const link of linkArray) {
-    let vec = null;
     try {
-      vec = await embedFunction(link);
-    } catch (eEmb) {
-      console.warn('[insertAggregatorLinks] embed fail =>', eEmb);
+      const vec = await embedFunction(link);
+      if (Array.isArray(vec)) {
+        dataList.push({
+          image_fingerprint: fingerprint,
+          link_text: link,
+          embedding: vec,
+        });
+      } else {
+        console.warn('[insertAggregatorLinks] invalid vector => skip:', link);
+      }
+    } catch (err) {
+      console.warn('[insertAggregatorLinks] embedding fail =>', err.message || err);
     }
-
-    if (!vec || !Array.isArray(vec)) {
-      console.warn('[insertAggregatorLinks] skip link =', link);
-      continue;
-    }
-
-    dataList.push({
-      image_fingerprint: fingerprint,
-      link_text: link,
-      embedding: vec,
-    });
   }
 
-  if (!dataList.length) {
-    console.warn('[insertAggregatorLinks] no valid embeddings => skip');
+  if (dataList.length === 0) {
+    console.warn('[insertAggregatorLinks] no valid data => abort');
     return;
   }
 
@@ -99,9 +95,9 @@ async function insertAggregatorLinks({ fingerprint, linkArray, embedFunction }) 
       collection_name: COLLECTION_NAME,
       fields_data,
     });
-    console.log('[insertAggregatorLinks] done =>', r);
-  } catch (e) {
-    console.error('[insertAggregatorLinks] insert error =>', e);
+    console.log('[insertAggregatorLinks] Insert OK:', r);
+  } catch (err) {
+    console.error('[insertAggregatorLinks] Insert Error =>', err.message || err);
   }
 }
 
@@ -110,31 +106,33 @@ async function getLinksByFingerprint(fingerprint) {
     const r = await milvusClient.query({
       collection_name: COLLECTION_NAME,
       expr: `image_fingerprint == "${fingerprint}"`,
-      output_fields: ["link_text", "embedding"],
+      output_fields: ['link_text', 'embedding'],
     });
-    return r.data;
-  } catch (e) {
-    console.error('[getLinksByFingerprint] error =>', e);
+    return r.data || [];
+  } catch (err) {
+    console.error('[getLinksByFingerprint] error =>', err.message || err);
     return [];
   }
 }
 
 async function searchLinksByText(queryText, embedFunction, topK = 5) {
-  const queryVec = await embedFunction(queryText);
-  if (!queryVec) return [];
   try {
+    const queryVec = await embedFunction(queryText);
+    if (!Array.isArray(queryVec)) throw new Error('Embedding failed or invalid');
+
     const r = await milvusClient.search({
       collection_name: COLLECTION_NAME,
       vectors: [queryVec],
-      output_fields: ["image_fingerprint", "link_text"],
+      output_fields: ['image_fingerprint', 'link_text'],
       top_k: topK,
-      metric_type: "IP",
-      vector_type: "float",
-      vector_field_name: "embedding",
+      metric_type: 'IP',
+      vector_type: 'float',
+      vector_field_name: 'embedding',
     });
+
     return r.results || [];
-  } catch (e) {
-    console.error('[searchLinksByText] error =>', e);
+  } catch (err) {
+    console.error('[searchLinksByText] error =>', err.message || err);
     return [];
   }
 }
