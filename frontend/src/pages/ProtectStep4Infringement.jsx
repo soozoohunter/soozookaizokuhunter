@@ -71,6 +71,7 @@ export default function ProtectStep4Infringement() {
   const [info, setInfo] = useState(null);
 
   useEffect(() => {
+    // 若無 fileId，代表不是正規流程進來 → 導回 Step1
     if (!state || !state.fileId) {
       navigate('/protect/step1');
     } else {
@@ -96,17 +97,39 @@ export default function ProtectStep4Infringement() {
     ipfsHash,
     txHash,
     suspiciousLinks = [],
-    // ★ 改為使用 scanReportUrl
+    // ★ 後端回傳的 PDF 連結 (可直接打開/下載)
     scanReportUrl
   } = info;
 
-  // 改為「下載侵權偵測報告 PDF」
-  const handleDownloadScanPdf = () => {
+  /**
+   * 方法1：用 window.open 在新分頁打開 PDF
+   */
+  const handleDownloadScanPdfNewTab = () => {
     if (!scanReportUrl) {
       alert('無法找到「侵權偵測報告 PDF」的下載連結');
       return;
     }
+    // 直接開新分頁
     window.open(scanReportUrl, '_blank');
+  };
+
+  /**
+   * 方法2：直接下載 PDF
+   * 說明：若想直接下載檔案，可改用此函數
+   */
+  const handleDownloadScanPdfDirect = () => {
+    if (!scanReportUrl) {
+      alert('無法找到「侵權偵測報告 PDF」的下載連結');
+      return;
+    }
+    // 直接觸發 <a download> 行為
+    const link = document.createElement('a');
+    link.href = scanReportUrl;
+    // 下載時預設檔名，亦可自訂
+    link.download = scanReportUrl.split('/').pop() || 'KaiShield_ScanReport.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -136,8 +159,18 @@ export default function ProtectStep4Infringement() {
         )}
 
         <div style={{ marginTop:'1.5rem' }}>
-          <Button onClick={handleDownloadScanPdf}>下載侵權偵測報告 PDF</Button>
-          <Button onClick={() => navigate('/')}>Back to Home</Button>
+          {/* 按鈕1：預設用「新分頁開啟 PDF」 */}
+          <Button onClick={handleDownloadScanPdfNewTab}>
+            下載侵權偵測報告 (另開視窗)
+          </Button>
+          {/* 按鈕2：可選用「直接下載」功能，若不需要可隱藏或移除 */}
+          <Button onClick={handleDownloadScanPdfDirect}>
+            直接下載 PDF
+          </Button>
+
+          <Button onClick={() => navigate('/')}>
+            Back to Home
+          </Button>
         </div>
       </ContentBox>
     </PageWrapper>
