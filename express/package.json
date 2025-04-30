@@ -35,7 +35,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "ffmpeg-static": "^4.4.0",
 
-    // ★ 確保 cheerio 已安裝
+    
     "cheerio": "^1.0.0-rc.12"
   }
 }
