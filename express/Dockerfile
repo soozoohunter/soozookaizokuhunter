@@ -1,3 +1,5 @@
+# Dockerfile placed under: ./express/Dockerfile
+
 FROM node:18
 
 # 1) 安裝系統必要套件 (chromium + ffmpeg + 中文字體 + puppeteer 依賴)
@@ -18,6 +20,9 @@ COPY package*.json ./
 # 4) 安裝依賴
 RUN npm install
 
+# (可選) 調試：確保我們安裝完之後的 package.json 確實帶有 "start" 腳本
+# RUN cat package.json
+
 # 5) 複製專案其他檔案 (包含 server.js、routes、models 等)
 COPY . .
 
@@ -25,7 +30,7 @@ COPY . .
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# 6) 若您的 server.js 監聽 3000 端口 => EXPOSE 3000
+# 6) 若您的 server.js 監聽 3000 => EXPOSE 3000
 EXPOSE 3000
 
 # 7) 容器啟動執行 => 一定要有 CMD ["npm", "start"]
