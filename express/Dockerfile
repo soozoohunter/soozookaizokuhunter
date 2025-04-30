@@ -11,19 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 2) 複製 package.json + package-lock.json (若有)，以便先行安裝依賴
+# 2) 複製 package.json + package-lock.json (若有)
 COPY package*.json ./
 
-# 如果您想確保安裝某些套件 (如 form-data) 可另外下指令，但因您 package.json 已有，這行可保留或移除
-RUN npm install form-data@^4.0.0
-
-# 3) 安裝其餘依賴 (包含 cheerio)
+# 3) 安裝其餘依賴 (包含您所有 dependencies 以及 cheerio)
 RUN npm install
 
-# 4) 複製專案其他檔案
+# 4) 複製專案其他檔案 (包含 server.js, protect.js, routes 等)
 COPY . .
 
-# Puppeteer: 指定使用系統安裝的 Chromium
+# Puppeteer: 使用系統安裝的 Chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
