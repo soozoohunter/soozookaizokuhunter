@@ -1,7 +1,22 @@
-// express/services/pdfService.js
+// pdfService.js
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const cheerio = require('cheerio'); // ★ 新增：用於擷取 HTML 文字摘要
+
+/**
+ * 快速從 HTML 抽取純文字摘要 (預設前 500 個字)
+ * @param {string} htmlContent - 快取的 HTML 字串
+ * @param {number} maxLength - 最大長度 (預設 500)
+ * @return {string} 摘要
+ */
+function extractTextSummary(htmlContent, maxLength = 500) {
+  const $ = cheerio.load(htmlContent);
+  // 將 <body> 內的所有文字抓出，去除多餘空白
+  const text = $('body').text().replace(/\s+/g, ' ').trim();
+  // 取前 maxLength 字
+  return text.slice(0, maxLength) + (text.length > maxLength ? '...' : '');
+}
 
 /**
  * 生成原創證明書 PDF (預覽圖 + 作品資訊)
@@ -121,15 +136,19 @@ async function generateReport(filePath, results) {
 }
 
 /**
- * [ADDED] 產生「侵權偵測報告 + 相似圖片」的 PDF
- * @param {Object} param0
+ * [UPDATED] 產生「侵權偵測報告 + 相似圖片 + (可選)快取HTML摘要」的 PDF
+ * @param {Object} options
  *   - file: {id, filename, fingerprint, status}
  *   - suspiciousLinks: string[]
  *   - matchedImages: Array<{id:string, score:number, base64:string}>
  *   - stampImagePath: (可選) 浮水印圖
+ *   - cachedHtmlContent: (可選) 來自各平台的 HTML 字串快取，結構如: { bing:'...', tineye:'...', baidu:'...' }
  * @param {string} outputPath - 輸出PDF檔案路徑
  */
-async function generateScanPDFWithMatches({ file, suspiciousLinks, matchedImages, stampImagePath }, outputPath) {
+async function generateScanPDFWithMatches(
+  { file, suspiciousLinks, matchedImages, stampImagePath, cachedHtmlContent },
+  outputPath
+) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ autoFirstPage: true });
@@ -175,9 +194,30 @@ async function generateScanPDFWithMatches({ file, suspiciousLinks, matchedImages
       }
       doc.moveDown();
 
+      // (NEW) 快取HTML摘要
+      doc.fontSize(14).text('人工快取網頁摘要:', { underline: true });
+      if (cachedHtmlContent && Object.keys(cachedHtmlContent).length > 0) {
+        Object.entries(cachedHtmlContent).forEach(([platform, html]) => {
+          // 取前 500 字摘要
+          const summary = extractTextSummary(html, 500);
+          doc.fontSize(12).fillColor('black').text(`平台: ${platform}`, { bold: true });
+          doc.fontSize(10).fillColor('gray').text(summary);
+          doc.moveDown();
+        });
+      } else {
+        doc.fontSize(10).text('尚未有快取網頁內容。');
+      }
+      doc.moveDown();
+
       // 浮水印 (可選)
       if (stampImagePath && fs.existsSync(stampImagePath)) {
-        // 如需疊加浮水印，可自行在此處操作 doc.image(...)
+        // 若需疊加浮水印，可在此使用 doc.image(..., x, y, { ... }) 
+        // 例如放在右下角、半透明之類，可依需求調整
+        // 範例(蓋在右下角):
+        doc.image(stampImagePath, doc.page.width - 120, doc.page.height - 120, {
+          width: 100,
+          opacity: 0.5,
+        });
       }
 
       doc.fontSize(12).text(`報告時間：${new Date().toLocaleString()}`, { align: 'right' });
@@ -195,6 +235,5 @@ async function generateScanPDFWithMatches({ file, suspiciousLinks, matchedImages
 module.exports = {
   generateCertificate,
   generateReport,
-  // [ADDED] 新增匯出函式
   generateScanPDFWithMatches
 };
