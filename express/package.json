@@ -4,8 +4,7 @@
   "description": "Soozoo Express server",
   "main": "server.js",
   "scripts": {
-   
-    "start": "node server.js",
+    "start": "node server.js",        // ★ 確保有 "start"
     "dev": "nodemon server.js"
   },
   "dependencies": {
@@ -35,7 +34,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "ffmpeg-static": "^4.4.0",
 
-    
+ 
     "cheerio": "^1.0.0-rc.12"
   }
 }
