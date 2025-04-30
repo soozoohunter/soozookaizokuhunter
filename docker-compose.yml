@@ -74,7 +74,6 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 只 expose 3000 由網路或前端來連
     expose:
       - "3000"
     restart: unless-stopped
@@ -104,21 +103,21 @@ services:
       - ./uploads:/app/uploads:ro
     restart: unless-stopped
 
-  # ★★★ 新增 (A) => Milvus (修正 entrypoint)
+  # Milvus
   suzoo_milvus:
     image: milvusdb/milvus:v2.2.11
     container_name: suzoo_milvus
     restart: unless-stopped
     ports:
       - "19530:19530"
-      - "19121:19121"  # 如果需要 UI / metrics
+      - "19121:19121"
     command: ["milvus", "run", "standalone"]
     networks:
       - suzoo_net
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
 
-  # ★★★ 新增 (B) => Python Vector Service (sentence_transformers)
+  # Python Vector Service (sentence_transformers) ★★★ 已修正為 ports 方便 localhost 訪問 ★★★
   suzoo_python_vector:
     build:
       context: ./python-vector-service
@@ -128,8 +127,8 @@ services:
       - suzoo_milvus
     networks:
       - suzoo_net
-    expose:
-      - "8000"
+    ports:  # 修正為 ports 讓主機可存取
+      - "8000:8000"
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
