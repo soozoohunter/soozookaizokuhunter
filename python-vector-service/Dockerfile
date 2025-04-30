@@ -12,6 +12,9 @@ WORKDIR /app
 
 # 複製 requirements.txt 並安裝
 COPY requirements.txt /app/requirements.txt
+
+# ★ 先升級 pip，再依照 requirements.txt 安裝套件
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 複製當前目錄(包含 app.py)到 /app
