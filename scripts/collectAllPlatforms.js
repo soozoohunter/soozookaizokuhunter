@@ -1,64 +1,63 @@
-// 檔案位置：scripts/collectAllPlatforms.js
-// 用法： node scripts/collectAllPlatforms.js "關鍵字"
+// scripts/collectAllPlatforms.js
+/**
+ * 示範：從多個平台爬取圖片或影片，存到 /data/collected/<platform>/<timestamp>/
+ * 
+ * Usage: 
+ *   node scripts/collectAllPlatforms.js <platform> <keyword>
+ *
+ * platform: 'tiktok' | 'instagram' | 'facebook' | 'youtube' | ...
+ * keyword : 關鍵字
+ */
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
-
-// ★ 向量檢索 (若您有單獨設計 /api/v1/indexVideo 則可用 axios 呼叫)
-const { indexImageVector } = require('../express/utils/vectorSearch');
-// or const { indexVideoVector } = require('../express/utils/vectorSearchVideo'); // 視需求
+const puppeteer = require('puppeteer');
 
 (async ()=>{
-  const keyword = process.argv[2] || 'test';
-  console.log('[collectAllPlatforms] start => keyword=', keyword);
+  const platform = process.argv[2] || 'tiktok';
+  const keyword  = process.argv[3] || 'test';
 
-  // 1) 建立輸出目錄 => /data/collected/all/<timestamp> 例如
-  const baseDir = `/data/collected/all/${Date.now()}`;
-  if(!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { recursive:true });
-  console.log('[collectAllPlatforms] created baseDir =>', baseDir);
+  console.log(`[collectAllPlatforms] start => platform=${platform}, keyword=${keyword}`);
 
-  // 2) 針對不同平台(Instagram, FB, YouTube, Shopee, eBay, Amazon...)做資料收集
-  //    這裡只示範「假裝」我們已把檔案搬進 baseDir
-  //    您可用 puppeteer/playwright/axios/官方API 取得檔案後,存到 baseDir
-  // ------------------------------------------------------------------
-  console.log(`[collectAllPlatforms] collecting from Instagram with keyword=${keyword}...`);
-  // (此處省略實際爬蟲，假設產生 image_ig_001.jpg, image_ig_002.jpg ...)
+  // 依平台決定存放目錄
+  const now = Date.now();
+  const outDir = `/data/collected/${platform}/${now}`;
+  if(!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-  console.log(`[collectAllPlatforms] collecting from Shopee...`);
-  // (同樣省略)
+  // 啟動瀏覽器
+  const browser = await puppeteer.launch({ headless:true });
+  const page = await browser.newPage();
 
-  console.log(`[collectAllPlatforms] collecting from eBay...`);
-  // ...
+  // 針對不同平台做不同邏輯 (以下皆為「示範偽程式」)
+  if(platform==='tiktok'){
+    await page.goto(`https://www.tiktok.com/search?q=${encodeURIComponent(keyword)}`, { waitUntil:'domcontentloaded' });
+    // 假設 DOM 裡面 a[href*="video/"]
+    const videoLinks = await page.evaluate(()=>{
+      const anchors = [...document.querySelectorAll('a')].filter(a=> a.href.includes('/video/'));
+      return anchors.slice(0,5).map(a=> a.href);
+    });
+    console.log('[collectAllPlatforms] TikTok videoLinks =>', videoLinks);
 
-  // 3) 搜尋 baseDir 下的所有檔案
-  const files = fs.readdirSync(baseDir);
-  console.log('[collectAllPlatforms] found =>', files);
-
-  // 4) 每個檔案若是圖片 => indexImageVector
-  //    (若是影片 => 依您設計: 
-  //       A. 先抽幀 => indexImageVector
-  //       B. 或直接整支影片給 Python /api/v1/indexVideo )
-  for(const f of files){
-    const fullPath = path.join(baseDir, f);
-    if(f.match(/\.(png|jpe?g|gif|webp)$/i)){
-      console.log('[collectAllPlatforms] image =>', f);
-      // 假設您只要圖片 => 直接 index
-      await indexImageVector(fullPath, f); 
-    } else if(f.match(/\.(mp4|mov|avi|mkv|webm)$/i)){
-      console.log('[collectAllPlatforms] video =>', f);
-      // (a) Node 端抽幀 => indexImageVector
-      //  或 (b) POST 給 python-vector-service /api/v1/indexVideo => python Towhee pipeline
-      //  以下示範 (b):
-      // spawnSync('curl', [
-      //   '-F', `video=@${fullPath}`,
-      //   '-F', `id=${f}`,
-      //   'http://python-vector-service:8000/api/v1/indexVideo'
-      // ], { stdio:'inherit' });
-    }
+    // 下載影片 => (您可用 ffmpeg -i 或其他方式)
+    // 這裡只示範，實際不下載
   }
+  else if(platform==='instagram'){
+    await page.goto(`https://www.instagram.com/explore/tags/${encodeURIComponent(keyword)}/`, { waitUntil:'domcontentloaded' });
+    // 假設 DOM 裡面 a[href*="/p/"]
+    // ...
+  }
+  else if(platform==='facebook'){
+    // ...
+  }
+  else if(platform==='youtube'){
+    // ...
+  }
+  else if(platform==='amazon'){
+    // ...
+  }
+  // ... 其他蝦皮、eBay、淘寶、露天 同理
 
-  console.log('[collectAllPlatforms] done. All media indexed to Milvus (image or video).');
-
-  process.exit(0);
+  // (省略：存檔到 outDir 的流程)
+  await browser.close();
+  console.log(`[collectAllPlatforms] done => files saved into => ${outDir}`);
 })();
