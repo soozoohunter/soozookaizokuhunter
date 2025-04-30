@@ -1,0 +1,12 @@
+{
+  "fingerprint_0b237161": [
+    "https://tineye.com/search/0b237161ddba99f9fb7f4c2148477754f978598f?sort=score&order=desc&page=1",
+    "https://graph.baidu.com/s?card_key=&entrance=GENERAL&extUiData%5BisLogoShow%5D=1&f=all&isLogoShow=1...",
+    "https://www.bing.com/images/search?view=detailV2&insightsToken=bcid_S4UMmxEAlGUIqxcxoNWLu..."
+  ],
+  "fingerprint_abc123": [
+    "https://tineye.com/search/abc123...",
+    "https://www.bing.com/images/search?foo=bar"
+    // 其它人工連結...
+  ]
+}
