@@ -1,4 +1,7 @@
-version: '3'
+# docker-compose.yml
+# ----------------------------------------------
+# 這裡我把 version 移除，避免出現 "the attribute `version` is obsolete" 警告
+# ----------------------------------------------
 
 services:
   # PostgreSQL
@@ -63,9 +66,10 @@ services:
       - "8000"
     restart: unless-stopped
 
-  # Express
+  # Express (重點修改處)
   suzoo_express:
     build:
+      # 確定此 Dockerfile 路徑就是 express/ 裡的 Dockerfile
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
@@ -76,6 +80,7 @@ services:
       - .env
     networks:
       - suzoo_net
+    # 這裡只 expose 3000, 因為我們要透過其他方式或反向代理連線
     expose:
       - "3000"
     restart: unless-stopped
@@ -114,7 +119,6 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
-    # (可選) 保存數據
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
 
@@ -125,17 +129,15 @@ services:
       dockerfile: Dockerfile
     container_name: suzoo_python_vector
     depends_on:
-      - suzoo_milvus    # 讓 python_vector 等 milvus 準備好
+      - suzoo_milvus
     networks:
       - suzoo_net
     expose:
       - "8000"
     environment:
-      # 您可以在 app.py 內: connections.connect("default", host=os.environ.get('MILVUS_HOST'), port=os.environ.get('MILVUS_PORT'))
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
     restart: unless-stopped
-
 
 networks:
   suzoo_net:
