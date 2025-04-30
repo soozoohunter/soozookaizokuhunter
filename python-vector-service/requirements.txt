@@ -1,6 +1,3 @@
 fastapi==0.95.1
 uvicorn==0.21.1
 sentence-transformers==2.2.2
-# 若你不需要其他套件，就不用寫
-# towhee==... (請刪除)
-# pymilvus==... (若本容器不需直接連 milvus, 也可刪)
