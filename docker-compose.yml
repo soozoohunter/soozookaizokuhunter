@@ -78,8 +78,11 @@ services:
       - "3000"
     restart: unless-stopped
     volumes:
+      # 持續掛載 uploads、debugShots 以保留生成的檔案
       - ./uploads:/app/uploads
       - ./debugShots:/app/debugShots
+      # 加入 /app/node_modules，避免宿主機把容器內的 node_modules 覆蓋掉
+      - /app/node_modules
 
   # Frontend (React + Nginx)
   suzoo_frontend:
@@ -105,19 +108,19 @@ services:
 
   # Milvus
   suzoo_milvus:
-    image: milvusdb/milvus:v2.2.11
+    image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
     restart: unless-stopped
     ports:
       - "19530:19530"
       - "19121:19121"
-    command: ["milvus", "run", "standalone"]
+    command: [ "milvus", "run", "standalone" ]
     networks:
       - suzoo_net
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
 
-  # Python Vector Service (sentence_transformers) ★★★ 已修正為 ports 方便 localhost 訪問 ★★★
+  # Python Vector Service (sentence_transformers)
   suzoo_python_vector:
     build:
       context: ./python-vector-service
@@ -127,7 +130,7 @@ services:
       - suzoo_milvus
     networks:
       - suzoo_net
-    ports:  # 修正為 ports 讓主機可存取
+    ports:
       - "8000:8000"
     environment:
       - MILVUS_HOST=suzoo_milvus
