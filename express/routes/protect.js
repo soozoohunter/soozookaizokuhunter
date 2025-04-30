@@ -1302,10 +1302,10 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         fingerprint,
         ipfsHash,
         txHash,
-        serial    : user.serialNumber,
-        mimeType  : mimeType,
-        issueDate : new Date().toLocaleString(),
-        filePath  : previewPath,
+        serial     : user.serialNumber,
+        mimeType   : mimeType,
+        issueDate  : new Date().toLocaleString(),
+        filePath   : previewPath,
         stampImagePath: fs.existsSync(stampImg)? stampImg:null
       }, pdfPath);
       console.log('[step1] PDF generation done =>', pdfPath);
@@ -1412,8 +1412,9 @@ router.get('/scan/:fileId', async(req,res)=>{
       return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
     }
 
-    // 若是影片 => 分段抽幀 => aggregator
+    // 用於儲存相似圖片(向量搜尋)的結果 (base64)
     let matchedImages = [];
+
     if(isVideo){
       try {
         console.log('[scan] checking video duration => ffprobe...');
@@ -1439,10 +1440,22 @@ router.get('/scan/:fileId', async(req,res)=>{
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
 
-            // 若要對 frame 做向量檢索，可在此加:
+            // ★ 若要對 frame 做向量檢索，可在此加:
             // try {
             //   const vectorRes = await searchImageByVector(fPath, { topK: 3 });
-            //   // ...將相似結果塞進 matchedImages (或另作紀錄)...
+            //   if(vectorRes && vectorRes.results){
+            //     for(const r of vectorRes.results){
+            //       if(r.url){
+            //         const resp = await axios.get(r.url, { responseType:'arraybuffer' });
+            //         const b64 = Buffer.from(resp.data).toString('base64');
+            //         matchedImages.push({
+            //           id: r.id,
+            //           score: r.score,
+            //           base64: b64
+            //         });
+            //       }
+            //     }
+            //   }
             // } catch(eVec){
             //   console.error('[frame vectorSearch error]', eVec);
             // }
@@ -1500,7 +1513,6 @@ router.get('/scan/:fileId', async(req,res)=>{
     await fileRec.save();
 
     // ============== 重要：存到 Milvus =============
-    //   (假設我們要把 aggregator + manual 的連結都做 text embedding)
     try {
       console.log('[scan] insert aggregator + manual links => milvus...');
       await initCollection();
