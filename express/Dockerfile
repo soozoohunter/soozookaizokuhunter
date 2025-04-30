@@ -1,3 +1,6 @@
+# =========================================
+# Dockerfile（位於 ./express 目錄下）
+# =========================================
 FROM node:18
 
 # 安裝系統必要套件 (chromium + ffmpeg + 中文字體 + puppeteer 依賴)
@@ -15,10 +18,10 @@ WORKDIR /app
 # 複製 package.json、package-lock.json (若有)
 COPY package*.json ./
 
-# 安裝依賴 (包含新增的 cheerio)
+# 安裝依賴
 RUN npm install
 
-# 複製專案其他檔案 (包含 server.js、routes、models、services 等)
+# 複製專案其他檔案 (server.js、routes、models、services 等)
 COPY . .
 
 # Puppeteer: 使用系統內建 Chromium
