@@ -1,5 +1,5 @@
 services:
-  # PostgreSQL
+  # === PostgreSQL ===
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
@@ -13,8 +13,13 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Ganache
+  # === Ganache (區塊鏈) ===
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
@@ -31,7 +36,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # IPFS
+  # === IPFS ===
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -48,7 +53,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # FastAPI
+  # === FastAPI (可選) ===
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -66,7 +71,7 @@ services:
       - "8000"
     restart: unless-stopped
 
-  # etcd (for Milvus)
+  # === etcd (for Milvus) ===
   suzoo_etcd:
     image: quay.io/coreos/etcd:v3.5.5
     container_name: suzoo_etcd
@@ -83,7 +88,7 @@ services:
       retries: 5
       start_period: 5s
 
-  # Milvus (standalone)
+  # === Milvus (standalone) ===
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
@@ -108,7 +113,7 @@ services:
       retries: 12
       start_period: 5s
 
-  # Python Vector Service (e.g. a FastAPI or just a python-crawlers job)
+  # === Python Vector Service (e.g. a FastAPI or just a python-crawlers job)
   suzoo_python_vector:
     build:
       context: ./python_crawlers
@@ -119,13 +124,49 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "8001:8000"   # 如有需要對外部映射Python服務API
+      - "8001:8000"
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
     restart: unless-stopped
 
-  # Express (您的 Node.js 後端, 包含 protect.js)
+  # === [新增] RabbitMQ (Celery broker) ===
+  suzoo_rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: suzoo_rabbitmq
+    hostname: suzoo_rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=123456
+    ports:
+      - "5672:5672"     # broker port
+      - "15672:15672"   # RabbitMQ 管理界面 (http://localhost:15672)
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  # === [新增] Celery Worker (Python 背景任務) ===
+  suzoo_celery:
+    build:
+      context: ./python_crawlers
+      dockerfile: Dockerfile.celery
+    container_name: suzoo_celery
+    depends_on:
+      - suzoo_rabbitmq
+      - suzoo_milvus
+      - suzoo_postgres
+    networks:
+      - suzoo_net
+    environment:
+      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
+      - RESULT_BACKEND=rpc://
+      # 如果要用AWS S3:
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+      - AWS_SECRET_KEY=${AWS_SECRET_KEY}
+      - AWS_REGION=${AWS_REGION}
+    restart: unless-stopped
+
+  # === Express (Node.js 後端, 包含 protect.js)
   suzoo_express:
     build:
       context: ./express
@@ -138,14 +179,15 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
-    # 若要對外 3000:3000
-    # depends_on:
-    #   - suzoo_milvus
+    depends_on:
+      - suzoo_postgres
+      - suzoo_milvus
+      - suzoo_celery
     volumes:
       - ./uploads:/app/uploads
       - ./debugShots:/app/debugShots
 
-  # Frontend (React + Nginx)
+  # === Frontend (React + Nginx)
   suzoo_frontend:
     build:
       context: ./frontend
