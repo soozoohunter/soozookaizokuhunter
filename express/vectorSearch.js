@@ -1,53 +1,73 @@
-/**
- * express/utils/vectorSearch.js
- * - 與您部署的「Python 向量檢索微服務」(Towhee + Milvus) 溝通
- * - 假設該微服務的 Base URL 為 http://python-vector-service:8000
- * - 需先安裝 form-data (npm install form-data) / axios (npm install axios)
- */
-const fs = require('fs');
-const FormData = require('form-data');
+// File: express/services/vectorSearch.js
 const axios = require('axios');
 
-async function indexImageVector(localImagePath, fileId) {
-  try {
-    const form = new FormData();
-    form.append('image', fs.createReadStream(localImagePath));
-    form.append('id', fileId.toString());
+// ★ 依照 docker-compose 內部網路，Python 服務容器名 suzoo_python_vector:port
+//    若對外開 8001 => 服務內部其實是 8000
+const VECTOR_SERVICE_HOST = process.env.VECTOR_SERVICE_HOST || 'suzoo_python_vector';
+const VECTOR_SERVICE_PORT = process.env.VECTOR_SERVICE_PORT || '8000';
 
-    const res = await axios.post(
-      'http://python-vector-service:8000/api/v1/index', // 替換為實際微服務位置
-      form, 
-      { headers: form.getHeaders(), timeout: 30000 }
-    );
-    console.log('[indexImageVector] success =>', res.data);
-    return res.data;
-  } catch (error) {
-    console.error('[indexImageVector] error =>', error.message);
-    return null;
+// ------------------------------------------------------
+// 文字嵌入 (呼叫 /api/v1/text-embed)
+// ------------------------------------------------------
+async function embedText(text) {
+  try {
+    const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/text-embed`;
+    const resp = await axios.post(url, { text });
+    return resp.data; // { embedding: [...] }
+  } catch (err) {
+    console.error('[embedText] error:', err.message);
+    throw err;
   }
 }
 
-async function searchImageByVector(localImagePath, options = {}) {
+// ------------------------------------------------------
+// 圖片嵌入 => { embedding: [...] }
+// ------------------------------------------------------
+async function embedImage(imageUrl) {
   try {
-    const form = new FormData();
-    form.append('image', fs.createReadStream(localImagePath));
-    if(options.topK) form.append('topK', String(options.topK));
-    if(options.modelName) form.append('modelName', options.modelName);
+    const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-embed`;
+    const resp = await axios.post(url, { image_url: imageUrl });
+    return resp.data; // { embedding: [...] }
+  } catch (err) {
+    console.error('[embedImage] error:', err.message);
+    throw err;
+  }
+}
 
-    const res = await axios.post(
-      'http://python-vector-service:8000/api/v1/search',
-      form,
-      { headers: form.getHeaders(), timeout: 30000 }
-    );
-    console.log('[searchImageByVector] success =>', res.data);
-    return res.data;
-  } catch (error) {
-    console.error('[searchImageByVector] error =>', error.message);
-    return null;
+// ------------------------------------------------------
+// 搜索相似圖片 => { results: [ {url, score}, ...] }
+// ------------------------------------------------------
+async function searchImage(imageUrl, topK=5) {
+  try {
+    const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-search`;
+    const resp = await axios.post(url, {
+      image_url: imageUrl,
+      top_k: topK
+    });
+    return resp.data; // { results: [ { url, score }, ... ] }
+  } catch (err) {
+    console.error('[searchImage] error:', err.message);
+    throw err;
+  }
+}
+
+// ------------------------------------------------------
+// 插入一張圖片到 Milvus (可選) => {status:"ok", insert_count:1}
+// ------------------------------------------------------
+async function insertImage(imageUrl) {
+  try {
+    const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-insert`;
+    const resp = await axios.post(url, { image_url: imageUrl });
+    return resp.data;
+  } catch (err) {
+    console.error('[insertImage] error:', err.message);
+    throw err;
   }
 }
 
 module.exports = {
-  indexImageVector,
-  searchImageByVector
+  embedText,
+  embedImage,
+  searchImage,
+  insertImage,
 };
