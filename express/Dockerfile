@@ -1,7 +1,7 @@
 # ./express/Dockerfile
 FROM node:18
 
-# 安裝必要系統套件 (Chromium / ffmpeg / 中文字體 等 Puppeteer 所需)
+# 安裝必要套件 (Chromium / ffmpeg / 字體 / Puppeteer 依賴等)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium ffmpeg fonts-liberation fonts-noto-cjk \
     libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxcursor1 \
@@ -10,27 +10,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping dnsutils curl vim \
   && rm -rf /var/lib/apt/lists/*
 
-# 設定工作目錄
 WORKDIR /app
 
-# 先複製 package.json / package-lock.json（若有）
+# 先複製依賴描述
 COPY package*.json ./
 
-# 複製 scripts/ (包含 checkMilvus.js)，供後續容器啟動時執行
+# 若有 scripts (含 checkMilvus.js)，先複製
 COPY scripts ./scripts
 
-# Puppeteer：略過內建 Chromium 下載，直接用我們安裝的 /usr/bin/chromium
+# Puppeteer 設定
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# 只安裝 Node 依賴，不要在這裡做連線 Milvus 的動作
+# 安裝 Node 依賴
 RUN npm install
 
-# 複製其餘專案程式碼 (server.js, routes, models... 等)
+# 複製專案其餘檔案
 COPY . ./
 
-# 預設對外開放埠 3000
+# 預設埠
 EXPOSE 3000
 
-# 啟動容器時，先執行「check:milvus」(內含重試) => 確認 Milvus 就緒 => 再 npm start
-CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"]
+# 容器啟動時：先檢查 milvus (多次重試 + gRPC timeout) => 再 npm start
+CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"
