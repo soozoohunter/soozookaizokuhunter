@@ -48,7 +48,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # FastAPI
+  # FastAPI (若您原本就有某些功能)
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -108,7 +108,7 @@ services:
       retries: 12
       start_period: 5s
 
-  # Python Vector Service (sentence_transformers)
+  # Python Vector Service (sentence_transformers + CLIP + PyMilvus)
   suzoo_python_vector:
     build:
       context: ./python-vector-service
@@ -119,7 +119,7 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "8000:8000"
+      - "8001:8000"   # 可以對外映射成 8001，自行調整
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
@@ -131,10 +131,9 @@ services:
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
-    depends_on:
-      - suzoo_postgres
-      - suzoo_fastapi
-      - suzoo_milvus  # 在 compose 層面確保先啟動
+    # 您若要保留對 milvus 先啟動再啟動 express, 也可加 depends_on:
+    # depends_on:
+    #   - suzoo_milvus
     env_file:
       - .env
     networks:
