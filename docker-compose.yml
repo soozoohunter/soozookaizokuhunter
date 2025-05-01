@@ -67,9 +67,11 @@ services:
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
+    # 依賴 suzoo_postgres, suzoo_fastapi... 讓它們先啟動
     depends_on:
       - suzoo_postgres
       - suzoo_fastapi
+      - suzoo_milvus
     env_file:
       - .env
     networks:
@@ -121,6 +123,14 @@ services:
       - ETCD_ENDPOINTS=http://suzoo_etcd:2379
     depends_on:
       - suzoo_etcd
+    # 可選：若你想 Docker Compose 等 Milvus 真正 healthy 再啟動 express，可以嘗試:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    # ↑ 需確認 Milvus 是否有在 9091 Port 或 8080 Port 提供 /healthz Endpoint
 
   # etcd (for Milvus)
   suzoo_etcd:
