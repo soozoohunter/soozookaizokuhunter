@@ -1,7 +1,7 @@
 # ./express/Dockerfile
 FROM node:18
 
-# 安裝必要系統套件 (包含 Chromium / ffmpeg / 中文字體 等 Puppeteer 依賴)
+# 安裝必要系統套件 (Chromium / ffmpeg / 中文字體 等 Puppeteer 依賴)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium ffmpeg fonts-liberation fonts-noto-cjk \
     libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxcursor1 \
@@ -13,25 +13,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 設定工作目錄
 WORKDIR /app
 
-# 先複製 package.json / package-lock.json
+# 先複製 package.json / package-lock.json（若有）
 COPY package*.json ./
 
-# 若確定 scripts/ 裡面就只有 checkMilvus.js，且需要在 npm install 前就能讀到
-# 就一併複製過來，確保 postinstall 找得到它
+# 確保 scripts/checkMilvus.js 被複製，雖然我們不在 build 時執行，但容器啟動時會用到
 COPY scripts ./scripts
 
-# 告知 Puppeteer 不要再下載內建 Chromium，直接用系統的 /usr/bin/chromium
+# Puppeteer 不要下載內建 Chromium，直接用系統安裝的 /usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# 安裝 Node 套件依賴
+# 這邊只做依賴安裝，**不進行 check:milvus**，以免 DNS 不到 suzoo_milvus
 RUN npm install
 
-# 其餘所有程式檔案（server.js、routes、models...）最後再 COPY 進容器
+# 複製其餘原始碼 (server.js, routes, models... 等)
 COPY . ./
 
-# 預設要開放的 Port
+# Docker 容器預設開放的 port
 EXPOSE 3000
 
-# 容器啟動時：先執行 npm run check:milvus（測試連線 & 建立 collection），然後啟動 Express
+# ★ 容器啟動時：先 npm run check:milvus (此時 Docker Compose 已啟動 suzoo_milvus, DNS 正常)
 CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"]
