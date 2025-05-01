@@ -1,14 +1,12 @@
 // File: express/services/vectorSearch.js
 const axios = require('axios');
 
-// ★ 依照 docker-compose 內部網路，Python 服務容器名 suzoo_python_vector:port
-//    若對外開 8001 => 服務內部其實是 8000
+// 若 Compose 內部要呼叫 suzoo_python_vector:8000
+// 對外開 8001 => 內部仍是 8000
 const VECTOR_SERVICE_HOST = process.env.VECTOR_SERVICE_HOST || 'suzoo_python_vector';
 const VECTOR_SERVICE_PORT = process.env.VECTOR_SERVICE_PORT || '8000';
 
-// ------------------------------------------------------
-// 文字嵌入 (呼叫 /api/v1/text-embed)
-// ------------------------------------------------------
+// 文字嵌入 => { embedding: [...] }
 async function embedText(text) {
   try {
     const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/text-embed`;
@@ -20,9 +18,7 @@ async function embedText(text) {
   }
 }
 
-// ------------------------------------------------------
 // 圖片嵌入 => { embedding: [...] }
-// ------------------------------------------------------
 async function embedImage(imageUrl) {
   try {
     const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-embed`;
@@ -34,9 +30,7 @@ async function embedImage(imageUrl) {
   }
 }
 
-// ------------------------------------------------------
-// 搜索相似圖片 => { results: [ {url, score}, ...] }
-// ------------------------------------------------------
+// 搜索相似圖片 => { results: [ { url, score }, ... ] }
 async function searchImage(imageUrl, topK=5) {
   try {
     const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-search`;
@@ -51,9 +45,7 @@ async function searchImage(imageUrl, topK=5) {
   }
 }
 
-// ------------------------------------------------------
-// 插入一張圖片到 Milvus (可選) => {status:"ok", insert_count:1}
-// ------------------------------------------------------
+// 插入圖片 => { status:"ok", insert_count:1 }
 async function insertImage(imageUrl) {
   try {
     const url = `http://${VECTOR_SERVICE_HOST}:${VECTOR_SERVICE_PORT}/api/v1/image-insert`;
