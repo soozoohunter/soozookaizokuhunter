@@ -31,5 +31,6 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # 開放 port 3000
 EXPOSE 3000
 
-# 啟動應用程式
-CMD ["npm", "start"]
+# 啟動應用程式，先檢查 Milvus，再啟動 Express
+CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"]
+
