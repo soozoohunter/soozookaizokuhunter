@@ -37,6 +37,15 @@ async function generateCertificate(filePath, originalName, previewUrl) {
       const pdfPath = path.join(certDir, pdfName);
 
       const doc = new PDFDocument({ autoFirstPage: true });
+
+      // ★★★ [核心] 註冊自訂字體 (中文) ★★★
+      // 請注意此路徑需依您實際字體位置做相對/絕對修正
+      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      doc.registerFont('NotoSansTC', fontPath);
+
+      // 之後預設全程使用這個字體
+      doc.font('NotoSansTC');
+
       const ws = fs.createWriteStream(pdfPath);
       doc.pipe(ws);
 
@@ -83,7 +92,13 @@ async function generateReport(filePath, results) {
       const pdfName = `${base}_report.pdf`;
       const pdfPath = path.join(rptDir, pdfName);
 
-      const doc = new PDFDocument();
+      const doc = new PDFDocument({ autoFirstPage: true });
+
+      // ★★★ [核心] 註冊自訂字體 (中文) ★★★
+      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      doc.registerFont('NotoSansTC', fontPath);
+      doc.font('NotoSansTC');
+
       const ws = fs.createWriteStream(pdfPath);
       doc.pipe(ws);
 
@@ -142,7 +157,7 @@ async function generateReport(filePath, results) {
  *   - suspiciousLinks: string[]
  *   - matchedImages: Array<{id:string, score:number, base64:string}>
  *   - stampImagePath: (可選) 浮水印圖
- *   - cachedHtmlContent: (可選) 來自各平台的 HTML 字串快取，結構如: { bing:'...', tineye:'...', baidu:'...' }
+ *   - cachedHtmlContent: (可選) 來自各平台的 HTML 字串快取
  * @param {string} outputPath - 輸出PDF檔案路徑
  */
 async function generateScanPDFWithMatches(
@@ -152,6 +167,12 @@ async function generateScanPDFWithMatches(
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ autoFirstPage: true });
+
+      // ★★★ [核心] 註冊自訂字體 (中文) ★★★
+      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      doc.registerFont('NotoSansTC', fontPath);
+      doc.font('NotoSansTC');
+
       const ws = fs.createWriteStream(outputPath);
       doc.pipe(ws);
 
@@ -195,8 +216,8 @@ async function generateScanPDFWithMatches(
       doc.moveDown();
 
       // (NEW) 快取HTML摘要
-      doc.fontSize(14).text('人工快取網頁摘要:', { underline: true });
       if (cachedHtmlContent && Object.keys(cachedHtmlContent).length > 0) {
+        doc.fontSize(14).text('人工快取網頁摘要:', { underline: true });
         Object.entries(cachedHtmlContent).forEach(([platform, html]) => {
           // 取前 500 字摘要
           const summary = extractTextSummary(html, 500);
@@ -204,23 +225,19 @@ async function generateScanPDFWithMatches(
           doc.fontSize(10).fillColor('gray').text(summary);
           doc.moveDown();
         });
-      } else {
-        doc.fontSize(10).text('尚未有快取網頁內容。');
+        doc.moveDown();
       }
-      doc.moveDown();
 
       // 浮水印 (可選)
       if (stampImagePath && fs.existsSync(stampImagePath)) {
-        // 若需疊加浮水印，可在此使用 doc.image(..., x, y, { ... }) 
-        // 例如放在右下角、半透明之類，可依需求調整
-        // 範例(蓋在右下角):
+        // 可依需求將圖蓋在右下角或全頁
         doc.image(stampImagePath, doc.page.width - 120, doc.page.height - 120, {
           width: 100,
           opacity: 0.5,
         });
       }
 
-      doc.fontSize(12).text(`報告時間：${new Date().toLocaleString()}`, { align: 'right' });
+      doc.fontSize(12).fillColor('black').text(`報告時間：${new Date().toLocaleString()}`, { align: 'right' });
       doc.text('© 2025 凱盾全球國際股份有限公司', { align: 'center' });
 
       doc.end();
