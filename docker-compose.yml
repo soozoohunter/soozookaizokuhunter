@@ -48,7 +48,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # FastAPI (若您原本就有某些功能)
+  # FastAPI
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -108,10 +108,10 @@ services:
       retries: 12
       start_period: 5s
 
-  # Python Vector Service (sentence_transformers + CLIP + PyMilvus)
+  # Python Vector Service (e.g. a FastAPI or just a python-crawlers job)
   suzoo_python_vector:
     build:
-      context: ./python-vector-service
+      context: ./python_crawlers
       dockerfile: Dockerfile
     container_name: suzoo_python_vector
     depends_on:
@@ -119,21 +119,18 @@ services:
     networks:
       - suzoo_net
     ports:
-      - "8001:8000"   # 可以對外映射成 8001，自行調整
+      - "8001:8000"   # 如有需要對外部映射Python服務API
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
     restart: unless-stopped
 
-  # Express
+  # Express (您的 Node.js 後端, 包含 protect.js)
   suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
-    # 您若要保留對 milvus 先啟動再啟動 express, 也可加 depends_on:
-    # depends_on:
-    #   - suzoo_milvus
     env_file:
       - .env
     networks:
@@ -141,10 +138,12 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
+    # 若要對外 3000:3000
+    # depends_on:
+    #   - suzoo_milvus
     volumes:
       - ./uploads:/app/uploads
       - ./debugShots:/app/debugShots
-      - /app/node_modules
 
   # Frontend (React + Nginx)
   suzoo_frontend:
