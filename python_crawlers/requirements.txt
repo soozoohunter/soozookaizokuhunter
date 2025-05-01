@@ -1,0 +1,11 @@
+requests
+beautifulsoup4
+pymilvus
+torch
+torchvision
+open_clip_torch
+pillow
+pytube
+opencv-python
+ffmpeg-python
+sentence_transformers
