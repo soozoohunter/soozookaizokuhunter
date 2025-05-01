@@ -149,7 +149,7 @@ services:
   suzoo_celery:
     build:
       context: ./python_crawlers
-      dockerfile: Dockerfile.celery
+      dockerfile: ./Dockerfile.celery
     container_name: suzoo_celery
     depends_on:
       - suzoo_rabbitmq
