@@ -1,6 +1,3 @@
-# =========================================
-# Dockerfile（位於 ./express 目錄下）
-# =========================================
 FROM node:18
 
 # 安裝系統必要套件 (chromium + ffmpeg + 中文字體 + puppeteer 依賴)
@@ -12,24 +9,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping dnsutils curl vim \
   && rm -rf /var/lib/apt/lists/*
 
-# 設定工作目錄
 WORKDIR /app
 
-# 複製 package.json、package-lock.json (若有)
+# 先複製 package.json + package-lock.json
 COPY package*.json ./
 
-# 安裝依賴
+# [新增] 這一步先把 scripts/ checkMilvus.js 也複製進去
+COPY scripts ./scripts
+
+# 再安裝，避免 postinstall 找不到 scripts/checkMilvus.js
 RUN npm install
 
-# 複製專案其他檔案 (server.js、routes、models、services 等)
+# 最後再把其他檔案 (server.js, routes 等) 全部複製
 COPY . .
 
-# Puppeteer: 使用系統內建 Chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# 開放 port 3000
 EXPOSE 3000
 
-# 啟動應用程式，先檢查 Milvus，再啟動 Express
 CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"]
