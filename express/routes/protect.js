@@ -62,18 +62,27 @@ const puppeteer    = require('puppeteer-extra');
 const StealthPlugin= require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-// [ADDED FOR VECTOR SEARCH]
-const { searchImageByVector } = require('../utils/vectorSearch');  // 您的Python微服務對接
+/** 
+ * [原本 ADDED FOR VECTOR SEARCH]
+ * 已改為呼叫 Python 微服務(services/vectorSearch.js)，故以下直接對接:
+ *   const { searchImageByVector } = require('../utils/vectorSearch');  // 您的Python微服務對接
+ *
+ *   但因應最小改動，保留該行:
+ */
 
-// [ADDED FOR PDF MATCHES]
+// ============== 原本 NodeJS 直連 Milvus ==============
+// const { searchImageByVector } = require('../utils/vectorSearch');  // (舊) 
+// [已改由 Python/REST 代理, 不再直接使用 node-milvus2-sdk]
+const { searchImageByVector } = require('../utils/vectorSearch');  // 現在會在 utils/vectorSearch 裏面改 call Python
+
+
+// ============== 以下 (嵌入 + Milvus) => 保留但註解掉 ==============
+// const { embedTextByPython } = require('../services/textVectorService');
+// const { initCollection, insertAggregatorLinks } = require('../services/milvusService');
+//=====================================================
+
+
 const { generateScanPDFWithMatches } = require('../services/pdfService');
-
-// ★★ (1) 新增匯入：文字轉 embedding + Milvus
-const { embedTextByPython } = require('../services/textVectorService');
-const {
-  initCollection,
-  insertAggregatorLinks
-} = require('../services/milvusService');
 
 //----------------------------------------
 // [★ 新增] 讀取 express/data/manual_links.json => 取得人工搜圖連結
@@ -412,7 +421,6 @@ async function tryCloseAd(page) {
 }
 
 async function saveDebugInfoForAggregator(page, tag){
-  // 這個與 saveDebugInfo 相同功能，為避免混淆可直接呼叫 saveDebugInfo
   return await saveDebugInfo(page, tag);
 }
 
@@ -469,7 +477,6 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
     await page.goto('https://www.google.com', {
       waitUntil:'domcontentloaded', timeout:20000
     });
-    // ★ 進入 google 後截圖
     await saveDebugInfo(page, 'google_afterGoto');
 
     await page.waitForTimeout(2000);
@@ -497,7 +504,6 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
     await page.goto(target.href, {
       waitUntil:'domcontentloaded', timeout:20000
     });
-    // ★ 進入 ginifab 之前再截圖
     await saveDebugInfo(page, 'google_gotoGinifab');
 
     await page.waitForTimeout(2000);
@@ -505,28 +511,11 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
     return ok;
   } catch(e){
     console.error('[gotoGinifabViaGoogle error]', e);
-    // ★ google fallback出錯時記錄
     await saveDebugInfo(page, 'google_fail');
     return false;
   }
 }
 
-async function tryGinifabUploadLocalAllFlow(page, localImagePath){
-  console.log('[tryGinifabUploadLocalAllFlow] => start iOS/Android/Desktop attempts...');
-  let ok = await tryGinifabUploadLocal_iOS(page, localImagePath);
-  if(ok) return true;
-
-  ok = await tryGinifabUploadLocal_Android(page, localImagePath);
-  if(ok) return true;
-
-  ok = await tryGinifabUploadLocal_Desktop(page, localImagePath);
-  if(ok) return true;
-
-  // 全部失敗
-  return false;
-}
-
-// === iOS flow ===
 async function tryGinifabUploadLocal_iOS(page, localImagePath){
   console.log('[tryGinifabUploadLocal_iOS] Start iOS-like flow...');
   try {
@@ -566,7 +555,6 @@ async function tryGinifabUploadLocal_iOS(page, localImagePath){
   }
 }
 
-// === Android flow ===
 async function tryGinifabUploadLocal_Android(page, localImagePath){
   console.log('[tryGinifabUploadLocal_Android] Start Android-like flow...');
   try {
@@ -595,7 +583,6 @@ async function tryGinifabUploadLocal_Android(page, localImagePath){
   }
 }
 
-// === Desktop flow ===
 async function tryGinifabUploadLocal_Desktop(page, localImagePath){
   console.log('[tryGinifabUploadLocal_Desktop] Start Desktop-like flow...');
   try {
@@ -619,7 +606,21 @@ async function tryGinifabUploadLocal_Desktop(page, localImagePath){
   }
 }
 
-// aggregatorSearchGinifab
+async function tryGinifabUploadLocalAllFlow(page, localImagePath){
+  console.log('[tryGinifabUploadLocalAllFlow] => start iOS/Android/Desktop attempts...');
+  let ok = await tryGinifabUploadLocal_iOS(page, localImagePath);
+  if(ok) return true;
+
+  ok = await tryGinifabUploadLocal_Android(page, localImagePath);
+  if(ok) return true;
+
+  ok = await tryGinifabUploadLocal_Desktop(page, localImagePath);
+  if(ok) return true;
+
+  // 全部失敗
+  return false;
+}
+
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) {
   console.log('[aggregatorSearchGinifab] => local=', localImagePath, ' url=', publicImageUrl);
   const ret = {
@@ -729,14 +730,12 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         await popup.close();
       } catch(eSub){
         console.error(`[Ginifab aggregator sub-engine fail => ${eng.key}]`, eSub);
-        // sub-engine出錯時可截圖
         if(page) await saveDebugInfo(page, `agg_${eng.key}_error`);
       }
     }
 
   } catch(e){
     console.error('[aggregatorSearchGinifab fail]', e);
-    // aggregator本身出錯 => 截圖
     if(page) await saveDebugInfo(page, 'aggregatorSearchGinifab_error');
   } finally {
     if(page) await page.close().catch(()=>{});
@@ -757,7 +756,6 @@ async function directSearchBing(browser, imagePath){
     await page.goto('https://www.bing.com/images', {
       waitUntil:'domcontentloaded', timeout:20000
     });
-    // ★ goto後先截圖
     await saveDebugInfo(page, 'bing_afterGoto');
 
     await page.waitForTimeout(2000);
@@ -945,14 +943,12 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
 // [★ 新增] fetchLinkMainImage => 專門抓 og:image 或最大 <img>
 //--------------------------------------
 async function fetchLinkMainImage(pageUrl){
-  // 1) 簡易檢查 URL 格式
   try {
     new URL(pageUrl);
   } catch(e) {
     throw new Error('INVALID_URL: ' + pageUrl);
   }
 
-  // 2) 嘗試用 axios + cheerio 抓 og:image
   try {
     const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(resp.data);
@@ -967,14 +963,12 @@ async function fetchLinkMainImage(pageUrl){
     console.warn('[fetchLinkMainImage] axios fail =>', eAxios.message);
   }
 
-  // 3) 用 Puppeteer fallback
   let browser;
   try {
     browser = await launchBrowser();
     const page = await browser.newPage();
     await page.goto(pageUrl, { waitUntil:'domcontentloaded', timeout:30000 });
 
-    // (a) og:image
     let ogImagePup = await page.evaluate(()=>{
       const m1 = document.querySelector('meta[property="og:image"]');
       if(m1 && m1.content) return m1.content;
@@ -988,7 +982,6 @@ async function fetchLinkMainImage(pageUrl){
       return ogImagePup;
     }
 
-    // (b) 若沒有 og:image => 抓所有 <img>，找寬度最大者
     const allImgs = await page.$$eval('img', imgs => imgs.map(i => ({
       src: i.src,
       w: i.naturalWidth,
@@ -1053,9 +1046,11 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
   // (3) aggregator => fallback
   aggregatorResult = await doSearchEngines(localFilePath, true, mainImgUrl);
 
-  // (4) 向量檢索
+  // (4) 向量檢索 (改由 Python/REST 方式)
   if(needVector){
     try {
+      // 例如改呼叫 services/vectorSearch.searchLocalImage(...)
+      // 這裡保持最小改動，沿用 searchImageByVector(...) 但其內部已調整為 Python REST
       vectorResult = await searchImageByVector(localFilePath, { topK: 3 });
     } catch(eVec){
       console.error('[aggregatorSearchLink] vector fail =>', eVec);
@@ -1130,7 +1125,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
 
       if(isUnlimited){
-        // 白名單允許重複
         if(!fs.existsSync(finalPathExist)){
           console.log('[step1] local file is missing => restore from newly uploaded =>', finalPathExist);
           try {
@@ -1148,7 +1142,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           fs.unlinkSync(req.file.path);
         }
 
-        // 若舊 PDF 不存在 => 重產
         if(!fs.existsSync(pdfExistPath)){
           console.log(`[step1] PDF not found => re-generate certificate_${exist.id}.pdf`);
           try {
@@ -1188,13 +1181,11 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           defaultPassword: null
         });
       } else {
-        // 非白名單 => 禁止上傳重複
         fs.unlinkSync(req.file.path);
         return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
       }
     }
 
-    // === 真的不存在 => 新增記錄 & 生成 PDF ===
     console.log('[step1] about to call ipfsService.saveFile...');
     let ipfsHash='';
     try {
@@ -1248,7 +1239,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     let publicImageUrl=null;
 
     if(isVideo){
-      // 影片抽預覽圖
       try {
         console.log('[step1] checking video duration => ffprobe...');
         const durSec= parseFloat(
@@ -1274,7 +1264,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         console.error('[Video middle frame error]', eVid);
       }
     } else {
-      // 若是圖片 => 呼叫 convertAndUpload
       previewPath= finalPath;
       try {
         publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
@@ -1284,7 +1273,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       }
     }
 
-    // 產 PDF
     const pdfName= `certificate_${newFile.id}.pdf`;
     const pdfPath= path.join(CERT_DIR, pdfName);
     const stampImg= path.join(__dirname, '../../public/stamp.png');
@@ -1324,7 +1312,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       ipfsHash,
       txHash,
       defaultPassword,
-      // ★ 新增回傳 publicImageUrl (圖片時才會有)
       publicImageUrl
     });
 
@@ -1357,7 +1344,7 @@ router.get('/certificates/:fileId', async(req,res)=>{
 });
 
 //--------------------------------------
-// [9] GET /protect/scan/:fileId => 侵權掃描 (已新增向量檢索+相似圖PDF + ★ Milvus Insert)
+// [9] GET /protect/scan/:fileId => 侵權掃描
 //--------------------------------------
 router.get('/scan/:fileId', async(req,res)=>{
   try {
@@ -1373,7 +1360,6 @@ router.get('/scan/:fileId', async(req,res)=>{
     // 1) 多平台文字爬蟲 (示範)
     let suspiciousLinks=[];
     const query= fileRec.filename || fileRec.fingerprint;
-    // 例如 TikTok (需 RAPIDAPI_KEY)
     if(process.env.RAPIDAPI_KEY){
       try {
         console.log('[scan] tiktok search =>', query);
@@ -1403,7 +1389,6 @@ router.get('/scan/:fileId', async(req,res)=>{
       });
     }
 
-    // 3) aggregator + fallback + [ADDED FOR VECTOR SEARCH]
     let allLinks=[...suspiciousLinks];
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
     console.log('[scan] file =>', fileRec.filename, ' isVideo=', isVideo);
@@ -1412,7 +1397,6 @@ router.get('/scan/:fileId', async(req,res)=>{
       return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
     }
 
-    // 用於儲存相似圖片(向量搜尋)的結果 (base64)
     let matchedImages = [];
 
     if(isVideo){
@@ -1425,7 +1409,6 @@ router.get('/scan/:fileId', async(req,res)=>{
         console.log('[scan] video durSec =>', durSec);
 
         if(durSec<=30){
-          // 短影片 -> 分段抽幀
           const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
           if(!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
 
@@ -1436,29 +1419,30 @@ router.get('/scan/:fileId', async(req,res)=>{
             console.log('[scan] aggregator on frame =>', fPath);
             const baseName = path.basename(fPath);
             const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
-            // aggregator
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
 
-            // ★ 若要對 frame 做向量檢索，可在此加:
-            // try {
-            //   const vectorRes = await searchImageByVector(fPath, { topK: 3 });
-            //   if(vectorRes && vectorRes.results){
-            //     for(const r of vectorRes.results){
-            //       if(r.url){
-            //         const resp = await axios.get(r.url, { responseType:'arraybuffer' });
-            //         const b64 = Buffer.from(resp.data).toString('base64');
-            //         matchedImages.push({
-            //           id: r.id,
-            //           score: r.score,
-            //           base64: b64
-            //         });
-            //       }
-            //     }
-            //   }
-            // } catch(eVec){
-            //   console.error('[frame vectorSearch error]', eVec);
-            // }
+            // ★ 如果想對 frame 做向量檢索 => 呼叫 searchImageByVector
+            /*
+            try {
+              const vectorRes = await searchImageByVector(fPath, { topK: 3 });
+              if(vectorRes && vectorRes.results){
+                for(const r of vectorRes.results){
+                  if(r.url){
+                    const resp = await axios.get(r.url, { responseType:'arraybuffer' });
+                    const b64 = Buffer.from(resp.data).toString('base64');
+                    matchedImages.push({
+                      id: r.id,
+                      score: r.score,
+                      base64: b64
+                    });
+                  }
+                }
+              }
+            } catch(eVec){
+              console.error('[frame vectorSearch error]', eVec);
+            }
+            */
           }
         }
       } catch(eVid){
@@ -1471,7 +1455,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       const engineRes= await doSearchEngines(localPath, true, publicUrl);
       allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
 
-      // [ADDED FOR VECTOR SEARCH] => 單張圖片呼叫 microservice
+      // [ADDED FOR VECTOR SEARCH] => 改由 Python
       try {
         const vectorRes = await searchImageByVector(localPath, { topK: 3 });
         console.log('[scan] vectorRes =>', vectorRes);
@@ -1497,13 +1481,12 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     }
 
-    // ★ [新增] 讀取手動連結 JSON => "fingerprint_<fileRec.fingerprint>"
-    const allManual = getAllManualLinks();  // e.g. { "fingerprint_0b237161": [...], "fingerprint_abc123":[...] }
+    // ★ [新增] 讀取手動連結 JSON
+    const allManual = getAllManualLinks();
     const manKey = `fingerprint_${fileRec.fingerprint}`;
     const manualLinks = allManual[manKey] || [];
     console.log('[scan] found manualLinks =>', manualLinks);
 
-    // 將 aggregator + 文字爬蟲 + 人工連結 全部合併
     allLinks.push(...manualLinks);
 
     // 去重
@@ -1512,21 +1495,23 @@ router.get('/scan/:fileId', async(req,res)=>{
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
 
+    /*
     // ============== 重要：存到 Milvus =============
-    try {
-      console.log('[scan] insert aggregator + manual links => milvus...');
-      await initCollection();
-      await insertAggregatorLinks({
-        fingerprint: fileRec.fingerprint,
-        linkArray: unique,
-        embedFunction: embedTextByPython
-      });
-    } catch(eMilvus){
-      console.error('[scan] milvus insert error =>', eMilvus);
-    }
+    // (因已改走 Python，故此段可保留或註解)
+    // try {
+    //   console.log('[scan] insert aggregator + manual links => milvus...');
+    //   await initCollection();
+    //   await insertAggregatorLinks({
+    //     fingerprint: fileRec.fingerprint,
+    //     linkArray: unique,
+    //     embedFunction: embedTextByPython
+    //   });
+    // } catch(eMilvus){
+    //   console.error('[scan] milvus insert error =>', eMilvus);
+    // }
     // ===========================================
+    */
 
-    // 4) 產「掃描報告 PDF」=> 改用含相似圖片的版本 generateScanPDFWithMatches
     const scanPdfName= `scanReport_${fileRec.id}.pdf`;
     const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
 
@@ -1544,7 +1529,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     const rptExists= fs.existsSync(scanPdfPath);
     console.log('[scan] PDF fileExists?', rptExists);
 
-    // ★ 新增：圖搜完成後刪除暫存檔(影片 / 圖片 / 抽幀資料夾)
+    // ★ 新增：刪除暫存檔
     try {
       if(isVideo){
         if(fs.existsSync(localPath)){
@@ -1609,7 +1594,6 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
 
 //--------------------------------------
 // [★ 新增] GET /protect/scanLink?url=xxx
-//    => 抓該連結主圖 => aggregator/fallback + 向量檢索 => PDF 報告
 //--------------------------------------
 router.get('/scanLink', async(req,res)=>{
   try {
@@ -1619,15 +1603,12 @@ router.get('/scanLink', async(req,res)=>{
     }
     console.log('[GET /scanLink] =>', pageUrl);
 
-    // 準備一個臨時檔案
     const tmpFilePath = path.join(UPLOAD_BASE_DIR, `linkImage_${Date.now()}.jpg`);
 
-    // 用 aggregatorSearchLink 抓主圖 + aggregator/fallback + 向量檢索
     const { aggregatorResult, vectorResult, mainImgUrl, error } =
       await aggregatorSearchLink(pageUrl, tmpFilePath, true);
 
     if(!aggregatorResult){
-      // 代表抓圖失敗或 aggregator 無結果
       return res.json({
         message: '聚合搜尋或抓主圖失敗',
         aggregatorResult: null,
@@ -1637,14 +1618,12 @@ router.get('/scanLink', async(req,res)=>{
       });
     }
 
-    // aggregatorResult => { bing:{links:[...]}, tineye:{links:[...]}, baidu:{links:[...]} }
     let suspiciousLinks = [];
     if(aggregatorResult.bing?.links)   suspiciousLinks.push(...aggregatorResult.bing.links);
     if(aggregatorResult.tineye?.links) suspiciousLinks.push(...aggregatorResult.tineye.links);
     if(aggregatorResult.baidu?.links)  suspiciousLinks.push(...aggregatorResult.baidu.links);
     suspiciousLinks = [...new Set(suspiciousLinks)];
 
-    // vectorResult => 若有 => 下載相似圖 base64
     let matchedImages = [];
     if(vectorResult && vectorResult.results){
       for(const r of vectorResult.results){
@@ -1653,7 +1632,7 @@ router.get('/scanLink', async(req,res)=>{
             const resp = await axios.get(r.url, { responseType:'arraybuffer' });
             const b64  = Buffer.from(resp.data).toString('base64');
             matchedImages.push({
-              id: r.id,
+              url: r.url,
               score: r.score,
               base64: b64
             });
@@ -1664,7 +1643,6 @@ router.get('/scanLink', async(req,res)=>{
       }
     }
 
-    // 產出 PDF => linkScanReport_xxx.pdf
     const pdfName = `linkScanReport_${Date.now()}.pdf`;
     const pdfPath = path.join(REPORTS_DIR, pdfName);
 
@@ -1682,7 +1660,6 @@ router.get('/scanLink', async(req,res)=>{
         : null
     }, pdfPath);
 
-    // 刪除臨時檔案
     try {
       if(fs.existsSync(tmpFilePath)){
         fs.unlinkSync(tmpFilePath);
@@ -1706,7 +1683,6 @@ router.get('/scanLink', async(req,res)=>{
 
 //--------------------------------------
 // [★ 新增] GET /protect/scanReportsLink/:pdfName
-//    => 下載「scanLink」所產生的報告 PDF
 //--------------------------------------
 router.get('/scanReportsLink/:pdfName', async(req,res)=>{
   try {
