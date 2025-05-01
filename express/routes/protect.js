@@ -307,6 +307,7 @@ async function generateCertificatePDF(data, outputPath){
 
 //----------------------------------------
 // [5] 產生「侵權偵測報告 PDF」(Puppeteer) - (原始, 留著備用)
+//   * 最終我們多用 generateScanPDFWithMatches()，本函式保留示範
 //----------------------------------------
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outputPath){
   console.log('[generateScanPDF] =>', outputPath);
@@ -1697,5 +1698,44 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
     return res.status(500).json({ error:e.message });
   }
 });
+
+/* 
+ * ------------------------------------------------------------------------------------
+ * [新增區塊] 以下示範如何在 Node.js 端呼叫 Celery / Python FastAPI (若有需要可自行調整)
+ * ------------------------------------------------------------------------------------
+ *
+ * 1. Celery 相關:
+ *    - 假設您在 python_crawlers/workers/tasks.py 裡面有個 task: send_report_email(reportPath, toEmail)
+ *    - 您可在這裡透過 axios 或 amqp 方式把工作排到 Celery
+ *
+ * 2. FastAPI 相關:
+ *    - 如果想直接在 Node.js 端呼叫 Python FastAPI 的 /api/v1/crawlOrSomething
+ *    - 可在此用 axios.post('http://suzoo_fastapi:8001/api/v1/crawl', { ... })
+ */
+
+// [Celery相關範例] - 以下只是示範，您需在 ../utils/celeryClient.js 或類似檔案實作
+// router.post('/celery/sendEmailReport', async (req,res)=>{
+//   try {
+//     // e.g. const jobId = await celeryClient.sendTask('tasks.send_report_email', [reportPath, req.body.toEmail]);
+//     return res.json({ message: 'Email job queued' });
+//   } catch(e){
+//     console.error('[celery sendEmailReport]', e);
+//     return res.status(500).json({ error: e.message });
+//   }
+// });
+
+// [FastAPI相關範例] - 如果要呼叫 Python 端來做額外爬蟲
+// router.post('/fastapi/crawlSomething', async (req,res)=>{
+//   try {
+//     const resp = await axios.post('http://suzoo_fastapi:8001/api/v1/crawl', {
+//       url: req.body.url
+//     });
+//     return res.json(resp.data);
+//   } catch(e){
+//     console.error('[fastapi crawlSomething]', e);
+//     return res.status(500).json({ error: e.message });
+//   }
+// });
+
 
 module.exports = router;
