@@ -11,20 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 先複製 package.json + package-lock.json
+# 把所有程式碼(包含 scripts/)先複製到容器；或至少先複製 package*.json 和 scripts/
 COPY package*.json ./
-
-# [新增] 這一步先把 scripts/ checkMilvus.js 也複製進去
 COPY scripts ./scripts
-
-# 再安裝，避免 postinstall 找不到 scripts/checkMilvus.js
-RUN npm install
-
-# 最後再把其他檔案 (server.js, routes 等) 全部複製
-COPY . .
+COPY . .   # 如果你的 .dockerignore 沒有忽略 scripts，可直接一行 COPY . .
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# 接著才 npm install，保證 scripts/checkMilvus.js 已經在容器內
+RUN npm install
 
 EXPOSE 3000
 
