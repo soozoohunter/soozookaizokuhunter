@@ -1,15 +1,9 @@
-fastapi==0.95.1
-uvicorn==0.21.1
-
-# 文字嵌入
-sentence-transformers==2.2.2
-huggingface_hub==0.14.1
-
-# Milvus Python SDK
-pymilvus==2.3.0
-
-# 圖片嵌入 (CLIP)
-torch==2.0.0
-transformers==4.28.1
-Pillow==9.5.0
-requests==2.31.0
+fastapi
+uvicorn
+sentence_transformers
+transformers
+torch
+pymilvus
+Pillow
+requests
+pydantic
