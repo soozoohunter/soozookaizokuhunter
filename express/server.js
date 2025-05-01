@@ -115,7 +115,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForTimeout(5000);
 
         let links = await page.$$eval('a', as => as.map(a=> a.href));
-        links = links.filter(l=> l && !l.includes('baidu.com'));
+        links = links.filter(l && !l.includes('baidu.com'));
         finalLinks.push(...links);
       } catch(e) {
         console.error('[fallback Baidu error]', e);
