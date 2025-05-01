@@ -78,10 +78,8 @@ services:
       - "3000"
     restart: unless-stopped
     volumes:
-      # 持續掛載 uploads、debugShots 以保留生成的檔案
       - ./uploads:/app/uploads
       - ./debugShots:/app/debugShots
-      # 加入 /app/node_modules，避免宿主機把容器內的 node_modules 覆蓋掉
       - /app/node_modules
 
   # Frontend (React + Nginx)
@@ -119,6 +117,19 @@ services:
       - suzoo_net
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
+    environment:
+      - ETCD_ENDPOINTS=http://suzoo_etcd:2379
+
+  # etcd (for Milvus)
+  suzoo_etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: suzoo_etcd
+    environment:
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
+    networks:
+      - suzoo_net
+    restart: unless-stopped
 
   # Python Vector Service (sentence_transformers)
   suzoo_python_vector:
