@@ -119,6 +119,8 @@ services:
       - suzoo_milvus_data:/var/lib/milvus
     environment:
       - ETCD_ENDPOINTS=http://suzoo_etcd:2379
+    depends_on:
+      - suzoo_etcd
 
   # etcd (for Milvus)
   suzoo_etcd:
