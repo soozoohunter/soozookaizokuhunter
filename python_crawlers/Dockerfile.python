@@ -1,0 +1,15 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# 安裝 ffmpeg, 可能需要 apt-get
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+COPY python_crawlers/requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY python_crawlers/ ./
+
+# 若要跑 daemon，可加 CMD
+# 但若只是臨時容器 => 在 pipelines/cron job 觸發
+CMD ["python", "crawl_and_index.py"]
