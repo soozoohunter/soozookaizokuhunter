@@ -16,21 +16,21 @@ WORKDIR /app
 # 先複製 package.json / package-lock.json（若有）
 COPY package*.json ./
 
-# 確保 scripts/checkMilvus.js 被複製，雖然我們不在 build 時執行，但容器啟動時會用到
+# 若有 scripts/ 目錄，將其一併複製（內含 checkMilvus.js）
 COPY scripts ./scripts
 
-# Puppeteer 不要下載內建 Chromium，直接用系統安裝的 /usr/bin/chromium
+# 告知 Puppeteer 不要下載內建 Chromium，直接使用我們安裝好的 /usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# 這邊只做依賴安裝，**不進行 check:milvus**，以免 DNS 不到 suzoo_milvus
+# 只安裝依賴，不要在這裡做連線測試
 RUN npm install
 
 # 複製其餘原始碼 (server.js, routes, models... 等)
 COPY . ./
 
-# Docker 容器預設開放的 port
+# Docker 容器預設開放埠
 EXPOSE 3000
 
-# ★ 容器啟動時：先 npm run check:milvus (此時 Docker Compose 已啟動 suzoo_milvus, DNS 正常)
+# 容器啟動時：先執行 check:milvus，再啟動 Express
 CMD ["/bin/bash", "-c", "npm run check:milvus && npm start"]
