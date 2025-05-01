@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # PostgreSQL
   suzoo_postgres:
@@ -61,17 +63,74 @@ services:
       - "8000"
     restart: unless-stopped
 
+  # Milvus
+  suzoo_milvus:
+    image: milvusdb/milvus:v2.3.11
+    container_name: suzoo_milvus
+    restart: unless-stopped
+    ports:
+      - "19530:19530"
+      - "19121:19121"
+    command: [ "milvus", "run", "standalone" ]
+    networks:
+      - suzoo_net
+    volumes:
+      - suzoo_milvus_data:/var/lib/milvus
+
+    # ★ 新增 Healthcheck，僅供參考：假設 Milvus 在 9091 提供 /healthz 並表示所有協調器都已啟動完成
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+    # Etcd (for Milvus)
+    depends_on:
+      - suzoo_etcd
+
+  # etcd (for Milvus)
+  suzoo_etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: suzoo_etcd
+    environment:
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  # Python Vector Service (sentence_transformers)
+  suzoo_python_vector:
+    build:
+      context: ./python-vector-service
+      dockerfile: Dockerfile
+    container_name: suzoo_python_vector
+    depends_on:
+      - suzoo_milvus
+    networks:
+      - suzoo_net
+    ports:
+      - "8000:8000"
+    environment:
+      - MILVUS_HOST=suzoo_milvus
+      - MILVUS_PORT=19530
+    restart: unless-stopped
+
   # Express
   suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
-    # 依賴 suzoo_postgres, suzoo_fastapi... 讓它們先啟動
     depends_on:
-      - suzoo_postgres
-      - suzoo_fastapi
-      - suzoo_milvus
+      # 若要等 Milvus 真的 Healthcheck 後才啟動，可寫：
+      suzoo_milvus:
+        condition: service_healthy
+      suzoo_postgres:
+        condition: service_started
+      suzoo_fastapi:
+        condition: service_started
     env_file:
       - .env
     networks:
@@ -104,60 +163,6 @@ services:
       - /etc/letsencrypt:/etc/nginx/certs:ro
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
       - ./uploads:/app/uploads:ro
-    restart: unless-stopped
-
-  # Milvus
-  suzoo_milvus:
-    image: milvusdb/milvus:v2.3.11
-    container_name: suzoo_milvus
-    restart: unless-stopped
-    ports:
-      - "19530:19530"
-      - "19121:19121"
-    command: [ "milvus", "run", "standalone" ]
-    networks:
-      - suzoo_net
-    volumes:
-      - suzoo_milvus_data:/var/lib/milvus
-    environment:
-      - ETCD_ENDPOINTS=http://suzoo_etcd:2379
-    depends_on:
-      - suzoo_etcd
-    # 可選：若你想 Docker Compose 等 Milvus 真正 healthy 再啟動 express，可以嘗試:
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 5s
-    # ↑ 需確認 Milvus 是否有在 9091 Port 或 8080 Port 提供 /healthz Endpoint
-
-  # etcd (for Milvus)
-  suzoo_etcd:
-    image: quay.io/coreos/etcd:v3.5.5
-    container_name: suzoo_etcd
-    environment:
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  # Python Vector Service (sentence_transformers)
-  suzoo_python_vector:
-    build:
-      context: ./python-vector-service
-      dockerfile: Dockerfile
-    container_name: suzoo_python_vector
-    depends_on:
-      - suzoo_milvus
-    networks:
-      - suzoo_net
-    ports:
-      - "8000:8000"
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
     restart: unless-stopped
 
 networks:
