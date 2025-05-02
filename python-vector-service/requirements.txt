@@ -1,10 +1,10 @@
 fastapi
 uvicorn
-sentence_transformers
-transformers
-torch
-pymilvus
-Pillow
 requests
+pillow
+torch
+transformers
+sentence_transformers
+pymilvus
 pydantic
 celery
