@@ -93,10 +93,8 @@ services:
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:
@@ -171,9 +169,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      # 取代整個 conf.d 目錄
       - ./nginx:/etc/nginx/conf.d:ro
-      # React build 靜態檔根目錄
       - ./frontend/html:/usr/share/nginx/html:ro
     command: ["nginx", "-g", "daemon off;"]
     networks:
