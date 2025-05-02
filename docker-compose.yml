@@ -191,7 +191,8 @@ services:
     volumes:
       - ./frontend/build:/usr/share/nginx/html:ro
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - ${SSL_CERT_PATH%/*}:/etc/nginx/certs/live:ro
+      # 直接挂载证书目录（确保宿主机上有这一路径）
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live:ro
     ports:
       - "80:80"
       - "443:443"
