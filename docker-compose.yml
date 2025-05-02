@@ -36,9 +36,14 @@ services:
     container_name: suzoo_etcd
     image: quay.io/coreos/etcd:v3.5.5
     environment:
-      - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      ETCD_NAME: suzoo_etcd
+      ETCD_ADVERTISE_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://suzoo_etcd:2380
+      ETCD_INITIAL_CLUSTER: suzoo_etcd=http://suzoo_etcd:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster
     ports:
       - "2379:2379"
       - "2380:2380"
@@ -100,15 +105,11 @@ services:
       - suzoo_net
 
   #################################
-  # FastAPI (可選自行建置)
+  # FastAPI
   #################################
   suzoo_fastapi:
     container_name: suzoo_fastapi
     image: soozookaizokuhunter-suzoo_fastapi
-    # 如需自行建置可改用:
-    # build:
-    #   context: ./fastapi
-    #   dockerfile: Dockerfile
     ports:
       - "8000:8000"
     depends_on:
@@ -125,13 +126,13 @@ services:
       context: ./express
       dockerfile: Dockerfile
     image: soozookaizokuhunter-suzoo_express
+    env_file:
+      - .env
     ports:
       - "3000:3000"
     depends_on:
       suzoo_postgres:
         condition: service_started
-    env_file:
-      - .env
     networks:
       - suzoo_net
 
@@ -141,10 +142,6 @@ services:
   suzoo_python_vector:
     container_name: suzoo_python_vector
     image: soozookaizokuhunter-suzoo_python_vector
-    # 如需自行建置可改用:
-    # build:
-    #   context: ./python-vector-service
-    #   dockerfile: Dockerfile
     ports:
       - "8001:8000"
     depends_on:
@@ -158,10 +155,6 @@ services:
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
     image: soozookaizokuhunter-suzoo_crawler_runner
-    # 如需自行建置可改用:
-    # build:
-    #   context: ./python_crawlers
-    #   dockerfile: Dockerfile.python
     depends_on:
       - suzoo_rabbitmq
     networks:
@@ -182,9 +175,11 @@ services:
       suzoo_fastapi:
         condition: service_started
     volumes:
-      - ./suzoo.conf/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - ./frontend/certs:/etc/nginx/certs:ro
+      - ./frontend/html:/usr/share/nginx/html:ro
     command: >
-      /bin/sh -c "rm -f /etc/nginx/conf.d/default.conf &&
+      /bin/sh -c "rm -f /etc/nginx/conf.d/default.conf &&\
                   nginx -g 'daemon off;'"
     networks:
       - suzoo_net
