@@ -1,34 +1,20 @@
-############################################################
-# 您的最終整合 Docker Compose：
-# - Ganache (suzoo_ganache)
-# - IPFS (suzoo_ipfs)
-# - ETCD (suzoo_etcd)
-# - Milvus (suzoo_milvus)
-# - RabbitMQ (suzoo_rabbitmq)
-# - PostgreSQL (suzoo_postgres)
-# - FastAPI (suzoo_fastapi)
-# - Express (suzoo_express)
-# - Python Vector Service (suzoo_python_vector, FastAPI)
-# - Celery Crawler Runner (suzoo_crawler_runner)
-# - Nginx Frontend (suzoo_frontend)
-############################################################
 services:
-  # -------------------------------------------------------
-  # Ganache
-  # -------------------------------------------------------
+  #################################
+  # Ganache (區塊鏈)
+  #################################
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache-cli:latest
-    command: >
-      --noVMErrorsOnRPCResponse
     ports:
       - "8545:8545"
+    command: >
+      --noVMErrorsOnRPCResponse
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
+  #################################
   # IPFS
-  # -------------------------------------------------------
+  #################################
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/go-ipfs:latest
@@ -43,9 +29,9 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # ETCD (Milvus dependency)
-  # -------------------------------------------------------
+  #################################
+  # etcd (for Milvus)
+  #################################
   suzoo_etcd:
     container_name: suzoo_etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -59,9 +45,9 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
+  #################################
   # Milvus
-  # -------------------------------------------------------
+  #################################
   suzoo_milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.11
@@ -80,9 +66,9 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # RabbitMQ
-  # -------------------------------------------------------
+  #################################
+  # RabbitMQ (Celery Broker)
+  #################################
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.11-management
@@ -95,9 +81,9 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
+  #################################
   # PostgreSQL
-  # -------------------------------------------------------
+  #################################
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -112,13 +98,16 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # FastAPI (後端服務 1)
-  # -------------------------------------------------------
+  #################################
+  # FastAPI (可選)
+  #################################
   suzoo_fastapi:
     container_name: suzoo_fastapi
     image: soozookaizokuhunter-suzoo_fastapi
-    # 若您想本地 build => build: { context: ./fastapi, dockerfile: Dockerfile }
+    # 如需自行建置可改用:
+    # build:
+    #   context: ./fastapi
+    #   dockerfile: Dockerfile
     ports:
       - "8000:8000"
     depends_on:
@@ -126,12 +115,13 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # Express (後端服務 2)
-  # -------------------------------------------------------
+  #################################
+  # Express
+  #################################
   suzoo_express:
     container_name: suzoo_express
     image: soozookaizokuhunter-suzoo_express
+    # 如需自行建置可改:
     # build:
     #   context: ./express
     #   dockerfile: Dockerfile
@@ -142,71 +132,56 @@ services:
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # Python Vector Service (FastAPI, 向量檢索)
-  # -------------------------------------------------------
+  #################################
+  # Python Vector Service
+  #################################
   suzoo_python_vector:
     container_name: suzoo_python_vector
-    # 若您要自行 build:
-    #   build:
-    #     context: ./python-vector-service
-    #     dockerfile: Dockerfile
     image: soozookaizokuhunter-suzoo_python_vector
+    # 或 build:
+    #   context: ./python-vector-service
+    #   dockerfile: Dockerfile
     ports:
       - "8001:8000"
     depends_on:
       - suzoo_milvus
-      - suzoo_rabbitmq
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-      - BROKER_URL=amqp://admin:admin@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
+  #################################
   # Crawler Runner (Celery Worker)
-  # -------------------------------------------------------
+  #################################
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
-    # 若您要自行 build:
-    #   build:
-    #     context: ./python_crawlers
-    #     dockerfile: Dockerfile
     image: soozookaizokuhunter-suzoo_crawler_runner
+    # 或 build:
+    #   context: ./python_crawlers
+    #   dockerfile: Dockerfile.python
     depends_on:
       - suzoo_rabbitmq
-      - suzoo_python_vector
-    environment:
-      - BROKER_URL=amqp://admin:admin@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
-      - API_BASE=http://suzoo_python_vector:8000
-      - DB_PATH=/app/sqlite_db/sources.db
     networks:
       - suzoo_net
 
-  # -------------------------------------------------------
-  # Nginx Frontend
-  # -------------------------------------------------------
+  #################################
+  # Frontend (Nginx)
+  #################################
   suzoo_frontend:
     container_name: suzoo_frontend
     image: nginx:alpine
+    # 開放 80, 443
     ports:
       - "80:80"
       - "443:443"
     depends_on:
       - suzoo_express
       - suzoo_fastapi
+    # 掛載 suzoo.conf 到 /etc/nginx/conf.d/suzoo.conf
+    # 另外移除 container 內 default.conf
     volumes:
-      # ---- 以下兩行重點：同時掛載您現有的 2 個 suzoo.conf ----
-      # 1) ./nginx/suzoo.conf => /etc/nginx/conf.d/suzoo.conf
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo.conf
-      # 2) ./frontend/suzoo.conf => /etc/nginx/conf.d/suzoo_frontend.conf
-      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_frontend.conf
-
-      # 如果您還有 certs 目錄:
-      # - /etc/letsencrypt:/etc/nginx/certs:ro
+      - ./suzoo.conf:/etc/nginx/conf.d/suzoo.conf
+    command: >
+      /bin/sh -c "rm -f /etc/nginx/conf.d/default.conf &&
+                  nginx -g 'daemon off;'"
     networks:
       - suzoo_net
 
