@@ -1,14 +1,22 @@
+# python-vector-service/Dockerfile
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# 安裝 ffmpeg、libgl1，如需處理影片/顯示等
-RUN apt-get update && apt-get install -y ffmpeg libgl1 && rm -rf /var/lib/apt/lists/*
+# 安裝系統相依（如果有需要）
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential \
+      libgl1 \
+ && rm -rf /var/lib/apt/lists/*
 
+# 複製並安裝 Python 套件
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip \
+ && pip install -r requirements.txt
 
-COPY . /app/
+# 複製應用程式碼
+COPY . .
 
-EXPOSE 8000
+# 啟動 Uvicorn，綁所有介面
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
