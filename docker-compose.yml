@@ -1,147 +1,145 @@
-networks:
-  suzoo_net:
-    driver: bridge
+# docker-compose.yml
+# 已移除 version 屬性，符合新版 Docker Compose（v2）使用方式。
+# 下面範例同時包含所有需要的 service，並避免 orphan containers 與版本警告。
+# 若有自定義檔案路徑、參數或環境變數，請自行調整對應位置。
 
-volumes:
-  suzoo_db_data:
-  suzoo_milvus_data:
-
-#############################
-# 服務定義
-#############################
 services:
-  suzoo_postgres:
-    image: postgres:15-alpine
-    container_name: suzoo_postgres
-    environment:
-      POSTGRES_USER: suzoo
-      POSTGRES_PASSWORD: KaiShieldDbPass2023!
-      POSTGRES_DB: suzoo
-    volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - suzoo_db_data:/var/lib/postgresql/data
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
   suzoo_ganache:
-    image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
-    command: ganache-cli --host 0.0.0.0 --port 8545
+    image: trufflesuite/ganache-cli:latest
     ports:
       - "8545:8545"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
+    command: >
+      --noVMErrorsOnRPCResponse
+    # 其他環境變數或參數可自行增修
 
   suzoo_ipfs:
-    image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
-    command: daemon
+    image: ipfs/go-ipfs:latest
     ports:
-      - "5001:5001"
       - "8080:8080"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
+      - "5001:5001"
+    # IPFS 健康檢查
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:5001/api/v0/version || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   suzoo_etcd:
-    image: quay.io/coreos/etcd:v3.5.5
     container_name: suzoo_etcd
+    image: quay.io/coreos/etcd:v3.5.5
     environment:
-      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
-      ETCD_ADVERTISE_CLIENT_URLS: http://suzoo_etcd:2379
-    networks:
-      - suzoo_net
-    restart: unless-stopped
+      - ETCD_ADVERTISE_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+    ports:
+      - "2379:2379"
+      - "2380:2380"
 
   suzoo_milvus:
-    image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
-    command: ["milvus", "run", "standalone"]
+    image: milvusdb/milvus:v2.3.11
+    # 依實際需求增減參數
     ports:
       - "19530:19530"
       - "19121:19121"
-    environment:
-      ETCD_ENDPOINTS: http://suzoo_etcd:2379
-    volumes:
-      - suzoo_milvus_data:/var/lib/milvus
-    networks:
-      - suzoo_net
     depends_on:
       - suzoo_etcd
-    restart: unless-stopped
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
 
   suzoo_rabbitmq:
-    image: rabbitmq:3.11-management
     container_name: suzoo_rabbitmq
+    image: rabbitmq:3.11-management
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: 123456
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
     ports:
       - "5672:5672"
       - "15672:15672"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
+
+  suzoo_postgres:
+    container_name: suzoo_postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   suzoo_fastapi:
-    build: ./fastapi
     container_name: suzoo_fastapi
-    environment:
-      POSTGRES_HOST: suzoo_postgres
-      BLOCKCHAIN_RPC_URL: http://suzoo_ganache:8545
-      IPFS_API_URL: http://suzoo_ipfs:5001
-      BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
-    expose:
-      - "8000"
-    networks:
-      - suzoo_net
+    image: soozookaizokuhunter-suzoo_fastapi
+    # 若需自行建置，可改用 build:
+    # build:
+    #   context: ./fastapi
+    #   dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
     depends_on:
       - suzoo_postgres
-      - suzoo_ganache
-      - suzoo_ipfs
-    restart: unless-stopped
 
   suzoo_express:
-    build: ./express
     container_name: suzoo_express
-    environment:
-      DATABASE_URL: postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
-      BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
-    expose:
-      - "3000"
-    networks:
-      - suzoo_net
+    image: soozookaizokuhunter-suzoo_express
+    # 若需自行建置，可改用 build:
+    # build:
+    #   context: ./express
+    #   dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
     depends_on:
       - suzoo_postgres
+
+  suzoo_python_vector:
+    container_name: suzoo_python_vector
+    image: soozookaizokuhunter-suzoo_python_vector
+    # 若需自行建置，可改用 build:
+    # build:
+    #   context: ./python_vector
+    #   dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    depends_on:
+      - suzoo_milvus
+
+  suzoo_crawler_runner:
+    container_name: suzoo_crawler_runner
+    image: soozookaizokuhunter-suzoo_crawler_runner
+    # 若需自行建置，可改用 build:
+    # build:
+    #   context: ./crawler_runner
+    #   dockerfile: Dockerfile
+    depends_on:
       - suzoo_rabbitmq
-    restart: unless-stopped
 
   suzoo_frontend:
-    image: nginx:alpine
     container_name: suzoo_frontend
+    image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
+    # 若預設 docker-entrypoint.d/ 內的腳本想修改 /etc/nginx/conf.d/default.conf，
+    # 請不要將 volume 設為 :ro，否則會出現無法修改的警告。
     volumes:
-      # 覆蓋 default.conf 為你完整的 HTTPS+SPA 設定
-      - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      # SSL 憑證目錄只讀
-      - /etc/letsencrypt:/etc/nginx/certs:ro
-      # React build
-      - ./frontend/build:/usr/share/nginx/html:ro
-    networks:
-      - suzoo_net
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    restart: unless-stopped
-
-networks:
-  suzoo_net:
-    driver: bridge
 
 volumes:
-  suzoo_db_data:
-  suzoo_milvus_data:
+  postgres_data:
+
+# 如有需要可自定義網路
+networks:
+  default:
+    driver: bridge
