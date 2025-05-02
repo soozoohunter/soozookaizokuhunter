@@ -2,6 +2,7 @@ import os
 import io
 import sqlite3
 import requests
+import time
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
@@ -20,69 +21,20 @@ from pymilvus import (
 # Celery Client
 from celery import Celery
 
-# 取得 broker/backend
+# 配置
 BROKER_URL = os.environ.get("BROKER_URL", "amqp://admin:123456@suzoo_rabbitmq:5672//")
 RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "rpc://")
-celery_app = Celery("celery_client", broker=BROKER_URL, backend=RESULT_BACKEND)
-
-app = FastAPI(title="Suzoo Vector Service with Celery & Milvus")
-
-# 連線 Milvus
 MILVUS_HOST = os.environ.get("MILVUS_HOST", "suzoo_milvus")
 MILVUS_PORT = os.environ.get("MILVUS_PORT", "19530")
-connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
-
 IMAGE_COLLECTION_NAME = "image_collection"
 DIM_IMAGE = 512
-
-# 若集合不存在，則建立
-if not utility.has_collection(IMAGE_COLLECTION_NAME):
-    fields = [
-        FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-        FieldSchema(name="url", dtype=DataType.VARCHAR, max_length=300),
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIM_IMAGE),
-    ]
-    schema = CollectionSchema(fields, description="Store CLIP embeddings of images.")
-    collection = Collection(name=IMAGE_COLLECTION_NAME, schema=schema)
-    collection.create_index(
-        field_name="embedding",
-        index_params={
-            "index_type": "IVF_FLAT",
-            "metric_type": "IP",
-            "params": {"nlist": 256}
-        }
-    )
-    collection.load()
-else:
-    collection = Collection(IMAGE_COLLECTION_NAME)
-    collection.load()
-
-# 初始化 CLIP & SentenceTransformer
-text_model = SentenceTransformer('all-MiniLM-L6-v2')
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-# SQLite DB path
 DB_PATH = os.path.join(os.path.dirname(__file__), "sqlite_db", "sources.db")
 
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('''
-    CREATE TABLE IF NOT EXISTS pending_urls (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url TEXT NOT NULL,
-        status INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-    conn.commit()
-    conn.close()
+# FastAPI & Celery
+app = FastAPI(title="Suzoo Vector Service with Celery & Milvus")
+celery_app = Celery("celery_client", broker=BROKER_URL, backend=RESULT_BACKEND)
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
+# Pydantic 模型
 class TextEmbedRequest(BaseModel):
     text: str
 
@@ -100,6 +52,69 @@ class InsertImageRequest(BaseModel):
 class URLItem(BaseModel):
     url: HttpUrl
 
+# 初始化資料庫
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS pending_urls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT NOT NULL,
+            status INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+@app.on_event("startup")
+async def on_startup():
+    # 1) 初始化 SQLite
+    init_db()
+    # 2) 等待並連線 Milvus
+    connected = False
+    for i in range(10):
+        try:
+            connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
+            connected = True
+            break
+        except Exception as e:
+            print(f"[startup] Milvus connect failed ({e}), retry {i+1}/10...")
+            time.sleep(3)
+    if not connected:
+        raise RuntimeError(f"Cannot connect to Milvus at {MILVUS_HOST}:{MILVUS_PORT}")
+
+    # 3) 建立或載入 Collection
+    if not utility.has_collection(IMAGE_COLLECTION_NAME):
+        fields = [
+            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+            FieldSchema(name="url", dtype=DataType.VARCHAR, max_length=300),
+            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIM_IMAGE),
+        ]
+        schema = CollectionSchema(fields, description="Store CLIP embeddings of images.")
+        coll = Collection(name=IMAGE_COLLECTION_NAME, schema=schema)
+        coll.create_index(
+            field_name="embedding",
+            index_params={
+                "index_type": "IVF_FLAT",
+                "metric_type": "IP",
+                "params": {"nlist": 256}
+            }
+        )
+        coll.load()
+    else:
+        coll = Collection(IMAGE_COLLECTION_NAME)
+        coll.load()
+    globals()['collection'] = coll
+
+# 載入模型
+text_model = SentenceTransformer('all-MiniLM-L6-v2')
+clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+# API 實作
 @app.post("/api/v1/text-embed")
 def text_embed(req: TextEmbedRequest):
     vec = text_model.encode([req.text])
@@ -110,14 +125,11 @@ def image_embed(req: ImageEmbedRequest):
     try:
         resp = requests.get(req.image_url, timeout=10)
         resp.raise_for_status()
-        img_bytes = resp.content
-        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
+        image = Image.open(io.BytesIO(resp.content)).convert("RGB")
         inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
-            features = clip_model.get_image_features(**inputs)
-        vec = features[0].cpu().numpy().tolist()
-        return {"embedding": vec}
+            feat = clip_model.get_image_features(**inputs)[0]
+        return {"embedding": feat.cpu().numpy().tolist()}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -125,7 +137,6 @@ def image_embed(req: ImageEmbedRequest):
 def image_search(req: ImageSearchRequest):
     if not req.image_url and not req.image_base64:
         raise HTTPException(status_code=400, detail="Must provide image_url or image_base64")
-
     try:
         if req.image_url:
             resp = requests.get(req.image_url, timeout=10)
@@ -134,26 +145,16 @@ def image_search(req: ImageSearchRequest):
         else:
             import base64
             img_bytes = base64.b64decode(req.image_base64)
-
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
-            query_vec = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
-
+            qv = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
         results = collection.search(
-            data=[query_vec],
-            anns_field="embedding",
-            param={"metric_type": "IP", "params": {"nprobe": 32}},
-            limit=req.top_k,
+            data=[qv], anns_field="embedding",
+            param={"metric_type":"IP","params":{"nprobe":32}}, limit=req.top_k,
             output_fields=["url"]
         )
-        hits = []
-        for hit in results[0]:
-            hits.append({
-                "url": hit.entity.get("url"),
-                "score": float(hit.distance)
-            })
-        return {"results": hits}
+        return {"results": [{"url": h.entity.get("url"), "score": float(h.distance)} for h in results[0]]}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Search error: {e}")
 
@@ -162,42 +163,24 @@ def image_insert(req: InsertImageRequest):
     try:
         resp = requests.get(req.image_url, timeout=10)
         resp.raise_for_status()
-        img_bytes = resp.content
-        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-
+        image = Image.open(io.BytesIO(resp.content)).convert("RGB")
         inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
-            vec = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
-
-        insert_res = collection.insert([
-            [None],
-            [req.image_url],
-            [vec],
-        ])
+            v = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
+        res = collection.insert([[None], [req.image_url], [v]])
         collection.flush()
-        return {"status": "ok", "insert_count": len(insert_res.primary_keys)}
+        return {"status":"ok","insert_count":len(res.primary_keys)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Insert error: {e}")
 
 @app.post("/api/v1/source/add-url")
 def add_url(item: URLItem):
-    """
-    1) 插入 pending_urls (status=0)
-    2) 立刻呼叫 Celery => tasks.crawl_url(record_id, item.url)
-    """
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("INSERT INTO pending_urls (url) VALUES (?)", (item.url,))
-    record_id = cur.lastrowid
+    rid = cur.lastrowid
     conn.commit()
     cur.close()
     conn.close()
-
-    # 呼叫 Celery Worker
-    celery_app.send_task("tasks.crawl_url", args=[record_id, item.url])
-
-    return {
-        "status": "OK",
-        "message": f"已寫入DB並派給Celery => {item.url}",
-        "record_id": record_id
-    }
+    celery_app.send_task("tasks.crawl_url", args=[rid, item.url])
+    return {"status":"OK","message":f"已寫入DB並派給Celery => {item.url}","record_id":rid}
