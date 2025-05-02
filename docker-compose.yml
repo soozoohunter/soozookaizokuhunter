@@ -97,7 +97,7 @@ services:
       IPFS_API_URL: http://suzoo_ipfs:5001
       BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
     expose:
-      - 8000
+      - "8000"
     networks:
       - suzoo_net
     depends_on:
@@ -113,7 +113,7 @@ services:
       DATABASE_URL: postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
       BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
     expose:
-      - 3000
+      - "3000"
     networks:
       - suzoo_net
     depends_on:
@@ -127,10 +127,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    # 這裡是修正重點：整個 /etc/letsencrypt 資料夾掛載到容器內的 /etc/nginx/certs
+    # 讓 symlink 可以正常指向 /archive 與 /live 下的憑證檔案
     volumes:
-      # 用你的前端 SSL + HTTP->HTTPS 設定覆蓋掉預設 default.conf
-      - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      # 整個 letsencrypt 資料夾，確保 live & archive symlink 可解析
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
       - /etc/letsencrypt:/etc/nginx/certs:ro
       - ./frontend/build:/usr/share/nginx/html:ro
     networks:
