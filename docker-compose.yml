@@ -1,12 +1,26 @@
+#############################
+# 網路與 Volume
+#############################
+networks:
+  suzoo_net:
+    driver: bridge
+
+volumes:
+  suzoo_db_data:
+  suzoo_milvus_data:
+
+#############################
+# 服務定義
+#############################
 services:
   # === PostgreSQL ===
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=suzoo
+      - POSTGRES_PASSWORD=KaiShieldDbPass2023!
+      - POSTGRES_DB=suzoo
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - suzoo_db_data:/var/lib/postgresql/data
@@ -53,24 +67,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # === FastAPI (可選) ===
-  suzoo_fastapi:
-    build:
-      context: ./fastapi
-      dockerfile: Dockerfile
-    container_name: suzoo_fastapi
-    depends_on:
-      - suzoo_postgres
-      - suzoo_ganache
-      - suzoo_ipfs
-    env_file:
-      - .env
-    networks:
-      - suzoo_net
-    expose:
-      - "8000"
-    restart: unless-stopped
-
   # === etcd (for Milvus) ===
   suzoo_etcd:
     image: quay.io/coreos/etcd:v3.5.5
@@ -101,12 +97,12 @@ services:
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
     environment:
-      ETCD_ENDPOINTS: "http://suzoo_etcd:2379"
-      MINIO_ADDRESS: "localhost"
-      MINIO_PORT: "9000"
-      MINIO_ACCESS_KEY_ID: "minioadmin"
-      MINIO_SECRET_ACCESS_KEY: "minioadmin"
-      MINIO_USE_SSL: "false"
+      - ETCD_ENDPOINTS=http://suzoo_etcd:2379
+      - MINIO_ADDRESS=localhost
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY_ID=minioadmin
+      - MINIO_SECRET_ACCESS_KEY=minioadmin
+      - MINIO_USE_SSL=false
     depends_on:
       suzoo_etcd:
         condition: service_healthy
@@ -133,11 +129,12 @@ services:
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
+      # 可視需求補充更多環境變數
     volumes:
       - ./data/sqlite_db:/app/sqlite_db
     restart: unless-stopped
 
-  # === Crawler Runner (可視需求執行) ===
+  # === Crawler Runner ===
   suzoo_crawler_runner:
     build:
       context: ./python-vector-service
@@ -169,14 +166,73 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  # === FastAPI (核心後端或 API) ===
+  suzoo_fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    container_name: suzoo_fastapi
+    depends_on:
+      - suzoo_postgres
+      - suzoo_ganache
+      - suzoo_ipfs
+    networks:
+      - suzoo_net
+    expose:
+      - "8000"
+    restart: unless-stopped
+    environment:
+      # 資料庫連線
+      - POSTGRES_HOST=suzoo_postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=suzoo
+      - POSTGRES_PASSWORD=KaiShieldDbPass2023!
+      - POSTGRES_DB=suzoo
+
+      # JWT
+      - JWT_SECRET=ZmVkOWY4ZDItNWU3MC00NDM5LW
+
+      # Cloudinary
+      - CLOUDINARY_CLOUD_NAME=dhjoabbkj
+      - CLOUDINARY_API_KEY=559164261664744
+      - CLOUDINARY_API_SECRET=CBLyksZYM6udCSY2-Jhv3a4E5dI
+
+      # RapidAPI (DMCA)
+      - RAPIDAPI_KEY=71dbbf39f7msh794002260b4e71bp1025e2jsn652998e0f81a
+
+      # 區塊鏈
+      - BLOCKCHAIN_RPC_URL=http://suzoo_ganache:8545
+      - BLOCKCHAIN_PRIVATE_KEY=0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - CONTRACT_ADDRESS=0x590CC0a45103883cEa6E27c9a4Cc356De6384aeb
+
+      # IPFS
+      - IPFS_API_URL=http://suzoo_ipfs:5001
+
+      # SSL 憑證路徑
+      - SSL_CERT_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/fullchain.pem
+      - SSL_CERT_KEY_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/privkey.pem
+
+      # DMCA 違規指紋
+      - DMCA_BANNED_FINGERPRINTS=d41d8cd98f00b204e9800998ecf8427e
+
+      # 其他
+      - FASTAPI_URL=http://suzoo_fastapi:8000
+
+      # RabbitMQ / Celery
+      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
+      - RESULT_BACKEND=rpc://
+
+      # AWS / S3
+      - AWS_ACCESS_KEY=xxx
+      - AWS_SECRET_KEY=yyy
+      - AWS_REGION=us-east-1
+
   # === Express Backend ===
   suzoo_express:
     build:
       context: ./express
       dockerfile: Dockerfile
     container_name: suzoo_express
-    env_file:
-      - .env
     depends_on:
       - suzoo_postgres
       - suzoo_rabbitmq
@@ -185,6 +241,65 @@ services:
     expose:
       - "3000"
     restart: unless-stopped
+    environment:
+      # 資料庫
+      - DATABASE_URL=postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
+
+      # Express 登入資訊 (Basic Auth or 自訂)
+      - EXPRESS_LOGIN_USER=your_express_username
+      - EXPRESS_LOGIN_PASS=your_express_password
+      - EXPRESS_BASE_URL=http://suzoo_express:3000
+      - EXPRESS_PORT=3000
+
+      # 其他與 FastAPI 相同的參數，如需要
+      - POSTGRES_HOST=suzoo_postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=suzoo
+      - POSTGRES_PASSWORD=KaiShieldDbPass2023!
+      - POSTGRES_DB=suzoo
+
+      # JWT
+      - JWT_SECRET=ZmVkOWY4ZDItNWU3MC00NDM5LW
+
+      # Cloudinary
+      - CLOUDINARY_CLOUD_NAME=dhjoabbkj
+      - CLOUDINARY_API_KEY=559164261664744
+      - CLOUDINARY_API_SECRET=CBLyksZYM6udCSY2-Jhv3a4E5dI
+
+      # RapidAPI (DMCA)
+      - RAPIDAPI_KEY=71dbbf39f7msh794002260b4e71bp1025e2jsn652998e0f81a
+
+      # 區塊鏈
+      - BLOCKCHAIN_RPC_URL=http://suzoo_ganache:8545
+      - BLOCKCHAIN_PRIVATE_KEY=0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - CONTRACT_ADDRESS=0x590CC0a45103883cEa6E27c9a4Cc356De6384aeb
+
+      # IPFS
+      - IPFS_API_URL=http://suzoo_ipfs:5001
+
+      # SSL 憑證路徑 (若 Express 後端也需 SSL / 檔案操作)
+      - SSL_CERT_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/fullchain.pem
+      - SSL_CERT_KEY_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/privkey.pem
+
+      # DMCA 違規指紋
+      - DMCA_BANNED_FINGERPRINTS=d41d8cd98f00b204e9800998ecf8427e
+
+      # RabbitMQ / Celery
+      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
+      - RESULT_BACKEND=rpc://
+
+      # AWS / S3
+      - AWS_ACCESS_KEY=xxx
+      - AWS_SECRET_KEY=yyy
+      - AWS_REGION=us-east-1
+
+      # Nodemailer
+      - EMAIL_USER=jeffqqm@gmail.com
+      - EMAIL_PASS=ydamngzhkcilljha
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - EMAIL_FROM="KaiKai Shield <jeffqqm@gmail.com>"
 
   # === Nginx Frontend ===
   suzoo_frontend:
@@ -199,15 +314,12 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      # 這裡掛載你給的 suzoo.conf，裡面已經有 HTTP->HTTPS 轉址 與 HTTPS server block 設定
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+
+      # 掛載 Let's Encrypt 憑證與私鑰 (確保本機目錄 /etc/letsencrypt/live/suzookaizokuhunter.com 存在)
       - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+
+      # 前端打包好的靜態檔
       - ./frontend/build:/usr/share/nginx/html:ro
     restart: unless-stopped
-
-networks:
-  suzoo_net:
-    driver: bridge
-
-volumes:
-  suzoo_db_data:
-  suzoo_milvus_data:
