@@ -1,12 +1,13 @@
+# python-vector-service/app.py
 import os
 import io
 import sqlite3
 import requests
-import time
+import base64
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
-from typing import Optional
 
 from sentence_transformers import SentenceTransformer
 from PIL import Image
@@ -21,17 +22,21 @@ from pymilvus import (
 # Celery Client
 from celery import Celery
 
-# 配置
+# 环境变量
 BROKER_URL = os.environ.get("BROKER_URL", "amqp://admin:123456@suzoo_rabbitmq:5672//")
 RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "rpc://")
 MILVUS_HOST = os.environ.get("MILVUS_HOST", "suzoo_milvus")
 MILVUS_PORT = os.environ.get("MILVUS_PORT", "19530")
+
+# Collection 配置
 IMAGE_COLLECTION_NAME = "image_collection"
 DIM_IMAGE = 512
+
+# SQLite 路径
 DB_PATH = os.path.join(os.path.dirname(__file__), "sqlite_db", "sources.db")
 
 # FastAPI & Celery
-app = FastAPI(title="Suzoo Vector Service with Celery & Milvus")
+app = FastAPI(title="Suzoo Vector Service")
 celery_app = Celery("celery_client", broker=BROKER_URL, backend=RESULT_BACKEND)
 
 # Pydantic 模型
@@ -52,7 +57,8 @@ class InsertImageRequest(BaseModel):
 class URLItem(BaseModel):
     url: HttpUrl
 
-# 初始化資料庫
+# 本地缓存：等客户端第一次调用时才初始化 Milvus & Collection
+collection = None
 
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -68,25 +74,20 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 @app.on_event("startup")
-async def on_startup():
-    # 1) 初始化 SQLite
+def on_startup():
+    # 只做 SQLite 初始化，快速返回
     init_db()
-    # 2) 等待並連線 Milvus
-    connected = False
-    for i in range(10):
-        try:
-            connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
-            connected = True
-            break
-        except Exception as e:
-            print(f"[startup] Milvus connect failed ({e}), retry {i+1}/10...")
-            time.sleep(3)
-    if not connected:
-        raise RuntimeError(f"Cannot connect to Milvus at {MILVUS_HOST}:{MILVUS_PORT}")
 
-    # 3) 建立或載入 Collection
+# Helper：懒连接 Milvus
+def get_collection():
+    global collection
+    if collection is not None:
+        return collection
+
+    # 1) 连接 Milvus
+    connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
+    # 2) 创建或加载 Collection
     if not utility.has_collection(IMAGE_COLLECTION_NAME):
         fields = [
             FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
@@ -97,24 +98,21 @@ async def on_startup():
         coll = Collection(name=IMAGE_COLLECTION_NAME, schema=schema)
         coll.create_index(
             field_name="embedding",
-            index_params={
-                "index_type": "IVF_FLAT",
-                "metric_type": "IP",
-                "params": {"nlist": 256}
-            }
+            index_params={"index_type":"IVF_FLAT","metric_type":"IP","params":{"nlist":256}}
         )
         coll.load()
     else:
         coll = Collection(IMAGE_COLLECTION_NAME)
         coll.load()
-    globals()['collection'] = coll
 
-# 載入模型
+    collection = coll
+    return collection
+
+# 加载模型
 text_model = SentenceTransformer('all-MiniLM-L6-v2')
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-# API 實作
 @app.post("/api/v1/text-embed")
 def text_embed(req: TextEmbedRequest):
     vec = text_model.encode([req.text])
@@ -138,38 +136,44 @@ def image_search(req: ImageSearchRequest):
     if not req.image_url and not req.image_base64:
         raise HTTPException(status_code=400, detail="Must provide image_url or image_base64")
     try:
+        # 取得原始 bytes
         if req.image_url:
-            resp = requests.get(req.image_url, timeout=10)
-            resp.raise_for_status()
+            resp = requests.get(req.image_url, timeout=10); resp.raise_for_status()
             img_bytes = resp.content
         else:
-            import base64
             img_bytes = base64.b64decode(req.image_base64)
+
+        # CLIP 编码
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
             qv = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
-        results = collection.search(
+
+        # 搜索
+        coll = get_collection()
+        results = coll.search(
             data=[qv], anns_field="embedding",
-            param={"metric_type":"IP","params":{"nprobe":32}}, limit=req.top_k,
-            output_fields=["url"]
+            param={"metric_type":"IP","params":{"nprobe":32}},
+            limit=req.top_k, output_fields=["url"]
         )
-        return {"results": [{"url": h.entity.get("url"), "score": float(h.distance)} for h in results[0]]}
+        hits = [{"url":h.entity.get("url"), "score":float(h.distance)} for h in results[0]]
+        return {"results": hits}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Search error: {e}")
 
 @app.post("/api/v1/image-insert")
 def image_insert(req: InsertImageRequest):
     try:
-        resp = requests.get(req.image_url, timeout=10)
-        resp.raise_for_status()
+        resp = requests.get(req.image_url, timeout=10); resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
         inputs = clip_processor(images=image, return_tensors="pt")
         with torch.no_grad():
             v = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
-        res = collection.insert([[None], [req.image_url], [v]])
-        collection.flush()
-        return {"status":"ok","insert_count":len(res.primary_keys)}
+
+        coll = get_collection()
+        res = coll.insert([[None], [req.image_url], [v]])
+        coll.flush()
+        return {"status":"ok", "insert_count": len(res.primary_keys)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Insert error: {e}")
 
@@ -179,8 +183,7 @@ def add_url(item: URLItem):
     cur = conn.cursor()
     cur.execute("INSERT INTO pending_urls (url) VALUES (?)", (item.url,))
     rid = cur.lastrowid
-    conn.commit()
-    cur.close()
-    conn.close()
+    conn.commit(); cur.close(); conn.close()
+
     celery_app.send_task("tasks.crawl_url", args=[rid, item.url])
-    return {"status":"OK","message":f"已寫入DB並派給Celery => {item.url}","record_id":rid}
+    return {"status":"OK", "message":f"已寫入DB並派給Celery => {item.url}", "record_id": rid}
