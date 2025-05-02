@@ -13,44 +13,30 @@ volumes:
 # 服務定義
 #############################
 services:
-  # === PostgreSQL ===
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
     environment:
-      - POSTGRES_USER=suzoo
-      - POSTGRES_PASSWORD=KaiShieldDbPass2023!
-      - POSTGRES_DB=suzoo
+      POSTGRES_USER: suzoo
+      POSTGRES_PASSWORD: KaiShieldDbPass2023!
+      POSTGRES_DB: suzoo
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - suzoo_db_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U suzoo -h localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # === Ganache (區塊鏈) ===
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
-    command: >
-      ganache-cli
-      --host 0.0.0.0
-      --port 8545
-      --accounts 4
-      --defaultBalanceEther 100
-      --account "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,1000000000000000000000"
+    command: ganache-cli --host 0.0.0.0 --port 8545
     ports:
       - "8545:8545"
     networks:
       - suzoo_net
     restart: unless-stopped
 
-  # === IPFS ===
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
@@ -61,30 +47,17 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/api/v0/version"]
-      interval: 20s
-      timeout: 10s
-      retries: 3
 
-  # === etcd (for Milvus) ===
   suzoo_etcd:
     image: quay.io/coreos/etcd:v3.5.5
     container_name: suzoo_etcd
     environment:
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://suzoo_etcd:2379
     networks:
       - suzoo_net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://localhost:2379"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
 
-  # === Milvus (standalone) ===
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
@@ -92,72 +65,22 @@ services:
     ports:
       - "19530:19530"
       - "19121:19121"
-    networks:
-      - suzoo_net
+    environment:
+      ETCD_ENDPOINTS: http://suzoo_etcd:2379
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
-    environment:
-      - ETCD_ENDPOINTS=http://suzoo_etcd:2379
-      - MINIO_ADDRESS=localhost
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY_ID=minioadmin
-      - MINIO_SECRET_ACCESS_KEY=minioadmin
-      - MINIO_USE_SSL=false
-    depends_on:
-      suzoo_etcd:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 5s
-    restart: unless-stopped
-
-  # === Python Vector Service (FastAPI + SQLite) ===
-  suzoo_python_vector:
-    build:
-      context: ./python-vector-service
-      dockerfile: Dockerfile
-    container_name: suzoo_python_vector
-    depends_on:
-      - suzoo_milvus
     networks:
       - suzoo_net
-    ports:
-      - "8001:8000"
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-    volumes:
-      - ./data/sqlite_db:/app/sqlite_db
+    depends_on:
+      - suzoo_etcd
     restart: unless-stopped
 
-  # === Crawler Runner ===
-  suzoo_crawler_runner:
-    build:
-      context: ./python-vector-service
-      dockerfile: Dockerfile
-    container_name: suzoo_crawler_runner
-    depends_on:
-      - suzoo_python_vector
-    networks:
-      - suzoo_net
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-    volumes:
-      - ./data/sqlite_db:/app/sqlite_db
-    command: ["python", "crawl_and_index.py"]
-
-  # === RabbitMQ ===
   suzoo_rabbitmq:
     image: rabbitmq:3.11-management
     container_name: suzoo_rabbitmq
-    hostname: suzoo_rabbitmq
     environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=123456
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: 123456
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -165,105 +88,52 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # === FastAPI (核心後端或 API) ===
   suzoo_fastapi:
-    build:
-      context: ./fastapi
-      dockerfile: Dockerfile
+    build: ./fastapi
     container_name: suzoo_fastapi
+    environment:
+      POSTGRES_HOST: suzoo_postgres
+      BLOCKCHAIN_RPC_URL: http://suzoo_ganache:8545
+      IPFS_API_URL: http://suzoo_ipfs:5001
+      BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
+    expose:
+      - 8000
+    networks:
+      - suzoo_net
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
       - suzoo_ipfs
+    restart: unless-stopped
+
+  suzoo_express:
+    build: ./express
+    container_name: suzoo_express
+    environment:
+      DATABASE_URL: postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
+      BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
+    expose:
+      - 3000
     networks:
       - suzoo_net
-    expose:
-      - "8000"
-    restart: unless-stopped
-    environment:
-      - POSTGRES_HOST=suzoo_postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=suzoo
-      - POSTGRES_PASSWORD=KaiShieldDbPass2023!
-      - POSTGRES_DB=suzoo
-      - JWT_SECRET=ZmVkOWY4ZDItNWU3MC00NDM5LW
-      - CLOUDINARY_CLOUD_NAME=dhjoabbkj
-      - CLOUDINARY_API_KEY=559164261664744
-      - CLOUDINARY_API_SECRET=CBLyksZYM6udCSY2-Jhv3a4E5dI
-      - RAPIDAPI_KEY=71dbbf39f7msh794002260b4e71bp1025e2jsn652998e0f81a
-      - BLOCKCHAIN_RPC_URL=http://suzoo_ganache:8545
-      - BLOCKCHAIN_PRIVATE_KEY=0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      - CONTRACT_ADDRESS=0x590CC0a45103883cEa6E27c9a4Cc356De6384aeb
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-      - SSL_CERT_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/fullchain.pem
-      - SSL_CERT_KEY_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/privkey.pem
-      - DMCA_BANNED_FINGERPRINTS=d41d8cd98f00b204e9800998ecf8427e
-      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
-      - AWS_ACCESS_KEY=xxx
-      - AWS_SECRET_KEY=yyy
-      - AWS_REGION=us-east-1
-
-  # === Express Backend ===
-  suzoo_express:
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    container_name: suzoo_express
     depends_on:
       - suzoo_postgres
       - suzoo_rabbitmq
+    restart: unless-stopped
+
+  suzoo_frontend:
+    image: nginx:alpine
+    container_name: suzoo_frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+      - ./frontend/build:/usr/share/nginx/html:ro
     networks:
       - suzoo_net
-    expose:
-      - "3000"
+    depends_on:
+      - suzoo_express
+      - suzoo_fastapi
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
-      - EXPRESS_LOGIN_USER=your_express_username
-      - EXPRESS_LOGIN_PASS=your_express_password
-      - EXPRESS_BASE_URL=http://suzoo_express:3000
-      - EXPRESS_PORT=3000
-      - JWT_SECRET=ZmVkOWY4ZDItNWU3MC00NDM5LW
-      - CLOUDINARY_CLOUD_NAME=dhjoabbkj
-      - CLOUDINARY_API_KEY=559164261664744
-      - CLOUDINARY_API_SECRET=CBLyksZYM6udCSY2-Jhv3a4E5dI
-      - RAPIDAPI_KEY=71dbbf39f7msh794002260b4e71bp1025e2jsn652998e0f81a
-      - BLOCKCHAIN_RPC_URL=http://suzoo_ganache:8545
-      - BLOCKCHAIN_PRIVATE_KEY=0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      - CONTRACT_ADDRESS=0x590CC0a45103883cEa6E27c9a4Cc356De6384aeb
-      - IPFS_API_URL=http://suzoo_ipfs:5001
-      - SSL_CERT_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/fullchain.pem
-      - SSL_CERT_KEY_PATH=/etc/letsencrypt/live/suzookaizokuhunter.com/privkey.pem
-      - DMCA_BANNED_FINGERPRINTS=d41d8cd98f00b204e9800998ecf8427e
-      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
-      - AWS_ACCESS_KEY=xxx
-      - AWS_SECRET_KEY=yyy
-      - AWS_REGION=us-east-1
-      - EMAIL_USER=jeffqqm@gmail.com
-      - EMAIL_PASS=ydamngzhkcilljha
-      - SMTP_HOST=smtp.gmail.com
-      - SMTP_PORT=587
-      - SMTP_SECURE=false
-      - EMAIL_FROM="KaiKai Shield <jeffqqm@gmail.com>"
-
-  # === Nginx Frontend ===
-suzoo_frontend:
-  image: nginx:alpine
-  container_name: suzoo_frontend
-  depends_on:
-    - suzoo_express
-    - suzoo_fastapi
-  networks:
-    - suzoo_net
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-    # 明確指定 SSL 憑證目錄
-    - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
-    # 將frontend build後的靜態檔案掛載進容器內
-    - ./frontend/build:/usr/share/nginx/html:ro
-  restart: unless-stopped
