@@ -121,6 +121,10 @@ services:
     image: milvusdb/milvus:v2.3.11
     depends_on:
       - suzoo_etcd
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: "suzoo_etcd:2379"
+      MINIO_ADDRESS: "127.0.0.1:9000"
     ports:
       - "19530:19530"
       - "19121:19121"
@@ -154,6 +158,8 @@ services:
     image: soozookaizokuhunter-suzoo_crawler_runner
     depends_on:
       - suzoo_rabbitmq
+    ports:
+      - "8002:8000"
     networks:
       - suzoo_net
 
