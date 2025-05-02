@@ -1,19 +1,89 @@
 services:
-  #################################
-  # Ganache (區塊鏈)
-  #################################
-  suzoo_ganache:
-    container_name: suzoo_ganache
-    image: trufflesuite/ganache-cli:latest
+
+  suzoo_postgres:
+    container_name: suzoo_postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "8545:8545"
-    command: "--noVMErrorsOnRPCResponse"
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
 
-  #################################
-  # IPFS
-  #################################
+  suzoo_express:
+    container_name: suzoo_express
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      IPFS_API_URL: ${IPFS_API_URL}
+      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
+      BLOCKCHAIN_PRIVATE_KEY: ${BLOCKCHAIN_PRIVATE_KEY}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      FASTAPI_URL: ${FASTAPI_URL}
+      MILVUS_HOST: ${MILVUS_HOST}
+      MILVUS_PORT: ${MILVUS_PORT}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      EMAIL_FROM: ${EMAIL_FROM}
+    depends_on:
+      - suzoo_postgres
+      - suzoo_ipfs
+      - suzoo_ganache
+      - suzoo_milvus
+    ports:
+      - "3000:3000"
+    networks:
+      - suzoo_net
+
+  suzoo_frontend:
+    container_name: suzoo_frontend
+    image: nginx:alpine
+    depends_on:
+      - suzoo_express
+      - suzoo_fastapi
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/build:/usr/share/nginx/html:ro
+    command: ["nginx", "-g", "daemon off;"]
+    networks:
+      - suzoo_net
+
+  suzoo_fastapi:
+    container_name: suzoo_fastapi
+    image: soozookaizokuhunter-suzoo_fastapi
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      - suzoo_postgres
+    ports:
+      - "8000:8000"
+    networks:
+      - suzoo_net
+
+  suzoo_ganache:
+    container_name: suzoo_ganache
+    image: trufflesuite/ganache-cli:latest
+    command: "--noVMErrorsOnRPCResponse"
+    ports:
+      - "8545:8545"
+    networks:
+      - suzoo_net
+
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/go-ipfs:latest
@@ -28,9 +98,6 @@ services:
     networks:
       - suzoo_net
 
-  #################################
-  # etcd (for Milvus)
-  #################################
   suzoo_etcd:
     container_name: suzoo_etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -49,9 +116,6 @@ services:
     networks:
       - suzoo_net
 
-  #################################
-  # Milvus
-  #################################
   suzoo_milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.11
@@ -60,19 +124,9 @@ services:
     ports:
       - "19530:19530"
       - "19121:19121"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
     networks:
       - suzoo_net
 
-  #################################
-  # RabbitMQ (Celery Broker)
-  #################################
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.11-management
@@ -85,54 +139,6 @@ services:
     networks:
       - suzoo_net
 
-  #################################
-  # PostgreSQL
-  #################################
-  suzoo_postgres:
-    container_name: suzoo_postgres
-    image: postgres:15-alpine
-    env_file:
-      - .env
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - suzoo_net
-
-  #################################
-  # FastAPI
-  #################################
-  suzoo_fastapi:
-    container_name: suzoo_fastapi
-    image: soozookaizokuhunter-suzoo_fastapi
-    depends_on:
-      - suzoo_postgres
-    ports:
-      - "8000:8000"
-    networks:
-      - suzoo_net
-
-  #################################
-  # Express API
-  #################################
-  suzoo_express:
-    container_name: suzoo_express
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - suzoo_postgres
-    ports:
-      - "3000:3000"
-    networks:
-      - suzoo_net
-
-  #################################
-  # Python Vector Service
-  #################################
   suzoo_python_vector:
     container_name: suzoo_python_vector
     image: soozookaizokuhunter-suzoo_python_vector
@@ -143,32 +149,11 @@ services:
     networks:
       - suzoo_net
 
-  #################################
-  # Crawler Runner (Celery Worker)
-  #################################
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
     image: soozookaizokuhunter-suzoo_crawler_runner
     depends_on:
       - suzoo_rabbitmq
-    networks:
-      - suzoo_net
-
-  #################################
-  # Frontend (Nginx) - HTTP Only
-  #################################
-  suzoo_frontend:
-    container_name: suzoo_frontend
-    image: nginx:alpine
-    depends_on:
-      - suzoo_express
-      - suzoo_fastapi
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/build:/usr/share/nginx/html:ro
-    command: ["nginx", "-g", "daemon off;"]
     networks:
       - suzoo_net
 
