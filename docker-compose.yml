@@ -1,5 +1,13 @@
+networks:
+  suzoo_net:
+    driver: bridge
+
+volumes:
+  suzoo_db_data:
+  suzoo_milvus_data:
+
 #############################
-# docker-compose.yml
+# 服務定義
 #############################
 services:
   suzoo_postgres:
@@ -86,7 +94,7 @@ services:
       IPFS_API_URL: http://suzoo_ipfs:5001
       BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
     expose:
-      - 8000
+      - "8000"
     networks:
       - suzoo_net
     depends_on:
@@ -102,7 +110,7 @@ services:
       DATABASE_URL: postgresql://suzoo:KaiShieldDbPass2023!@suzoo_postgres:5432/suzoo
       BROKER_URL: amqp://admin:123456@suzoo_rabbitmq:5672//
     expose:
-      - 3000
+      - "3000"
     networks:
       - suzoo_net
     depends_on:
@@ -117,11 +125,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # 把你在 nginx/suzoo.conf 裡寫好的完整設定，當成 default.conf 覆蓋掉
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      # SSL 憑證整個 letsencrypt 目錄只讀掛載
+      # 覆蓋 default.conf 為你完整的 HTTPS+SPA 設定
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
+      # SSL 憑證目錄只讀
       - /etc/letsencrypt:/etc/nginx/certs:ro
-      # React build output
+      # React build
       - ./frontend/build:/usr/share/nginx/html:ro
     networks:
       - suzoo_net
