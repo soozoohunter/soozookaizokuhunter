@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -122,15 +124,33 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  suzoo_minio:
+    container_name: suzoo_minio
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    command: server /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
   suzoo_milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.11
     depends_on:
       - suzoo_etcd
+      - suzoo_minio
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: "suzoo_etcd:2379"
-      MINIO_ADDRESS: "127.0.0.1:9000"
+      MINIO_ADDRESS: "suzoo_minio:9000"
+      MINIO_ACCESS_KEY_ID: "admin"
+      MINIO_SECRET_ACCESS_KEY: "admin123"
+      MINIO_USE_SSL: "false"
     ports:
       - "19530:19530"
       - "19121:19121"
