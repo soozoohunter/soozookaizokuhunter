@@ -3,6 +3,8 @@ services:
   suzoo_postgres:
     image: postgres:15-alpine
     container_name: suzoo_postgres
+    env_file:
+      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -23,13 +25,15 @@ services:
   suzoo_ganache:
     image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
+    env_file:
+      - .env
     command: >
       ganache-cli
       --host 0.0.0.0
       --port 8545
       --accounts 4
       --defaultBalanceEther 100
-      --account "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,100000000000000000000"
+      --account "${BLOCKCHAIN_PRIVATE_KEY},100000000000000000000"
     ports:
       - "8545:8545"
     networks:
@@ -40,6 +44,8 @@ services:
   suzoo_ipfs:
     image: ipfs/go-ipfs:latest
     container_name: suzoo_ipfs
+    env_file:
+      - .env
     command: daemon
     ports:
       - "5001:5001"
@@ -48,23 +54,23 @@ services:
       - suzoo_net
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/api/v0/version"]
+      test: ["CMD", "curl", "-f", "${IPFS_API_URL}/api/v0/version"]
       interval: 20s
       timeout: 10s
       retries: 3
 
-  # === FastAPI 前端 ===
+  # === FastAPI (後端) ===
   suzoo_fastapi:
     build:
       context: ./fastapi
       dockerfile: Dockerfile
     container_name: suzoo_fastapi
+    env_file:
+      - .env
     depends_on:
       - suzoo_postgres
       - suzoo_ganache
       - suzoo_ipfs
-    env_file:
-      - .env
     networks:
       - suzoo_net
     ports:
@@ -75,9 +81,8 @@ services:
   suzoo_etcd:
     image: quay.io/coreos/etcd:v3.5.5
     container_name: suzoo_etcd
-    environment:
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
+    env_file:
+      - .env
     networks:
       - suzoo_net
     restart: unless-stopped
@@ -92,24 +97,20 @@ services:
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
-    ports:
-      - "19530:19530"
-      - "19121:19121"
+    env_file:
+      - .env
     command: ["milvus", "run", "standalone"]
-    networks:
-      - suzoo_net
+    ports:
+      - "${MILVUS_PORT}:19530"
+      - "19121:19121"
     volumes:
       - suzoo_milvus_data:/var/lib/milvus
-    environment:
-      ETCD_ENDPOINTS: "http://suzoo_etcd:2379"
-      MINIO_ADDRESS: "localhost"
-      MINIO_PORT: "9000"
-      MINIO_ACCESS_KEY_ID: "minioadmin"
-      MINIO_SECRET_ACCESS_KEY: "minioadmin"
-      MINIO_USE_SSL: "false"
     depends_on:
       suzoo_etcd:
         condition: service_healthy
+    networks:
+      - suzoo_net
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 10s
@@ -123,29 +124,25 @@ services:
       context: ./python-vector-service
       dockerfile: Dockerfile
     container_name: suzoo_python_vector
+    env_file:
+      - .env
     depends_on:
       - suzoo_milvus
-    networks:
-      - suzoo_net
-    ports:
-      - "8001:8000"
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
     volumes:
       - ./data/sqlite_db:/app/sqlite_db
+    ports:
+      - "8001:8000"
+    networks:
+      - suzoo_net
     restart: unless-stopped
 
-  # === RabbitMQ ===
+  # === RabbitMQ (Celery Broker) ===
   suzoo_rabbitmq:
     image: rabbitmq:3.11-management
     container_name: suzoo_rabbitmq
+    env_file:
+      - .env
     hostname: suzoo_rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=123456
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -153,19 +150,54 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # === Crawler Runner：直接执行 scripts/kwax_crawl.sh ===
+  # === Crawler Runner ===
   suzoo_crawler_runner:
     image: python:3.9-slim
     container_name: suzoo_crawler_runner
+    env_file:
+      - .env
+    working_dir: /app
+    volumes:
+      - ./:/app
+    entrypoint: ["bash", "frontend/scripts/kwax_crawl.sh"]
     depends_on:
       - suzoo_python_vector
     networks:
       - suzoo_net
+    restart: unless-stopped
+
+  # === Express (Node API) ===
+  suzoo_express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    env_file:
+      - .env
+    ports:
+      - "${EXPRESS_PORT}:3000"
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  # === Frontend (React + Nginx) ===
+  suzoo_frontend:
+    image: nginx:alpine
+    container_name: suzoo_frontend
+    env_file:
+      - .env
+    depends_on:
+      - suzoo_express
     volumes:
-      - ./:/app
-    working_dir: /app
-    entrypoint: ["bash", "scripts/kwax_crawl.sh"]
-    restart: "no"
+      - ./frontend/build:/usr/share/nginx/html:ro
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - ${SSL_CERT_PATH%/*}:/etc/nginx/certs/live:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - suzoo_net
+    restart: unless-stopped
 
 networks:
   suzoo_net:
