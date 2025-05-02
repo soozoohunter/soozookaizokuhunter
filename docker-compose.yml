@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # === PostgreSQL ===
   suzoo_postgres:
@@ -55,7 +53,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # === FastAPI (選擇性) ===
+  # === FastAPI (可選) ===
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -135,28 +133,11 @@ services:
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
+      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
+      - RESULT_BACKEND=rpc://
     volumes:
       - ./data/sqlite_db:/app/sqlite_db  # 共享資料庫
     restart: unless-stopped
-
-  # === Crawler Runner (長期服務，持續檢查 pending_urls) ===
-  suzoo_crawler_runner:
-    build:
-      context: ./python_crawlers
-      dockerfile: Dockerfile.python
-    container_name: suzoo_crawler_runner
-    depends_on:
-      - suzoo_python_vector
-    networks:
-      - suzoo_net
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-      - API_BASE=http://suzoo_python_vector:8000
-    volumes:
-      - ./data/sqlite_db:/app/sqlite_db
-    restart: unless-stopped  # <-- 與一次性不同，現在是長期運行
-    # CMD: 會在 Dockerfile.python 內定義 while True 迴圈版本
 
   # === RabbitMQ ===
   suzoo_rabbitmq:
@@ -171,6 +152,27 @@ services:
       - "15672:15672"
     networks:
       - suzoo_net
+    restart: unless-stopped
+
+  # === Crawler Runner (Celery Worker，長期守護) ===
+  suzoo_crawler_runner:
+    build:
+      context: ./python_crawlers
+      dockerfile: Dockerfile.python
+    container_name: suzoo_crawler_runner
+    depends_on:
+      - suzoo_rabbitmq
+      - suzoo_milvus
+    networks:
+      - suzoo_net
+    environment:
+      - MILVUS_HOST=suzoo_milvus
+      - MILVUS_PORT=19530
+      - API_BASE=http://suzoo_python_vector:8000
+      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
+      - RESULT_BACKEND=rpc://
+    volumes:
+      - ./data/sqlite_db:/app/sqlite_db
     restart: unless-stopped
 
 networks:
