@@ -116,7 +116,7 @@ services:
   # === Python Vector Service (e.g. a FastAPI or just a python-crawlers job)
   suzoo_python_vector:
     build:
-      context: ./python_crawlers
+      context: ./python-vector-service
       dockerfile: Dockerfile
     container_name: suzoo_python_vector
     depends_on:
