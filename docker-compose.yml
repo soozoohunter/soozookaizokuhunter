@@ -1,5 +1,4 @@
 ############################################################
-# DarkerCompose.yml
 # 您的最終整合 Docker Compose：
 # - Ganache (suzoo_ganache)
 # - IPFS (suzoo_ipfs)
@@ -13,8 +12,6 @@
 # - Celery Crawler Runner (suzoo_crawler_runner)
 # - Nginx Frontend (suzoo_frontend)
 ############################################################
-version: "3.9"  # 若有警告可移除此行
-
 services:
   # -------------------------------------------------------
   # Ganache
