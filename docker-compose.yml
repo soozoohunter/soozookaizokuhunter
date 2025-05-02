@@ -29,7 +29,7 @@ services:
       --port 8545
       --accounts 4
       --defaultBalanceEther 100
-      --account "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,100000000000000000000"
+      --account "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef,1000000000000000000000000000000000000000"
     ports:
       - "8545:8545"
     networks:
@@ -92,11 +92,10 @@ services:
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
-    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
     ports:
       - "19530:19530"
       - "19121:19121"
-    command: ["milvus", "run", "standalone"]
     networks:
       - suzoo_net
     volumes:
@@ -117,6 +116,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 5s
+    restart: unless-stopped
 
   # === Python Vector Service (FastAPI + SQLite) ===
   suzoo_python_vector:
@@ -134,7 +134,7 @@ services:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
     volumes:
-      - ./data/sqlite_db:/app/sqlite_db  # 持久化 SQLite DB
+      - ./data/sqlite_db:/app/sqlite_db
     restart: unless-stopped
 
   # === Crawler Runner (可視需求執行) ===
@@ -147,12 +147,11 @@ services:
       - suzoo_python_vector
     networks:
       - suzoo_net
-    # 不需要固定開 Port, 因為只是跑一次
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
     volumes:
-      - ./data/sqlite_db:/app/sqlite_db  # 同樣共用 SQLite DB
+      - ./data/sqlite_db:/app/sqlite_db
     command: ["python", "crawl_and_index.py"]
 
   # === RabbitMQ ===
@@ -168,6 +167,41 @@ services:
       - "15672:15672"
     networks:
       - suzoo_net
+    restart: unless-stopped
+
+  # === Express Backend ===
+  suzoo_express:
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    env_file:
+      - .env
+    depends_on:
+      - suzoo_postgres
+      - suzoo_rabbitmq
+    networks:
+      - suzoo_net
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  # === Nginx Frontend ===
+  suzoo_frontend:
+    image: nginx:alpine
+    container_name: suzoo_frontend
+    depends_on:
+      - suzoo_express
+      - suzoo_fastapi
+    networks:
+      - suzoo_net
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+      - ./frontend/build:/usr/share/nginx/html:ro
     restart: unless-stopped
 
 networks:
