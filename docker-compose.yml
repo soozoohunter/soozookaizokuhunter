@@ -53,7 +53,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # === FastAPI (前端) ===
+  # === FastAPI 前端 ===
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -67,11 +67,8 @@ services:
       - .env
     networks:
       - suzoo_net
-    # 公开映射给宿主机访问
     ports:
       - "8000:8000"
-    expose:
-      - "8000"
     restart: unless-stopped
 
   # === etcd (for Milvus) ===
@@ -95,7 +92,6 @@ services:
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
-    restart: unless-stopped
     ports:
       - "19530:19530"
       - "19121:19121"
@@ -121,7 +117,7 @@ services:
       retries: 12
       start_period: 5s
 
-  # === Python Vector Service (FastAPI + CLIP + Milvus + SQLite) ===
+  # === Python Vector Service ===
   suzoo_python_vector:
     build:
       context: ./python-vector-service
@@ -157,26 +153,19 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # === Crawler Runner (Celery Worker) ===
+  # === Crawler Runner：直接执行 scripts/kwax_crawl.sh ===
   suzoo_crawler_runner:
-    build:
-      context: ./python_crawlers
-      dockerfile: Dockerfile.python
+    image: python:3.9-slim
     container_name: suzoo_crawler_runner
     depends_on:
-      - suzoo_rabbitmq
-      - suzoo_milvus
+      - suzoo_python_vector
     networks:
       - suzoo_net
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
-      - API_BASE=http://suzoo_python_vector:8000
-      - BROKER_URL=amqp://admin:123456@suzoo_rabbitmq:5672//
-      - RESULT_BACKEND=rpc://
     volumes:
-      - ./data/sqlite_db:/app/sqlite_db
-    restart: unless-stopped
+      - ./:/app
+    working_dir: /app
+    entrypoint: ["bash", "scripts/kwax_crawl.sh"]
+    restart: "no"
 
 networks:
   suzoo_net:
