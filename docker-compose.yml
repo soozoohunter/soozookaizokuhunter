@@ -249,20 +249,21 @@ services:
       - EMAIL_FROM="KaiKai Shield <jeffqqm@gmail.com>"
 
   # === Nginx Frontend ===
-  suzoo_frontend:
-    image: nginx:alpine
-    container_name: suzoo_frontend
-    depends_on:
-      - suzoo_express
-      - suzoo_fastapi
-    networks:
-      - suzoo_net
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      # 將 letsencrypt live 目錄全部掛載，以確保所有域名子目錄都有
-      - /etc/letsencrypt/live:/etc/nginx/certs/live:ro
-      - ./frontend/build:/usr/share/nginx/html:ro
-    restart: unless-stopped
+suzoo_frontend:
+  image: nginx:alpine
+  container_name: suzoo_frontend
+  depends_on:
+    - suzoo_express
+    - suzoo_fastapi
+  networks:
+    - suzoo_net
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
+    # 明確指定 SSL 憑證目錄
+    - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+    # 將frontend build後的靜態檔案掛載進容器內
+    - ./frontend/build:/usr/share/nginx/html:ro
+  restart: unless-stopped
