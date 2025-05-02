@@ -3,23 +3,23 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# （可選）安裝系統套件
+# 安裝必要的 system lib (Pillow / OpenCV 用到的)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential \
       libgl1 \
  && rm -rf /var/lib/apt/lists/*
 
-# 複製 requirements 並安裝
+# 1) 複製 requirements 並安裝所有 Python 套件（包含 celery）
 COPY requirements.txt .
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt
 
-# 複製程式
+# 2) 複製程式碼
 COPY . .
 
-# 讓 container 內 uvicorn 聽 8000
+# 3) 開放 uvicorn 所用的 8000 端口
 EXPOSE 8000
 
-# 啟動 FastAPI
+# 4) 啟動 FastAPI
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
