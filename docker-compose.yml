@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # === PostgreSQL ===
   suzoo_postgres:
@@ -53,7 +55,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # === FastAPI (可選) ===
+  # === FastAPI (選擇性) ===
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -88,7 +90,7 @@ services:
       retries: 5
       start_period: 5s
 
-  # === Milvus (standalone, 修正後完整配置) ===
+  # === Milvus (standalone) ===
   suzoo_milvus:
     image: milvusdb/milvus:v2.3.11
     container_name: suzoo_milvus
@@ -118,7 +120,7 @@ services:
       retries: 12
       start_period: 5s
 
-  # === Python Vector Service ===
+  # === Python Vector Service (FastAPI + CLIP + Milvus + SQLite) ===
   suzoo_python_vector:
     build:
       context: ./python-vector-service
@@ -133,7 +135,28 @@ services:
     environment:
       - MILVUS_HOST=suzoo_milvus
       - MILVUS_PORT=19530
+    volumes:
+      - ./data/sqlite_db:/app/sqlite_db  # 共享資料庫
     restart: unless-stopped
+
+  # === Crawler Runner (長期服務，持續檢查 pending_urls) ===
+  suzoo_crawler_runner:
+    build:
+      context: ./python_crawlers
+      dockerfile: Dockerfile.python
+    container_name: suzoo_crawler_runner
+    depends_on:
+      - suzoo_python_vector
+    networks:
+      - suzoo_net
+    environment:
+      - MILVUS_HOST=suzoo_milvus
+      - MILVUS_PORT=19530
+      - API_BASE=http://suzoo_python_vector:8000
+    volumes:
+      - ./data/sqlite_db:/app/sqlite_db
+    restart: unless-stopped  # <-- 與一次性不同，現在是長期運行
+    # CMD: 會在 Dockerfile.python 內定義 while True 迴圈版本
 
   # === RabbitMQ ===
   suzoo_rabbitmq:
