@@ -67,7 +67,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # === etcd (Milvus 依賴) ===
+  # === etcd (for Milvus) ===
   suzoo_etcd:
     image: quay.io/coreos/etcd:v3.5.5
     container_name: suzoo_etcd
@@ -133,7 +133,7 @@ services:
       - ./data/sqlite_db:/app/sqlite_db
     restart: unless-stopped
 
-  # === Crawler Runner (一次性爬蟲模式) ===
+  # === Crawler Runner ===
   suzoo_crawler_runner:
     build:
       context: ./python-vector-service
@@ -165,7 +165,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # === FastAPI (核心 API) ===
+  # === FastAPI (核心後端或 API) ===
   suzoo_fastapi:
     build:
       context: ./fastapi
@@ -248,7 +248,7 @@ services:
       - SMTP_SECURE=false
       - EMAIL_FROM="KaiKai Shield <jeffqqm@gmail.com>"
 
-  # === Nginx Frontend (HTTPS + HTTP→HTTPS 轉址) ===
+  # === Nginx Frontend ===
   suzoo_frontend:
     image: nginx:alpine
     container_name: suzoo_frontend
@@ -262,6 +262,7 @@ services:
       - "443:443"
     volumes:
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo.conf:ro
-      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+      # 將 letsencrypt live 目錄全部掛載，以確保所有域名子目錄都有
+      - /etc/letsencrypt/live:/etc/nginx/certs/live:ro
       - ./frontend/build:/usr/share/nginx/html:ro
     restart: unless-stopped
