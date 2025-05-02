@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   #################################
   # Ganache (區塊鏈)
@@ -120,11 +122,10 @@ services:
   #################################
   suzoo_express:
     container_name: suzoo_express
+    build:
+      context: ./express
+      dockerfile: Dockerfile
     image: soozookaizokuhunter-suzoo_express
-    # 如需自行建置可改:
-    # build:
-    #   context: ./express
-    #   dockerfile: Dockerfile
     ports:
       - "3000:3000"
     depends_on:
@@ -168,15 +169,12 @@ services:
   suzoo_frontend:
     container_name: suzoo_frontend
     image: nginx:alpine
-    # 開放 80, 443
     ports:
       - "80:80"
       - "443:443"
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    # 掛載 suzoo.conf 到 /etc/nginx/conf.d/suzoo.conf
-    # 另外移除 container 內 default.conf
     volumes:
       - ./suzoo.conf:/etc/nginx/conf.d/suzoo.conf
     command: >
