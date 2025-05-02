@@ -1,5 +1,4 @@
 services:
-
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -13,6 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_express:
     container_name: suzoo_express
@@ -47,6 +47,7 @@ services:
       - "3000:3000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_frontend:
     container_name: suzoo_frontend
@@ -62,6 +63,7 @@ services:
     command: ["nginx", "-g", "daemon off;"]
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_fastapi:
     container_name: suzoo_fastapi
@@ -74,6 +76,7 @@ services:
       - "8000:8000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_ganache:
     container_name: suzoo_ganache
@@ -83,6 +86,7 @@ services:
       - "8545:8545"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
@@ -97,6 +101,7 @@ services:
       retries: 5
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_etcd:
     container_name: suzoo_etcd
@@ -115,6 +120,7 @@ services:
       - "2380:2380"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_milvus:
     container_name: suzoo_milvus
@@ -130,6 +136,7 @@ services:
       - "19121:19121"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
@@ -142,6 +149,7 @@ services:
       - "15672:15672"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_python_vector:
     container_name: suzoo_python_vector
@@ -152,6 +160,7 @@ services:
       - "8001:8000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
@@ -162,6 +171,7 @@ services:
       - "8002:8000"
     networks:
       - suzoo_net
+    restart: unless-stopped
 
 volumes:
   postgres_data:
