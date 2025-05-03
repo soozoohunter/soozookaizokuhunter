@@ -24,8 +24,14 @@ RUN npm install
 # 複製其餘檔案 (server.js, routes, models...)
 COPY . ./
 
+# 預先建立可能需要的資料夾 => /app/debugShots
+RUN mkdir -p /app/debugShots
+
+# 若有需要，也可複製字體進容器(若非 volumes 方式)
+# RUN mkdir -p /fonts
+# COPY fonts /fonts
+
 # 預設埠
 EXPOSE 3000
 
-# 直接執行 npm start
 CMD ["npm", "start"]
