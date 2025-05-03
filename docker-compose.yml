@@ -1,6 +1,3 @@
-# 建議拿掉 version: "3.9" 以免出現 "obsolete" 警告
-# version: "3.9"
-
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
