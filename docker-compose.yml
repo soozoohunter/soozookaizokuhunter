@@ -108,7 +108,9 @@ services:
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache-cli:latest
-    command: "--noVMErrorsOnRPCResponse"
+    command: >
+      --noVMErrorsOnRPCResponse
+      --account="0xc3ded7eaec361d5b94a495e390be497a7fd54173e6ca6f77df071b22cb7bd4d1,10000000000000000000"
     ports:
       - "8545:8545"
     networks:
