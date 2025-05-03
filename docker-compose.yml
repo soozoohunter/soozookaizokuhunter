@@ -69,10 +69,9 @@ services:
       # (3) 前端打包後的靜態檔
       - ./frontend/build:/usr/share/nginx/html:ro
 
-      # (4) 若您已在宿主機有 Let's Encrypt 憑證: /etc/letsencrypt/live/suzookaizokuhunter.com
-      #    而且在 suzoo.conf 中路徑為 /etc/nginx/certs/live/suzookaizokuhunter.com
-      #    請掛載到容器的該路徑，確保檔案對得上
-      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/nginx/certs/live/suzookaizokuhunter.com:ro
+      # (4) **關鍵**：掛整個 /etc/letsencrypt => 容器內 /etc/letsencrypt
+      #     以確保 live/ 與 archive/、renewal/ 的符號連結都能讀取
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
     # 刪除預設 default.conf 再啟動
     command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
