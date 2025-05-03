@@ -1,3 +1,6 @@
+# 建議拿掉 version: "3.9" 以免出現 "obsolete" 警告
+# version: "3.9"
+
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -55,23 +58,27 @@ services:
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    # 如果需要同時支援 HTTP 與 HTTPS，請保留下列兩行
-    # 如果只想保留 HTTP，可只留 "80:80"
+    # 同時開放 80 與 443，支援 HTTP -> HTTPS
     ports:
       - "80:80"
       - "443:443"
+    # 一次掛載「兩個」 Nginx 設定檔 + 前端 build 目錄 + certs
     volumes:
-      # 將最終版的 Nginx 設定檔掛載進來，含 HTTP->HTTPS 轉址、SSL 區塊
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      
-      # 前端建置後的靜態檔掛載路徑
+      # 1. 前端為了做 HTTP->HTTPS (frontend/suzoo.conf)
+      - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
+
+      # 2. 另一個保留原本 nginx/suzoo.conf
+      - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
+
+      # 3. 前端打包後的靜態檔
       - ./frontend/build:/usr/share/nginx/html:ro
-      
-      # 若要使用自己簽或 Let's Encrypt 的憑證，請將憑證掛載到容器內
-      # 下方只是範例：將本機 ./nginx/certs/ 掛載到容器 /etc/nginx/certs/
-      - ./nginx/certs:/etc/nginx/certs:ro
-      
-    command: ["nginx", "-g", "daemon off;"]
+
+      # 4. 如果您本機已有 certbot 自動取得的 Let's Encrypt 憑證
+      #    請確定對應路徑沒錯，再掛載進容器
+      - /etc/letsencrypt/live/suzookaizokuhunter.com:/etc/letsencrypt/live/suzookaizokuhunter.com:ro
+
+    # 用 command 移除容器內預設的 default.conf，再啟動 nginx
+    command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
       - suzoo_net
     restart: unless-stopped
@@ -155,7 +162,7 @@ services:
       - suzoo_minio
     command: ["milvus", "run", "standalone"]
     environment:
-      # 請注意：Milvus config 中的 MinIO 與 ETCD 必須使用服務名稱 + port
+      # 注意連線要用容器名稱
       ETCD_ENDPOINTS: "suzoo_etcd:2379"
       MINIO_ADDRESS: "suzoo_minio:9000"
       MINIO_ACCESS_KEY_ID: "admin"
