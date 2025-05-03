@@ -3,10 +3,10 @@
  *
  * 說明：
  *  1. 接收一個 pageUrl (例如 FB/IG/部落格文章)。
- *  2. 用 axios / puppeteer 抓該網頁主圖 (og:image 或最大 <img>)。
+ *  2. 用 axios / cheerio 抓該網頁主圖 (og:image 或最大 <img>)。
  *  3. 下載到本機檔案 => localFilePath
  *  4. 呼叫 doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=該主圖URL)
- *  5. 若需要再呼叫向量 searchLocalImage(...) or  searchImageByVector(...) 也可加在這裡。
+ *  5. (可選) 若 doVector=true，則另外呼叫 searchLocalImage(...)。
  */
 
 const path = require('path');
@@ -35,13 +35,11 @@ async function getMainImageUrl(pageUrl){
           || $('meta[name="og:image"]').attr('content');
 
   if(!ogImg){
-    // 若沒 og:image => 嘗試抓最大 <img>
-    let maxSize=0, bestSrc='';
+    // 若沒 og:image => 嘗試抓第一張 <img src="http...">
+    let bestSrc = '';
     $('img').each((i,el)=>{
       const src = $(el).attr('src') || '';
-      // 簡化判斷
       if(src.startsWith('http')){
-        // 無法知道寬度 => 直接取第一張 / or last one
         bestSrc = bestSrc || src;
       }
     });
