@@ -14,11 +14,24 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  ######################################################################
+  # (A) suzoo_express
+  ######################################################################
   suzoo_express:
     container_name: suzoo_express
     build:
       context: ./express
       dockerfile: Dockerfile
+    # ★ 加上 volumes 與環境變數修正
+    volumes:
+      # 1. 將本機的 fonts 資料夾掛到容器 /fonts
+      - ./express/fonts:/fonts:ro
+      
+      # 2. 建立 debugShots 資料夾（若您希望把 debugShots 也掛在本機）
+      #    如：./express/debugShots -> /app/debugShots
+      #    若您想要 logs 直接存在容器裡，也可以不掛載(由 Dockerfile mkdir)。
+      - ./express/debugShots:/app/debugShots
+      
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -38,6 +51,10 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_SECURE: ${SMTP_SECURE}
       EMAIL_FROM: ${EMAIL_FROM}
+      
+      # ★ 建議修正：python-vector-service => suzoo_python_vector
+      PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
+      
     depends_on:
       - suzoo_postgres
       - suzoo_ipfs
@@ -49,36 +66,33 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  ######################################################################
+  # (B) suzoo_frontend
+  ######################################################################
   suzoo_frontend:
     container_name: suzoo_frontend
     image: nginx:alpine
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    # 開放 80 與 443，支援 HTTP + HTTPS
+    # 同時開放 80, 443
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      # (1) 掛載 frontend/suzoo.conf → /etc/nginx/conf.d/suzoo_https.conf
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
-
-      # (2) 掛載 nginx/suzoo.conf → /etc/nginx/conf.d/suzoo_http.conf
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
-
-      # (3) 前端打包後的靜態檔
       - ./frontend/build:/usr/share/nginx/html:ro
-
-      # (4) **關鍵**：掛整個 /etc/letsencrypt => 容器內 /etc/letsencrypt
-      #     以確保 live/ 與 archive/、renewal/ 的符號連結都能讀取
+      # 直接掛載 /etc/letsencrypt
       - /etc/letsencrypt:/etc/letsencrypt:ro
-
-    # 刪除預設 default.conf 再啟動
     command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
       - suzoo_net
     restart: unless-stopped
 
+  ######################################################################
+  # (C) 其餘服務
+  ######################################################################
   suzoo_fastapi:
     container_name: suzoo_fastapi
     image: soozookaizokuhunter-suzoo_fastapi
