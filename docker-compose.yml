@@ -24,14 +24,12 @@ services:
       dockerfile: Dockerfile
     # ★ 加上 volumes 與環境變數修正
     volumes:
-      # 1. 將本機的 fonts 資料夾掛到容器 /fonts
+      # 1. 將本機的 fonts 資料夾掛到容器 /fonts (唯讀即可)
       - ./express/fonts:/fonts:ro
-      
-      # 2. 建立 debugShots 資料夾（若您希望把 debugShots 也掛在本機）
-      #    如：./express/debugShots -> /app/debugShots
-      #    若您想要 logs 直接存在容器裡，也可以不掛載(由 Dockerfile mkdir)。
+
+      # 2. 將本機的 debugShots 資料夾掛到容器 /app/debugShots
       - ./express/debugShots:/app/debugShots
-      
+
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -51,10 +49,10 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_SECURE: ${SMTP_SECURE}
       EMAIL_FROM: ${EMAIL_FROM}
-      
-      # ★ 建議修正：python-vector-service => suzoo_python_vector
+
+      # ★ 修正 DNS，改用 docker-compose 服務名稱: suzoo_python_vector
       PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
-      
+
     depends_on:
       - suzoo_postgres
       - suzoo_ipfs
@@ -83,7 +81,7 @@ services:
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
       - ./frontend/build:/usr/share/nginx/html:ro
-      # 直接掛載 /etc/letsencrypt
+      # 若要使用Let's Encrypt憑證
       - /etc/letsencrypt:/etc/letsencrypt:ro
     command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
@@ -106,6 +104,7 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  # ★ 如果需要 ganache 帳戶有預設餘額，可於 command 加上 --account=...
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache-cli:latest
