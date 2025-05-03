@@ -8,13 +8,20 @@
 const path = require('path');
 const fs = require('fs');
 const puppeteer = require('puppeteer-extra');
-const StealthPlugin= require('puppeteer-extra-plugin-stealth');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 /**
  * [A] fallbackDirectEngines
  *  若 aggregatorSearchGinifab 全部失敗 -> 再逐一打開 Bing / TinEye / Baidu 嘗試上傳檔案。
+ *
+ *  此版本針對 Baidu 直接進 https://graph.baidu.com/
+ *   - 强制 desktop user-agent, headless: 'new'
+ *   - Bing: 等待相機按鈕 -> page.waitForFileChooser -> 上傳
+ *   - TinEye: 直接有 input[type=file]
+ *   - Baidu(graph.baidu): 直接有 input[type=file]
  */
+
 async function fallbackDirectEngines(imagePath) {
   console.log('[fallbackDirectEngines] start =>', imagePath);
   const results = {
@@ -22,51 +29,76 @@ async function fallbackDirectEngines(imagePath) {
     tineye: [],
     baidu: []
   };
+
   let browser;
   try {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox'
       ]
     });
 
+    // --------------------------------------------------------------------------------
     // Bing
+    // --------------------------------------------------------------------------------
     try {
       const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36');
       await page.goto('https://www.bing.com/images', {
-        waitUntil:'domcontentloaded', timeout:20000
+        waitUntil:'domcontentloaded', timeout:30000
       });
-      await page.waitForTimeout(2000);
-      // Bing 圖片常有「相機按鈕」或 <input type=file>?
-      const inputFile = await page.$('input[type=file]');
-      if (inputFile) {
-        await inputFile.uploadFile(imagePath);
-        await page.waitForTimeout(4000);
-        let links = await page.$$eval('a', as => as.map(a=> a.href));
-        links = links.filter(l => l && !l.includes('bing.com'));
-        results.bing = [...new Set(links)].slice(0,8);
+      await page.waitForTimeout(3000);
+
+      // 為了除錯，先截圖
+      await saveDebugInfo(page, 'debug_bing_afterGoto');
+
+      // 1) 找相機按鈕並點擊
+      //    Bing 可能會有 .micsvc_lpicture, .ib_drop, .btnSe, or .ico_img... 
+      //    這裡用嘗試做 waitForFileChooser
+      try {
+        const [fileChooser] = await Promise.all([
+          page.waitForFileChooser({ timeout: 30000 }),
+          // Bing 頁面常見 class => .micsvc_lpicture
+          page.click('.micsvc_lpicture, #sbi_b'),
+        ]);
+        // 2) 上傳檔案
+        await fileChooser.accept([ imagePath ]);
+      } catch (bingWaitErr) {
+        console.error('[directSearchBing] fail =>', bingWaitErr);
       }
+
+      // 等待幾秒再收集連結
+      await page.waitForTimeout(5000);
+      let links = await page.$$eval('a', as => as.map(a => a.href));
+      links = links.filter(l => l && !l.includes('bing.com'));
+      results.bing = [...new Set(links)].slice(0, 8);
+
       await page.close();
     } catch(eBing) {
       console.error('[fallback Bing error]', eBing);
     }
 
+    // --------------------------------------------------------------------------------
     // TinEye
+    // --------------------------------------------------------------------------------
     try {
       const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36');
       await page.goto('https://tineye.com/', {
-        waitUntil:'domcontentloaded', timeout:20000
+        waitUntil:'domcontentloaded', timeout:30000
       });
       await page.waitForTimeout(2000);
+
+      await saveDebugInfo(page, 'debug_tineye_afterGoto');
 
       const fileInput = await page.$('input[type=file]');
       if (fileInput) {
         await fileInput.uploadFile(imagePath);
-        // TinEye 會自動跳轉
+        // TinEye 會自動跳轉搜索
         await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
 
         let links = await page.$$eval('a', as => as.map(a => a.href));
         links = links.filter(l => l && !l.includes('tineye.com'));
@@ -77,23 +109,32 @@ async function fallbackDirectEngines(imagePath) {
       console.error('[fallback TinEye error]', eTine);
     }
 
+    // --------------------------------------------------------------------------------
     // Baidu
+    // --------------------------------------------------------------------------------
     try {
       const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36');
       await page.goto('https://graph.baidu.com/', {
-        waitUntil:'domcontentloaded', timeout:20000
+        waitUntil:'domcontentloaded', timeout:30000
       });
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(3000);
 
+      await saveDebugInfo(page, 'debug_baidu_afterGoto');
+
+      // 找 input[type=file]
       const fInput = await page.$('input[type=file]');
-      if (fInput) {
-        await fInput.uploadFile(imagePath);
-        await page.waitForTimeout(5000);
-
-        let links = await page.$$eval('a', as => as.map(a => a.href));
-        links = links.filter(l => l && !l.includes('baidu.com'));
-        results.baidu = [...new Set(links)].slice(0,8);
+      if (!fInput) {
+        await saveDebugInfo(page, 'debug_baidu_error');
+        throw new Error('Baidu input[type=file] not found');
       }
+      await fInput.uploadFile(imagePath);
+      await page.waitForTimeout(5000);
+
+      let links = await page.$$eval('a', as => as.map(a => a.href));
+      links = links.filter(l => l && !l.includes('baidu.com'));
+      results.baidu = [...new Set(links)].slice(0,8);
+
       await page.close();
     } catch(eBaidu) {
       console.error('[fallback Baidu error]', eBaidu);
@@ -113,7 +154,7 @@ async function fallbackDirectEngines(imagePath) {
  * [B] aggregatorSearchGinifabStrict
  *  必須「先進入 https://www.ginifab.com.tw/tools/search_image_by_image/」
  *  → 上傳本機圖片 or 指定圖片網址
- *  → 依序點 Bing, TinEye → Baidu
+ *  → 依序點 Bing, TinEye, Baidu
  *  → Baidu 裡面要再手動「上傳/輸入 URL」才真正開始搜尋
  */
 async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl='') {
@@ -132,10 +173,12 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
   let page;
   try {
     browser = await puppeteer.launch({
-      headless: true,
+      headless: 'new',
       args: ['--no-sandbox','--disable-setuid-sandbox']
     });
     page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36');
+
     await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
       waitUntil: 'domcontentloaded',
       timeout: 30000
@@ -144,7 +187,6 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
     // 1) 上傳本機 OR 指定圖片網址
     if(localFilePath){
-      // 點擊「上傳本機圖片」
       const success = await tryClickUploadLocal(page, localFilePath);
       if(!success){
         console.warn('[aggregatorSearchGinifabStrict] local upload fail => try URL fallback');
@@ -185,6 +227,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
         const popup = await newTab; // 等待新 tab
         await popup.bringToFront();
+        await popup.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36');
         await popup.waitForTimeout(3000);
 
         if(eng.key==='baidu'){
@@ -193,7 +236,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
           await tryBaiduUpload(popup, localFilePath, publicImageUrl);
         }
 
-        // 取得連結(排除 ginifab/bing/tineye/baidu 自己)
+        // 取得連結(排除 ginifab/bing/tineye/baidu 自家域名)
         let hrefs = await popup.$$eval('a', as => as.map(a => a.href));
         hrefs = hrefs.filter(h =>
           h && !h.includes('ginifab') &&
@@ -220,7 +263,6 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
 /** 
  * 上傳本機圖片 flow 
- * (嘗試找「上傳本機圖片」「上傳圖片」等關鍵字 → 再找 input[type=file])
  */
 async function tryClickUploadLocal(page, localFilePath) {
   try {
@@ -252,7 +294,7 @@ async function tryClickUploadLocal(page, localFilePath) {
 }
 
 /** 
- * 指定圖片網址 => 使用「指定圖片網址」連結 => 輸入publicImageUrl 
+ * 指定圖片網址 => 使用「指定圖片網址」連結 => 輸入 publicImageUrl 
  */
 async function tryClickSpecifyImageUrl(page, publicImageUrl) {
   await page.waitForTimeout(1000);
@@ -261,7 +303,7 @@ async function tryClickSpecifyImageUrl(page, publicImageUrl) {
       .find(a => a.innerText.includes('指定圖片網址'));
     if(link) link.click();
   });
-  await page.waitForSelector('input[type=text]', { timeout:8000 });
+  await page.waitForSelector('input[type=text]', { timeout:10000 });
   await page.type('input[type=text]', publicImageUrl, { delay:50 });
   console.log('[tryClickSpecifyImageUrl] => typed URL =>', publicImageUrl);
   await page.waitForTimeout(1500);
@@ -271,7 +313,7 @@ async function tryClickSpecifyImageUrl(page, publicImageUrl) {
  * Baidu 第二階段上傳/貼URL 
  */
 async function tryBaiduUpload(page, localFilePath, publicImageUrl) {
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
 
   // Baidu 常見 input[type=file]
   try {
@@ -286,14 +328,15 @@ async function tryBaiduUpload(page, localFilePath, publicImageUrl) {
     console.warn('[tryBaiduUpload] local file fail =>', eFile);
   }
 
-  // 再嘗試貼 URL (若 Baidu 有 "粘貼圖片URL" 的功能?)
-  // 如果 Baidu 介面無法貼 URL，就只能 local file 了
+  // 再嘗試貼 URL
   if(publicImageUrl){
     try {
-      // Demo: Baidu 不一定有輸入框
-      await page.type('input[type=text]', publicImageUrl, { delay:30 });
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(3000);
+      const textInput = await page.$('input[type=text]');
+      if(textInput){
+        await textInput.type(publicImageUrl, { delay:30 });
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(3000);
+      }
     } catch(eUrl){
       console.warn('[tryBaiduUpload] publicImageUrl fail =>', eUrl);
     }
@@ -303,7 +346,7 @@ async function tryBaiduUpload(page, localFilePath, publicImageUrl) {
 /**
  * [C] doSearchEngines: 統一入口
  *  1. 先 aggregatorSearchGinifabStrict
- *  2. 若整個 aggregator 失敗(或沒搜到連結)則 fallbackDirectEngines
+ *  2. 若整個 aggregator 失敗(或沒搜到任何連結)則 fallbackDirectEngines
  */
 async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl='') {
   console.log('[doSearchEngines] => aggregatorFirst=', aggregatorFirst, ' aggregatorImageUrl=', aggregatorImageUrl);
@@ -342,7 +385,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
 
   // aggregator沒成功 => fallback
   if(!aggregatorOK){
-    console.warn('[doSearchEngines] aggregator fail => fallback...');
+    console.warn('[doSearchEngines] aggregator fail => fallbackDirect');
     const fb = await fallbackDirectEngines(localFilePath);
     final.bing.links   = fb.bing;
     final.tineye.links = fb.tineye;
@@ -350,6 +393,20 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
   }
 
   return final;
+}
+
+// 小工具: 截圖 & log
+async function saveDebugInfo(page, prefix){
+  try {
+    const ts = Date.now();
+    const fn = `/app/debugShots/${prefix}_${ts}.png`;
+    await page.screenshot({ path: fn, fullPage:true });
+    const url = page.url();
+    const title = await page.title();
+    console.log(`[saveDebugInfo] => screenshot=${fn}, url=${url}, title=${title}`);
+  } catch(e){
+    console.warn('[saveDebugInfo] fail =>', e);
+  }
 }
 
 // 匯出
