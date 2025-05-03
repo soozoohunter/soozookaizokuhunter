@@ -9,8 +9,7 @@
 const axios = require('axios');
 const fs = require('fs'); // ★ 為了能讀取本機檔案 (searchLocalImage)
 
-// 若 Compose 內部要呼叫 suzoo_python_vector:8000
-// 對外開 8001 => 內部仍是 8000
+// 請確認 docker-compose 裡的 Python Vector Service 是 "suzoo_python_vector" 或 "python-vector-service"
 const VECTOR_SERVICE_HOST = process.env.VECTOR_SERVICE_HOST || 'suzoo_python_vector';
 const VECTOR_SERVICE_PORT = process.env.VECTOR_SERVICE_PORT || '8000';
 
@@ -94,6 +93,5 @@ module.exports = {
   embedImage,
   searchImage,
   insertImage,
-  // ★ 新增：
   searchLocalImage
 };
