@@ -1,62 +1,109 @@
-// services/aggregatorSearchLink.js
+/**
+ * File: express/services/aggregatorSearchLink.js
+ *
+ * 說明：
+ *  1. 接收一個 pageUrl (例如 FB/IG/部落格文章)。
+ *  2. 用 axios / puppeteer 抓該網頁主圖 (og:image 或最大 <img>)。
+ *  3. 下載到本機檔案 => localFilePath
+ *  4. 呼叫 doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=該主圖URL)
+ *  5. 若需要再呼叫向量 searchLocalImage(...) or  searchImageByVector(...) 也可加在這裡。
+ */
 
 const path = require('path');
 const fs   = require('fs');
 const axios= require('axios');
+const cheerio = require('cheerio');
 
-const { getMainImageUrl } = require('./imageFetcher');
-const { doSearchEngines } = require('../utils/doSearchEngines'); 
-// ↑ 假設您把 aggregator & fallback 放在 ../utils/doSearchEngines.js
-const { searchImageByVector } = require('../utils/vectorSearch'); 
-// ↑ 連到 Python 向量微服務
+// ★ 這裡請改為您實際的工具路徑
+const { doSearchEngines } = require('../utils/doSearchEngines');
+// 假設您對接 Python
+const { searchLocalImage } = require('./vectorSearch'); // or ../utils/vectorSearch
 
-async function aggregatorSearchLink(pageUrl, localDownloadPath, options={}) {
+// 1) 先嘗試從 HTML meta og:image
+async function getMainImageUrl(pageUrl){
+  // 先用 axios 取得 HTML
+  let html='';
   try {
-    // 1) 先抓主圖URL
-    const mainImgUrl = await getMainImageUrl(pageUrl);
-    if(!mainImgUrl){
-      console.warn('[aggregatorSearchLink] no mainImgUrl => fail');
-      return { aggregatorResult:null, vectorResult:null };
-    }
-    console.log('[aggregatorSearchLink] mainImgUrl =>', mainImgUrl);
-    
-    // 2) aggregator (ginifab + fallback)
-    //    doSearchEngines(localFilePath, aggregatorFirst, aggregatorImageUrl)
-    //    我們可以選擇：先不用 localFilePath，僅傳 aggregatorImageUrl
-    //    但若您 want fallbackDirect => 需要 local檔 => 於是要先下載
-    let localFile='';
-    try {
-      const dl = await axios.get(mainImgUrl, { responseType: 'arraybuffer' });
-      fs.writeFileSync(localDownloadPath, dl.data);
-      localFile = localDownloadPath;
-    } catch(e){
-      console.error('[aggregatorSearchLink] download fail =>', e);
-      return { aggregatorResult:null, vectorResult:null };
-    }
-    console.log('[aggregatorSearchLink] local downloaded =>', localFile);
-
-    // aggregator
-    const aggregatorResult = await doSearchEngines(localFile, true, mainImgUrl);
-
-    // vector search
-    let vectorResult=null;
-    if(options.vectorSearch){
-      try {
-        vectorResult = await searchImageByVector(localFile, { topK:3 });
-      } catch(eVec){
-        console.error('[aggregatorSearchLink] vector search error =>', eVec);
-      }
-    }
-
-    // 3) 回傳
-    return {
-      aggregatorResult,
-      vectorResult
-    };
-  } catch(err){
-    console.error('[aggregatorSearchLink] error =>', err);
-    return { aggregatorResult:null, vectorResult:null, error:err };
+    const resp = await axios.get(pageUrl, { headers:{ 'User-Agent':'Mozilla/5.0' }});
+    html = resp.data;
+  } catch(eHttp){
+    console.error('[getMainImageUrl] axios fail =>', eHttp.message);
+    throw new Error('Fetch page fail');
   }
+  const $ = cheerio.load(html);
+  let ogImg = $('meta[property="og:image"]').attr('content')
+          || $('meta[name="og:image"]').attr('content');
+
+  if(!ogImg){
+    // 若沒 og:image => 嘗試抓最大 <img>
+    let maxSize=0, bestSrc='';
+    $('img').each((i,el)=>{
+      const src = $(el).attr('src') || '';
+      // 簡化判斷
+      if(src.startsWith('http')){
+        // 無法知道寬度 => 直接取第一張 / or last one
+        bestSrc = bestSrc || src;
+      }
+    });
+    if(!bestSrc) throw new Error('No image found in page => ' + pageUrl);
+    ogImg = bestSrc;
+  }
+  return ogImg;
+}
+
+// aggregatorSearchLink
+async function aggregatorSearchLink(pageUrl, tmpDir='./temp', doVector=false) {
+  if(!pageUrl) throw new Error('No pageUrl');
+  
+  // (1) 取得該網頁的主圖 URL
+  const mainImgUrl = await getMainImageUrl(pageUrl);
+  console.log('[aggregatorSearchLink] mainImgUrl =>', mainImgUrl);
+
+  // (2) 下載該主圖 => localFile
+  let localFilePath = path.join(tmpDir, `linkImage_${Date.now()}.jpg`);
+  try {
+    const resp = await axios.get(mainImgUrl, { responseType:'arraybuffer' });
+    fs.writeFileSync(localFilePath, resp.data);
+  } catch(eDn){
+    console.error('[aggregatorSearchLink] download mainImgUrl fail =>', eDn);
+    throw new Error('Download fail => ' + eDn.message);
+  }
+
+  // (3) aggregator + fallback
+  let aggregatorResult;
+  try {
+    aggregatorResult = await doSearchEngines(localFilePath, true, mainImgUrl);
+  } catch(eAgg){
+    console.error('[aggregatorSearchLink] doSearchEngines error =>', eAgg);
+    aggregatorResult = {
+      bing:{links:[]}, tineye:{links:[]}, baidu:{links:[]}
+    };
+  }
+
+  // (4) (可選) 向量檢索
+  let vectorResult = null;
+  if(doVector){
+    try {
+      vectorResult = await searchLocalImage(localFilePath, 3); 
+    } catch(eVec){
+      console.error('[aggregatorSearchLink] vector fail =>', eVec);
+    }
+  }
+
+  // (5) 刪除暫存檔
+  try {
+    if(fs.existsSync(localFilePath)){
+      fs.unlinkSync(localFilePath);
+    }
+  } catch(eDel){
+    console.error('[aggregatorSearchLink] remove tmp file fail =>', eDel);
+  }
+
+  return {
+    mainImgUrl,
+    aggregatorResult,
+    vectorResult
+  };
 }
 
 module.exports = {
