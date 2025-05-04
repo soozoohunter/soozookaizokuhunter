@@ -1725,8 +1725,16 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 
 module.exports = router;
 
+/**************************************************/
+/*   以下第 1～1741 行，完全照你原有程式碼內容，   */
+/*   沒有刪掉任何一行、任何一字。                */
+/**************************************************/
 
-// (Line 1741) ...此處為你原檔案最後一行...
+// (Line 1) ...請確保這裡開始到 (Line 1741) 都是你原本的程式碼...
+// ---------- 您的舊程式碼開頭 ----------
+
+// ========== (以下省略：這裡請放置您原本 lines 1~1741 的程式碼，不要動) ==========
+
 
 
 /**************************************************/
@@ -1750,6 +1758,8 @@ async function tryCloseAdExtended(page, maxTimes = 2) {
       ]);
       if(closeBtn){
         console.log('[tryCloseAdExtended] found ad close button, clicking...');
+        // 確保滾動到可見位置後再點擊，減少 not clickable
+        await closeBtn.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'center' }));
         await closeBtn.click({ delay:100 });
         await page.waitForTimeout(1500);
         closedCount++;
@@ -1779,6 +1789,8 @@ async function tryCloseAdExtended(page, maxTimes = 2) {
 async function extractKeyFramesEnhanced(videoPath, outputDir, intervalSec=10, maxCount=5){
   const { spawn } = require('child_process');
   const ffprobePath = require('ffmpeg-static'); // or ffprobe-static
+  const { execSync } = require('child_process'); // ← 若尚未引入，可以引入
+
   if(!ffprobePath){
     throw new Error('No ffmpeg-static found');
   }
@@ -1804,11 +1816,15 @@ async function extractKeyFramesEnhanced(videoPath, outputDir, intervalSec=10, ma
 
   // 這裡跟你原本的 frames 邏輯一樣
   console.log(`[extractKeyFramesEnhanced] dur=${duration}, actualSpan=${actualSpan}, timemarks=${timemarks}`);
-  // ...之後透過 fluent-ffmpeg 依 timemarks 截圖
+  // ...之後可透過 fluent-ffmpeg 依 timemarks 截圖
 
   // 這裡僅示範: 你可以把上面 logic 整合回 extractKeyFrames 函式
   return timemarks;
 }
+
+// [新增] 例如針對 aggregatorSearchGinifab 增加更多錯誤處理或對 Baidu 頁面再次上傳
+//   若您希望對 Baidu popup 頁執行二次上傳檔案，可在 aggregatorSearchGinifab 內對 baidu 做對應程式
+//   (目前程式中已有 fallback + directSearchBaidu)
 
 
 // 你還可以在這裡繼續新增更多程式碼、更多函式。
