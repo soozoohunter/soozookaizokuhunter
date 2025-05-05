@@ -1,153 +1,167 @@
-const { tryCloseAd } = require('./closeAdHelper');
-
-const GINIFAB_URL = 'https://www.ginifab.com/feeds/reverse_image_search/';
-const UA_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1';
-const UA_ANDROID = 'Mozilla/5.0 (Linux; Android 12; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.71 Mobile Safari/537.36';
-
 /**
- * Try the Ginifab reverse image search using both iOS (Safari) and Android (Chrome) user agents for robustness.
- * It will first attempt the iOS flow, and if that fails, it will retry with the Android flow.
- * @param {object} browser - Puppeteer Browser instance.
- * @param {string} imagePath - Filesystem path to the image to be uploaded for search.
- * @returns {object} Puppeteer Page of the search results (caller is responsible for closing this page).
- * @throws Will throw an error if both flows fail to produce a result page.
+ * express/utils/doSearchEngines.js
+ *
+ * 目標：同一個 Ginifab 主頁不關閉，可重複上傳/指定圖片，然後分別點 Bing/TinEye/Baidu。
+ *
+ * 使用方式：
+ *   1) const { initGinifab, uploadToGinifab, specifyUrlOnGinifab, clickEngineAndGetLinks } = require('./doSearchEngines');
+ *   2) const { browser, ginifabPage } = await initGinifab(); // 只做一次
+ *   3) await uploadToGinifab(ginifabPage, '/path/to/local.jpg'); // or specifyUrlOnGinifab(ginifabPage, 'http://...')
+ *   4) const bingLinks   = await clickEngineAndGetLinks(ginifabPage, browser, 'bing');
+ *      const tineyeLinks = await clickEngineAndGetLinks(ginifabPage, browser, 'tineye');
+ *      const baiduLinks  = await clickEngineAndGetLinks(ginifabPage, browser, 'baidu');
+ *   5) [重複 3,4 若要換另一張圖片再搜...]
+ *   6) 全部搜完 => await browser.close()（或保留，隨您）
  */
-async function tryGinifabUploadLocalAllFlow(browser, imagePath) {
-  let page = null;
-  try {
-    console.log('Starting Ginifab image search (iOS flow)...');
-    page = await browser.newPage();
-    const resultPage = await tryGinifabUploadLocal_iOS(page, imagePath);
-    // Close the Ginifab page as we now have the results page
-    await page.close();
-    console.log('Ginifab image search succeeded via iOS flow.');
-    return resultPage;
-  } catch (err) {
-    // If iOS flow fails, attempt Android flow
-    if (page) {
-      try { await page.close(); } catch (_) {}
-    }
-    console.warn('iOS flow failed:', err.message);
-    console.log('Retrying Ginifab image search (Android flow)...');
-    let page2 = null;
-    try {
-      page2 = await browser.newPage();
-      const resultPage = await tryGinifabUploadLocal_Android(page2, imagePath);
-      // Close Ginifab page after getting results
-      await page2.close();
-      console.log('Ginifab image search succeeded via Android flow.');
-      return resultPage;
-    } catch (err2) {
-      if (page2) {
-        try { await page2.close(); } catch (_) {}
+
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+// 使用 StealthPlugin 降低被偵測
+puppeteer.use(StealthPlugin());
+
+// 如果有 closeAdHelper.js，可引入；若沒有，就示範空函式
+async function tryCloseAd(page) {
+  // 不做任何事，或真的去找廣告關閉按鈕
+  return false;
+}
+
+// Ginifab 網址
+const GINIFAB_URL = 'https://www.ginifab.com.tw/tools/search_image_by_image/';
+
+// [A] 初始化：啟動瀏覽器 & 打開 Ginifab 主頁 (只做一次)
+async function initGinifab() {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox','--disable-setuid-sandbox']
+  });
+  const ginifabPage = await browser.newPage();
+  await ginifabPage.setViewport({ width: 1280, height: 800 });
+  // 進入 ginifab 主頁
+  await ginifabPage.goto(GINIFAB_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  // 嘗試關閉一次廣告 (可能只會出現第一次)
+  await tryCloseAd(ginifabPage);
+  return { browser, ginifabPage };
+}
+
+// [B] 上傳本機圖片：
+//   寫死「必須點擊 choose file / 選擇檔案」這個按鈕 => 再找到 <input type="file">
+async function uploadToGinifab(ginifabPage, localFilePath) {
+  console.log('[uploadToGinifab] =>', localFilePath);
+  // 先關廣告
+  await tryCloseAd(ginifabPage);
+
+  // 找到 「上傳本機圖片」 或 「Choose File」的按鈕 — 請依實際DOM更改
+  // 假設內文: <a id="chooseFileBtn">Choose File</a> => 只是示範
+  const [chooseBtn] = await ginifabPage.$x("//a[contains(text(),'Choose File') or contains(text(),'上傳本機圖片') or contains(text(),'選擇檔案')]");
+  if (!chooseBtn) {
+    throw new Error('cannot find "Choose File" link on Ginifab');
+  }
+  // 點擊 => 顯示 <input type="file"> (通常同一個form裡)
+  await chooseBtn.evaluate(el => el.click());
+  await ginifabPage.waitForTimeout(1000);
+
+  // 再找 <input type="file">
+  const fileInput = await ginifabPage.$('input[type=file]');
+  if (!fileInput) {
+    throw new Error('No <input type="file"> found after clicking "Choose File"');
+  }
+  // 上傳
+  await fileInput.uploadFile(localFilePath);
+  await ginifabPage.waitForTimeout(1500);
+
+  console.log('[uploadToGinifab] upload done =>', localFilePath);
+}
+
+// [C] 指定圖片網址 (若不用檔案上傳，而要貼 URL)
+async function specifyUrlOnGinifab(ginifabPage, publicImageUrl) {
+  console.log('[specifyUrlOnGinifab] =>', publicImageUrl);
+  await tryCloseAd(ginifabPage);
+
+  // 假設有個連結 <a id="specifyUrlBtn">指定圖片網址</a>
+  const [urlBtn] = await ginifabPage.$x("//a[contains(text(),'指定圖片網址') or contains(text(),'URL')]");
+  if(!urlBtn){
+    throw new Error('cannot find "指定圖片網址" link on Ginifab');
+  }
+  await urlBtn.evaluate(el => el.click());
+  await ginifabPage.waitForTimeout(1000);
+
+  // 找到 <input id="img_url"> 之類
+  const urlInput = await ginifabPage.$('input#img_url');
+  if(!urlInput){
+    throw new Error('cannot find input#img_url for specifying URL');
+  }
+  // 清空後輸入
+  await urlInput.click({ clickCount: 3 });
+  await urlInput.type(publicImageUrl, { delay: 50 });
+  await ginifabPage.waitForTimeout(500);
+
+  console.log('[specifyUrlOnGinifab] done =>', publicImageUrl);
+}
+
+// [D] 點選 Bing / TinEye / Baidu => 開新分頁 => 取連結 => 關新分頁
+//   - engine: 'bing' / 'tineye' / 'baidu'
+async function clickEngineAndGetLinks(ginifabPage, browser, engine) {
+  // 先關一次廣告
+  await tryCloseAd(ginifabPage);
+  console.log(`[clickEngineAndGetLinks] => engine=${engine}`);
+  
+  // map engine => selector text
+  let label;
+  if (engine === 'bing')   label = ['Bing','微軟必應'];
+  if (engine === 'tineye') label = ['TinEye','錫眼睛'];
+  if (engine === 'baidu')  label = ['Baidu','百度'];
+
+  // 監聽新分頁 (popup)
+  const newTabPromise = new Promise(resolve => {
+    browser.once('targetcreated', async target => {
+      const p = await target.page();
+      resolve(p);
+    });
+  });
+
+  // 在 ginifab 主頁找對應 label
+  await ginifabPage.evaluate(labels => {
+    const candidates = [...document.querySelectorAll('a,button,input')];
+    for(const lab of labels){
+      const found = candidates.find(el => el.innerText && el.innerText.includes(lab));
+      if(found){
+        found.scrollIntoView({ block:'center', inline:'center' });
+        found.click();
+        return;
       }
-      console.error('Android flow failed as well:', err2.message);
-      throw new Error('Ginifab image search failed on both iOS and Android flows: ' + err2.message);
     }
+  }, label);
+
+  // 等待新分頁
+  const popup = await newTabPromise;
+  // 若 Baidu => 可能需要再上傳 or specify URL
+  if(engine === 'baidu'){
+    console.log('[clickEngineAndGetLinks] => Baidu second upload if needed...');
+    // 這裡可以檢查 <input type="file"> or ...
+    // e.g. const fileInput = await popup.$('input[type=file]');
+    // if(fileInput) { ... }
   }
+
+  // 等 3秒
+  await popup.waitForTimeout(3000);
+
+  // 抓外部連結 (排除 ginifab / bing.com / tineye.com / baidu.com)
+  let hrefs = await popup.$$eval('a', as => as.map(a => a.href));
+  const excludes = ['ginifab','bing.com','tineye.com','baidu.com'];
+  hrefs = hrefs.filter(link => link && !excludes.some(ex => link.includes(ex)));
+  // 關閉新分頁
+  await popup.close();
+  
+  console.log(`[clickEngineAndGetLinks] => engine=${engine}, found links=`, hrefs.length);
+  return hrefs;
 }
 
-/**
- * Attempt the Ginifab reverse image search using an iOS (Safari) mobile user agent.
- * @param {object} page - Puppeteer Page instance to use (should be a new blank page).
- * @param {string} imagePath - Filesystem path to the image to be uploaded.
- * @returns {object} Puppeteer Page of the search results.
- * @throws If any step fails (element not found, navigation issues, etc.)
- */
-async function tryGinifabUploadLocal_iOS(page, imagePath) {
-  // Emulate iPhone Safari environment
-  await page.setUserAgent(UA_IOS);
-  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true });
-  // Navigate to Ginifab reverse image search page
-  await page.goto(GINIFAB_URL, { waitUntil: 'domcontentloaded' });
-  // Wait for the file input to be present
-  let fileInput;
-  try {
-    fileInput = await page.waitForSelector('#upload_img', { visible: true, timeout: 5000 });
-  } catch (e) {
-    // Fallback: try to find any file input if the ID has changed
-    fileInput = await page.$('input[type=file]');
-    if (!fileInput) {
-      throw new Error('Upload file input not found on Ginifab page (iOS flow)');
-    }
-  }
-  // Close any advertisement overlay that might obscure the page
-  await tryCloseAd(page);
-  // Upload the image file
-  await fileInput.uploadFile(imagePath);
-  // Find and click the Google search button
-  const [googleBtn] = await page.$x("//input[contains(@value, 'Google')] | //button[contains(text(), 'Google')] | //a[contains(text(), 'Google')]");
-  if (!googleBtn) {
-    throw new Error('Google search button not found on Ginifab page (iOS flow)');
-  }
-  // Click the Google search button and wait for the results page to open
-  const pageTarget = page.target();
-  const waitForPopup = page.browser().waitForTarget(t => t.opener() === pageTarget && t.type() === 'page', { timeout: 10000 });
-  await googleBtn.evaluate(btn => {
-    // Ensure the button is in view and trigger click via DOM
-    btn.scrollIntoView({ block: 'center', inline: 'center' });
-    btn.click();
-  });
-  const resultTarget = await waitForPopup;
-  if (!resultTarget) {
-    throw new Error('Google search results page did not open (iOS flow)');
-  }
-  const resultPage = await resultTarget.page();
-  // Wait for the results page to load content
-  await resultPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-  return resultPage;
-}
-
-/**
- * Attempt the Ginifab reverse image search using an Android (Chrome) mobile user agent.
- * @param {object} page - Puppeteer Page instance to use (should be a new blank page).
- * @param {string} imagePath - Filesystem path to the image to be uploaded.
- * @returns {object} Puppeteer Page of the search results.
- * @throws If any step fails (element not found, navigation issues, etc.)
- */
-async function tryGinifabUploadLocal_Android(page, imagePath) {
-  // Emulate Android Chrome environment
-  await page.setUserAgent(UA_ANDROID);
-  await page.setViewport({ width: 360, height: 740, deviceScaleFactor: 2, isMobile: true });
-  // Navigate to Ginifab reverse image search page
-  await page.goto(GINIFAB_URL, { waitUntil: 'domcontentloaded' });
-  // Wait for the file input
-  let fileInput;
-  try {
-    fileInput = await page.waitForSelector('#upload_img', { visible: true, timeout: 5000 });
-  } catch (e) {
-    fileInput = await page.$('input[type=file]');
-    if (!fileInput) {
-      throw new Error('Upload file input not found on Ginifab page (Android flow)');
-    }
-  }
-  // Close any advertisement overlay
-  await tryCloseAd(page);
-  // Upload the image
-  await fileInput.uploadFile(imagePath);
-  // Find and click the Google search button
-  const [googleBtn] = await page.$x("//input[contains(@value, 'Google')] | //button[contains(text(), 'Google')] | //a[contains(text(), 'Google')]");
-  if (!googleBtn) {
-    throw new Error('Google search button not found on Ginifab page (Android flow)');
-  }
-  // Click and wait for popup
-  const pageTarget = page.target();
-  const waitForPopup = page.browser().waitForTarget(t => t.opener() === pageTarget && t.type() === 'page', { timeout: 10000 });
-  await googleBtn.evaluate(btn => {
-    btn.scrollIntoView({ block: 'center', inline: 'center' });
-    btn.click();
-  });
-  const resultTarget = await waitForPopup;
-  if (!resultTarget) {
-    throw new Error('Google search results page did not open (Android flow)');
-  }
-  const resultPage = await resultTarget.page();
-  await resultPage.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
-  return resultPage;
-}
+// [E] 匯出
 
 module.exports = {
-  tryGinifabUploadLocalAllFlow,
-  tryGinifabUploadLocal_iOS,
-  tryGinifabUploadLocal_Android
+  initGinifab,            // 開瀏覽器 + Ginifab
+  uploadToGinifab,        // "Choose File" => input[type=file] => 上傳
+  specifyUrlOnGinifab,    // 指定圖片網址
+  clickEngineAndGetLinks, // 點 Bing/TinEye/Baidu => parse link
 };
