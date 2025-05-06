@@ -86,7 +86,6 @@ services:
   # (C) 其餘服務 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
   ######################################################################
 
-  # 改為本地 build，以 Dockerfile 建置
   suzoo_fastapi:
     container_name: suzoo_fastapi
     build:
@@ -195,7 +194,9 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # 改為本地 build，以 Dockerfile 建置 => python-vector-service
+  ######################################################################
+  # (D) python-vector-service
+  ######################################################################
   suzoo_python_vector:
     container_name: suzoo_python_vector
     build:
@@ -209,7 +210,9 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # 改為本地 build，以 Dockerfile 建置 => python_crawlers
+  ######################################################################
+  # (E) 新增的爬蟲容器: suzoo_crawler_runner
+  ######################################################################
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
     build:
@@ -230,7 +233,7 @@ services:
     container_name: api_service
     build:
       context: ./api_service
-    # 若 3000 已被占用，可改 "3002:3000" 或其他空閒 port
+    # 若 3000 已被占用，可自行改 "3002:3000" 或其他空閒 port
     ports:
       - "3002:3000"
     volumes:
@@ -252,10 +255,6 @@ services:
     container_name: ai_service
     build:
       context: ./ai_service
-    # 若您需要讓其他服務呼叫 ai_service 的 port，可自行加 expose 或 ports
-    # 例如： 
-    #   expose:
-    #     - "3000"
     volumes:
       - type: bind
         source: ./api_service/uploads
