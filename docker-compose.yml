@@ -1,8 +1,8 @@
+version: '3.8'
 services:
   ######################################################################
   #  (1) 您原先的服務: suzoo_postgres, suzoo_express, suzoo_frontend 等
   ######################################################################
-
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -86,9 +86,13 @@ services:
   # (C) 其餘服務 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
   ######################################################################
 
+  # 原本這裡使用了 image: soozookaizokuhunter-suzoo_fastapi
+  # 修正後改為本地 build:
   suzoo_fastapi:
     container_name: suzoo_fastapi
-    image: soozookaizokuhunter-suzoo_fastapi
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL}
     depends_on:
@@ -192,9 +196,13 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  # 原本這裡使用了 image: soozookaizokuhunter-suzoo_python_vector
+  # 修正後改為本地 build:
   suzoo_python_vector:
     container_name: suzoo_python_vector
-    image: soozookaizokuhunter-suzoo_python_vector
+    build:
+      context: ./python-vector-service
+      dockerfile: Dockerfile
     depends_on:
       - suzoo_milvus
     ports:
@@ -203,9 +211,13 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  # 原本這裡使用了 image: soozookaizokuhunter-suzoo_crawler_runner
+  # 修正後改為本地 build:
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
-    image: soozookaizokuhunter-suzoo_crawler_runner
+    build:
+      context: ./python_crawlers
+      dockerfile: Dockerfile
     depends_on:
       - suzoo_rabbitmq
     ports:
@@ -231,7 +243,6 @@ services:
       - type: bind
         source: ./media_output
         target: /app/../media_output
-    # 如果程式端需要從環境變數得知 AI_SERVICE_URL，可自行加：
     environment:
       AI_SERVICE_URL: "http://ai_service:3000"
     depends_on:
@@ -244,9 +255,6 @@ services:
     container_name: ai_service
     build:
       context: ./ai_service
-    # 若您需要讓其他服務呼叫 ai_service 的 port，可自行加 expose 或 ports
-    # 例如： expose:
-    #         - "3000"
     volumes:
       - type: bind
         source: ./api_service/uploads
