@@ -1733,21 +1733,17 @@ module.exports = router;
 // (Line 1) ...請確保這裡開始到 (Line 1741) 都是你原本的程式碼...
 // ---------- 您的舊程式碼開頭 ----------
 
-// ========== (以下省略：這裡請放置您原本 lines 1~1741 的程式碼，不要動) ==========
-
-
-
 /**************************************************/
-/*   第 1742 行開始：以下是「新增」的優化程式碼示例   */
+/*   第 1740 行開始：以下為「新增/修正」內容範例    */
 /**************************************************/
 
 // [新增] 更完整的 tryCloseAd 範例，可嘗試更多 selector
-// 如果你想真的整合到上面 tryCloseAd，可自行合併或改名
+// 如果你想真的整合到上面已存在的 tryCloseAd，可以合併或改名
 async function tryCloseAdExtended(page, maxTimes = 2) {
   let closedCount = 0;
   for (let i = 0; i < maxTimes; i++) {
     try {
-      // 嘗試多種 XPath / 文字: 包含「×」「關閉」「X」之類
+      // 嘗試多種 XPath / 關鍵文字: 包含「×」「關閉」「X」之類
       const [closeBtn] = await Promise.race([
         page.$x(
           "//button[contains(text(),'×') or contains(text(),'X') or contains(text(),'關閉')]" +
@@ -1756,22 +1752,22 @@ async function tryCloseAdExtended(page, maxTimes = 2) {
         ),
         page.$('button.close, .close-btn, .modal-close, #ad_box button')
       ]);
-      if(closeBtn){
+      if (closeBtn) {
         console.log('[tryCloseAdExtended] found ad close button, clicking...');
-        // 確保滾動到可見位置後再點擊，減少 not clickable
+        // 滾動至可見再點擊，避免 not clickable
         await closeBtn.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'center' }));
-        await closeBtn.click({ delay:100 });
+        await closeBtn.click({ delay: 100 });
         await page.waitForTimeout(1500);
         closedCount++;
       } else {
         break;
       }
-    } catch(e){
+    } catch (e) {
       console.warn('[tryCloseAdExtended] fail =>', e);
       break;
     }
   }
-  if(closedCount>0) {
+  if (closedCount > 0) {
     console.log(`[tryCloseAdExtended] total closed => ${closedCount}`);
     return true;
   }
@@ -1781,110 +1777,77 @@ async function tryCloseAdExtended(page, maxTimes = 2) {
 
 
 // [新增] 範例：針對「影片大於 30 秒」，也一樣抽前 30~50 秒內的關鍵幀
-//   調整 extractKeyFrames 或在 scan 時設置固定 max=50 秒
-//   已示範於 extractFrames.js / scan route，可依需求自行調整
-
-// [範例] extractKeyFrames => 若影片 > (intervalSec*maxCount) 則只抽前 (intervalSec*maxCount) 秒
-//   (你也可以將此函式獨立到 express/utils/extractFrames.js 內使用)
-async function extractKeyFramesEnhanced(videoPath, outputDir, intervalSec=10, maxCount=5){
+//   可在 scan 時設置固定 max=50 秒，或自行決定。
+async function extractKeyFramesEnhanced(videoPath, outputDir, intervalSec = 10, maxCount = 5) {
   const { spawn } = require('child_process');
   const ffprobePath = require('ffmpeg-static'); // or ffprobe-static
-  const { execSync } = require('child_process'); // ← 若尚未引入，可以引入
+  const { execSync } = require('child_process'); // 若尚未引入，可以引入
 
-  if(!ffprobePath){
+  if (!ffprobePath) {
     throw new Error('No ffmpeg-static found');
   }
-  // 先用 ffprobe 查長度
+
+  // 先用 ffprobe 查影片長度
   let duration = 9999;
   try {
     const outBuf = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`);
     duration = parseFloat(outBuf.toString().trim()) || 9999;
-  } catch(e){
+  } catch (e) {
     console.warn('[extractKeyFramesEnhanced] ffprobe error =>', e);
   }
-  const totalSpan = intervalSec * maxCount; // e.g. 50 秒
+
+  const totalSpan = intervalSec * maxCount; // 例如 10s * 5 = 50s
   const actualSpan = Math.min(duration, totalSpan);
 
   const timemarks = [];
   let cur = 0;
-  for(let i=0; i<maxCount; i++){
-    if(cur <= actualSpan){
+  for (let i = 0; i < maxCount; i++) {
+    if (cur <= actualSpan) {
       timemarks.push(cur);
     }
-    cur+= intervalSec;
+    cur += intervalSec;
   }
 
-  // 這裡跟你原本的 frames 邏輯一樣
   console.log(`[extractKeyFramesEnhanced] dur=${duration}, actualSpan=${actualSpan}, timemarks=${timemarks}`);
-  // ...之後可透過 fluent-ffmpeg 依 timemarks 截圖
-
-  // 這裡僅示範: 你可以把上面 logic 整合回 extractKeyFrames 函式
+  // 您可在此配合 fluent-ffmpeg，把 timemarks 做抽影格
+  // ...
   return timemarks;
 }
-/**************************************************/
-/*   以下第 1～1741 行，完全照你原有程式碼內容，   */
-/*   沒有刪掉任何一行、任何一字。                */
-/**************************************************/
-// (Line 1) ...請確保這裡開始到 (Line 1741) 都是你原本的程式碼...
 
-/* 
-  ...
-  <您原本 express/routes/protect.js 的完整內容 (1~1741 行) >
-  ...
-*/
 
 /**************************************************/
-/*   第 1742 行開始：以下是「新增」的優化程式碼示例   */
+/*   以下第 1742 行開始：高頻閃爍防錄製程式碼       */
 /**************************************************/
-/**
- * 
- * 【創新思路：檔案本身具備「防螢幕錄影/截圖」能力】
- * 
- * 核心原理(第一性原理):
- *  1) 影片/圖片本體插入高頻閃爍(flicker)或對抗擾動(Adversarial Noise)，
- *     使人眼能正常觀看，但螢幕錄製軟體錄製下來多為黑屏或嚴重失真。
- *  2) 不依賴任何 DRM、播放器或 OS 層鎖定；檔案可自由分享，跨平台查看。
- *  3) 在高幀率 60FPS+ 下，人眼視覺暫留效應可忽略交錯黑幀；但錄製軟體
- *     若只抓 30FPS，會取到過多黑/暗幀而呈現黑屏。
- *  4) 若平台強制轉碼或降幀，可能會削弱此防護效果；此方案屬實驗性質。
- * 
- * 下方程式碼示範將在 Node.js + FFmpeg 環境執行：
- *   - flickerEncode(): 對輸入影像/影片做高頻閃爍處理
- *   - /protect/flickerProtect: 新增路由，接收上傳檔案 → 產生「防錄製」輸出
- *   - 若為圖片，先轉成短影片 (5 秒) 再套用 flicker。
- *   - 可選用 AI 擾動 (對抗式噪聲) 進一步破壞錄製品質 (示範於下方註解)。
- */
+
+const { spawn } = require('child_process');
+const path = require('path');
+const fs   = require('fs');
+const { execSync } = require('child_process');
+const multer = require('multer');
+
+// 假設您在前面已有 UPLOAD_BASE_DIR
+// 若無，可自行定義 const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+const flickerUpload = multer({ dest: UPLOAD_BASE_DIR });
 
 
 /**
  * flickerEncode - 核心防錄製函式
- * 
- * @param {string} inputPath  - 輸入影片路徑（或已轉短影片的圖片）
- * @param {string} outputPath - 輸出防錄製檔案路徑 (mp4)
- * @param {object} options    - 其他可選參數，如 { useRgbSplit: false }
- * 
- * 說明：
- *   - 預設做「高頻閃爍」：偶數幀維持原畫，奇數幀亮度 -0.8 (近似黑)。
- *   - 可選 RGB Split：將高頻閃爍後的畫面再分離 R/G/B 三通道交錯，錄製難度更高。
- *   - 若要再增 AI 擾動，可在呼叫 flickerEncode 前後插入 Python 擾動邏輯。
+ * @param {string} inputPath
+ * @param {string} outputPath
+ * @param {object} options - { useRgbSplit: boolean }
  */
-
-const { spawn } = require('child_process');
-const flickerEncode = async (inputPath, outputPath, options = {}) => {
+async function flickerEncode(inputPath, outputPath, options = {}) {
   const useRgbSplit = options.useRgbSplit || false;
 
   return new Promise((resolve, reject) => {
-    // 預設 60 fps，可自行提高至 90/120 fps 減少人眼閃爍感
-    const fpsOut = '60';
+    const fpsOut = '60'; // 預設 60 fps
 
-    // filter 1：亮暗交錯
     let filterCmd = `
       [0:v]split=2[main][alt];
       [alt]eq=brightness=-0.8[dark];
       [main][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'
     `.trim();
 
-    // 若需要 RGB 分離，再把上面結果繼續加工
     if (useRgbSplit) {
       filterCmd = `
         [0:v]split=2[main][alt];
@@ -1901,7 +1864,6 @@ const flickerEncode = async (inputPath, outputPath, options = {}) => {
       `.replace(/\s+$/, '');
     }
 
-    // 組合 ffmpeg 參數
     const args = [
       '-y',
       '-i', inputPath,
@@ -1909,85 +1871,67 @@ const flickerEncode = async (inputPath, outputPath, options = {}) => {
       '-r', fpsOut,
       '-c:v', 'libx264',
       '-preset', 'medium',
-      // 若想維持高彩，可用 yuv444p，但檔案較大
       '-pix_fmt', 'yuv420p',
       outputPath
     ];
 
-    const ff = spawn('ffmpeg', args);
-
-    ff.stderr.on('data', (data) => {
-      // 若要觀察 ffmpeg log，可在此 console.log
-      // console.log('[flickerEncode ffmpeg]', data.toString());
-    });
-
-    ff.on('error', (err) => reject(err));
-    ff.on('close', (code) => {
-      if (code === 0) {
-        resolve(true);
-      } else {
-        reject(new Error(`flickerEncode ffmpeg process exit code=${code}`));
-      }
-    });
+    console.log('[flickerEncode] ffmpeg =>', args.join(' '));
+    const ff = spawnSync('ffmpeg', args, { stdio:'inherit' });
+    if (ff.status === 0) {
+      resolve(true);
+    } else {
+      reject(new Error(`flickerEncode failed => exitCode=${ff.status}`));
+    }
   });
-};
-
+}
 
 /**
  * [路由] /protect/flickerProtect
- * 
- * 新增一個路由，提供「上傳檔案 → 產生防螢幕錄製/截圖影片」的功能。
- * - 若為圖片 -> 先轉成 5 秒 MP4 -> 再調用 flickerEncode
- * - 若為影片 -> 直接 flickerEncode
- * - 產出檔案後，可讓用戶自行下載或上傳其他平台測試錄製效果
+ *   - 上傳圖片或影片
+ *   - 若圖片 -> 先轉成 5 秒 mp4
+ *   - 執行 flickerEncode => 產出 mp4
  */
-
-router.post('/flickerProtect', upload.single('file'), async (req, res) => {
+router.post('/flickerProtect', flickerUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'NO_FILE', message: '請上傳檔案' });
     }
 
     const mime = req.file.mimetype;
-    const ext = path.extname(req.file.originalname) || '.mp4';
+    const ext  = path.extname(req.file.originalname) || '.mp4';
     const originalPath = path.join(UPLOAD_BASE_DIR, `flicker_input_${Date.now()}${ext}`);
 
-    // 先把上傳檔案搬到 uploads 下
+    // 先把檔案搬到 uploads
     fs.renameSync(req.file.path, originalPath);
 
     let sourceForFlicker = originalPath;
     let isImage = false;
 
-    // 如果是圖片，先轉為短影片 (5 秒)
+    // 若是圖片 => 先轉為 5 秒影片
     if (mime.startsWith('image')) {
       isImage = true;
       const tempVideoPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
-      // ffmpeg：-loop 1 -i 圖片 -t 5秒 -> mp4
       const cmd = `ffmpeg -y -loop 1 -i "${originalPath}" -c:v libx264 -t 5 -pix_fmt yuv420p "${tempVideoPath}"`;
-      execSync(cmd);  // 同步執行
+      execSync(cmd, { stdio:'inherit' });
       sourceForFlicker = tempVideoPath;
     }
 
-    // 執行 flickerEncode，產出最終「防錄製」檔
-    const flickerOutPath = path.join(UPLOAD_BASE_DIR, `flicker_protected_${Date.now()}.mp4`);
-    await flickerEncode(sourceForFlicker, flickerOutPath, { useRgbSplit: false });
+    // 最終輸出
+    const outName = `flicker_protected_${Date.now()}.mp4`;
+    const outPath = path.join(UPLOAD_BASE_DIR, outName);
 
-    // (可選) AI 擾動範例: 
-    //   若您有 Python 腳本 aiPerturb.py，可在 flickerEncode 前後插入：
-    // execSync(`python aiPerturb.py "${sourceForFlicker}" "somePerturbedFile.mp4"`);
-    // await flickerEncode("somePerturbedFile.mp4", flickerOutPath, { useRgbSplit: false });
+    await flickerEncode(sourceForFlicker, outPath, { useRgbSplit: false });
 
     // 刪除暫存
     if (isImage) {
-      fs.unlinkSync(sourceForFlicker); // 刪除tempIMG
-      fs.unlinkSync(originalPath);     // 刪除原圖
+      fs.unlinkSync(sourceForFlicker);
+      fs.unlinkSync(originalPath);
     }
 
-    // 回傳給前端下載連結
-    // (假設您已有 /protect/download?file=xxx 的實作)
+    // 回傳下載連結
     return res.json({
       message: '已完成防螢幕錄製/截圖處理',
-      downloadUrl: `/api/protect/flickerDownload?file=${path.basename(flickerOutPath)}`
+      downloadUrl: `/api/protect/flickerDownload?file=${encodeURIComponent(outName)}`
     });
 
   } catch (err) {
@@ -1999,9 +1943,7 @@ router.post('/flickerProtect', upload.single('file'), async (req, res) => {
 
 /**
  * [路由] /protect/flickerDownload?file=xxx
- * 
- * 提供下載「防錄製」影片。
- * 您也可直接使用 /scanReports/:fileId 的形式，視專案規劃而定。
+ *   - 下載「防錄製」影片
  */
 router.get('/flickerDownload', (req, res) => {
   try {
@@ -2019,5 +1961,7 @@ router.get('/flickerDownload', (req, res) => {
     return res.status(500).send('Download error: ' + e.message);
   }
 });
-/*   (Line 1800+) ...您可以在此持續新增程式碼...   */
+
+/**************************************************/
+/*   第 2023 行結束                               */
 /**************************************************/
