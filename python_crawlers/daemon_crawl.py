@@ -42,7 +42,7 @@ def crawl_and_insert_images(the_url):
             if src.startswith("//"):
                 src = "https:" + src
             elif src.startswith("/"):
-                # 若需要處理相對路徑，可加上 domain
+                # 若需要處理相對路徑，可再自行補上 domain
                 pass
             if src.startswith("http"):
                 images.append(src)
