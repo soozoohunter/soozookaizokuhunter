@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   ######################################################################
   #  (1) 您原先的服務: suzoo_postgres, suzoo_express, suzoo_frontend 等
@@ -83,7 +85,7 @@ services:
     restart: unless-stopped
 
   ######################################################################
-  # (C) 其餘服務保留 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
+  # (C) 其餘服務 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
   ######################################################################
 
   suzoo_fastapi:
@@ -214,7 +216,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-
   ######################################################################
   # =========== 以下為新增的兩個服務 (api_service / ai_service) ==========
   ######################################################################
@@ -222,7 +223,7 @@ services:
     container_name: api_service
     build:
       context: ./api_service
-    # 若您已占用 3000，可改 "3002:3000" or 其他空閒埠
+    # 若 3000 已被占用，可改 "3002:3000" 或其他空閒 port
     ports:
       - "3002:3000"
     volumes:
@@ -232,6 +233,9 @@ services:
       - type: bind
         source: ./media_output
         target: /app/../media_output
+    # 如果程式端需要從環境變數得知 AI_SERVICE_URL，可自行加：
+    environment:
+      AI_SERVICE_URL: "http://ai_service:3000"
     depends_on:
       - ai_service
     networks:
@@ -242,14 +246,16 @@ services:
     container_name: ai_service
     build:
       context: ./ai_service
+    # 若您需要讓其他服務呼叫 ai_service 的 port，可自行加 expose 或 ports
+    # 例如： expose:
+    #         - "3000"
     volumes:
       - type: bind
         source: ./api_service/uploads
-        target: /app/../api_service/uploads
+        target: /app/uploads
     networks:
       - suzoo_net
     restart: unless-stopped
-
 
 volumes:
   postgres_data:
