@@ -2,14 +2,14 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# 安裝所需套件，先複製 requirements.txt 再安裝
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# 複製需求檔
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-# 複製所有原始碼
-COPY . .
+# 複製所有程式碼
+COPY . /app/
 
-EXPOSE 8000
-
-# 最後啟動指令，如有變動(例如app.py不一樣)請自行調整
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# 啟動 daemon_crawl.py（長期爬蟲 daemon）
+CMD ["python", "daemon_crawl.py"]
