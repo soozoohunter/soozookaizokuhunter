@@ -1,4 +1,8 @@
 services:
+  ######################################################################
+  #  (1) 您原先的服務: suzoo_postgres, suzoo_express, suzoo_frontend 等
+  ######################################################################
+
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -22,14 +26,9 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # ★ 加上 volumes 與環境變數修正
     volumes:
-      # 1. 將本機的 fonts 資料夾掛到容器 /fonts (唯讀即可)
       - ./express/fonts:/fonts:ro
-
-      # 2. 將本機的 debugShots 資料夾掛到容器 /app/debugShots
       - ./express/debugShots:/app/debugShots
-
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
@@ -49,10 +48,7 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_SECURE: ${SMTP_SECURE}
       EMAIL_FROM: ${EMAIL_FROM}
-
-      # ★ 修正 DNS，改用 docker-compose 服務名稱: suzoo_python_vector
       PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
-
     depends_on:
       - suzoo_postgres
       - suzoo_ipfs
@@ -73,7 +69,6 @@ services:
     depends_on:
       - suzoo_express
       - suzoo_fastapi
-    # 同時開放 80, 443
     ports:
       - "80:80"
       - "443:443"
@@ -81,7 +76,6 @@ services:
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
       - ./frontend/build:/usr/share/nginx/html:ro
-      # 若要使用Let's Encrypt憑證
       - /etc/letsencrypt:/etc/letsencrypt:ro
     command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
@@ -89,8 +83,9 @@ services:
     restart: unless-stopped
 
   ######################################################################
-  # (C) 其餘服務
+  # (C) 其餘服務保留 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
   ######################################################################
+
   suzoo_fastapi:
     container_name: suzoo_fastapi
     image: soozookaizokuhunter-suzoo_fastapi
@@ -104,7 +99,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # ★ 如果需要 ganache 帳戶有預設餘額，可於 command 加上 --account=...
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache-cli:latest
@@ -219,6 +213,43 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
+
+
+  ######################################################################
+  # =========== 以下為新增的兩個服務 (api_service / ai_service) ==========
+  ######################################################################
+  api_service:
+    container_name: api_service
+    build:
+      context: ./api_service
+    # 若您已占用 3000，可改 "3002:3000" or 其他空閒埠
+    ports:
+      - "3002:3000"
+    volumes:
+      - type: bind
+        source: ./api_service/uploads
+        target: /app/uploads
+      - type: bind
+        source: ./media_output
+        target: /app/../media_output
+    depends_on:
+      - ai_service
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  ai_service:
+    container_name: ai_service
+    build:
+      context: ./ai_service
+    volumes:
+      - type: bind
+        source: ./api_service/uploads
+        target: /app/../api_service/uploads
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:
