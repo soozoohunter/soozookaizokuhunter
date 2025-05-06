@@ -5,3 +5,4 @@ torchattacks==3.3.0
 opencv-python==4.6.0.66
 numpy==1.23.5
 Werkzeug<2.1.0
+scipy==1.9.3
