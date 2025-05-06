@@ -1820,7 +1820,6 @@ async function extractKeyFramesEnhanced(videoPath, outputDir, intervalSec = 10, 
 /**************************************************/
 
 const { spawn } = require('child_process');
-const path = require('path');
 const fs   = require('fs');
 const { execSync } = require('child_process');
 const multer = require('multer');
