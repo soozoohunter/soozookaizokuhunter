@@ -213,6 +213,9 @@ export default function ProtectStep1() {
   const [keywords, setKeywords] = useState('');
   const [agreePolicy, setAgreePolicy] = useState(false);
 
+  // 新增：是否啟用對抗擾動 + 高頻閃爍保護
+  const [enableProtection, setEnableProtection] = useState(false);
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -253,6 +256,8 @@ export default function ProtectStep1() {
 
     try {
       setLoading(true);
+
+      // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('realName', realName);
@@ -264,10 +269,16 @@ export default function ProtectStep1() {
       formData.append('keywords', keywords);
       formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
 
+      // 新增：開啟防護的參數
+      formData.append('enableProtection', enableProtection ? 'true' : 'false');
+
+      // 與您後端既有的 /api/protect/step1 溝通
+      // (請在後端接收到 enableProtection == 'true' 時，改走對抗擾動 + FFmpeg邏輯)
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
       });
+
       const respData = await resp.json();
 
       if (!resp.ok) {
@@ -410,6 +421,17 @@ export default function ProtectStep1() {
               style={{ marginRight:'0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
+          </CheckboxRow>
+
+          {/* 新增：是否啟用對抗擾動 & 閃爍保護 */}
+          <CheckboxRow>
+            <input
+              type="checkbox"
+              checked={enableProtection}
+              onChange={()=>setEnableProtection(!enableProtection)}
+              style={{ marginRight:'0.5rem' }}
+            />
+            <span>啟用防側錄 (對抗擾動 + 高頻閃爍)</span>
           </CheckboxRow>
 
           <SubmitButton type="submit" disabled={loading}>
