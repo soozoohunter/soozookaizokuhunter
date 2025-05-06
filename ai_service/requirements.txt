@@ -4,3 +4,4 @@ torchvision==0.14.1
 torchattacks==3.3.0
 opencv-python==4.6.0.66
 numpy==1.23.5
+Werkzeug<2.1.0
