@@ -36,7 +36,6 @@ const spin = keyframes`
 /* === 主要容器、背景 === */
 const PageWrapper = styled.div`
   min-height: 100vh;
-  /* 加入較強烈的漸層背景 + 慢速流動 */
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
   background-size: 500% 500%;
   animation: ${gradientFlow} 10s ease infinite;
@@ -203,7 +202,10 @@ const Spinner = styled.div`
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
+  // 上傳檔案
   const [file, setFile] = useState(null);
+
+  // 作品/個人資訊
   const [realName, setRealName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
@@ -211,15 +213,16 @@ export default function ProtectStep1() {
   const [email, setEmail] = useState('');
   const [title, setTitle] = useState('');
   const [keywords, setKeywords] = useState('');
-  const [agreePolicy, setAgreePolicy] = useState(false);
 
-  // 新增：是否啟用對抗擾動 + 高頻閃爍保護
+  // 條款 & 保護
+  const [agreePolicy, setAgreePolicy] = useState(false);
   const [enableProtection, setEnableProtection] = useState(false);
 
+  // 狀態
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 檔案變更
+  // 變更檔案
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -236,7 +239,7 @@ export default function ProtectStep1() {
     e.preventDefault();
     setError('');
 
-    // 前端檢查
+    // 前端檢查(基礎)
     if (!file) {
       return setError('請先上傳檔案');
     }
@@ -269,11 +272,10 @@ export default function ProtectStep1() {
       formData.append('keywords', keywords);
       formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
 
-      // 新增：開啟防護的參數
+      // 防側錄參數 (後端會判斷此flag來執行 flickerEncode)
       formData.append('enableProtection', enableProtection ? 'true' : 'false');
 
-      // 與您後端既有的 /api/protect/step1 溝通
-      // (請在後端接收到 enableProtection == 'true' 時，改走對抗擾動 + FFmpeg邏輯)
+      // 發送到後端: /api/protect/step1
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
@@ -282,13 +284,14 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        switch(resp.status){
+        // 依照後端可能回傳的狀態碼做簡易處理
+        switch(resp.status) {
           case 400:
             throw new Error(respData.error || '表單資料有誤 (400)');
           case 402:
             throw new Error(respData.error || '短影音上傳需付費 (402)');
           case 409:
-            alert(respData.error || 'Email/手機已存在,請改用已有帳號');
+            alert(respData.error || '檔案/帳號已存在，請重試或改用已存在帳號');
             return;
           case 413:
             throw new Error('檔案過大 (413)，請壓縮或縮小後再上傳');
@@ -299,7 +302,9 @@ export default function ProtectStep1() {
 
       // 成功
       console.log('[ProtectStep1] success =>', respData);
+      // 將 response 先存起來，供下一步 (Step2) 使用
       localStorage.setItem('protectStep1', JSON.stringify(respData));
+      // 跳轉至 Step2
       navigate('/protect/step2');
 
     } catch (err) {
@@ -346,13 +351,13 @@ export default function ProtectStep1() {
             type="text"
             placeholder="王小明 / John Wang"
             value={realName}
-            onChange={e => setRealName(e.target.value)}
+            onChange={(e) => setRealName(e.target.value)}
           />
           <StyledInput
             type="text"
             placeholder="1988-10-24"
             value={birthDate}
-            onChange={e => setBirthDate(e.target.value)}
+            onChange={(e) => setBirthDate(e.target.value)}
           />
 
           <HalfLabel>手機 (Phone)</HalfLabel>
@@ -361,13 +366,13 @@ export default function ProtectStep1() {
             type="text"
             placeholder="09xx-xxx-xxx"
             value={phone}
-            onChange={e => setPhone(e.target.value)}
+            onChange={(e) => setPhone(e.target.value)}
           />
           <StyledInput
             type="text"
             placeholder="台北市大安區..."
             value={address}
-            onChange={e => setAddress(e.target.value)}
+            onChange={(e) => setAddress(e.target.value)}
           />
 
           <FullLabel>Email</FullLabel>
@@ -376,7 +381,7 @@ export default function ProtectStep1() {
               type="email"
               placeholder="example@gmail.com"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </FullRow>
 
@@ -386,13 +391,13 @@ export default function ProtectStep1() {
             type="text"
             placeholder="My Artwork"
             value={title}
-            onChange={e => setTitle(e.target.value)}
+            onChange={(e) => setTitle(e.target.value)}
           />
           <StyledInput
             type="text"
             placeholder="art; painting; cat"
             value={keywords}
-            onChange={e => setKeywords(e.target.value)}
+            onChange={(e) => setKeywords(e.target.value)}
           />
 
           {/* 條款 */}
@@ -413,22 +418,23 @@ export default function ProtectStep1() {
             </details>
           </FullRow>
 
+          {/* 是否同意政策 */}
           <CheckboxRow>
             <input
               type="checkbox"
               checked={agreePolicy}
-              onChange={()=>setAgreePolicy(!agreePolicy)}
+              onChange={() => setAgreePolicy(!agreePolicy)}
               style={{ marginRight:'0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
 
-          {/* 新增：是否啟用對抗擾動 & 閃爍保護 */}
+          {/* 是否啟用防錄 */}
           <CheckboxRow>
             <input
               type="checkbox"
               checked={enableProtection}
-              onChange={()=>setEnableProtection(!enableProtection)}
+              onChange={() => setEnableProtection(!enableProtection)}
               style={{ marginRight:'0.5rem' }}
             />
             <span>啟用防側錄 (對抗擾動 + 高頻閃爍)</span>
