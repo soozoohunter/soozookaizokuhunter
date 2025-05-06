@@ -36,6 +36,7 @@ const spin = keyframes`
 /* === 主要容器、背景 === */
 const PageWrapper = styled.div`
   min-height: 100vh;
+  /* 加入較強烈的漸層背景 + 慢速流動 */
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
   background-size: 500% 500%;
   animation: ${gradientFlow} 10s ease infinite;
@@ -54,8 +55,6 @@ const FormContainer = styled.div`
   padding: 2rem 2.5rem;
   border-radius: 12px;
   border: 1px solid #444;
-
-  /* 加強霓虹 glow 動畫 */
   animation: ${neonGlow} 2s ease-in-out infinite alternate;
 `;
 
@@ -202,10 +201,8 @@ const Spinner = styled.div`
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
-  // 上傳檔案
+  // 上傳檔案 & 基本資訊
   const [file, setFile] = useState(null);
-
-  // 作品/個人資訊
   const [realName, setRealName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
@@ -213,16 +210,16 @@ export default function ProtectStep1() {
   const [email, setEmail] = useState('');
   const [title, setTitle] = useState('');
   const [keywords, setKeywords] = useState('');
-
-  // 條款 & 保護
   const [agreePolicy, setAgreePolicy] = useState(false);
+
+  // 是否啟用防側錄
   const [enableProtection, setEnableProtection] = useState(false);
 
-  // 狀態
+  // 狀態管理
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 變更檔案
+  // 檔案變更
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
@@ -234,12 +231,12 @@ export default function ProtectStep1() {
     setFile(null);
   };
 
-  // 提交
+  // 提交事件
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // 前端檢查(基礎)
+    // 前端檢查
     if (!file) {
       return setError('請先上傳檔案');
     }
@@ -272,10 +269,10 @@ export default function ProtectStep1() {
       formData.append('keywords', keywords);
       formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
 
-      // 防側錄參數 (後端會判斷此flag來執行 flickerEncode)
+      // 新增：後端就能知道要不要做防側錄
       formData.append('enableProtection', enableProtection ? 'true' : 'false');
 
-      // 發送到後端: /api/protect/step1
+      // 發送到後端 /api/protect/step1
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
@@ -284,14 +281,14 @@ export default function ProtectStep1() {
       const respData = await resp.json();
 
       if (!resp.ok) {
-        // 依照後端可能回傳的狀態碼做簡易處理
+        // 後端回傳錯誤 => 提示
         switch(resp.status) {
           case 400:
             throw new Error(respData.error || '表單資料有誤 (400)');
           case 402:
             throw new Error(respData.error || '短影音上傳需付費 (402)');
           case 409:
-            alert(respData.error || '檔案/帳號已存在，請重試或改用已存在帳號');
+            alert(respData.error || '檔案/帳號已存在，請改用已有帳號或改檔案');
             return;
           case 413:
             throw new Error('檔案過大 (413)，請壓縮或縮小後再上傳');
@@ -300,11 +297,11 @@ export default function ProtectStep1() {
         }
       }
 
-      // 成功
+      // 成功 => 將後端回傳資訊存起來
       console.log('[ProtectStep1] success =>', respData);
-      // 將 response 先存起來，供下一步 (Step2) 使用
       localStorage.setItem('protectStep1', JSON.stringify(respData));
-      // 跳轉至 Step2
+
+      // 跳轉到 Step2
       navigate('/protect/step2');
 
     } catch (err) {
@@ -418,7 +415,6 @@ export default function ProtectStep1() {
             </details>
           </FullRow>
 
-          {/* 是否同意政策 */}
           <CheckboxRow>
             <input
               type="checkbox"
@@ -429,7 +425,7 @@ export default function ProtectStep1() {
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
 
-          {/* 是否啟用防錄 */}
+          {/* 啟用防側錄 */}
           <CheckboxRow>
             <input
               type="checkbox"
