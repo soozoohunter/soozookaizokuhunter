@@ -45,14 +45,16 @@ const Title = styled.h2`
   margin-bottom: 1rem;
   text-align: center;
 `;
+
 const InfoBlock = styled.div`
   background-color: #1e1e1e;
   border: 1px solid #ff6f00;
-  padding: 1.5rem;
-  border-radius: 8px;
+  padding: 1rem;
+  border-radius: 6px;
   margin-bottom: 1rem;
   word-break: break-all;
 `;
+
 const NextButton = styled.button`
   background-color: #f97316;
   color: #fff;
@@ -72,50 +74,56 @@ export default function ProtectStep2() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
+    // 讀取 Step1 存的
     const stored = localStorage.getItem('protectStep1');
     if (!stored) {
-      // 若沒有 step1 資料 => 直接跳回 step1
+      // 若沒有 => 直接跳回 step1
       navigate('/protect/step1');
       return;
     }
     const data = JSON.parse(stored);
     setResult(data);
-    // 再存一份 protectStep2
-    localStorage.setItem('protectStep2', JSON.stringify(data));
   }, [navigate]);
 
   if (!result) {
     return (
       <PageWrapper>
         <Container>
-          <p>Loading...</p>
+          <p>Loading Step2...</p>
         </Container>
       </PageWrapper>
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, protectedFileUrl } = result;
+  const {
+    fileId,
+    pdfUrl,
+    fingerprint,
+    ipfsHash,
+    txHash,
+    protectedFileUrl
+  } = result;
 
   const handleGoNext = () => {
+    // 假設進行下一步 => Step3
     navigate('/protect/step3');
   };
 
   return (
     <PageWrapper>
       <Container>
-        <Title>Step 2: Result &amp; Certificate</Title>
-
+        <Title>Step 2: 上傳完成 &amp; 產生證書</Title>
         <InfoBlock>
           <p><strong>File ID:</strong> {fileId}</p>
           <p><strong>Fingerprint (SHA-256):</strong> {fingerprint || 'N/A'}</p>
           <p><strong>IPFS Hash:</strong> {ipfsHash || 'N/A'}</p>
-          <p><strong>Tx Hash:</strong> {txHash || 'N/A'}</p>
+          <p><strong>TxHash:</strong> {txHash || 'N/A'}</p>
         </InfoBlock>
 
-        {/* 顯示證書 PDF */}
+        {/* 顯示 PDF 連結 */}
         {pdfUrl ? (
-          <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
-            <p><strong>Certificate PDF:</strong></p>
+          <InfoBlock>
+            <p><strong>原創證書 PDF:</strong></p>
             <p>
               <a
                 href={pdfUrl}
@@ -129,11 +137,11 @@ export default function ProtectStep2() {
           </InfoBlock>
         ) : (
           <InfoBlock>
-            <p>尚未生成 PDF 連結，或連結錯誤。</p>
+            <p>尚未生成 PDF 連結 (pdfUrl 為空)</p>
           </InfoBlock>
         )}
 
-        {/* 若後端已啟用防護，則可以多帶 protectedFileUrl 供下載 */}
+        {/* 防側錄後檔案 => protectedFileUrl */}
         {protectedFileUrl && (
           <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
             <p><strong>防護後檔案 (Protected File):</strong></p>
@@ -150,9 +158,9 @@ export default function ProtectStep2() {
           </InfoBlock>
         )}
 
-        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <div style={{ textAlign:'center', marginTop:'1.5rem' }}>
           <NextButton onClick={handleGoNext}>
-            開始進行侵權偵測 →
+            下一步 (侵權掃描) →
           </NextButton>
         </div>
       </Container>
