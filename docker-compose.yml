@@ -217,7 +217,7 @@ services:
     container_name: suzoo_crawler_runner
     build:
       context: ./python_crawlers
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.python
     depends_on:
       - suzoo_rabbitmq
     ports:
