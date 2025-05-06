@@ -1,5 +1,8 @@
+/**
  * express/routes/protect.js (最終整合+更詳盡除錯紀錄 + 小幅修正 + 圖片轉檔公開URL + 新增 scanLink + Flicker 防錄製)
  *
+ * 更多註解內容...
+ */
  * - Step1: 上傳檔案 => fingerprint, IPFS, 區塊鏈 => 產生「原創證書 PDF」
  *   ★ 若為圖片 => convertAndUpload(...) 產生 publicImageUrl => 回傳
  * - 短影片(≤30秒) => 抽幀 => aggregator(Ginifab) + fallback(Bing/TinEye/Baidu)
