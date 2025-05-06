@@ -1,93 +1,38 @@
-/**************************************************/
-/*   以下第 1～1741 行，完全照你原有程式碼內容，   */
-/*   沒有刪掉任何一行、任何一字。                */
-/**************************************************/
-/* (Line 1) ...請確保這裡開始到 (Line 1741) 都是你原本的程式碼... */
-/*  假設這裡是舊的程式碼，以下僅示意保留，請自行替換為您原本的 1～1741 行  */
-
-
-
-/* ====================== (以下示意：您的 1～1741 行舊程式碼) ======================
-   function oldFunctionA() { ... }
-   function oldFunctionB() { ... }
-   ...  (一直到 line 1741 完全不動) ...
-   ...
-   ...
-/* ============================================================================= */
-/**
- * express/routes/protect.js (最終整合+更詳盡除錯紀錄 + 小幅修正 + 圖片轉檔公開URL + 新增 scanLink + Flicker 防錄製)
- *
- * - Step1: 上傳檔案 => fingerprint, IPFS, 區塊鏈 => 產生「原創證書 PDF」
- *   ★ 若為圖片 => convertAndUpload(...) 產生 publicImageUrl => 回傳
- * - 短影片(≤30秒) => 抽幀 => aggregator(Ginifab) + fallback(Bing/TinEye/Baidu)
- * - 針對 FB/IG/YouTube/TikTok 做文字爬蟲(示範)
- * - PDF 檔名: certificate_{fileId}.pdf / scanReport_{fileId}.pdf
- *
- * [本檔案調整項目]
- * 1. Puppeteer headless => true (防舊版Chromium不支援 'new')
- * 2. 預設 aggregatorFirst = true (先走Ginifab)
- * 3. 增加關鍵 console.log 幫助排查錯誤
- * 4. 新增 const PUBLIC_HOST = 'https://suzookaizokuhunter.com'，並在 /scan/:fileId 最後自動刪除暫存檔
- * 5. 若「白名單使用者重複上傳同一檔案」且之前的 PDF 或本地檔不見時，會重新補齊/產生。
- * 6. ★ 新增多階段嘗試：先直入 Ginifab，若遇到廣告且無法關閉 -> 關頁 -> Google 搜尋 Ginifab -> 再試一次。
- * 7. ★ 新增「優先嘗試本機上傳」的 aggregatorSearchGinifab 流程 (若失敗才改用指定圖片網址+Google fallback)
- * 8. ★ 新增除錯機制：saveDebugInfo，把截圖與 HTML dump 存到 /app/debugShots
- * 9. ★ 新增：convertAndUpload(...) 用於圖片檔轉 PNG 並產生公開訪問連結 publicImageUrl
- *
- * [ADDED FOR VECTOR SEARCH + 相似圖片PDF]:
- *   - 在 /scan/:fileId 補上向量檢索 (searchImageByVector) 的呼叫
- *   - 新增 generateScanPDFWithMatches() 產生含相似圖片的 PDF
- *
- * [ADDED scanLink 功能]
- *   1. GET /protect/scanLink?url=xxx => 只輸入連結 → 自動抓該連結主圖 → aggregator/fallback → 向量檢索 → PDF 報告
- *   2. GET /protect/scanReportsLink/:pdfName => 下載前述 scanLink 產生之 PDF 報告
- *
- * [ADDED Flicker Encode 防錄製功能]
- */
+// express/routes/protect.js
 
 const express = require('express');
 const router = express.Router();
 
-// 原本 lines 1～1741 中，您應已有 `const fs = require('fs')`，請勿重複
-// 若舊碼沒有，請在此打開下一行：
-// const fs = require('fs');
-
+// [必要模組載入]
+const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { execSync, spawnSync } = require('child_process');
 const { Op } = require('sequelize');
-const multer = require('multer');  // 若舊碼已宣告，請註解此行
-// const multer = require('multer');  // 若前面沒有則打開這行
+const multer = require('multer');
 
 // Puppeteer + Stealth
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-// ffmpeg 與抽影格
+// ffmpeg 抽幀
 const ffmpegPath = require('ffmpeg-static');
 const ffmpeg = require('fluent-ffmpeg');
 if (ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
 
-//
-// ========== 以下為您「新增 /services /utils」匯入的區塊 ==========
-//    如果舊檔已有，請自行比對重複宣告，再視情況保留/刪除
-//
-
-const { User, File } = require('../models');                // Models
+// Models & Services
+const { User, File } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
-const ipfsService        = require('../services/ipfsService');
-const chain              = require('../utils/chain');
+const ipfsService = require('../services/ipfsService');
+const chain = require('../utils/chain');
 const { extractKeyFrames } = require('../utils/extractFrames');
 const { convertAndUpload } = require('../utils/convertAndUpload');
-const { searchImageByVector } = require('../utils/vectorSearch');  // Python微服務
+const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
-// const { initCollection, insertAggregatorLinks } = require('../services/milvusService');
-// const { embedTextByPython } = require('../services/textVectorService');
-
 //----------------------------------------
 // [★ 新增] 讀取 express/data/manual_links.json => 取得人工搜圖連結
 //----------------------------------------
