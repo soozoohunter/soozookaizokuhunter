@@ -1,8 +1,4 @@
 services:
-  ######################################################################
-  #  (1) 您原先的服務: suzoo_postgres, suzoo_express, suzoo_frontend 等
-  ######################################################################
-
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -18,9 +14,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ######################################################################
-  # (A) suzoo_express
-  ######################################################################
   suzoo_express:
     container_name: suzoo_express
     build:
@@ -60,9 +53,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ######################################################################
-  # (B) suzoo_frontend
-  ######################################################################
   suzoo_frontend:
     container_name: suzoo_frontend
     image: nginx:alpine
@@ -81,10 +71,6 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
-
-  ######################################################################
-  # (C) 其餘服務 (suzoo_fastapi, suzoo_ganache, suzoo_ipfs, etc.)
-  ######################################################################
 
   suzoo_fastapi:
     container_name: suzoo_fastapi
@@ -194,9 +180,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ######################################################################
-  # (D) python-vector-service
-  ######################################################################
   suzoo_python_vector:
     container_name: suzoo_python_vector
     build:
@@ -210,14 +193,10 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ######################################################################
-  # (E) 新增的爬蟲容器: suzoo_crawler_runner
-  ######################################################################
   suzoo_crawler_runner:
     container_name: suzoo_crawler_runner
     build:
       context: ./python_crawlers
-      # 修正此處，改為使用 Dockerfile 而非 Dockerfile.python
       dockerfile: Dockerfile
     depends_on:
       - suzoo_rabbitmq
@@ -227,23 +206,15 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  ######################################################################
-  # =========== 以下為新增的兩個服務 (api_service / ai_service) ==========
-  ######################################################################
   api_service:
     container_name: api_service
     build:
       context: ./api_service
-    # 若 3000 已被占用，可自行改 "3002:3000" 或其他空閒 port
     ports:
       - "3002:3000"
     volumes:
-      - type: bind
-        source: ./api_service/uploads
-        target: /app/uploads
-      - type: bind
-        source: ./media_output
-        target: /app/../media_output
+      - ./api_service/uploads:/app/uploads
+      - ./media_output:/app/../media_output
     environment:
       AI_SERVICE_URL: "http://ai_service:3000"
     depends_on:
@@ -257,9 +228,7 @@ services:
     build:
       context: ./ai_service
     volumes:
-      - type: bind
-        source: ./api_service/uploads
-        target: /app/uploads
+      - ./api_service/uploads:/app/uploads
     networks:
       - suzoo_net
     restart: unless-stopped
