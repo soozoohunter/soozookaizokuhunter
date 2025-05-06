@@ -1,5 +1,3 @@
-# kaiShield/ai_service/Dockerfile
-
 FROM python:3.9
 
 # 安裝必要套件 (含 opencv)
@@ -9,11 +7,12 @@ WORKDIR /app
 
 # 複製需求檔
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # 複製程式碼
 COPY . /app
 
 EXPOSE 5000
 
-CMD ["python", "server.py"]
+# 改用 Gunicorn 啟動 Flask (適合生產環境)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "server:app"]
