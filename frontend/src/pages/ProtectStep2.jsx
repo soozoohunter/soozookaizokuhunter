@@ -1,3 +1,4 @@
+// frontend/src/pages/ProtectStep2.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
@@ -93,7 +94,7 @@ export default function ProtectStep2() {
     );
   }
 
-  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash } = result;
+  const { fileId, pdfUrl, fingerprint, ipfsHash, txHash, protectedFileUrl } = result;
 
   const handleGoNext = () => {
     navigate('/protect/step3');
@@ -111,6 +112,7 @@ export default function ProtectStep2() {
           <p><strong>Tx Hash:</strong> {txHash || 'N/A'}</p>
         </InfoBlock>
 
+        {/* 顯示證書 PDF */}
         {pdfUrl ? (
           <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
             <p><strong>Certificate PDF:</strong></p>
@@ -128,6 +130,23 @@ export default function ProtectStep2() {
         ) : (
           <InfoBlock>
             <p>尚未生成 PDF 連結，或連結錯誤。</p>
+          </InfoBlock>
+        )}
+
+        {/* 若後端已啟用防護，則可以多帶 protectedFileUrl 供下載 */}
+        {protectedFileUrl && (
+          <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
+            <p><strong>防護後檔案 (Protected File):</strong></p>
+            <p>
+              <a
+                href={protectedFileUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: '#f97316', textDecoration: 'underline' }}
+              >
+                點我下載 / Download Protected File
+              </a>
+            </p>
           </InfoBlock>
         )}
 
