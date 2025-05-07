@@ -5,10 +5,11 @@
  *        後端根據 fileId 找到對應檔案，執行 flickerEncode 產生防錄製檔，再回傳 protectedFileUrl。
  *
  * 說明：
- * - 下列程式碼為「你原先成功部署」的 protect.js，並已合併了 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯。
- * - 同時修正了檔案不見/重複上傳檔案/掃描後刪除檔案導致後續防錄製檔缺失的問題。
- * - 只針對必要處（抽幀 ffmpeg + pixel format 警告）做了小幅修正，其餘不動。
- * - 請直接將此檔案「完整」覆蓋 /app/routes/protect.js(或你原本程式的對應路徑)，即可正常運作。
+ * - 這裡是在你原先成功部署的 protect.js 上，包含 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯，
+ *   並同時修正了檔案不見/重複上傳檔案/掃描後刪除檔案導致後續防錄製檔缺失等問題。
+ * - 特別針對 ffmpeg 抽幀及 pixel format 警告、音軌映射，以及 flickerEncode 增加參數，讓音訊保留下來、增加可視的閃爍效果。
+ * - 除了 flickerEncode 函式的實作優化外，其餘程式碼維持不動（只在必要處小幅修正）。
+ * - 直接將此檔案覆蓋 /app/routes/protect.js(或你原本程式的對應路徑) 即可正常運作。
  */
 
 const express = require('express');
@@ -369,7 +370,7 @@ async function saveDebugInfoForAggregator(page, tag){
   return await saveDebugInfo(page, tag);
 }
 
-//-- ginifab (本檔合併寫法，略去部分註解，以保持原樣) --
+//-- ginifab (本檔合併寫法，略去部分註解) --
 async function tryGinifabUploadLocal(page, localImagePath) {
   try {
     const uploadLink = await page.$x("//a[contains(text(),'上傳本機圖片')]");
@@ -463,7 +464,7 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
   }
 }
 
-// -- iOS/Android/Desktop 複合嘗試 (簡略)
+// -- iOS/Android/Desktop 複合嘗試
 async function tryGinifabUploadLocal_iOS(page, localImagePath){
   console.log('[tryGinifabUploadLocal_iOS]...');
   try {
@@ -1403,15 +1404,9 @@ router.get('/scan/:fileId', async(req,res)=>{
     }, scanPdfPath);
 
     /**
-     * ======================【修正重點】======================
-     * 原先程式在 /scan/:fileId 結束後，會把 localPath 刪除，
-     * 但這會導致後續想做 /flickerProtectFile (防側錄) 時檔案不見。
-     * 所以這裡不再執行 fs.unlinkSync(localPath)。
-     * 如需在掃描結束後就不再進行防側錄，可自行再行刪除。
-     *
-     * 同樣，如果你想移除抽幀暫存檔 frameDir，也可以選擇保留或刪除。
-     * 這裡示範保留，以便後續其他功能仍能使用同一批抽幀。
-     * 若要釋放空間，可自行 fs.rmSync(frameDir, { recursive: true, force: true });
+     * ======================【重點修正】======================
+     * 原程式若在 /scan/:fileId 結束後就 fs.unlinkSync(localPath) 會導致防錄製檔案不見。
+     * 現在我們「不再刪除」localPath；若你掃描後確定不做防錄製，也可自行再行刪除。
      */
 
     return res.json({
@@ -1556,28 +1551,44 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 
 /* 
  * ------------------------------------------------------------------------------------
- * (以下為新需求) 做法 B => 在 Step2 讓使用者自行點擊「我要啟用防側錄」 => POST /protect/flickerProtectFile
+ * (以下為新需求) 做法 B => 在 Step2 時由前端呼叫 => 帶 fileId => 產生防錄製檔案
  * ------------------------------------------------------------------------------------
  */
 
-// 示例：若你有個 services/flickerService.js，內含 flickerEncode，可在此引入
-// 如果原本就寫在同一檔，也可直接放 function flickerEncode() {} 即可
+// ==========================【改良版 flickerEncode】==========================
+// - 增加 -map 參數來攜帶音訊；
+// - 在 filter 中增加更明顯的對比/亮度變化，並保留 scale + yuv420p，
+// - 預設輸出 60 fps；若想要加快，可改成 30 fps；
+// ==========================================================================
 async function flickerEncode(inputPath, outputPath, options = {}) {
   const useRgbSplit = options.useRgbSplit || false;
+  // 調整閃爍強度（亮度/對比）
+  const brightnessDark = options.brightnessDark || -0.8;   // 原 -0.8
+  const brightnessLight= options.brightnessLight|| 0.2;    // 新增 0.2 (做出明暗差距)
+  const fpsOut = options.fpsOut || '60';
+
   return new Promise((resolve, reject) => {
-    const fpsOut = '60';
+    /**
+     * 下方 filter 目的是把原始畫面 [main]，再做一個 [alt]，
+     * 其中 [alt] 用 eq=brightness=xxx 或其他強力濾鏡，最後 blend 交互拼貼：
+     *
+     * 這樣會產生每幀輪流「暗 - 亮 - 暗 - 亮」的視覺效果。
+     *
+     * 如果想要再加 RGB 分離，可加 useRgbSplit = true
+     */
     let filterCmd = `
       [0:v]split=2[main][alt];
-      [alt]eq=brightness=-0.8[dark];
-      [main][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'
+      [alt]eq=brightness=${brightnessDark}[dark];
+      [main]eq=brightness=${brightnessLight}[bright];
+      [bright][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'
     `.trim();
 
     if (useRgbSplit) {
-      // 範例：加上 RGB 分離再疊合 (可自行修改)
       filterCmd = `
         [0:v]split=2[main][alt];
-        [alt]eq=brightness=-0.8[dark];
-        [main][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'[flicker];
+        [alt]eq=brightness=${brightnessDark}[dark];
+        [main]eq=brightness=${brightnessLight}[bright];
+        [bright][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'[flicker];
         [flicker]split=3[r][g][b];
         [r]extractplanes=r:0:0[rc];
         [g]extractplanes=g:0:0[gc];
@@ -1585,11 +1596,11 @@ async function flickerEncode(inputPath, outputPath, options = {}) {
         [rc]pad=iw:ih:0:0:color=Black[rout];
         [gc]pad=iw:ih:0:0:color=Black[gout];
         [bc]pad=iw:ih:0:0:color=Black[bout];
-        [rout][gout][bout]interleave=0,format=yuv444p
+        [rout][gout][bout]interleave=0
       `.replace(/\s+$/, '');
     }
 
-    // ★ 增加 scale & format，避免 deprecated pixel format
+    // 最後加上 scale + format 避免 pixel format 警告
     filterCmd += `,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p`;
 
     const args = [
@@ -1597,9 +1608,17 @@ async function flickerEncode(inputPath, outputPath, options = {}) {
       '-i', inputPath,
       '-filter_complex', filterCmd,
       '-r', fpsOut,
+      // 保留音訊 (若有)
+      '-map', '0:v:0',
+      '-map', '0:a?:0',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      // 視訊編碼
       '-c:v', 'libx264',
       '-preset', 'medium',
       '-pix_fmt', 'yuv420p',
+      // 保證 mp4 正常播放
+      '-movflags', '+faststart',
       outputPath
     ];
 
@@ -1642,7 +1661,9 @@ router.post('/flickerProtectFile', async (req, res) => {
       // ffmpeg -y -loop 1 -i {圖片} -t 5 -c:v libx264 -pix_fmt yuv420p {temp.mp4}
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
-        execSync(`ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p "${tempPath}"`);
+        const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart "${tempPath}"`;
+        console.log('[flickerProtectFile] convert image to short mp4 =>', cmd);
+        execSync(cmd);
         sourcePath = tempPath;
       } catch(eImg){
         console.error('[flickerProtectFile] convert image to video fail =>', eImg);
@@ -1656,10 +1677,17 @@ router.post('/flickerProtectFile', async (req, res) => {
 
     try {
       await flickerEncode(sourcePath, protectedPath, {
-        useRgbSplit: false // 可以依需求 true/false
+        useRgbSplit: false,   // 可改 true 看更炫的效果
+        brightnessDark: -1.0, // 調更暗
+        brightnessLight: 0.3, // 調更亮
+        fpsOut: '60'
       });
     } catch(eFlicker){
       console.error('[flickerProtectFile] flickerEncode fail =>', eFlicker);
+      // 若中途產生 tempIMG => 刪除
+      if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
+        fs.unlinkSync(sourcePath);
+      }
       return res.status(500).json({ error:'FLICKER_ENCODE_ERROR', detail:eFlicker.message });
     }
 
