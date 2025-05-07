@@ -55,11 +55,18 @@ const InfoBlock = styled.div`
   word-break: break-all;
 `;
 
-const NextButton = styled.button`
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+`;
+
+const OrangeButton = styled.button`
   background-color: #f97316;
   color: #fff;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.2rem;
   font-size: 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -69,12 +76,32 @@ const NextButton = styled.button`
   }
 `;
 
+const DarkButton = styled.button`
+  background: #444;
+  color: #fff;
+  border: 1px solid #666;
+  border-radius: 6px;
+  padding: 0.75rem 1.2rem;
+  cursor: pointer;
+  &:hover {
+    background: #666;
+    box-shadow: 0 0 8px #ff6f00;
+  }
+`;
+
+const ErrorMsg = styled.p`
+  color: red;
+`;
+
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
+  const [protectedUrl, setProtectedUrl] = useState('');
+  const [loadingProtect, setLoadingProtect] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    // 讀取 Step1 存的
+    // 讀取 Step1 的資料
     const stored = localStorage.getItem('protectStep1');
     if (!stored) {
       // 若沒有 => 直接跳回 step1
@@ -101,13 +128,44 @@ export default function ProtectStep2() {
     fingerprint,
     ipfsHash,
     txHash,
-    protectedFileUrl
+    publicImageUrl
   } = result;
 
-  const handleGoNext = () => {
-    // 假設進行下一步 => Step3
+  const handleGoScan = () => {
+    // 假設下一步就是 Step3 做掃描
+    // 先把 step2 資料存一下
+    const step2Data = {
+      fileId, pdfUrl, fingerprint, ipfsHash, txHash, protectedUrl
+    };
+    localStorage.setItem('protectStep2', JSON.stringify(step2Data));
     navigate('/protect/step3');
   };
+
+  async function handleFlickerProtect() {
+    try {
+      setLoadingProtect(true);
+      setError('');
+      setProtectedUrl('');
+
+      const resp = await fetch('/api/protect/flickerProtectFile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId })
+      });
+      if(!resp.ok){
+        const errData = await resp.json();
+        throw new Error(errData.error || '防錄製失敗');
+      }
+      const data = await resp.json();
+      console.log('[flickerProtectFile] =>', data);
+      setProtectedUrl(data.protectedFileUrl || '');
+    } catch(e){
+      console.error(e);
+      setError(e.message);
+    } finally {
+      setLoadingProtect(false);
+    }
+  }
 
   return (
     <PageWrapper>
@@ -124,16 +182,14 @@ export default function ProtectStep2() {
         {pdfUrl ? (
           <InfoBlock>
             <p><strong>原創證書 PDF:</strong></p>
-            <p>
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: '#4caf50', textDecoration: 'underline' }}
-              >
-                點我下載 / Download PDF
-              </a>
-            </p>
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#4caf50', textDecoration: 'underline' }}
+            >
+              點我下載 / Download PDF
+            </a>
           </InfoBlock>
         ) : (
           <InfoBlock>
@@ -141,28 +197,52 @@ export default function ProtectStep2() {
           </InfoBlock>
         )}
 
-        {/* 防側錄後檔案 => protectedFileUrl */}
-        {protectedFileUrl && (
-          <InfoBlock style={{ backgroundColor: '#2c2c2c' }}>
-            <p><strong>防護後檔案 (Protected File):</strong></p>
-            <p>
-              <a
-                href={protectedFileUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: '#f97316', textDecoration: 'underline' }}
-              >
-                點我下載 / Download Protected File
-              </a>
-            </p>
+        {/* 若使用者想看上傳後 publicImageUrl */}
+        {publicImageUrl && (
+          <InfoBlock>
+            <p><strong>公開圖片連結:</strong></p>
+            <a
+              href={publicImageUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: '#4caf50', textDecoration: 'underline' }}
+            >
+              {publicImageUrl}
+            </a>
           </InfoBlock>
         )}
 
-        <div style={{ textAlign:'center', marginTop:'1.5rem' }}>
-          <NextButton onClick={handleGoNext}>
-            下一步 (侵權掃描) →
-          </NextButton>
-        </div>
+        {/* 防錄製 */}
+        <InfoBlock style={{ backgroundColor:'#2c2c2c' }}>
+          <p><strong>防側錄 / 防擷取檔案 (做法B)</strong></p>
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+          {protectedUrl ? (
+            <div style={{ marginTop:'0.5rem' }}>
+              <p>已完成防錄製處理，請點下方連結下載：</p>
+              <a
+                href={protectedUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color:'#f97316', textDecoration:'underline' }}
+              >
+                點我下載防側錄檔案
+              </a>
+            </div>
+          ) : (
+            <div style={{ marginTop:'0.5rem' }}>
+              <p>點選按鈕進行防側錄/防擷取處理</p>
+              <DarkButton onClick={handleFlickerProtect} disabled={loadingProtect}>
+                {loadingProtect ? '處理中...' : '我要啟用防側錄'}
+              </DarkButton>
+            </div>
+          )}
+        </InfoBlock>
+
+        <ButtonRow>
+          <OrangeButton onClick={handleGoScan}>
+            前往侵權偵測 (Step3) →
+          </OrangeButton>
+        </ButtonRow>
       </Container>
     </PageWrapper>
   );
