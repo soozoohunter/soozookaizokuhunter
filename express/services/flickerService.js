@@ -1,9 +1,18 @@
+// kaiShield/flickerService.js
+
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 /**
  * flickerEncode (增強版)
+ * 支援：
+ *   - AI 擾動: useAiPerturb=true => 直接呼叫 aiPerturb.py
+ *   - Hue Flicker: useHueFlicker => hueFlickerAmp
+ *   - 隨機閃爍: useRandomFlicker
+ *   - 子像素偏移: useSubPixelShift
+ *   - 局部遮罩: useMaskOverlay
+ *   - RGB 分離: useRgbSplit
  */
 async function flickerEncode(inputPath, outputPath, {
   // 基本參數
@@ -13,52 +22,51 @@ async function flickerEncode(inputPath, outputPath, {
   useAiPerturb = false,
 
   // 高階可選參數
-  useHueFlicker = false,       // 開啟亮度/色相周期閃爍
-  hueFlickerAmp = 0.1,         // 閃爍幅度(0~1之間，一般0.1~0.2)
+  useHueFlicker = false,    // 是否開啟亮度/色相周期閃爍
+  hueFlickerAmp = 0.1,      // 閃爍幅度(0~1之間)，預設0.1
   useMaskOverlay = false,
   maskOpacity = 0.2,
-  maskFreq = 5,                // 每5幀(或根據fps)疊加一次遮罩
-  maskSizeRatio = 0.3,         // 遮罩佔畫面大小比例(舉例0.3 = 30%)
+  maskFreq = 5,             // 每 5 幀插入一次遮罩
+  maskSizeRatio = 0.3,      // 遮罩佔畫面大小比例(預設0.3=30%)
 } = {}) {
-  return new Promise((resolve, reject) => {
-    let encodeInput = inputPath;
-    let aiTempPath = '';
 
-    // (A) 可選：AI對抗擾動 (同原本)
+  return new Promise((resolve, reject) => {
+    let encodeInput = inputPath;   // 最終要給 FFmpeg 處理的檔案
+    let aiTempPath = '';           // 若啟用 AI擾動 => 暫存檔
+
+    // (A) 可選：AI 對抗擾動 (aiPerturb.py)
+    // ------------------------------------------------
     if (useAiPerturb) {
       try {
         aiTempPath = path.join(path.dirname(outputPath), 'tmpAi_' + Date.now() + '.mp4');
-        execSync(`python aiPerturb.py "${inputPath}" "${aiTempPath}"`, { stdio: 'inherit' });
+        // 執行 aiPerturb.py
+        //  - inputPath  =>  aiTempPath
+        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, { stdio: 'inherit' });
+        // 後續 FFmpeg 輸入就改用這個檔
         encodeInput = aiTempPath;
       } catch (err) {
         console.error('[AI Perturb error]', err);
+        // 不強制中斷，若失敗就直接用原 inputPath
       }
     }
 
-    // (B) 組裝 FFmpeg 濾鏡
-    // 先建立一個陣列 filters，用來逐一拼接
-    // 1) 輸入別名 [0:v]
-    let filters = [];
-    // 目標：最終把全部組合後 -> [finalOut]
-
-    // 1. 先對畫面做「亮暗交替」or「隨機閃爍」
+    // (B) 組裝 FFmpeg 濾鏡 filter_complex
     // ------------------------------------------------
+    let filters = [];
+
+    // 1. 亮暗(或隨機)閃爍
+    //    eq=brightness=...
+    //    blend=all_expr=...
     let flickerExpr = useRandomFlicker
       ? `'if(gt(random(0),0.5),A,B)'`
       : `'if(eq(mod(N,2),0),A,B)'`;
-    // eq=brightness=... 這裡可以替換成更動態的表達式 (如 sin / cos)
-    // 若要加 hue flicker => 可用 hue=H='H+someFunc(N)'
-    // ex: hue=s='1':h='2*PI*t*freq'
-    //
-    // 這裡示範"亮度或對比"小幅閃爍 (eq=gamma=...), 也可 hue=...
-    let eqFlickerStr = ''; 
+
+    // 如果 useHueFlicker => 動態 brightness; 否則固定 -0.8
+    let eqFlickerStr = '';
     if (useHueFlicker) {
-      // 假設我們用 gamma 或亮度
-      // brightness +/- hueFlickerAmp
-      // 例如 brightness=0.0 ± 0.1 => -0.1與+0.1在偶/奇幀間切換
+      // brightness= ± hueFlickerAmp
       eqFlickerStr = `eq=brightness='if(eq(mod(N,2),0),${hueFlickerAmp},-${hueFlickerAmp})'`;
     } else {
-      // 舊的固定 -0.8
       eqFlickerStr = 'eq=brightness=-0.8';
     }
 
@@ -68,12 +76,10 @@ async function flickerEncode(inputPath, outputPath, {
       [main][altout]blend=all_expr=${flickerExpr}[flickerOut]
     `);
 
-    // 2. 可選：子像素偏移
-    // ------------------------------------------------
-    // 與原邏輯類似
+    // 2. 子像素偏移 (可選)
     let subShiftOutputLabel = 'flickerOut';
     if (useSubPixelShift) {
-      // subShift
+      // shift 2px => 先 split => pad => blend
       filters.push(`
         [flickerOut]split=2[s1][s2];
         [s1]pad=iw+2:ih:2:0:black[subA];
@@ -83,20 +89,14 @@ async function flickerEncode(inputPath, outputPath, {
       subShiftOutputLabel = 'subShiftOut';
     }
 
-    // 3. 可選：局部遮罩
-    // ------------------------------------------------
-    // 每隔 maskFreq 幀, 在畫面中央(或隨機)疊加一塊半透明黑矩形
-    // ffmpeg overlay trick: 先產生 color source => overlay
-    // color=c=black@0.3: size=...
-    // if(eq(mod(N,maskFreq),0),1,0) => 1時顯示,0時不顯示
+    // 3. 局部遮罩 Overlay (可選)
+    //    每隔 maskFreq 幀, 在畫面中央疊加黑色半透明方塊
     let maskOutputLabel = subShiftOutputLabel;
     if (useMaskOverlay) {
-      // 首先產生一個臨時黑色畫布(與輸入大小相同), 透明度=maskOpacity
-      // eg: "color=c=black@0.2:size=1280x720:duration=999999[mask];"
-      // 但我們只想畫一塊區域 => 可再用 crop 或 drawbox
+      // color -> scale -> overlay with enable='lt(mod(N,maskFreq),1)'
       let overlayCmd = `
         color=size=16x16:color=black@${maskOpacity}[tinyMask];
-        [${subShiftOutputLabel}]scale=trunc(iw/2)*2:trunc(ih/2)*2[base]; 
+        [${subShiftOutputLabel}]scale=trunc(iw/2)*2:trunc(ih/2)*2[base];
         [tinyMask]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
         [base][maskBig]overlay=x='(W-w)/2':y='(H-h)/2':enable='lt(mod(N,${maskFreq}),1)'[maskedOut]
       `;
@@ -104,11 +104,10 @@ async function flickerEncode(inputPath, outputPath, {
       maskOutputLabel = 'maskedOut';
     }
 
-    // 4. 可選：RGB 分離
-    // ------------------------------------------------
+    // 4. RGB 分離 (可選)
     let finalLabel = maskOutputLabel;
     if (useRgbSplit) {
-      // 直接複用原本 rgb 交錯
+      // 先 split=3 => extractplanes => interleave => [rgbsplitOut]
       filters.push(`
         [${maskOutputLabel}]split=3[r][g][b];
         [r]extractplanes=r[rc];
@@ -122,13 +121,15 @@ async function flickerEncode(inputPath, outputPath, {
       finalLabel = 'rgbsplitOut';
     }
 
-    // 將 filters 合併成一段
+    // 組合 filter
     let filterComplex = filters
-      .map(l => l.trim())
+      .map(line => line.trim())
       .join('; ');
 
-    // (C) 執行 ffmpeg
-    const fpsOut = '60'; // 保持60fps
+    // (C) 執行 FFmpeg
+    // 預設輸出 60fps，確保人眼閃爍融合
+    let fpsOut = '60';
+
     const ffmpegArgs = [
       '-y',
       '-i', encodeInput,
@@ -136,19 +137,24 @@ async function flickerEncode(inputPath, outputPath, {
       '-map', `[${finalLabel}]`,
       '-r', fpsOut,
       '-c:v', 'libx264',
-      '-preset','medium',
-      '-pix_fmt','yuv420p',
+      '-preset', 'medium',
+      '-pix_fmt', 'yuv420p',
       outputPath
     ];
+
     const ff = spawn('ffmpeg', ffmpegArgs, { stdio: 'inherit' });
 
     ff.on('error', err => reject(err));
     ff.on('close', code => {
+      // 清理 AI暫存檔
       if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
-      if (code===0) resolve(true);
-      else reject(new Error(`flickerEncode error, code=${code}`));
+      if (code === 0) {
+        resolve(true);
+      } else {
+        reject(new Error(`flickerEncode ffmpeg error, code=${code}`));
+      }
     });
   });
 }
