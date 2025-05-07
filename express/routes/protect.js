@@ -5,9 +5,9 @@
  *        後端根據 fileId 找到對應檔案，執行 flickerEncode 產生防錄製檔，再回傳 protectedFileUrl。
  *
  * 說明：
- * - 下面程式碼已將原先「第 1～1741 行」與「第 1742～2023 行新增/修正內容」合併去除重複宣告。
- * - 包含了 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯。
- * - 請直接將此檔案覆蓋 /app/routes/protect.js(或你原本程式的對應路徑)，即可正常運作。
+ * - 下列程式碼為「你原先成功部署」的 protect.js，並已合併了 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯。
+ * - 同時修正了檔案不見/重複上傳檔案/掃描後刪除檔案導致後續防錄製檔缺失的問題。
+ * - 請直接將此檔案「完整」覆蓋 /app/routes/protect.js(或你原本程式的對應路徑)，即可正常運作。
  */
 
 const express = require('express');
@@ -111,7 +111,7 @@ try {
 async function launchBrowser(){
   console.log('[launchBrowser] starting stealth browser...');
   return puppeteer.launch({
-    headless: true,  
+    headless: true,
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args:[
       '--no-sandbox',
@@ -1038,6 +1038,26 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       defaultPassword= rawPass;
     }
 
+    // ===============【副檔名檢查/修正】===============
+    // 假設我們根據 mimeType 來給定較可靠的副檔名:
+    let ext = path.extname(req.file.originalname) || '';
+    let realExt = '';  // 根據 mimeType 推測的「正確副檔名」
+    if(mimeType.includes('png'))  realExt='.png';
+    else if(mimeType.includes('jpeg')) realExt='.jpg';
+    else if(mimeType.includes('jpg'))  realExt='.jpg';
+    else if(mimeType.includes('gif'))  realExt='.gif';
+    else if(mimeType.includes('bmp'))  realExt='.bmp';
+    else if(mimeType.includes('webp')) realExt='.webp';
+    else if(mimeType.includes('mp4'))  realExt='.mp4';
+    else if(mimeType.includes('mov'))  realExt='.mov';
+    else if(mimeType.includes('avi'))  realExt='.avi';
+    else if(mimeType.includes('mkv'))  realExt='.mkv';
+    // 若 ext 與 realExt 不同 => 以 realExt 為準
+    if(realExt && realExt.toLowerCase() !== ext.toLowerCase()){
+      console.log(`[step1] Detected extension mismatch => origin=${ext} => corrected=${realExt}`);
+      ext = realExt;
+    }
+
     // fingerprint
     const buf = fs.readFileSync(req.file.path);
     const fingerprint = fingerprintService.sha256(buf);
@@ -1046,13 +1066,15 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     const exist= await File.findOne({ where:{ fingerprint }});
     if(exist){
       console.log(`[step1] detected duplicated => File ID=${exist.id}`);
-      const extExist = path.extname(exist.filename) || path.extname(req.file.originalname) || '';
+      // 用 exist.filename 來推算舊檔案副檔名
+      const extExist = path.extname(exist.filename) || ext;
       const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
       const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
 
       if(isUnlimited){
-        // 若本地檔 & PDF 消失 => 重新補齊
+        // 若本地舊檔案 /uploads/ 不存在 => 用新的檔案補上
         if(!fs.existsSync(finalPathExist)){
+          console.log('[step1] older file missing => rename new file => finalPathExist');
           try {
             fs.renameSync(req.file.path, finalPathExist);
           } catch(eRen){
@@ -1064,8 +1086,12 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             }
           }
         } else {
+          // 舊檔案還在 => 新檔案直接刪除
+          console.log('[step1] old file found => remove new file');
           fs.unlinkSync(req.file.path);
         }
+
+        // 如果證書 PDF 不在 => 補做一次
         if(!fs.existsSync(pdfExistPath)){
           try {
             const oldUser = await User.findByPk(exist.user_id);
@@ -1092,6 +1118,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             console.error('[step1 re-gen PDF error]', ePDF);
           }
         }
+
         return res.json({
           message:'已上傳相同檔案(白名單允許重複)，並自動補齊缺失檔案。',
           fileId: exist.id,
@@ -1102,6 +1129,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           defaultPassword: null
         });
       } else {
+        // 非白名單 => 不允許重複
         fs.unlinkSync(req.file.path);
         return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
       }
@@ -1126,7 +1154,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     const newFile= await File.create({
       user_id : user.id,
-      filename: req.file.originalname,
+      filename: req.file.originalname, // DB留原檔名(含副檔名可自訂), 也可改 filename: `imageForSearch_${Date.now()}${ext}`
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash : txHash,
@@ -1138,7 +1166,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     await user.save();
 
     // 移動檔案至 /uploads
-    const ext= path.extname(req.file.originalname)||'';
     const finalPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${newFile.id}${ext}`);
     try {
       fs.renameSync(req.file.path, finalPath);
@@ -1156,6 +1183,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     let publicImageUrl=null;
 
     if(isVideo){
+      // 嘗試擷取中間幀做證書預覽
       try {
         const durSec= parseFloat(
           execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${finalPath}"`)
@@ -1173,6 +1201,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         console.error('[Video middle frame error]', eVid);
       }
     } else {
+      // 圖檔
       previewPath= finalPath;
       try {
         publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
@@ -1253,7 +1282,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此File ID' });
     }
 
-    // (1) 多平台文字爬蟲 (示範)
+    // (1) 多平台文字爬蟲 (示範) - 可自行擴充
     let suspiciousLinks=[];
     const query= fileRec.filename || fileRec.fingerprint;
     if(process.env.RAPIDAPI_KEY){
@@ -1369,24 +1398,17 @@ router.get('/scan/:fileId', async(req,res)=>{
       stampImagePath: fs.existsSync(stampPath)? stampPath:null
     }, scanPdfPath);
 
-    // 移除暫存
-    try {
-      if(isVideo){
-        if(fs.existsSync(localPath)){
-          fs.unlinkSync(localPath);
-        }
-        const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
-        if(fs.existsSync(frameDir)){
-          fs.rmSync(frameDir, { recursive: true, force: true });
-        }
-      } else {
-        if(fs.existsSync(localPath)){
-          fs.unlinkSync(localPath);
-        }
-      }
-    } catch(eDel){
-      console.error('[scan] remove ephemeral error =>', eDel);
-    }
+    /**
+     * ======================【修正重點】======================
+     * 原先程式在 /scan/:fileId 結束後，會把 localPath 刪除，
+     * 但這會導致後續想做 /flickerProtectFile (防側錄) 時檔案不見。
+     * 所以這裡不再執行 fs.unlinkSync(localPath)。
+     * 如需在掃描結束後就不再進行防側錄，可自行再行刪除。
+     *
+     * 同樣，如果你想移除抽幀暫存檔 frameDir，也可以選擇保留或刪除。
+     * 這裡示範保留，以便後續其他功能仍能使用同一批抽幀。
+     * 若要釋放空間，可自行 fs.rmSync(frameDir, { recursive: true, force: true });
+     */
 
     return res.json({
       message:'圖搜+文字爬蟲+向量檢索完成 => PDF已產生',
@@ -1675,6 +1697,5 @@ router.get('/flickerDownload', (req, res)=>{
 module.exports = router;
 
 /**************************************************/
-/*   以下第 1～1741 行，完全照你原本的程式碼內容   */
-/*   皆已合併至上方，並新增 flickerProtectFile    */
+/*   以上為整合後的完整程式碼，請直接覆蓋使用。    */
 /**************************************************/
