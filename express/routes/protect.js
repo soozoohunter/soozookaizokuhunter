@@ -7,6 +7,7 @@
  * 說明：
  * - 下列程式碼為「你原先成功部署」的 protect.js，並已合併了 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯。
  * - 同時修正了檔案不見/重複上傳檔案/掃描後刪除檔案導致後續防錄製檔缺失的問題。
+ * - 只針對必要處（抽幀 ffmpeg + pixel format 警告）做了小幅修正，其餘不動。
  * - 請直接將此檔案「完整」覆蓋 /app/routes/protect.js(或你原本程式的對應路徑)，即可正常運作。
  */
 
@@ -1039,7 +1040,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     }
 
     // ===============【副檔名檢查/修正】===============
-    // 假設我們根據 mimeType 來給定較可靠的副檔名:
     let ext = path.extname(req.file.originalname) || '';
     let realExt = '';  // 根據 mimeType 推測的「正確副檔名」
     if(mimeType.includes('png'))  realExt='.png';
@@ -1154,7 +1154,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     const newFile= await File.create({
       user_id : user.id,
-      filename: req.file.originalname, // DB留原檔名(含副檔名可自訂), 也可改 filename: `imageForSearch_${Date.now()}${ext}`
+      filename: req.file.originalname,
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash : txHash,
@@ -1192,7 +1192,11 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         if(durSec<=30){
           const mid= Math.floor(durSec/2);
           const outP= path.join(UPLOAD_BASE_DIR, `preview_${newFile.id}.png`);
-          execSync(`ffmpeg -i "${finalPath}" -ss ${mid} -frames:v 1 "${outP}"`);
+          console.log('[DEBUG] trying to extract middle frame =>', outP);
+
+          // ★ 增加 -vf 避免 deprecated pixel format 警告
+          execSync(`ffmpeg -y -i "${finalPath}" -ss ${mid} -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -frames:v 1 "${outP}"`);
+
           if(fs.existsSync(outP)){
             previewPath= outP;
           }
@@ -1585,6 +1589,9 @@ async function flickerEncode(inputPath, outputPath, options = {}) {
       `.replace(/\s+$/, '');
     }
 
+    // ★ 增加 scale & format，避免 deprecated pixel format
+    filterCmd += `,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p`;
+
     const args = [
       '-y',
       '-i', inputPath,
@@ -1695,7 +1702,3 @@ router.get('/flickerDownload', (req, res)=>{
 });
 
 module.exports = router;
-
-/**************************************************/
-/*   以上為整合後的完整程式碼，請直接覆蓋使用。    */
-/**************************************************/
