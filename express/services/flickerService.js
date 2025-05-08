@@ -1,124 +1,166 @@
-// express/services/flickerService.js
-// 或 kaiShield/flickerService.js
+// kaiShield/flickerService.js
 
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 /**
- * flickerEncode - 低频干扰 / 无刺眼闪烁 版
+ * flickerEncode (改良增強版 - 低頻區域遮罩 + 色差扭曲 + 細微雜訊)
+ * 
+ * 特點：
+ *   - 去除原先強烈閃爍：改用 colorchannelmixer + curves 產生紅黑化，降低人眼不適。
+ *   - 可選子像素偏移 (useSubPixelShift) & 局部遮罩 (useMaskOverlay) & RGB 分離 (useRgbSplit)。
+ *   - 額外加入 noise=c0s=30:c0f=t+u => 在亮度通道添加中等時變噪點。
+ *   - drawbox 低頻遮罩：每 5 秒內顯示 1 秒的黑(或紅)方塊，位置在左上角 (可依需求微調)。
+ *   - 預設輸出 120fps, libx264, yuv420p。
  *
- * 实现要点：
- *  1) 可选 AI 扰动 (useAiPerturb)
- *  2) FFmpeg 多输入：视频 + 扫描线图 (scanline.png)
- *  3) 一次性滤镜链：
- *     - 周期性局部遮罩：drawbox=enable='lt(mod(t,5),1)'
- *       (每 5 秒中前 1 秒，叠加半透明黑色矩形)
- *     - noise=c0s=20:c0f=t+u (给亮度添加随机噪声)
- *     - 与扫描线图做 softlight 混合 blend=all_opacity=0.15
- *     - transform：随时间轻度平滑移动 x,y => 避免强闪烁
- *     - fps=30 + yuv420p 输出 (可改为 60/120)
- *
- * 优势：对人眼仅微扰，但对录屏器可能出现局部黑框闪现、条纹抖动。
+ * 保留 AI 擾動: useAiPerturb => 執行 aiPerturb.py 再進行 FFmpeg。
  */
 
 async function flickerEncode(
   inputPath,
   outputPath,
   {
-    // 是否先调用 aiPerturb
-    useAiPerturb = false,
+    // 保留舊參數(不再使用亮度閃爍)
+    useRandomFlicker = false,
+    useHueFlicker = false,
+    hueFlickerAmp = 0.1,
 
-    // 目标帧率 (默认 30，可自行改 60 或更高)
-    outFps = 30,
-
-    // 扫描线图名称
-    scanlineImage = 'scanline.png',
-
-    // 周期性遮罩参数
-    // 每 5秒 有 1秒 看到半透明黑框
-    maskOpacity = 0.25,      // 遮罩不透明度
-    maskPeriod = 5,          // 周期 (秒)
-    maskShowSec = 1,         // 周期内的显示时长 (秒)
-
-    // 噪点强度(0~100 越大越明显)
-    noiseStrength = 20,
-
+    // 可用參數
+    useSubPixelShift = false,  // 子像素偏移
+    useMaskOverlay = false,    // 原先自訂遮罩(中央疊加)
+    maskOpacity = 0.2,
+    maskFreq = 5,
+    maskSizeRatio = 0.3,
+    useRgbSplit = false,       // RGB 分離
+    useAiPerturb = false,      // AI 對抗擾動
   } = {}
 ) {
   return new Promise((resolve, reject) => {
-
-    // ============== (A) 可选：AI 扰动 ==============
+    // ------------------------------------------------------------------
+    // (A) 若啟用 AI 擾動 => 執行 aiPerturb.py
+    // ------------------------------------------------------------------
     let encodeInput = inputPath;
     let aiTempPath = '';
-
     if (useAiPerturb) {
       try {
-        aiTempPath = path.join(path.dirname(outputPath), 'tmpAi_' + Date.now() + '.mp4');
-        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, { stdio: 'inherit' });
+        aiTempPath = path.join(
+          path.dirname(outputPath),
+          'tmpAi_' + Date.now() + '.mp4'
+        );
+        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
+          stdio: 'inherit',
+        });
         encodeInput = aiTempPath;
       } catch (err) {
         console.error('[AI Perturb error]', err);
+        // 若失敗則不強制中斷 => 直接用原 inputPath
       }
     }
 
-    // ============== (B) FFmpeg - 多输入 ==============
-    //  1) -i encodeInput (主视频)
-    //  2) -i scanline.png (扫描线图)
-    // 注意：需确保有 scanline.png 存在
+    // ------------------------------------------------------------------
+    // (B) 組合 FFmpeg 濾鏡鏈
+    //     1) colorchannelmixer+curves => 紅黑化
+    //     2) noise => 亮度通道添加時變噪點
+    //     3) drawbox => 低頻顯示半透明方塊
+    //     4) (可選) subpixel shift => blend
+    //     5) (可選) maskOverlay => 疊加中央遮罩
+    //     6) (可選) rgbSplit => R/G/B分離
+    //     7) fps=120 => 高幀率
+    // ------------------------------------------------------------------
 
-    // 构建 filter_complex
-    // 主要思路：
-    //   [0:v] -> drawbox(周期性黑框) -> noise -> label=baseVid
-    //   [baseVid][1:v] -> blend=softlight -> label=blended
-    //   blended -> transform=x=...,y=... -> fps=...,format=... -> finalOut
-    //
-    // 1. drawbox:
-    //    enable='lt(mod(t,maskPeriod),maskShowSec)'
-    //    color=black@maskOpacity :t=fill (覆盖一个较大的矩形)
-    //    x=0,y=0,w=iw,h=ih => 整个画面
-    //
-    // 2. noise=c0s=noiseStrength:c0f=t+u => 仅作用于亮度通道, 并time+uniform
-    // 3. blend=all_mode=softlight:all_opacity=0.15 => 与 scanline 叠加
-    // 4. transform => 利用时间表达式(例如 x=10*sin(t/3), y=10*cos(t/4))
-    //                 不会出现高频闪, 而是平滑随时间移动
-    // 5. fps=outFps,format=yuv420p
+    let filters = [];
 
-    const overlayDrawbox = `drawbox=x=0:y=0:w=iw:h=ih:color=black@${maskOpacity}:t=fill:enable='lt(mod(t,${maskPeriod}),${maskShowSec})'`;
-    const noiseFilter = `noise=c0s=${noiseStrength}:c0f=t+u`;
-    // softlight 扫描线
-    const softlightBlend = `blend=all_mode=softlight:all_opacity=0.15`;
-    // transform => 周期性小幅移动 例如 幅度10px
-    // x=10*sin(t/3) y=10*cos(t/4)
-    // (可自行改幅度/周期)
-    const transformExp = `transform=x='10*sin(T/3)':y='10*cos(T/4)':fillcolor=black`;
+    // Step1: 先做 RGB24 + 紅黑化 + 雜訊 + drawbox(低頻方塊)
+    //   - colorchannelmixer=1.2:0.2:0.2 => 紅通道強化 1.2, 混入少許其他通道
+    //   - curves=... => 中段壓暗
+    //   - noise=c0s=30:c0f=t+u => 僅亮度，強度30 + 時變 + uniform
+    //   - drawbox => 每5秒之中顯示1秒: enable='lt(mod(t,5),1)'
+    //                color=black@0.25(可調), w=1/2螢幕, h=1/4螢幕, pos(0,0)
+    //   => 輸出 label: [preOut]
+    let baseFilter = [
+      'format=rgb24',
 
-    // 注意：FFmpeg expression 里 t -> pts (秒)? 这里写 T => 需 alias
-    // ffmpeg 里 time 可用 't'  => transform=...
-    // 记得把 T 改成 t
-    const transformFilter = transformExp.replace(/T/g, 't');
+      // 紅黑化
+      `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
+      `curves=r='0/0 0.5/0.3 1/1':g='0/0 0.5/0.3 1/1':b='0/0 0.5/0.3 1/1'`,
 
-    // 拼接 filter_complex
-    const fc = [
-      // 先处理主视频
-      `[0:v]${overlayDrawbox},${noiseFilter}[baseVid]`,
-      // 与扫描线图做 softlight
-      `[baseVid][1:v]${softlightBlend}[blended]`,
-      // transform => fps => format => [final]
-      `[blended]${transformFilter},fps=${outFps},format=yuv420p[finalOut]`
-    ].join('; ');
+      // 雜訊 (c0=亮度通道)
+      `noise=c0s=30:c0f=t+u`,
 
-    // ============== (C) 执行 FFmpeg ==============
+      // 每隔5秒顯示1秒，左上方(0,0) 半透明黑框 (約畫面1/2寬 x 1/4高)
+      `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.25:enable='lt(mod(t,5),1)'`
+    ].join(',');
+
+    filters.push(`[0:v]${baseFilter}[preOut]`);
+
+    // Step2: 可選 => 子像素偏移
+    //   label: [subShiftOut] or [preOut]
+    let labelA = 'preOut';
+    if (useSubPixelShift) {
+      filters.push(`
+        [preOut]split=2[sub1][sub2];
+        [sub1]pad=iw+1:ih:1:0:black[pA];
+        [sub2]pad=iw+1:ih:0:0:black[pB];
+        [pA][pB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
+      `);
+      labelA = 'subShiftOut';
+    }
+
+    // Step3: 可選 => 使用者原先 useMaskOverlay => 在畫面中央疊加紅色方塊
+    //   label => [maskedOut]
+    let labelB = labelA;
+    if (useMaskOverlay) {
+      filters.push(`
+        color=size=16x16:color=red@${maskOpacity}[maskSrc];
+        [${labelA}]scale=trunc(iw/2)*2:trunc(ih/2)*2[baseScaled];
+        [maskSrc]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
+        [baseScaled][maskBig]
+        overlay=x='(W-w)/2':y='(H-h)/2':
+                enable='lt(mod(N,${maskFreq}),1)'[maskedOut]
+      `);
+      labelB = 'maskedOut';
+    }
+
+    // Step4: 可選 => RGB 分離
+    //   label => [rgbSplitOut] or labelB
+    let finalLabel = labelB;
+    if (useRgbSplit) {
+      filters.push(`
+        [${labelB}]split=3[r_in][g_in][b_in];
+        [r_in]extractplanes=r[rp];
+        [g_in]extractplanes=g[gp];
+        [b_in]extractplanes=b[bp];
+        [rp]pad=iw:ih:0:0:black[rout];
+        [gp]pad=iw:ih:0:0:black[gout];
+        [bp]pad=iw:ih:0:0:black[bout];
+        [rout][gout][bout]interleave=0,format=yuv444p[rgbSplitOut]
+      `);
+      finalLabel = 'rgbSplitOut';
+    }
+
+    // Step5: fps=120 + yuv420p => [finalOut]
+    filters.push(`
+      [${finalLabel}]fps=120,format=yuv420p[finalOut]
+    `);
+
+    // 組合 filter_complex
+    const filterComplex = filters
+      .map((line) => line.trim())
+      .join('; ');
+
+    // ------------------------------------------------------------------
+    // (C) 執行 FFmpeg => 輸出 120fps, libx264, yuv420p
+    // ------------------------------------------------------------------
     const ffmpegArgs = [
       '-y',
-      '-i', encodeInput,           // 主视频
-      '-i', scanlineImage,         // 扫描线图
-      '-filter_complex', fc,
+      '-i', encodeInput,
+      '-filter_complex', filterComplex,
       '-map', '[finalOut]',
       '-c:v', 'libx264',
       '-preset', 'medium',
+      '-r', '120',               // 再度明示 120fps
       '-pix_fmt', 'yuv420p',
-      '-r', String(outFps),        // 再声明输出帧率
       outputPath
     ];
 
@@ -126,13 +168,14 @@ async function flickerEncode(
 
     ff.on('error', (err) => reject(err));
     ff.on('close', (code) => {
+      // 清除 AI 暫存檔
       if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
       if (code === 0) {
         resolve(true);
       } else {
-        reject(new Error(`FFmpeg process error, code=${code}`));
+        reject(new Error(`flickerEncode ffmpeg error, code=${code}`));
       }
     });
   });
