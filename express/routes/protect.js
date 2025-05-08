@@ -1,15 +1,9 @@
 /**
- * express/routes/protect.js (最終整合 + 防錄製功能 + 針對 aggregator/fallback + 向量檢索 + scanLink 等)
+ * express/routes/protect.js (最終整合 + 防錄製功能(Advanced) + aggregator/fallback + 向量檢索 + scanLink 等)
  *
- * 做法B：在 Step2 讓使用者自行點「我要啟用防側錄」按鈕 => POST /protect/flickerProtectFile
- *        後端根據 fileId 找到對應檔案，執行 flickerEncode 產生防錄製檔，再回傳 protectedFileUrl。
- *
- * 說明：
- * - 這裡是在你原先成功部署的 protect.js 上，包含 aggregator/fallback + 向量檢索 + scanLink + 新增 flickerProtectFile 等所有邏輯，
- *   並同時修正了檔案不見/重複上傳檔案/掃描後刪除檔案導致後續防錄製檔缺失等問題。
- * - 特別針對 ffmpeg 抽幀及 pixel format 警告、音軌映射，以及 flickerEncode 增加參數，讓音訊保留下來、增加可視的閃爍效果。
- * - 除了 flickerEncode 函式的實作優化外，其餘程式碼維持不動（只在必要處小幅修正）。
- * - 直接將此檔案覆蓋 /app/routes/protect.js(或你原本程式的對應路徑) 即可正常運作。
+ * 注意：
+ * - 已將原本的 flickerEncode() 替換為 flickerEncodeAdvanced() 並於 /flickerProtectFile 改用多層次防錄製參數。
+ * - 其餘 aggregator / fallback / 向量檢索 / PDF 產生 / 掃描等程式碼大部分維持原狀，只在必要處做小幅修正。
  */
 
 const express = require('express');
@@ -20,7 +14,7 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const cheerio = require('cheerio');
-const { execSync, spawnSync } = require('child_process');
+const { execSync, spawnSync, spawn } = require('child_process');
 const { Op } = require('sequelize');
 
 const puppeteer    = require('puppeteer-extra');
@@ -1404,9 +1398,8 @@ router.get('/scan/:fileId', async(req,res)=>{
     }, scanPdfPath);
 
     /**
-     * ======================【重點修正】======================
-     * 原程式若在 /scan/:fileId 結束後就 fs.unlinkSync(localPath) 會導致防錄製檔案不見。
-     * 現在我們「不再刪除」localPath；若你掃描後確定不做防錄製，也可自行再行刪除。
+     * 【修正】不再在掃描後直接刪除 localPath，以免後續需要再做 flickerProtect
+     * 如果確定不需要防錄製，可自行再行刪除。
      */
 
     return res.json({
@@ -1551,88 +1544,145 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 
 /* 
  * ------------------------------------------------------------------------------------
- * (以下為新需求) 做法 B => 在 Step2 時由前端呼叫 => 帶 fileId => 產生防錄製檔案
+ * (以下為防錄製 進階版)
  * ------------------------------------------------------------------------------------
  */
 
-// ==========================【改良版 flickerEncode】==========================
-// - 增加 -map 參數來攜帶音訊；
-// - 在 filter 中增加更明顯的對比/亮度變化，並保留 scale + yuv420p，
-// - 預設輸出 60 fps；若想要加快，可改成 30 fps；
-// ==========================================================================
-async function flickerEncode(inputPath, outputPath, options = {}) {
-  const useRgbSplit = options.useRgbSplit || false;
-  // 調整閃爍強度（亮度/對比）
-  const brightnessDark = options.brightnessDark || -0.8;   // 原 -0.8
-  const brightnessLight= options.brightnessLight|| 0.2;    // 新增 0.2 (做出明暗差距)
-  const fpsOut = options.fpsOut || '60';
-
+//---------------------------------------------
+// 改良增強版 flickerEncodeAdvanced：整合多層次擾動
+//---------------------------------------------
+async function flickerEncodeAdvanced(
+  inputPath,
+  outputPath,
+  {
+    useSubPixelShift = true,
+    useMaskOverlay   = true,
+    maskOpacity      = 0.3,
+    maskFreq         = 5,
+    maskSizeRatio    = 0.3,
+    useRgbSplit      = true,
+    useAiPerturb     = false,
+    flickerFps       = 120,
+    noiseStrength    = 30,
+    colorCurveDark   = '0/0 0.5/0.2 1/1',
+    colorCurveLight  = '0/0 0.5/0.4 1/1',
+    drawBoxSeconds   = 5
+  } = {}
+){
   return new Promise((resolve, reject) => {
-    /**
-     * 下方 filter 目的是把原始畫面 [main]，再做一個 [alt]，
-     * 其中 [alt] 用 eq=brightness=xxx 或其他強力濾鏡，最後 blend 交互拼貼：
-     *
-     * 這樣會產生每幀輪流「暗 - 亮 - 暗 - 亮」的視覺效果。
-     *
-     * 如果想要再加 RGB 分離，可加 useRgbSplit = true
-     */
-    let filterCmd = `
-      [0:v]split=2[main][alt];
-      [alt]eq=brightness=${brightnessDark}[dark];
-      [main]eq=brightness=${brightnessLight}[bright];
-      [bright][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'
-    `.trim();
+    let encodeInput = inputPath;
+    let aiTempPath  = '';
 
-    if (useRgbSplit) {
-      filterCmd = `
-        [0:v]split=2[main][alt];
-        [alt]eq=brightness=${brightnessDark}[dark];
-        [main]eq=brightness=${brightnessLight}[bright];
-        [bright][dark]blend=all_expr='if(eq(mod(N,2),0),A,B)'[flicker];
-        [flicker]split=3[r][g][b];
-        [r]extractplanes=r:0:0[rc];
-        [g]extractplanes=g:0:0[gc];
-        [b]extractplanes=b:0:0[bc];
-        [rc]pad=iw:ih:0:0:color=Black[rout];
-        [gc]pad=iw:ih:0:0:color=Black[gout];
-        [bc]pad=iw:ih:0:0:color=Black[bout];
-        [rout][gout][bout]interleave=0
-      `.replace(/\s+$/, '');
+    // (A) 若開啟 AI 對抗擾動 => 先呼叫 python 腳本
+    if(useAiPerturb){
+      try {
+        aiTempPath = path.join(
+          path.dirname(outputPath),
+          'tmpAi_' + Date.now() + '.mp4'
+        );
+        // 以下只是示意，如 python aiPerturb.py in.mp4 out.mp4
+        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
+          stdio: 'inherit',
+        });
+        encodeInput = aiTempPath; 
+      } catch (errPy) {
+        console.error('[AI Perturb Error]', errPy);
+        encodeInput = inputPath; // 若失敗則用原檔繼續
+      }
     }
 
-    // 最後加上 scale + format 避免 pixel format 警告
-    filterCmd += `,scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p`;
+    // (B) 濾鏡鏈
+    const step1Filter = [
+      `format=rgb24`,
+      `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
+      `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
+      `noise=c0s=${noiseStrength}:c0f=t+u`,
+      `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
+    ].join(',');
 
-    const args = [
+    const filters = [`[0:v]${step1Filter}[preOut]`];
+
+    let labelA = 'preOut';
+    if(useSubPixelShift){
+      filters.push(`
+        [preOut]split=2[subA][subB];
+        [subA]pad=iw+1:ih:1:0:black[sA];
+        [subB]pad=iw+1:ih:0:0:black[sB];
+        [sA][sB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
+      `);
+      labelA = 'subShiftOut';
+    }
+
+    let labelB = labelA;
+    if(useMaskOverlay){
+      filters.push(`
+        color=size=16x16:color=red@${maskOpacity}[maskSrc];
+        [${labelA}]scale=trunc(iw/2)*2:trunc(ih/2)*2[baseScaled];
+        [maskSrc]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
+        [baseScaled][maskBig]
+        overlay=x='(W-w)/2':y='(H-h)/2'
+                :enable='lt(mod(N,${maskFreq}),1)'
+        [maskedOut]
+      `);
+      labelB = 'maskedOut';
+    }
+
+    let finalLabel = labelB;
+    if(useRgbSplit){
+      filters.push(`
+        [${labelB}]split=3[r_in][g_in][b_in];
+        [r_in]extractplanes=r[rp];
+        [g_in]extractplanes=g[gp];
+        [b_in]extractplanes=b[bp];
+        [rp]pad=iw:ih:0:0:black[rout];
+        [gp]pad=iw:ih:0:0:black[gout];
+        [bp]pad=iw:ih:0:0:black[bout];
+        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
+      `);
+      finalLabel = 'rgbSplitOut';
+    }
+
+    filters.push(`
+      [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
+    `);
+
+    const filterComplex = filters.map(x => x.trim()).join(';');
+
+    const ffmpegArgs = [
       '-y',
-      '-i', inputPath,
-      '-filter_complex', filterCmd,
-      '-r', fpsOut,
-      // 保留音訊 (若有)
-      '-map', '0:v:0',
-      '-map', '0:a?:0',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      // 視訊編碼
+      '-i', encodeInput,
+      '-filter_complex', filterComplex,
+      '-map', '[finalOut]',
       '-c:v', 'libx264',
       '-preset', 'medium',
+      '-r', `${flickerFps}`,
       '-pix_fmt', 'yuv420p',
-      // 保證 mp4 正常播放
       '-movflags', '+faststart',
       outputPath
     ];
 
-    console.log('[flickerEncode] ffmpeg =>', args.join(' '));
-    const ff = spawnSync('ffmpeg', args, { stdio:'inherit' });
-    if (ff.status === 0) {
-      resolve(true);
-    } else {
-      reject(new Error(`flickerEncode failed => exitCode=${ff.status}`));
-    }
+    console.log('[flickerEncodeAdvanced] ffmpeg =>', ffmpegArgs.join(' '));
+    const ff = spawn('ffmpeg', ffmpegArgs, { stdio: 'inherit' });
+
+    ff.on('error', err => {
+      reject(err);
+    });
+    ff.on('close', code => {
+      if(aiTempPath && fs.existsSync(aiTempPath)){
+        fs.unlinkSync(aiTempPath);
+      }
+      if(code === 0){
+        resolve(true);
+      } else {
+        reject(new Error(`FFmpeg exited with code=${code}`));
+      }
+    });
   });
 }
 
-// [做法B] 在 Step2 時由前端呼叫 => 帶 fileId => 產生防錄製檔案
+//--------------------------------------
+// [★ 新版防錄製] POST /protect/flickerProtectFile
+//--------------------------------------
 router.post('/flickerProtectFile', async (req, res) => {
   try {
     const { fileId } = req.body;
@@ -1653,55 +1703,51 @@ router.post('/flickerProtectFile', async (req, res) => {
       return res.status(404).json({ error:'LOCAL_FILE_NOT_FOUND', message:'原始檔不在本機，無法做防側錄' });
     }
 
-    // 3) 依檔案類型(圖片/影片) => 若為圖片 => 先轉為 5秒 mp4 => 再 flickerEncode
-    const isImage = !!fileRec.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i);
+    // 3) 若是圖片 => 先轉成 5 秒的靜態影片
+    const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
     let sourcePath = localPath;
 
-    if(isImage) {
-      // ffmpeg -y -loop 1 -i {圖片} -t 5 -c:v libx264 -pix_fmt yuv420p {temp.mp4}
+    if(isImage){
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
         const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart "${tempPath}"`;
-        console.log('[flickerProtectFile] convert image to short mp4 =>', cmd);
+        console.log('[flickerProtectFile] convert image->mp4 =>', cmd);
         execSync(cmd);
         sourcePath = tempPath;
       } catch(eImg){
-        console.error('[flickerProtectFile] convert image to video fail =>', eImg);
+        console.error('[flickerProtectFile] convert img->video error =>', eImg);
         return res.status(500).json({ error:'IMG_TO_VIDEO_ERROR', detail:eImg.message });
       }
     }
 
-    // 4) flickerEncode => outPath
+    // 4) 執行 flickerEncodeAdvanced
     const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
     const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
 
-    try {
-      await flickerEncode(sourcePath, protectedPath, {
-        useRgbSplit: false,   // 可改 true 看更炫的效果
-        brightnessDark: -1.0, // 調更暗
-        brightnessLight: 0.3, // 調更亮
-        fpsOut: '60'
-      });
-    } catch(eFlicker){
-      console.error('[flickerProtectFile] flickerEncode fail =>', eFlicker);
-      // 若中途產生 tempIMG => 刪除
-      if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
-        fs.unlinkSync(sourcePath);
-      }
-      return res.status(500).json({ error:'FLICKER_ENCODE_ERROR', detail:eFlicker.message });
-    }
+    await flickerEncodeAdvanced(sourcePath, protectedPath, {
+      useSubPixelShift : true,
+      useMaskOverlay   : true,
+      maskOpacity      : 0.25,
+      maskFreq         : 5,
+      maskSizeRatio    : 0.3,
+      useRgbSplit      : true,
+      useAiPerturb     : false, // 若要AI擾動可設true
+      flickerFps       : 120,
+      noiseStrength    : 25,
+      colorCurveDark   : '0/0 0.5/0.2 1/1',
+      colorCurveLight  : '0/0 0.5/0.4 1/1',
+      drawBoxSeconds   : 5
+    });
 
-    // 若中途產生 tempIMG => 刪除
+    // 若有 tempIMG => 刪掉
     if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
       fs.unlinkSync(sourcePath);
     }
 
-    // 5) 產生可下載連結
+    // 5) 回傳可下載連結
     const protectedFileUrl = `/api/protect/flickerDownload?file=${encodeURIComponent(protectedName)}`;
-
-    // 6) 回傳
     return res.json({
-      message:'已成功產生防錄製檔案',
+      message:'已成功產生多層次防錄製檔案',
       protectedFileUrl
     });
 
@@ -1711,7 +1757,9 @@ router.post('/flickerProtectFile', async (req, res) => {
   }
 });
 
+//--------------------------------------
 // 下載「防錄製」影片
+//--------------------------------------
 router.get('/flickerDownload', (req, res)=>{
   try {
     const file = req.query.file;
