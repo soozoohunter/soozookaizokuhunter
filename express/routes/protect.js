@@ -2,8 +2,8 @@
  * express/routes/protect.js (最終整合 + 防錄製功能(Advanced) + aggregator/fallback + 向量檢索 + scanLink 等)
  *
  * 注意：
- * - 已將原本的 flickerEncode() 替換為 flickerEncodeAdvanced() 並於 /flickerProtectFile 改用多層次防錄製參數。
- * - 其餘 aggregator / fallback / 向量檢索 / PDF 產生 / 掃描等程式碼大部分維持原狀，只在必要處做小幅修正。
+ * - 已將原本的 flickerEncode() 替換為 flickerEncodeAdvanced()，並於 /flickerProtectFile 改用多層次防錄製參數。
+ * - 其餘 aggregator / fallback / 向量檢索 / PDF 產生 / 掃描等程式碼大部分維持原狀，只在必要處做小幅修正 (如修正 N→n)。
  */
 
 const express = require('express');
@@ -364,7 +364,7 @@ async function saveDebugInfoForAggregator(page, tag){
   return await saveDebugInfo(page, tag);
 }
 
-//-- ginifab (本檔合併寫法，略去部分註解) --
+//-- ginifab (本檔合併寫法) --
 async function tryGinifabUploadLocal(page, localImagePath) {
   try {
     const uploadLink = await page.$x("//a[contains(text(),'上傳本機圖片')]");
@@ -692,6 +692,7 @@ async function directSearchBing(browser, imagePath){
 
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser({ timeout:10000 }),
+      // 有時 #sb_sbi 找不到 => 也可嘗試 document.querySelector('#sb_sbi')
       page.click('#sb_sbi').catch(()=>{})
     ]);
     await fileChooser.accept([imagePath]);
@@ -1189,7 +1190,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           const outP= path.join(UPLOAD_BASE_DIR, `preview_${newFile.id}.png`);
           console.log('[DEBUG] trying to extract middle frame =>', outP);
 
-          // ★ 增加 -vf 避免 deprecated pixel format 警告
+          // ★ 避免 deprecated pixel format 警告
           execSync(`ffmpeg -y -i "${finalPath}" -ss ${mid} -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -frames:v 1 "${outP}"`);
 
           if(fs.existsSync(outP)){
@@ -1544,18 +1545,19 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 
 /* 
  * ------------------------------------------------------------------------------------
- * (以下為防錄製 進階版)
+ * (以下為防錄製 進階版) - flickerEncodeAdvanced + /flickerProtectFile
  * ------------------------------------------------------------------------------------
  */
 
 //---------------------------------------------
 // 改良增強版 flickerEncodeAdvanced：整合多層次擾動
+// 重要：將原先的 N 改為 n、drawbox 保留 t
 //---------------------------------------------
-async function flickerEncodeAdvanced(
+function flickerEncodeAdvanced(
   inputPath,
   outputPath,
   {
-    useSubPixelShift = true,
+    useSubPixelShift = true,       // 預設開啟子像素平移
     useMaskOverlay   = true,
     maskOpacity      = 0.3,
     maskFreq         = 5,
@@ -1580,39 +1582,42 @@ async function flickerEncodeAdvanced(
           path.dirname(outputPath),
           'tmpAi_' + Date.now() + '.mp4'
         );
-        // 以下只是示意，如 python aiPerturb.py in.mp4 out.mp4
+        // python aiPerturb.py in.mp4 out.mp4 (示例)
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
           stdio: 'inherit',
         });
         encodeInput = aiTempPath; 
       } catch (errPy) {
         console.error('[AI Perturb Error]', errPy);
-        encodeInput = inputPath; // 若失敗則用原檔繼續
+        encodeInput = inputPath; // 若失敗則用原檔
       }
     }
 
-    // (B) 濾鏡鏈
+    // (B) 第一階段濾鏡
     const step1Filter = [
       `format=rgb24`,
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
       `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
       `noise=c0s=${noiseStrength}:c0f=t+u`,
+      // drawbox: 每 drawBoxSeconds 秒顯示 1 秒 (以 time t 為基準)
       `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
     ].join(',');
 
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
+    // (C) 子像素平移 => frame index n => mod(n,2)
     let labelA = 'preOut';
     if(useSubPixelShift){
       filters.push(`
         [preOut]split=2[subA][subB];
         [subA]pad=iw+1:ih:1:0:black[sA];
         [subB]pad=iw+1:ih:0:0:black[sB];
-        [sA][sB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
+        [sA][sB]blend=all_expr='if(eq(mod(n,2),0),A,B)'[subShiftOut]
       `);
       labelA = 'subShiftOut';
     }
 
+    // (D) maskOverlay => frame index n => mod(n,maskFreq)
     let labelB = labelA;
     if(useMaskOverlay){
       filters.push(`
@@ -1621,12 +1626,13 @@ async function flickerEncodeAdvanced(
         [maskSrc]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
         [baseScaled][maskBig]
         overlay=x='(W-w)/2':y='(H-h)/2'
-                :enable='lt(mod(N,${maskFreq}),1)'
+                :enable='lt(mod(n,${maskFreq}),1)'
         [maskedOut]
       `);
       labelB = 'maskedOut';
     }
 
+    // (E) RGB 分離
     let finalLabel = labelB;
     if(useRgbSplit){
       filters.push(`
@@ -1642,12 +1648,14 @@ async function flickerEncodeAdvanced(
       finalLabel = 'rgbSplitOut';
     }
 
+    // (F) fps=xxx + yuv420p
     filters.push(`
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
 
     const filterComplex = filters.map(x => x.trim()).join(';');
 
+    // (G) ffmpeg參數
     const ffmpegArgs = [
       '-y',
       '-i', encodeInput,
@@ -1703,7 +1711,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       return res.status(404).json({ error:'LOCAL_FILE_NOT_FOUND', message:'原始檔不在本機，無法做防側錄' });
     }
 
-    // 3) 若是圖片 => 先轉成 5 秒的靜態影片
+    // 3) 若是圖片 => 先轉 5 秒靜態影片
     const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
     let sourcePath = localPath;
 
@@ -1711,7 +1719,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
         const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart "${tempPath}"`;
-        console.log('[flickerProtectFile] convert image->mp4 =>', cmd);
+        console.log('[flickerProtectFile] convert image->video =>', cmd);
         execSync(cmd);
         sourcePath = tempPath;
       } catch(eImg){
@@ -1731,7 +1739,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       maskFreq         : 5,
       maskSizeRatio    : 0.3,
       useRgbSplit      : true,
-      useAiPerturb     : false, // 若要AI擾動可設true
+      useAiPerturb     : false, // 若要AI擾動 => true
       flickerFps       : 120,
       noiseStrength    : 25,
       colorCurveDark   : '0/0 0.5/0.2 1/1',
@@ -1739,7 +1747,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       drawBoxSeconds   : 5
     });
 
-    // 若有 tempIMG => 刪掉
+    // 若有 tempIMG => 刪除
     if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
       fs.unlinkSync(sourcePath);
     }
