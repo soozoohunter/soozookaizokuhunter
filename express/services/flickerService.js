@@ -8,44 +8,44 @@ const path = require('path');
 /**
  * flickerEncodeAdvanced - 多層次的「純軟體防側錄」FFmpeg 濾鏡範例
  * 
- * @param {string} inputPath   - 輸入檔(影片或已轉成影片的圖檔)
- * @param {string} outputPath  - 輸出防錄製檔(.mp4)
+ * @param {string} inputPath   - 輸入檔 (影片，或已先行轉成影片的圖檔)
+ * @param {string} outputPath  - 輸出防錄製檔 (.mp4)
  * @param {object} options     - 干擾參數
  * 
  * 主要可調的開關：
  *    useSubPixelShift : 是否啟用子像素平移
  *    useMaskOverlay   : 是否在畫面中央疊加半透明遮罩
  *    maskOpacity      : 遮罩透明度
- *    maskFreq         : 遮罩的出現頻率(以「幀」或「frame index」為週期)
- *    maskSizeRatio    : 遮罩大小(相對整個畫面)
+ *    maskFreq         : 遮罩出現頻率 (以「幀」或 frame index 為週期)
+ *    maskSizeRatio    : 遮罩大小 (相對整個畫面)
  *    useRgbSplit      : 是否啟用 RGB 三通道錯位
- *    useAiPerturb     : 是否執行 AI 對抗擾動(需另外撰寫 python 腳本)
- *    flickerFps       : 輸出的幀率(建議 60 或 120; 預設 120)
- *    noiseStrength    : 雜訊強度(0~100) / 預設 30
- *    colorCurveDark   : 適度壓暗的曲線參數
- *    colorCurveLight  : 適度提升亮部的曲線參數
- *    drawBoxSeconds   : 幾秒內顯示方塊(例如 5 表示每 5 秒顯示 1 秒) => time-based
+ *    useAiPerturb     : 是否執行 AI 對抗擾動 (需另外撰寫 python 腳本)
+ *    flickerFps       : 輸出的幀率 (建議 60 或 120; 預設 120)
+ *    noiseStrength    : 雜訊強度 (0~100) / 預設 30
+ *    colorCurveDark   : 壓暗用的曲線參數
+ *    colorCurveLight  : 提亮用的曲線參數
+ *    drawBoxSeconds   : 幾秒內顯示方塊 (例如 5 表示每 5 秒顯示 1 秒)，以 t(時間) 為基準
  */
 async function flickerEncodeAdvanced(
   inputPath,
   outputPath,
   {
-    useSubPixelShift = true,       // 預設開啟子像素平移
+    useSubPixelShift = true,
     useMaskOverlay   = true,
     maskOpacity      = 0.3,
     maskFreq         = 5,
     maskSizeRatio    = 0.3,
     useRgbSplit      = true,
     useAiPerturb     = false,
-    flickerFps       = 120,        // 輸出幀率
-    noiseStrength    = 30,         // 雜訊強度
+    flickerFps       = 120,
+    noiseStrength    = 30,
     colorCurveDark   = '0/0 0.5/0.2 1/1',
     colorCurveLight  = '0/0 0.5/0.4 1/1',
-    drawBoxSeconds   = 5           // drawbox: time-based
+    drawBoxSeconds   = 5
   } = {}
 ) {
   return new Promise((resolve, reject) => {
-    // (A) 若想做「AI 對抗擾動」: 先呼叫 python 腳本 (可用 PyTorch/OpenCV)
+    // (A) 若開啟 AI 對抗擾動 => 先呼叫 python 腳本
     let encodeInput = inputPath;
     let aiTempPath  = '';
 
@@ -55,24 +55,23 @@ async function flickerEncodeAdvanced(
           path.dirname(outputPath),
           'tmpAi_' + Date.now() + '.mp4'
         );
-        // 需你自行實作 aiPerturb.py => 例如: python aiPerturb.py in.mp4 out.mp4
+        // 需自行實作 aiPerturb.py，例如: python aiPerturb.py in.mp4 out.mp4
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
           stdio: 'inherit',
         });
-        encodeInput = aiTempPath; // 用 AI 處理後的檔再進行 FFmpeg
+        encodeInput = aiTempPath; 
       } catch (errPy) {
         console.error('[AI Perturb Error]', errPy);
-        // 若失敗則不中斷, 直接用原始 inputPath
+        // 若失敗不中斷，繼續用原 inputPath
         encodeInput = inputPath;
       }
     }
 
-    // (B) 濾鏡鏈：
-    //   1) format=rgb24 + colorchannelmixer => 紅色略強
-    //   2) curves => 壓暗/亮部
-    //   3) noise => 亮度通道雜訊
-    //   4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒 (時間 t 為基準)
-    //       => enable='lt(mod(t,drawBoxSeconds),1)'
+    // (B) 第1階段濾鏡鏈：
+    //    1) format=rgb24 + colorchannelmixer => 紅色略強
+    //    2) curves => 壓暗/亮部
+    //    3) noise => 亮度通道雜訊
+    //    4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒 (以 t 為基準)
     const step1Filter = [
       `format=rgb24`,
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
@@ -83,7 +82,7 @@ async function flickerEncodeAdvanced(
 
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // (C) 子像素平移 => [subShiftOut] (以 frame index n 的偶數/奇數做平移)
+    // (C) 子像素平移 => 以 frame index n 的奇偶切換
     let labelA = 'preOut';
     if (useSubPixelShift) {
       filters.push(`
@@ -95,7 +94,7 @@ async function flickerEncodeAdvanced(
       labelA = 'subShiftOut';
     }
 
-    // (D) maskOverlay => overlay:enable='lt(mod(n,maskFreq),1)' (以 frame index n 為基準)
+    // (D) maskOverlay => 以 frame index n 判斷何時顯示
     let labelB = labelA;
     if (useMaskOverlay) {
       filters.push(`
@@ -110,7 +109,7 @@ async function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // (E) RGB 分離 => [rgbSplitOut]
+    // (E) RGB 分離
     let finalLabel = labelB;
     if (useRgbSplit) {
       filters.push(`
@@ -126,7 +125,7 @@ async function flickerEncodeAdvanced(
       finalLabel = 'rgbSplitOut';
     }
 
-    // (F) fps=xxx + yuv420p => [finalOut]
+    // (F) fps / yuv420p
     filters.push(`
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
@@ -154,7 +153,7 @@ async function flickerEncodeAdvanced(
       reject(err);
     });
     ff.on('close', code => {
-      // 清除 AI 暫存檔
+      // 移除AI暫存檔
       if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
@@ -168,9 +167,8 @@ async function flickerEncodeAdvanced(
 }
 
 // -----------------------------------------------------------
-// 防錄製的路由： /flickerProtectFile
+// 防錄製路由： /flickerProtectFile
 // -----------------------------------------------------------
-
 router.post('/flickerProtectFile', async (req, res) => {
   try {
     const { fileId } = req.body;
@@ -228,18 +226,18 @@ router.post('/flickerProtectFile', async (req, res) => {
       useSubPixelShift : true,
       useMaskOverlay   : true,
       maskOpacity      : 0.25,
-      maskFreq         : 5,     // => overlay:enable='lt(mod(n,5),1)'
+      maskFreq         : 5,     
       maskSizeRatio    : 0.3,
       useRgbSplit      : true,
-      useAiPerturb     : false, // 若要 AI 擾動 => true
+      useAiPerturb     : false, // 若要AI擾動 =>改true
       flickerFps       : 120,
       noiseStrength    : 25,
       colorCurveDark   : '0/0 0.5/0.2 1/1',
       colorCurveLight  : '0/0 0.5/0.4 1/1',
-      drawBoxSeconds   : 5      // => drawbox:enable='lt(mod(t,5),1)'
+      drawBoxSeconds   : 5
     });
 
-    // 若中間有 tempIMG => 刪除
+    // 若有 tempIMG => 刪除
     if (isImage && sourcePath !== localPath && fs.existsSync(sourcePath)) {
       fs.unlinkSync(sourcePath);
     }
@@ -262,7 +260,7 @@ router.post('/flickerProtectFile', async (req, res) => {
 });
 
 // -----------------------------------------------------------
-// 保持原本的下載路由 /flickerDownload 不變即可
+// 保持原本的下載路由 /flickerDownload
 // -----------------------------------------------------------
 router.get('/flickerDownload', (req, res)=>{
   try {
