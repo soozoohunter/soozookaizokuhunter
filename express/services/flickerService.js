@@ -16,7 +16,7 @@ const path = require('path');
  *    useSubPixelShift : 是否啟用子像素平移
  *    useMaskOverlay   : 是否在畫面中央疊加半透明遮罩
  *    maskOpacity      : 遮罩透明度
- *    maskFreq         : 遮罩的出現頻率(每 N 幀出現 1 幀 or 每 N 秒出現 1 秒)
+ *    maskFreq         : 遮罩的出現頻率(每 N 幀或 N 秒)
  *    maskSizeRatio    : 遮罩大小(相對整個畫面)
  *    useRgbSplit      : 是否啟用 RGB 三通道錯位
  *    useAiPerturb     : 是否執行 AI 對抗擾動(需另外撰寫 python 腳本)
@@ -24,7 +24,7 @@ const path = require('path');
  *    noiseStrength    : 雜訊強度(0~100) / 預設 30
  *    colorCurveDark   : 適度壓暗的曲線參數
  *    colorCurveLight  : 適度提升亮部的曲線參數
- *    drawBoxSeconds   : 幾秒內顯示方塊(例如 5 表示每 5 秒顯示 1 秒)
+ *    drawBoxSeconds   : 幾秒內顯示方塊(例如 5 表示每 5 秒顯示 1 秒) => time-based
  */
 async function flickerEncodeAdvanced(
   inputPath,
@@ -41,7 +41,7 @@ async function flickerEncodeAdvanced(
     noiseStrength    = 30,         // 雜訊強度
     colorCurveDark   = '0/0 0.5/0.2 1/1',
     colorCurveLight  = '0/0 0.5/0.4 1/1',
-    drawBoxSeconds   = 5
+    drawBoxSeconds   = 5           // drawbox: time-based
   } = {}
 ) {
   return new Promise((resolve, reject) => {
@@ -67,39 +67,36 @@ async function flickerEncodeAdvanced(
       }
     }
 
-    // (B) 濾鏡鏈：先把視訊轉成RGB24 => 再做「曲線壓暗+亮部」+ 雜訊 + drawbox => (可選subPixelShift) => (可選maskOverlay) => (可選rgbSplit) => fps=120, yuv420p
-    // ------------------------------------------------------------------------
-    // step1: colorchannelmixer + curves => 加強紅色 + 壓暗/亮部
-    //        noise=c0s=NN => 在亮度通道添加動態雜訊
-    //        drawbox => 低頻地在左上or右上顯示半透明方塊
+    // (B) 濾鏡鏈：
+    //   1) format=rgb24 + colorchannelmixer => 紅色略強
+    //   2) curves => 壓暗/亮部
+    //   3) noise => 亮度通道雜訊
+    //   4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒
+    //       => enable='lt(mod(t,drawBoxSeconds),1)'
     const step1Filter = [
       `format=rgb24`,
-      // 加強紅色通道(約 1.2)
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
-      // curves => 曲線壓暗 & 亮部
       `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
-      // 雜訊 => 亮度通道 c0s=${noiseStrength}, c0f=t+u => time+uniform
       `noise=c0s=${noiseStrength}:c0f=t+u`,
-      // drawbox => 每 ${drawBoxSeconds}秒 顯示 1 秒的半透明黑塊
+      // 以時間 t 為基準 => 每 drawBoxSeconds秒顯示1秒
       `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
     ].join(',');
 
-    // 組合成 label => [preOut]
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // step2: 可選 => 子像素平移 => [subShiftOut]
-    let labelA = 'preOut';  // 目前輸出 label
+    // (C) 子像素平移 => [subShiftOut]
+    let labelA = 'preOut';
     if (useSubPixelShift) {
       filters.push(`
         [preOut]split=2[subA][subB];
         [subA]pad=iw+1:ih:1:0:black[sA];
         [subB]pad=iw+1:ih:0:0:black[sB];
-        [sA][sB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
+        [sA][sB]blend=all_expr='if(eq(mod(n,2),0),A,B)'[subShiftOut]
       `);
       labelA = 'subShiftOut';
     }
 
-    // step3: 可選 => maskOverlay(中央半透明方塊, 每 N 幀或每 N 秒顯示一下)
+    // (D) maskOverlay => overlay:enable='lt(mod(n,maskFreq),1)' (frame-based)
     let labelB = labelA;
     if (useMaskOverlay) {
       filters.push(`
@@ -108,13 +105,13 @@ async function flickerEncodeAdvanced(
         [maskSrc]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
         [baseScaled][maskBig]
         overlay=x='(W-w)/2':y='(H-h)/2'
-                :enable='lt(mod(N,${maskFreq}),1)'
+                :enable='lt(mod(n,${maskFreq}),1)'
         [maskedOut]
       `);
       labelB = 'maskedOut';
     }
 
-    // step4: 可選 => RGB split => [rgbSplitOut]
+    // (E) RGB 分離 => [rgbSplitOut]
     let finalLabel = labelB;
     if (useRgbSplit) {
       filters.push(`
@@ -130,20 +127,18 @@ async function flickerEncodeAdvanced(
       finalLabel = 'rgbSplitOut';
     }
 
-    // step5: fps=xxx + yuv420p => [finalOut]
-    // 請注意：若你想要保留原聲音，可再 -map 0:a? -c:a aac 之類的做法
+    // (F) fps=xxx + yuv420p => [finalOut]
     filters.push(`
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
 
     const filterComplex = filters.map(x => x.trim()).join(';');
 
-    // (C) ffmpeg 參數
+    // (G) ffmpeg 參數
     const ffmpegArgs = [
       '-y',
       '-i', encodeInput,
       '-filter_complex', filterComplex,
-      // 若要保留音訊 => 你可以多寫: '-map', '0:v:0', '-map', '0:a?:0' ...
       '-map', '[finalOut]',
       '-c:v', 'libx264',
       '-preset', 'medium',
@@ -174,44 +169,55 @@ async function flickerEncodeAdvanced(
 }
 
 // -----------------------------------------------------------
-// 範例：在 router.post('/flickerProtectFile', ...) 中使用
-// （請將此示範整合到你既有的 protect.js 即可）
+// 防錄製的路由： /flickerProtectFile
 // -----------------------------------------------------------
+
 router.post('/flickerProtectFile', async (req, res) => {
   try {
     const { fileId } = req.body;
     if(!fileId) {
-      return res.status(400).json({ error: 'MISSING_FILE_ID', message:'請提供 fileId' });
+      return res.status(400).json({
+        error: 'MISSING_FILE_ID',
+        message:'請提供 fileId'
+      });
     }
 
     // 1) 找 DB
     const fileRec = await File.findByPk(fileId);
     if(!fileRec) {
-      return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此 File ID' });
+      return res.status(404).json({
+        error:'FILE_NOT_FOUND',
+        message:'無此 File ID'
+      });
     }
 
     // 2) 檔案是否存在
     const ext= path.extname(fileRec.filename)||'';
     const localPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${ext}`);
     if(!fs.existsSync(localPath)){
-      return res.status(404).json({ error:'LOCAL_FILE_NOT_FOUND', message:'原始檔不在本機，無法做防側錄' });
+      return res.status(404).json({
+        error:'LOCAL_FILE_NOT_FOUND',
+        message:'原始檔不在本機，無法做防側錄'
+      });
     }
 
-    // 3) 若是圖片 => 先轉成短 mp4 (5 秒)，再做 flickerEncodeAdvanced
+    // 3) 若是圖片 => 先轉成 5秒 mp4
     const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
     let sourcePath = localPath;
 
     if (isImage) {
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
-        // 轉成 5秒的靜態影片
         const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart "${tempPath}"`;
-        console.log('[flickerProtectFile] convert image to 5s mp4 =>', cmd);
+        console.log('[flickerProtectFile] convert image->video =>', cmd);
         execSync(cmd);
         sourcePath = tempPath;
       } catch(eImg){
         console.error('[flickerProtectFile] convert img->video error =>', eImg);
-        return res.status(500).json({ error:'IMG_TO_VIDEO_ERROR', detail:eImg.message });
+        return res.status(500).json({
+          error:'IMG_TO_VIDEO_ERROR',
+          detail:eImg.message
+        });
       }
     }
 
@@ -223,15 +229,15 @@ router.post('/flickerProtectFile', async (req, res) => {
       useSubPixelShift : true,
       useMaskOverlay   : true,
       maskOpacity      : 0.25,
-      maskFreq         : 5,
+      maskFreq         : 5,     // => overlay:enable='lt(mod(n,5),1)'
       maskSizeRatio    : 0.3,
       useRgbSplit      : true,
-      useAiPerturb     : false,    // 若要開啟 AI 對抗擾動 => 設 true
+      useAiPerturb     : false, // 若要 AI 擾動 => true
       flickerFps       : 120,
       noiseStrength    : 25,
       colorCurveDark   : '0/0 0.5/0.2 1/1',
       colorCurveLight  : '0/0 0.5/0.4 1/1',
-      drawBoxSeconds   : 5
+      drawBoxSeconds   : 5      // => drawbox:enable='lt(mod(t,5),1)'
     });
 
     // 若中間有 tempIMG => 刪除
@@ -241,6 +247,7 @@ router.post('/flickerProtectFile', async (req, res) => {
 
     // 5) 回傳可下載連結
     const protectedFileUrl = `/api/protect/flickerDownload?file=${encodeURIComponent(protectedName)}`;
+
     return res.json({
       message:'已成功產生多層次防錄製檔案 (Advanced)',
       protectedFileUrl
@@ -248,12 +255,15 @@ router.post('/flickerProtectFile', async (req, res) => {
 
   } catch(e){
     console.error('[POST /flickerProtectFile] error =>', e);
-    return res.status(500).json({ error:'INTERNAL_ERROR', detail:e.message });
+    return res.status(500).json({
+      error:'INTERNAL_ERROR',
+      detail:e.message
+    });
   }
 });
 
 // -----------------------------------------------------------
-// 保持原本的下載路由不變即可
+// 保持原本的下載路由 /flickerDownload 不變即可
 // -----------------------------------------------------------
 router.get('/flickerDownload', (req, res)=>{
   try {
