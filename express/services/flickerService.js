@@ -16,7 +16,7 @@ const path = require('path');
  *    useSubPixelShift : 是否啟用子像素平移
  *    useMaskOverlay   : 是否在畫面中央疊加半透明遮罩
  *    maskOpacity      : 遮罩透明度
- *    maskFreq         : 遮罩的出現頻率(每 N 幀或 N 秒)
+ *    maskFreq         : 遮罩的出現頻率(以「幀」或「frame index」為週期)
  *    maskSizeRatio    : 遮罩大小(相對整個畫面)
  *    useRgbSplit      : 是否啟用 RGB 三通道錯位
  *    useAiPerturb     : 是否執行 AI 對抗擾動(需另外撰寫 python 腳本)
@@ -71,20 +71,19 @@ async function flickerEncodeAdvanced(
     //   1) format=rgb24 + colorchannelmixer => 紅色略強
     //   2) curves => 壓暗/亮部
     //   3) noise => 亮度通道雜訊
-    //   4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒
+    //   4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒 (時間 t 為基準)
     //       => enable='lt(mod(t,drawBoxSeconds),1)'
     const step1Filter = [
       `format=rgb24`,
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
       `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
       `noise=c0s=${noiseStrength}:c0f=t+u`,
-      // 以時間 t 為基準 => 每 drawBoxSeconds秒顯示1秒
       `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
     ].join(',');
 
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // (C) 子像素平移 => [subShiftOut]
+    // (C) 子像素平移 => [subShiftOut] (以 frame index n 的偶數/奇數做平移)
     let labelA = 'preOut';
     if (useSubPixelShift) {
       filters.push(`
@@ -96,7 +95,7 @@ async function flickerEncodeAdvanced(
       labelA = 'subShiftOut';
     }
 
-    // (D) maskOverlay => overlay:enable='lt(mod(n,maskFreq),1)' (frame-based)
+    // (D) maskOverlay => overlay:enable='lt(mod(n,maskFreq),1)' (以 frame index n 為基準)
     let labelB = labelA;
     if (useMaskOverlay) {
       filters.push(`
@@ -201,7 +200,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       });
     }
 
-    // 3) 若是圖片 => 先轉成 5秒 mp4
+    // 3) 若是圖片 => 先轉成 5 秒 mp4
     const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
     let sourcePath = localPath;
 
