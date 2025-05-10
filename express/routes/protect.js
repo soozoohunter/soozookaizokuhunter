@@ -4,6 +4,7 @@
  * 注意：
  * - 已將原本的 flickerEncode() 替換為 flickerEncodeAdvanced()，並於 /flickerProtectFile 改用多層次防錄製參數。
  * - 其餘 aggregator / fallback / 向量檢索 / PDF 產生 / 掃描等程式碼大部分維持原狀，只在必要處做小幅修正 (如修正 N→n)。
+ * - 主要修正：在 (E) RGB 分離的部分，將 `interleave=0` 改為 `mergeplanes=0x001020,format=rgb24`。
  */
 
 const express = require('express');
@@ -74,7 +75,7 @@ function ensureUploadDirs(){
 }
 ensureUploadDirs(); // 啟動時先執行一次
 
-// ★ 新增你的公開網域 (修改為你的正式網域)
+// ★ 新增你的公開網域 (請自行改為你實際的網域)
 const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
 
 // Multer: 上傳檔案大小上限 100MB
@@ -127,7 +128,7 @@ async function launchBrowser(){
 //--------------------------------------------------
 async function saveDebugInfo(page, tag){
   try {
-    const debugDir = '/app/debugShots';  // 確保 docker-compose.yml 有掛載
+    const debugDir = '/app/debugShots';  // 確保 docker-compose.yml 有掛載或可寫
     const now = Date.now();
 
     // 截圖
@@ -692,7 +693,6 @@ async function directSearchBing(browser, imagePath){
 
     const [fileChooser] = await Promise.all([
       page.waitForFileChooser({ timeout:10000 }),
-      // 有時 #sb_sbi 找不到 => 也可嘗試 document.querySelector('#sb_sbi')
       page.click('#sb_sbi').catch(()=>{})
     ]);
     await fileChooser.accept([imagePath]);
@@ -1190,7 +1190,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
           const outP= path.join(UPLOAD_BASE_DIR, `preview_${newFile.id}.png`);
           console.log('[DEBUG] trying to extract middle frame =>', outP);
 
-          // ★ 避免 deprecated pixel format 警告
+          // 避免 deprecated pixel format 警告 => 加上 scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p
           execSync(`ffmpeg -y -i "${finalPath}" -ss ${mid} -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -frames:v 1 "${outP}"`);
 
           if(fs.existsSync(outP)){
@@ -1345,7 +1345,7 @@ router.get('/scan/:fileId', async(req,res)=>{
       }
     } else {
       // 單張圖片 => aggregator + fallback + 向量檢索
-      const publicUrl= getPublicUrl(fileId, ext);
+      const publicUrl= getPublicUrl(fileRec.id, ext);
       const engineRes= await doSearchEngines(localPath, true, publicUrl);
       allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
 
@@ -1399,8 +1399,8 @@ router.get('/scan/:fileId', async(req,res)=>{
     }, scanPdfPath);
 
     /**
-     * 【修正】不再在掃描後直接刪除 localPath，以免後續需要再做 flickerProtect
-     * 如果確定不需要防錄製，可自行再行刪除。
+     * 不再在掃描後直接刪除 localPath，以免後續需要再做 flickerProtect。
+     * 如果確定不需要再做防錄製，可自行選擇在這裡清理。
      */
 
     return res.json({
@@ -1551,7 +1551,7 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 
 //---------------------------------------------
 // 改良增強版 flickerEncodeAdvanced：整合多層次擾動
-// 重要：將原先的 N 改為 n、drawbox 保留 t
+// **修改重點**：在 (E) RGB 分離處改用 mergeplanes=0x001020
 //---------------------------------------------
 function flickerEncodeAdvanced(
   inputPath,
@@ -1575,14 +1575,13 @@ function flickerEncodeAdvanced(
     let encodeInput = inputPath;
     let aiTempPath  = '';
 
-    // (A) 若開啟 AI 對抗擾動 => 先呼叫 python 腳本
+    // (A) 若開啟 AI 對抗擾動 => 先呼叫 python 腳本 (示例)
     if(useAiPerturb){
       try {
         aiTempPath = path.join(
           path.dirname(outputPath),
           'tmpAi_' + Date.now() + '.mp4'
         );
-        // python aiPerturb.py in.mp4 out.mp4 (示例)
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
           stdio: 'inherit',
         });
@@ -1632,7 +1631,7 @@ function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // (E) RGB 分離
+    // (E) **重點修正：RGB 分離後合併 → mergeplanes=0x001020**
     let finalLabel = labelB;
     if(useRgbSplit){
       filters.push(`
@@ -1643,7 +1642,7 @@ function flickerEncodeAdvanced(
         [rp]pad=iw:ih:0:0:black[rout];
         [gp]pad=iw:ih:0:0:black[gout];
         [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
+        [rout][gout][bout]mergeplanes=0x001020,format=rgb24[rgbSplitOut]
       `);
       finalLabel = 'rgbSplitOut';
     }
