@@ -1,7 +1,3 @@
-/*************************************************************
- * server.js (請覆蓋原先的 server.js)
- *************************************************************/
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -23,6 +19,9 @@ const app = express();
 // 中介層
 app.use(cors());
 app.use(express.json());
+
+// ★★★ 新增：將 uploads 資料夾對外提供靜態服務 (解決公開圖片連結 404) ★★★
+app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')));
 
 // 健康檢查
 app.get('/health', (req, res) => {
@@ -56,15 +55,15 @@ app.use('/auth', authRouter);
 // -------------------------------------------
 // 以下示範「Ginifab + fallback」的測試路由 /debug/gini
 // -------------------------------------------
-
-// fallbackDirectEngines：讓 Bing / TinEye / Baidu 直接上傳
 async function fallbackDirectEngines(imagePath) {
   let finalLinks = [];
   let browser;
+  const puppeteer = require('puppeteer');
+
   try {
     browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      headless:'new',
+      args:['--no-sandbox','--disable-setuid-sandbox']
     });
 
     // -- Bing --
@@ -142,6 +141,7 @@ app.get('/debug/gini', async (req, res) => {
 
   // 1) 嘗試 aggregator => Ginifab
   try {
+    const puppeteer = require('puppeteer');
     browser = await puppeteer.launch({
       headless:'new',
       args:['--no-sandbox','--disable-setuid-sandbox']
