@@ -86,14 +86,14 @@ async function flickerEncodeAdvanced(
     // 輸出為 preOut
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // (C) 子像素平移 => frame index 的奇偶 (mod(N,2))
+    // (C) 子像素平移 => 透過 frame index 的奇偶 (mod(n,2))
     let labelA = 'preOut';
     if (useSubPixelShift) {
       filters.push(`
         [preOut]split=2[subA][subB];
         [subA]pad=iw+1:ih:1:0:black[sA];
         [subB]pad=iw+1:ih:0:0:black[sB];
-        [sA][sB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
+        [sA][sB]blend=all_expr="if(eq(mod(n,2),0),A,B)"[subShiftOut]
       `);
       labelA = 'subShiftOut';
     }
@@ -113,7 +113,7 @@ async function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // (E) RGB 分離 (interleave=0,format=rgb24)
+    // (E) RGB 分離
     let finalLabel = labelB;
     if (useRgbSplit) {
       filters.push(`
@@ -124,7 +124,7 @@ async function flickerEncodeAdvanced(
         [rp]pad=iw:ih:0:0:black[rout];
         [gp]pad=iw:ih:0:0:black[gout];
         [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
+        [rout][gout][bout]mergeplanes=0:1:2:format=rgb24[rgbSplitOut]
       `);
       finalLabel = 'rgbSplitOut';
     }
