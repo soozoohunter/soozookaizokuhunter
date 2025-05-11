@@ -10,9 +10,19 @@ const path = require('path');
 /**
  * flickerEncodeAdvanced - 多層次的「純軟體防側錄」FFmpeg 濾鏡
  *
- * @param {string} inputPath   - 輸入檔 (影片檔, 或已先轉成影片的圖檔)
+ * @param {string} inputPath   - 輸入檔 (影片檔，或已先轉成影片的圖檔)
  * @param {string} outputPath  - 輸出防錄製檔 (.mp4)
- * @param {object} options     - 干擾參數 (可調整子像素平移、遮罩、RGB分離、AI擾動、FPS 等)
+ * @param {object} options     - 各種干擾參數
+ *
+ * 建議保留的參數：
+ *  - useSubPixelShift : 是否啟用子像素平移 (mod(N,2))
+ *  - useMaskOverlay   : 是否在畫面中央疊加遮罩
+ *  - useRgbSplit      : 是否啟用 RGB 三通道錯位
+ *  - flickerFps       : 輸出幀率 (建議 60 或 120)
+ *  - noiseStrength    : 雜訊強度 (0~100)
+ *  - colorCurveDark   : 壓暗用曲線
+ *  - colorCurveLight  : 提亮用曲線
+ *  - drawBoxSeconds   : 每隔幾秒出現方塊
  */
 async function flickerEncodeAdvanced(
   inputPath,
@@ -33,33 +43,31 @@ async function flickerEncodeAdvanced(
   } = {}
 ) {
   return new Promise((resolve, reject) => {
-    // (A) 如果啟用 AI 對抗擾動 => 先呼叫 python 腳本
+    // (A) 若啟用 AI 對抗擾動 => python 腳本
     let encodeInput = inputPath;
     let aiTempPath  = '';
 
     if (useAiPerturb) {
       try {
-        aiTempPath = path.join(
-          path.dirname(outputPath),
-          'tmpAi_' + Date.now() + '.mp4'
-        );
-        // 需自行實作 aiPerturb.py： python aiPerturb.py in.mp4 out.mp4
+        aiTempPath = path.join(path.dirname(outputPath), `tmpAi_${Date.now()}.mp4`);
+        // ★須先實作 aiPerturb.py
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
-          stdio: 'inherit',
+          stdio:'inherit'
         });
         encodeInput = aiTempPath;
       } catch (errPy) {
         console.error('[AI Perturb Error]', errPy);
-        // 若失敗則不中斷，只是回退到原 inputPath
+        // 若失敗則回退到原輸入
         encodeInput = inputPath;
       }
     }
 
-    // (B) 第1階段濾鏡鏈
-    //     1) format=rgb24 + colorchannelmixer => 紅色略強
-    //     2) curves => 壓暗/亮部
-    //     3) noise => 亮度通道雜訊
-    //     4) drawbox => 每 drawBoxSeconds 秒顯示 1 秒 (以 t 為基準)
+    // (B) 第1階段濾鏡
+    //    - format=rgb24
+    //    - colorchannelmixer => 紅色略強
+    //    - curves => 壓暗/亮部
+    //    - noise => 亮度通道雜訊
+    //    - drawbox => 每 drawBoxSeconds 秒顯示 1 秒
     const step1Filter = [
       `format=rgb24`,
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
@@ -70,7 +78,7 @@ async function flickerEncodeAdvanced(
 
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // (C) 子像素平移 => frame index 奇偶：mod(N,2)
+    // (C) 子像素平移 => mod(N,2)
     let labelA = 'preOut';
     if (useSubPixelShift) {
       filters.push(`
@@ -82,7 +90,7 @@ async function flickerEncodeAdvanced(
       labelA = 'subShiftOut';
     }
 
-    // (D) 遮罩 overlay
+    // (D) 遮罩 overlay => maskOverlay
     let labelB = labelA;
     if (useMaskOverlay) {
       filters.push(`
@@ -97,7 +105,7 @@ async function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // (E) RGB 分離 => interleave=0,format=rgb24
+    // (E) RGB 分離 + mergeplanes合併
     let finalLabel = labelB;
     if (useRgbSplit) {
       filters.push(`
@@ -108,7 +116,7 @@ async function flickerEncodeAdvanced(
         [rp]pad=iw:ih:0:0:black[rout];
         [gp]pad=iw:ih:0:0:black[gout];
         [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
+        [rout][gout][bout]mergeplanes=0:1:2:format=rgb24[rgbSplitOut]
       `);
       finalLabel = 'rgbSplitOut';
     }
@@ -118,7 +126,7 @@ async function flickerEncodeAdvanced(
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
 
-    // 將 filters 整理成一行
+    // 組合 filter_complex
     const filterComplex = filters.map(x => x.trim()).join(';');
 
     // (G) ffmpeg 參數
@@ -136,13 +144,11 @@ async function flickerEncodeAdvanced(
     ];
 
     console.log('[flickerEncodeAdvanced] ffmpeg =>', ffmpegArgs.join(' '));
-    const ff = spawn('ffmpeg', ffmpegArgs, { stdio: 'inherit' });
+    const ff = spawn('ffmpeg', ffmpegArgs, { stdio:'inherit' });
 
-    ff.on('error', err => {
-      reject(err);
-    });
+    ff.on('error', err => reject(err));
     ff.on('close', code => {
-      // 移除AI暫存檔
+      // 若有 AI 暫存檔 => 刪除
       if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
