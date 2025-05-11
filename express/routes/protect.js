@@ -1,9 +1,5 @@
 /**
- * express/routes/protect.js (最終整合 + 防錄製功能(Advanced) + aggregator/fallback + 向量檢索 + scanLink 等)
- *
- * - 已將原 flickerEncode() 改為 flickerEncodeAdvanced()，並在 /flickerProtectFile 中進行多層次防錄製。
- * - 解決 FFmpeg interleave=0 報錯 => 改用 mergeplanes=0x001020,format=rgb24。
- * - 移除多餘的分隔線，避免「Invalid left-hand side expression in prefix operation」語法錯誤。
+ * project.js - 修正後完整程式碼
  */
 
 const express = require('express');
@@ -76,6 +72,10 @@ ensureUploadDirs();
 
 // ★ 公開網域 (請自行改為你的正式域名)
 const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
+
+// 「在 router 裏靜態提供 /uploads」
+// 因為最終路由掛載可能是 /api/protect，故完整網址會變成 /api/protect/uploads/xxxx
+router.use('/uploads', express.static(UPLOAD_BASE_DIR));
 
 // Multer: 上傳檔案大小上限 100MB
 const upload = multer({
@@ -257,6 +257,7 @@ async function generateCertificatePDF(data, outputPath){
 
 //----------------------------------------------------
 // [5] 產生「侵權偵測報告 PDF」(Puppeteer) - (基本示範)
+//    已整合到 generateScanPDFWithMatches()，但保留此舊示範
 //----------------------------------------------------
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outputPath){
   console.log('[generateScanPDF] =>', outputPath);
@@ -1188,7 +1189,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     } else {
       previewPath= finalPath;
       try {
-        publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
+        // 這裡改為 /api/protect/uploads/... 以避免 404
+        publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id, '/api/protect/uploads');
       } catch(eConv){
         console.error('[step1 convertAndUpload error]', eConv);
       }
@@ -1300,8 +1302,9 @@ router.get('/scan/:fileId', async(req,res)=>{
     let allLinks=[...suspiciousLinks];
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
 
+    // 調整：改用 /api/protect/uploads
     function getPublicUrl(fileId, extension){
-      return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
+      return `${PUBLIC_HOST}/api/protect/uploads/imageForSearch_${fileId}${extension}`;
     }
 
     let matchedImages = [];
@@ -1320,7 +1323,8 @@ router.get('/scan/:fileId', async(req,res)=>{
           const frames= await extractKeyFrames(localPath, frameDir, 10,5);
           for(const fPath of frames){
             const baseName = path.basename(fPath);
-            const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
+            // 改為 /api/protect/uploads/frames_xxx/...
+            const frameUrl = `${PUBLIC_HOST}/api/protect/uploads/frames_${fileRec.id}/${baseName}`;
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
             allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
           }
@@ -1569,11 +1573,12 @@ function flickerEncodeAdvanced(
 
     let labelA = 'preOut';
     if(useSubPixelShift){
+      // blend 改用雙引號 (避免 ffmpeg parse error)
       filters.push(`
         [preOut]split=2[subA][subB];
         [subA]pad=iw+1:ih:1:0:black[sA];
         [subB]pad=iw+1:ih:0:0:black[sB];
-        [sA][sB]blend=all_expr='if(eq(mod(n,2),0),A,B)'[subShiftOut]
+        [sA][sB]blend=all_expr="if(eq(mod(n,2),0),A,B)"[subShiftOut]
       `);
       labelA = 'subShiftOut';
     }
@@ -1602,7 +1607,7 @@ function flickerEncodeAdvanced(
         [rp]pad=iw:ih:0:0:black[rout];
         [gp]pad=iw:ih:0:0:black[gout];
         [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]mergeplanes=0x001020,format=rgb24[rgbSplitOut]
+        [rout][gout][bout]mergeplanes=0:1:2:format=rgb24[rgbSplitOut]
       `);
       finalLabel = 'rgbSplitOut';
     }
