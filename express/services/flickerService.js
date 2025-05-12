@@ -36,7 +36,7 @@ async function flickerEncodeAdvanced(
     let aiTempPath  = '';
 
     // (若需 AI 擾動)
-    if(useAiPerturb){
+    if (useAiPerturb) {
       try {
         aiTempPath = path.join(
           path.dirname(outputPath),
@@ -45,28 +45,36 @@ async function flickerEncodeAdvanced(
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
           stdio: 'inherit',
         });
+        // 如果成功產生 AI 擾動影片，就以它作後續輸入
         encodeInput = aiTempPath; 
       } catch (errPy) {
         console.error('[AI Perturb Error]', errPy);
+        // 如果 AI 擾動失敗，就直接用原 inputPath
         encodeInput = inputPath;
       }
     }
 
-    // 第一步基本濾鏡
+    // step1：基本濾鏡（顏色擾動、畫面雜訊、動態黑框等）
     const step1Filter = [
+      // 轉成 RGB24 方便做後續處理
       `format=rgb24`,
+      // 顏色信道稍作不同比例 (增加些許偏色感)
       `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
+      // 亮度對比曲線
       `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
+      // 視頻雜訊
       `noise=c0s=${noiseStrength}:c0f=t+u`,
+      // 動態黑框
       `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
     ].join(',');
 
     // 組合 filter
+    // 先給第一段標籤 `[preOut]`
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
-    // subPixelShift
+    // (A) subPixelShift
     let labelA = 'preOut';
-    if(useSubPixelShift){
+    if (useSubPixelShift) {
       filters.push(`
         [preOut]split=2[subA][subB];
         [subA]pad=iw+1:ih:1:0:black[sA];
@@ -76,9 +84,9 @@ async function flickerEncodeAdvanced(
       labelA = 'subShiftOut';
     }
 
-    // maskOverlay
+    // (B) maskOverlay
     let labelB = labelA;
-    if(useMaskOverlay){
+    if (useMaskOverlay) {
       filters.push(`
         color=size=16x16:color=red@${maskOpacity}[maskSrc];
         [${labelA}]scale=trunc(iw/2)*2:trunc(ih/2)*2[baseScaled];
@@ -91,9 +99,9 @@ async function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // rgbSplit
+    // (C) RGB Split（改用 mergeplanes 取代 interleave）
     let finalLabel = labelB;
-    if(useRgbSplit){
+    if (useRgbSplit) {
       filters.push(`
         [${labelB}]split=3[r_in][g_in][b_in];
         [r_in]extractplanes=r[rp];
@@ -102,16 +110,17 @@ async function flickerEncodeAdvanced(
         [rp]pad=iw:ih:0:0:black[rout];
         [gp]pad=iw:ih:0:0:black[gout];
         [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
+        [rout][gout][bout]mergeplanes=0:0:0:-1:format=rgb24[rgbSplitOut]
       `);
       finalLabel = 'rgbSplitOut';
     }
 
-    // 結尾
+    // 最後：調整輸出 fps + 轉回 yuv420p
     filters.push(`
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
 
+    // 組合完整 filter_complex
     const filterComplex = filters.map(x => x.trim()).join(';');
 
     // ffmpeg arguments
@@ -134,11 +143,13 @@ async function flickerEncodeAdvanced(
     ff.on('error', err => {
       reject(err);
     });
+
     ff.on('close', code => {
-      if(aiTempPath && fs.existsSync(aiTempPath)){
+      // 若有產生 AI 暫存檔，處理完畢後刪除
+      if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
-      if(code === 0){
+      if (code === 0) {
         resolve(true);
       } else {
         reject(new Error(`FFmpeg exited with code=${code}`));
