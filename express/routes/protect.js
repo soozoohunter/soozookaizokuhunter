@@ -36,6 +36,9 @@ const { extractKeyFrames }  = require('../utils/extractFrames');
 const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 
+// ** (重點) 新增：引用 flickerService.js **
+const { flickerEncodeAdvanced } = require('../services/flickerService');
+
 //----------------------------------------------------
 // [★ 人工搜圖連結檔案] express/data/manual_links.json
 //----------------------------------------------------
@@ -337,7 +340,10 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
   }
 }
 
-// --- aggregator/fallback (Ginifab / Bing / TinEye / Baidu) 相關函式 ---
+// ---------------------------------------------------------------------------
+//                      aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
+//   （以下至 doSearchEngines、fallbackDirectEngines、aggregatorSearchGinifab ... 全保留）
+// ---------------------------------------------------------------------------
 async function tryCloseAd(page) {
   try {
     const closeBtnSelector = 'button.ad-close, .adCloseBtn, .close';
@@ -362,7 +368,6 @@ async function saveDebugInfoForAggregator(page, tag){
   return await saveDebugInfo(page, tag);
 }
 
-// --- ginifab.com.tw 上傳流程 (Desktop/iOS/Android) ---
 async function tryGinifabUploadLocal(page, localImagePath) {
   try {
     const uploadLink = await page.$x("//a[contains(text(),'上傳本機圖片')]");
@@ -411,7 +416,6 @@ async function tryGinifabWithUrl(page, publicImageUrl) {
   }
 }
 
-// --- Google fallback 進入 ginifab ---
 async function gotoGinifabViaGoogle(page, publicImageUrl){
   console.log('[gotoGinifabViaGoogle]');
   try {
@@ -456,7 +460,6 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
   }
 }
 
-// --- iOS/Android/Desktop 複合嘗試 ---
 async function tryGinifabUploadLocal_iOS(page, localImagePath){
   console.log('[tryGinifabUploadLocal_iOS]...');
   try {
@@ -560,7 +563,6 @@ async function tryGinifabUploadLocalAllFlow(page, localImagePath){
   return false;
 }
 
-// --- aggregatorSearchGinifab ---
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) {
   console.log('[aggregatorSearchGinifab] => local=', localImagePath, ' url=', publicImageUrl);
   const ret = {
@@ -667,7 +669,6 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
   return ret;
 }
 
-// --- directSearchBing / directSearchTinEye / directSearchBaidu ---
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -862,7 +863,6 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
   return ret;
 }
 
-// --- fetchLinkMainImage (og:image or 最大 img) ---
 async function fetchLinkMainImage(pageUrl){
   try {
     new URL(pageUrl);
@@ -932,7 +932,6 @@ async function fetchLinkMainImage(pageUrl){
   }
 }
 
-// --- aggregatorSearchLink => 「連結 → 抓主圖 → aggregator/fallback + 向量檢索」 ---
 async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
   let aggregatorResult = null;
   let vectorResult     = null;
@@ -1381,7 +1380,6 @@ router.get('/scan/:fileId', async(req,res)=>{
       stampImagePath: fs.existsSync(stampPath)? stampPath:null
     }, scanPdfPath);
 
-    // 不刪 localPath (以防後續要 flickerProtect)
     return res.json({
       message:'圖搜+文字爬蟲+向量檢索完成 => PDF已產生',
       suspiciousLinks: unique,
@@ -1516,132 +1514,10 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
   }
 });
 
-// --- flickerEncodeAdvanced /flickerProtectFile ---
-function flickerEncodeAdvanced(
-  inputPath,
-  outputPath,
-  {
-    useSubPixelShift = true,       
-    useMaskOverlay   = true,
-    maskOpacity      = 0.3,
-    maskFreq         = 5,
-    maskSizeRatio    = 0.3,
-    useRgbSplit      = true,
-    useAiPerturb     = false,
-    flickerFps       = 120,
-    noiseStrength    = 30,
-    colorCurveDark   = '0/0 0.5/0.2 1/1',
-    colorCurveLight  = '0/0 0.5/0.4 1/1',
-    drawBoxSeconds   = 5
-  } = {}
-){
-  return new Promise((resolve, reject) => {
-    let encodeInput = inputPath;
-    let aiTempPath  = '';
-
-    if(useAiPerturb){
-      try {
-        aiTempPath = path.join(
-          path.dirname(outputPath),
-          'tmpAi_' + Date.now() + '.mp4'
-        );
-        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
-          stdio: 'inherit',
-        });
-        encodeInput = aiTempPath; 
-      } catch (errPy) {
-        console.error('[AI Perturb Error]', errPy);
-        encodeInput = inputPath;
-      }
-    }
-
-    const step1Filter = [
-      `format=rgb24`,
-      `colorchannelmixer=1.2:0.2:0.2:0:0:0:0:0:0:0:0:0:0:0:0:1`,
-      `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
-      `noise=c0s=${noiseStrength}:c0f=t+u`,
-      `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
-    ].join(',');
-
-    const filters = [`[0:v]${step1Filter}[preOut]`];
-
-    let labelA = 'preOut';
-    if(useSubPixelShift){
-      filters.push(`
-        [preOut]split=2[subA][subB];
-        [subA]pad=iw+1:ih:1:0:black[sA];
-        [subB]pad=iw+1:ih:0:0:black[sB];
-        [sA][sB]blend=all_expr='if(eq(mod(N,2),0),A,B)'[subShiftOut]
-      `);
-      labelA = 'subShiftOut';
-    }
-
-    let labelB = labelA;
-    if(useMaskOverlay){
-      filters.push(`
-        color=size=16x16:color=red@${maskOpacity}[maskSrc];
-        [${labelA}]scale=trunc(iw/2)*2:trunc(ih/2)*2[baseScaled];
-        [maskSrc]scale=iw*${maskSizeRatio}:ih*${maskSizeRatio}[maskBig];
-        [baseScaled][maskBig]
-        overlay=x='(W-w)/2':y='(H-h)/2'
-                :enable='lt(mod(n,${maskFreq}),1)'
-        [maskedOut]
-      `);
-      labelB = 'maskedOut';
-    }
-
-    let finalLabel = labelB;
-    if(useRgbSplit){
-      filters.push(`
-        [${labelB}]split=3[r_in][g_in][b_in];
-        [r_in]extractplanes=r[rp];
-        [g_in]extractplanes=g[gp];
-        [b_in]extractplanes=b[bp];
-        [rp]pad=iw:ih:0:0:black[rout];
-        [gp]pad=iw:ih:0:0:black[gout];
-        [bp]pad=iw:ih:0:0:black[bout];
-        [rout][gout][bout]interleave=0,format=rgb24[rgbSplitOut]
-      `);
-      finalLabel = 'rgbSplitOut';
-    }
-
-    filters.push(`
-      [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
-    `);
-
-    const filterComplex = filters.map(x => x.trim()).join(';');
-
-    const ffmpegArgs = [
-      '-y',
-      '-i', encodeInput,
-      '-filter_complex', filterComplex,
-      '-map', '[finalOut]',
-      '-c:v', 'libx264',
-      '-preset', 'medium',
-      '-r', `${flickerFps}`,
-      '-pix_fmt', 'yuv420p',
-      '-movflags', '+faststart',
-      outputPath
-    ];
-
-    console.log('[flickerEncodeAdvanced] ffmpeg =>', ffmpegArgs.join(' '));
-    const ff = spawn('ffmpeg', ffmpegArgs, { stdio: 'inherit' });
-
-    ff.on('error', err => {
-      reject(err);
-    });
-    ff.on('close', code => {
-      if(aiTempPath && fs.existsSync(aiTempPath)){
-        fs.unlinkSync(aiTempPath);
-      }
-      if(code === 0){
-        resolve(true);
-      } else {
-        reject(new Error(`FFmpeg exited with code=${code}`));
-      }
-    });
-  });
-}
+//-------------------------------------------------------------
+// 原本在最底部的 flickerEncodeAdvanced(...) 已刪除
+// 改以 require('../services/flickerService') 匯入
+//-------------------------------------------------------------
 
 //===========================================================
 // [★ 防錄製 /flickerProtectFile POST]
@@ -1667,6 +1543,7 @@ router.post('/flickerProtectFile', async (req, res) => {
     const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
     let sourcePath = localPath;
 
+    // 若是圖片 => 先轉成 MP4
     if(isImage){
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
@@ -1680,6 +1557,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       }
     }
 
+    // 這裡改以呼叫 flickerService.js 的函式
     const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
     const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
 
@@ -1698,6 +1576,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       drawBoxSeconds   : 5
     });
 
+    // 若是圖片，刪除暫時生成的 mp4
     if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
       fs.unlinkSync(sourcePath);
     }
