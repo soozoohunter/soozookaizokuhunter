@@ -342,7 +342,6 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 
 // ---------------------------------------------------------------------------
 //                      aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
-//   （以下至 doSearchEngines、fallbackDirectEngines、aggregatorSearchGinifab ... 全保留）
 // ---------------------------------------------------------------------------
 async function tryCloseAd(page) {
   try {
@@ -669,6 +668,11 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
   return ret;
 }
 
+// ========================【修改區：為 Bing / TinEye / Baidu 增加更強健的容錯】========================
+
+/** 
+ * directSearchBing - 改加 Try-Catch 容錯
+ */
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -685,19 +689,31 @@ async function directSearchBing(browser, imagePath){
     await saveDebugInfo(page, 'bing_afterGoto');
     await page.waitForTimeout(2000);
 
-    const [fileChooser] = await Promise.all([
-      page.waitForFileChooser({ timeout:10000 }),
-      page.click('#sb_sbi').catch(()=>{})
-    ]);
-    await fileChooser.accept([imagePath]);
+    // 【修改】等待 FileChooser 或 "input[type=file]" 時，多做一層 try-catch
+    let fileChooser;
+    try {
+      // Bing 可能會改版或彈出其他區塊
+      [fileChooser] = await Promise.all([
+        page.waitForFileChooser({ timeout:8000 }),
+        page.click('#sb_sbi').catch(()=>{})
+      ]);
+    } catch(e1) {
+      console.warn('[directSearchBing] waitForFileChooser fail => skip', e1.message);
+      ret.success=false;
+      return ret; // 直接返回，避免整個流程卡死
+    }
 
-    await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
-    await page.waitForTimeout(3000);
+    if(fileChooser){
+      await fileChooser.accept([imagePath]);
+      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
+      await page.waitForTimeout(3000);
 
-    let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
-    hrefs= hrefs.filter(h=> h && !h.includes('bing.com'));
-    ret.links= [...new Set(hrefs)].slice(0,5);
-    ret.success= ret.links.length>0;
+      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
+      hrefs= hrefs.filter(h=> h && !h.includes('bing.com'));
+      ret.links= [...new Set(hrefs)].slice(0,5);
+      ret.success= ret.links.length>0;
+    }
+
   } catch(e){
     console.error('[directSearchBing] fail =>', e);
     if(page) await saveDebugInfo(page, 'bing_error');
@@ -707,6 +723,9 @@ async function directSearchBing(browser, imagePath){
   return ret;
 }
 
+/**
+ * directSearchTinEye - 同樣增強容錯
+ */
 async function directSearchTinEye(browser, imagePath){
   console.log('[directSearchTinEye] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -723,15 +742,21 @@ async function directSearchTinEye(browser, imagePath){
     await saveDebugInfo(page, 'tineye_afterGoto');
     await page.waitForTimeout(1500);
 
-    const fileInput= await page.waitForSelector('input[type=file]', { timeout:8000 });
-    await fileInput.uploadFile(imagePath);
-    await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
-    await page.waitForTimeout(2000);
+    // 【修改】包起來防止找不到 input[type=file]
+    try {
+      const fileInput= await page.waitForSelector('input[type=file]', { timeout:8000 });
+      await fileInput.uploadFile(imagePath);
+      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
+      await page.waitForTimeout(2000);
 
-    let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
-    hrefs= hrefs.filter(h=> h && !h.includes('tineye.com'));
-    ret.links= [...new Set(hrefs)].slice(0,5);
-    ret.success= ret.links.length>0;
+      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
+      hrefs= hrefs.filter(h=> h && !h.includes('tineye.com'));
+      ret.links= [...new Set(hrefs)].slice(0,5);
+      ret.success= ret.links.length>0;
+    } catch(errTinEye) {
+      console.warn('[directSearchTinEye] no file input => skip =>', errTinEye.message);
+    }
+
   } catch(e){
     console.error('[directSearchTinEye] fail =>', e);
     if(page) await saveDebugInfo(page, 'tineye_error');
@@ -741,6 +766,9 @@ async function directSearchTinEye(browser, imagePath){
   return ret;
 }
 
+/**
+ * directSearchBaidu - 同樣增強容錯
+ */
 async function directSearchBaidu(browser, imagePath){
   console.log('[directSearchBaidu] =>', imagePath);
   const ret={ success:false, links:[] };
@@ -751,16 +779,21 @@ async function directSearchBaidu(browser, imagePath){
     await page.setDefaultTimeout(30000);
     await page.setDefaultNavigationTimeout(30000);
 
+    // 【修改】將原先硬性抓 input[type=file] 的流程用 try-catch 包起來
+    // 先嘗試 https://graph.baidu.com
     await page.goto('https://graph.baidu.com/', {
       waitUntil:'domcontentloaded', timeout:20000
     });
     await saveDebugInfo(page, 'baidu_afterGoto');
     await page.waitForTimeout(2000);
 
-    const fInput= await page.$('input[type=file]');
-    if(!fInput) throw new Error('Baidu input[type=file] not found');
-    await fInput.uploadFile(imagePath);
-    await page.waitForTimeout(5000);
+    try {
+      const fInput= await page.waitForSelector('input[type=file]', { timeout:5000 });
+      await fInput.uploadFile(imagePath);
+      await page.waitForTimeout(4000);
+    } catch(eGraph) {
+      console.warn('[directSearchBaidu] graph.baidu.com => file input not found => skip this step =>', eGraph.message);
+    }
 
     // 再嘗試 image.baidu.com
     try {
@@ -768,24 +801,30 @@ async function directSearchBaidu(browser, imagePath){
         waitUntil:'domcontentloaded', timeout:20000
       });
       await page.waitForTimeout(2000);
+
       const cameraBtn = await page.$('span.soutu-btn');
       if(cameraBtn){
         await cameraBtn.click();
         await page.waitForTimeout(1500);
+        const f2 = await page.$('input[type=file]');
+        if(f2){
+          await f2.uploadFile(imagePath);
+          await page.waitForTimeout(3000);
+        } else {
+          console.warn('[directSearchBaidu] image.baidu.com => no input[type=file] after clicking camera');
+        }
+      } else {
+        console.warn('[directSearchBaidu] cannot find .soutu-btn camera icon');
       }
-      const f2 = await page.$('input[type=file]');
-      if(f2){
-        await f2.uploadFile(imagePath);
-        await page.waitForTimeout(3000);
-      }
-    } catch(e2){
-      console.warn('[directSearchBaidu second approach error]', e2);
+    } catch(eImgBaidu){
+      console.warn('[directSearchBaidu] image.baidu.com flow error =>', eImgBaidu.message);
     }
 
     let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
     hrefs= hrefs.filter(h=> h && !h.includes('baidu.com'));
     ret.links= [...new Set(hrefs)].slice(0,5);
     ret.success= ret.links.length>0;
+
   } catch(e){
     console.error('[directSearchBaidu] fail =>', e);
     if(page) await saveDebugInfo(page, 'baidu_error');
@@ -795,6 +834,9 @@ async function directSearchBaidu(browser, imagePath){
   return ret;
 }
 
+/** 
+ * fallbackDirectEngines - 順序呼叫 Bing / TinEye / Baidu 
+ */
 async function fallbackDirectEngines(imagePath){
   let final = { bing:[], tineye:[], baidu:[] };
   let browser;
@@ -802,6 +844,7 @@ async function fallbackDirectEngines(imagePath){
     browser = await launchBrowser();
     console.log('[fallbackDirectEngines] browser launched...');
 
+    // 三家引擎並行嘗試
     const [rBing, rTine, rBai] = await Promise.all([
       directSearchBing(browser, imagePath),
       directSearchTinEye(browser, imagePath),
@@ -841,7 +884,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
         ret.baidu  = { links: aggRes.baidu.links,  success:true };
       }
     } catch(eAg){
-      console.error('[aggregatorSearchGinifab error]', eAg);
+      console.error('[doSearchEngines] aggregatorSearchGinifab error =>', eAg);
     } finally {
       if(browser) await browser.close().catch(()=>{});
     }
@@ -1513,11 +1556,6 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
     return res.status(500).json({ error:e.message });
   }
 });
-
-//-------------------------------------------------------------
-// 原本在最底部的 flickerEncodeAdvanced(...) 已刪除
-// 改以 require('../services/flickerService') 匯入
-//-------------------------------------------------------------
 
 //===========================================================
 // [★ 防錄製 /flickerProtectFile POST]
