@@ -36,11 +36,9 @@ const spin = keyframes`
 /* === 主要容器、背景 === */
 const PageWrapper = styled.div`
   min-height: 100vh;
-  /* 加入較強烈的漸層背景 + 慢速流動 */
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
   background-size: 500% 500%;
   animation: ${gradientFlow} 10s ease infinite;
-
   display: flex;
   align-items: center;
   justify-content: center;
@@ -204,15 +202,13 @@ export default function ProtectStep1() {
   // 上傳檔案 & 基本資訊
   const [file, setFile] = useState(null);
   const [realName, setRealName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthDate, setBirthDate] = useState('');    // 改成 yyyy-MM-dd
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [title, setTitle] = useState('');
   const [keywords, setKeywords] = useState('');
   const [agreePolicy, setAgreePolicy] = useState(false);
-
-  // 是否啟用防側錄
   const [enableProtection, setEnableProtection] = useState(false);
 
   // 狀態管理
@@ -220,10 +216,8 @@ export default function ProtectStep1() {
   const [loading, setLoading] = useState(false);
 
   // 檔案變更
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+  const handleFileChange = e => {
+    setFile(e.target.files?.[0] || null);
   };
 
   // 移除檔案
@@ -232,32 +226,23 @@ export default function ProtectStep1() {
   };
 
   // 提交事件
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async e => {
+    e.preventDefault();     // 取消原生 HTML5 驗證
     setError('');
 
     // 前端檢查
-    if (!file) {
-      return setError('請先上傳檔案');
-    }
-    if (!realName.trim() || !birthDate.trim() || !phone.trim() ||
-        !address.trim() || !email.trim()) {
-      return setError('必填欄位不可空白');
-    }
-    if (!title.trim()) {
-      return setError('請輸入作品標題(Title)');
-    }
-    if (!keywords.trim()) {
-      return setError('請輸入關鍵字(Keywords)');
-    }
-    if (!agreePolicy) {
-      return setError('請勾選同意隱私權政策與使用條款');
-    }
+    if (!file) return setError('請先上傳檔案');
+    if (!realName.trim()) return setError('姓名必填');
+    if (!birthDate.trim()) return setError('生日必填');
+    if (!phone.trim()) return setError('電話必填');
+    if (!address.trim()) return setError('地址必填');
+    if (!email.trim()) return setError('Email 必填');
+    if (!title.trim()) return setError('作品標題必填');
+    if (!keywords.trim()) return setError('關鍵字必填');
+    if (!agreePolicy) return setError('請同意隱私權政策與使用條款');
 
     try {
       setLoading(true);
-
-      // 建立 FormData
       const formData = new FormData();
       formData.append('file', file);
       formData.append('realName', realName);
@@ -267,45 +252,19 @@ export default function ProtectStep1() {
       formData.append('email', email);
       formData.append('title', title);
       formData.append('keywords', keywords);
-      formData.append('agreePolicy', agreePolicy ? 'true' : 'false');
-
-      // 新增：後端就能知道要不要做防側錄
+      formData.append('agreePolicy', 'true');
       formData.append('enableProtection', enableProtection ? 'true' : 'false');
 
-      // 發送到後端 /api/protect/step1
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
         body: formData
       });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.message || data.error || `Error ${resp.status}`);
 
-      const respData = await resp.json();
-
-      if (!resp.ok) {
-        // 後端回傳錯誤 => 提示
-        switch(resp.status) {
-          case 400:
-            throw new Error(respData.error || '表單資料有誤 (400)');
-          case 402:
-            throw new Error(respData.error || '短影音上傳需付費 (402)');
-          case 409:
-            alert(respData.error || '檔案/帳號已存在，請改用已有帳號或改檔案');
-            return;
-          case 413:
-            throw new Error('檔案過大 (413)，請壓縮或縮小後再上傳');
-          default:
-            throw new Error(respData.error || `上傳失敗，狀態碼: ${resp.status}`);
-        }
-      }
-
-      // 成功 => 將後端回傳資訊存起來
-      console.log('[ProtectStep1] success =>', respData);
-      localStorage.setItem('protectStep1', JSON.stringify(respData));
-
-      // 跳轉到 Step2
+      localStorage.setItem('protectStep1', JSON.stringify(data));
       navigate('/protect/step2');
-
     } catch (err) {
-      console.error('[ProtectStep1] error =>', err);
       setError(err.message || '上傳失敗，請稍後再試');
     } finally {
       setLoading(false);
@@ -315,15 +274,16 @@ export default function ProtectStep1() {
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>Step 1: Upload &amp; Member Info</Title>
+        <Title>Step 1: Upload & Member Info</Title>
         <Description>
-          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫以下資訊。<br/>
-          系統會自動為您建立會員帳號（手機為帳號、Email唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
+          為了產出您的 <strong>原創著作證明書</strong>，請上傳作品並填寫以下資訊。<br />
+          系統會自動為您建立會員帳號（手機為帳號、Email 唯一），並完成 SHA-256 指紋 + 區塊鏈存證。
         </Description>
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        <StyledForm onSubmit={handleSubmit}>
+        {/* noValidate 取消瀏覽器預設 pattern 驗證 */}
+        <StyledForm onSubmit={handleSubmit} noValidate>
           <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
           <FullRow>
             {!file ? (
@@ -348,28 +308,29 @@ export default function ProtectStep1() {
             type="text"
             placeholder="王小明 / John Wang"
             value={realName}
-            onChange={(e) => setRealName(e.target.value)}
+            onChange={e => setRealName(e.target.value)}
           />
+          {/* 改用 date */}
           <StyledInput
-            type="text"
-            placeholder="1988-10-24"
+            type="date"
             value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
+            onChange={e => setBirthDate(e.target.value)}
           />
 
           <HalfLabel>手機 (Phone)</HalfLabel>
           <HalfLabel>地址 (Address)</HalfLabel>
+          {/* 改用 tel，並移除破折號 */}
           <StyledInput
-            type="text"
-            placeholder="09xx-xxx-xxx"
+            type="tel"
+            placeholder="0900296168"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={e => setPhone(e.target.value)}
           />
           <StyledInput
             type="text"
             placeholder="台北市大安區..."
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={e => setAddress(e.target.value)}
           />
 
           <FullLabel>Email</FullLabel>
@@ -378,7 +339,7 @@ export default function ProtectStep1() {
               type="email"
               placeholder="example@gmail.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
             />
           </FullRow>
 
@@ -388,29 +349,36 @@ export default function ProtectStep1() {
             type="text"
             placeholder="My Artwork"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={e => setTitle(e.target.value)}
           />
           <StyledInput
             type="text"
             placeholder="art; painting; cat"
             value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
+            onChange={e => setKeywords(e.target.value)}
           />
 
-          {/* 條款 */}
+          {/* 服務條款細則 */}
           <FullRow>
-            <details style={{
-              background:'#2c2c2c', padding:'1rem', border:'1px solid #444',
-              borderRadius:'4px', marginTop:'1rem'
-            }}>
-              <summary style={{ cursor:'pointer', color:'#f97316', fontWeight:'bold' }}>
+            <details
+              style={{
+                background: '#2c2c2c',
+                padding: '1rem',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                marginTop: '1rem'
+              }}
+            >
+              <summary
+                style={{ cursor: 'pointer', color: '#f97316', fontWeight: 'bold' }}
+              >
                 閱讀隱私權與服務條款 (點此展開)
               </summary>
-              <div style={{ fontSize:'0.85rem', marginTop:'0.5rem', lineHeight:'1.5' }}>
-                <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策...</p>
-                <p>1. 您需年滿18歲...</p>
-                <p>2. 蒐集與使用個人資料之目的...</p>
-                <p>3. 若有違反規範，本公司得終止服務...</p>
+              <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', lineHeight: '1.5' }}>
+                <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策…</p>
+                <p>1. 您需年滿18歲…</p>
+                <p>2. 蒐集與使用個人資料之目的…</p>
+                <p>3. 若有違反規範，本公司得終止服務…</p>
               </div>
             </details>
           </FullRow>
@@ -420,18 +388,17 @@ export default function ProtectStep1() {
               type="checkbox"
               checked={agreePolicy}
               onChange={() => setAgreePolicy(!agreePolicy)}
-              style={{ marginRight:'0.5rem' }}
+              style={{ marginRight: '0.5rem' }}
             />
             <span>我已閱讀並同意隱私權政策與使用條款</span>
           </CheckboxRow>
 
-          {/* 啟用防側錄 */}
           <CheckboxRow>
             <input
               type="checkbox"
               checked={enableProtection}
               onChange={() => setEnableProtection(!enableProtection)}
-              style={{ marginRight:'0.5rem' }}
+              style={{ marginRight: '0.5rem' }}
             />
             <span>啟用防側錄 (對抗擾動 + 高頻閃爍)</span>
           </CheckboxRow>
