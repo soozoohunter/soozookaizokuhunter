@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       # ★★★ uploads 永久化 ─ 與主機/其他容器共用 ★★★
-      - uploads_data:/uploads
+      - uploads_data:/app/uploads
       # 其餘既有 volume 不變
       - ./express/fonts:/fonts:ro
       - ./express/debugShots:/app/debugShots
