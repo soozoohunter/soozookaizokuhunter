@@ -26,9 +26,10 @@ app.use(express.json());
  | 2. uploads 對外靜態目錄
  |    ⇒ 確保公開圖片 URL 不再 404
  *──────────────────────────────────────────────*/
+// 將 uploads 目錄映射到專案根下的 ./uploads
 app.use(
   '/uploads',
-  express.static(path.join(__dirname, '..', '..', 'uploads'))
+  express.static(path.join(__dirname, 'uploads'))
 );
 
 /*──────────────────────────────────────────────
