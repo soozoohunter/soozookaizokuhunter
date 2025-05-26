@@ -1582,20 +1582,24 @@ router.post('/flickerProtectFile', async (req, res) => {
     let sourcePath = localPath;
 
     // 若是圖片 => 先轉成 MP4
-    if(isImage){
+    if (isImage) {
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
-        const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -t 5 -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart "${tempPath}"`;
+        // scale filter 確保寬高都是偶數，避免 height not divisible by 2 錯誤
+        const cmd =
+          `ffmpeg -y -loop 1 -i "${localPath}" ` +
+          `-vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" ` +
+          `-t 5 -c:v libx264 -r 30 -movflags +faststart "${tempPath}"`;
         console.log('[flickerProtectFile] convert image->video =>', cmd);
-        execSync(cmd);
+        execSync(cmd, { stdio: 'inherit' });
         sourcePath = tempPath;
-      } catch(eImg){
+      } catch (eImg) {
         console.error('[flickerProtectFile] convert img->video error =>', eImg);
         return res.status(500).json({ error:'IMG_TO_VIDEO_ERROR', detail:eImg.message });
       }
     }
 
-    // 這裡改以呼叫 flickerService.js 的函式
+    // 呼叫 flickerService.js 的函式做防錄製
     const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
     const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
 
@@ -1614,7 +1618,7 @@ router.post('/flickerProtectFile', async (req, res) => {
       drawBoxSeconds   : 5
     });
 
-    // 若是圖片，刪除暫時生成的 mp4
+    // 刪除暫存 MP4（若有）
     if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
       fs.unlinkSync(sourcePath);
     }
@@ -1651,4 +1655,4 @@ router.get('/flickerDownload', (req, res)=>{
   }
 });
 
-module.exports = router;
+module.exports = router；
