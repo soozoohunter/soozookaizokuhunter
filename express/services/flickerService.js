@@ -12,6 +12,9 @@ const path = require('path');
  * @param {String} inputPath      - 輸入檔(通常是影片 or 已先轉成影片的圖片)
  * @param {String} outputPath     - 輸出檔路徑 (mp4)
  * @param {Object} options        - 保護細節選項
+ * 
+ * @returns {Promise} - 允諾成功則表示 FFmpeg 成功產出檔案
+ *                      失敗則丟出 Error (帶有詳細的錯誤訊息)
  */
 async function flickerEncodeAdvanced(
   inputPath,
@@ -35,21 +38,22 @@ async function flickerEncodeAdvanced(
     let encodeInput = inputPath;
     let aiTempPath  = '';
 
-    // (若需 AI 擾動)
+    // (若需 AI 擾動) => 先呼叫您假設存在的 Python 腳本: aiPerturb.py
+    // 如果失敗 => fallback 用原 inputPath
     if (useAiPerturb) {
       try {
         aiTempPath = path.join(
           path.dirname(outputPath),
           'tmpAi_' + Date.now() + '.mp4'
         );
+        console.log('[flickerEncodeAdvanced] try AI perturb => python aiPerturb.py ...');
         execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, {
           stdio: 'inherit',
         });
-        // 如果成功產生 AI 擾動影片，就以它作後續輸入
-        encodeInput = aiTempPath; 
+        encodeInput = aiTempPath;
+        console.log('[flickerEncodeAdvanced] AI perturb success => useAiPerturb=true');
       } catch (errPy) {
-        console.error('[AI Perturb Error]', errPy);
-        // 如果 AI 擾動失敗，就直接用原 inputPath
+        console.error('[AI Perturb Error] => fallback to original input:', errPy.message);
         encodeInput = inputPath;
       }
     }
@@ -64,12 +68,12 @@ async function flickerEncodeAdvanced(
       `curves=r='${colorCurveDark}':g='${colorCurveDark}':b='${colorCurveLight}'`,
       // 視頻雜訊
       `noise=c0s=${noiseStrength}:c0f=t+u`,
-      // 動態黑框
+      // 動態黑框 (隔一段時間出現)
       `drawbox=x=0:y=0:w='iw/2':h='ih/4':color=black@0.2:enable='lt(mod(t,${drawBoxSeconds}),1)'`
     ].join(',');
 
     // 組合 filter
-    // 先給第一段標籤 `[preOut]`
+    // 先給第一段標籤 [preOut]
     const filters = [`[0:v]${step1Filter}[preOut]`];
 
     // (A) subPixelShift
@@ -99,7 +103,7 @@ async function flickerEncodeAdvanced(
       labelB = 'maskedOut';
     }
 
-    // (C) RGB Split（改用 mergeplanes 取代 interleave）
+    // (C) RGB Split
     let finalLabel = labelB;
     if (useRgbSplit) {
       filters.push(`
@@ -120,7 +124,7 @@ async function flickerEncodeAdvanced(
       [${finalLabel}]fps=${flickerFps},format=yuv420p[finalOut]
     `);
 
-    // 組合完整 filter_complex
+    // 組合完整的 filter_complex
     const filterComplex = filters.map(x => x.trim()).join(';');
 
     // ffmpeg arguments
@@ -138,21 +142,34 @@ async function flickerEncodeAdvanced(
     ];
 
     console.log('[flickerEncodeAdvanced] ffmpeg =>', ffmpegArgs.join(' '));
+
+    // 啟動 ffmpeg
     const ff = spawn('ffmpeg', ffmpegArgs, { stdio: 'inherit' });
 
+    // 若 ffmpeg 執行程序本身出錯 (找不到 ffmpeg, 權限不夠等)
     ff.on('error', err => {
-      reject(err);
+      return reject(new Error(`[FFmpeg spawn error] => ${err.message}`));
     });
 
+    // ffmpeg 結束 => 根據 code 判斷成功或失敗
     ff.on('close', code => {
-      // 若有產生 AI 暫存檔，處理完畢後刪除
+      // 若有產生 AI 暫存檔 => 處理完畢刪除
       if (aiTempPath && fs.existsSync(aiTempPath)) {
         fs.unlinkSync(aiTempPath);
       }
+
       if (code === 0) {
+        // 成功
         resolve(true);
       } else {
-        reject(new Error(`FFmpeg exited with code=${code}`));
+        // 失敗 => 依 code 提供更明確訊息 (127 => ffmpeg not found, 1 => 參數錯誤... etc)
+        let extra = '';
+        if (code === 127) {
+          extra = ' (可能是系統找不到 ffmpeg？)';
+        } else if (code === 1) {
+          extra = ' (可能是 ffmpeg 參數錯誤或檔案無法讀取)';
+        }
+        reject(new Error(`FFmpeg exited with code=${code}${extra}`));
       }
     });
   });
