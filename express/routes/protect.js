@@ -157,6 +157,26 @@ async function saveDebugInfo(page, tag){
 }
 
 //----------------------------------------------------
+// [★ 核心工具] 過濾掉明顯無效的 URL
+//----------------------------------------------------
+function isValidLink(urlString) {
+  if(!urlString) return false;
+  // 排除 javascript:void(0) 或 data:xxxxx
+  const low = urlString.trim().toLowerCase();
+  if(low.startsWith('javascript:')) return false;
+  if(low.startsWith('data:')) return false;
+
+  try {
+    const testUrl = new URL(urlString);
+    // 只接受 http/https
+    if(!['http:', 'https:'].includes(testUrl.protocol)) return false;
+    return true;
+  } catch(e){
+    return false;
+  }
+}
+
+//----------------------------------------------------
 // [4] 產生「原創證書 PDF」(Puppeteer)
 //----------------------------------------------------
 async function generateCertificatePDF(data, outputPath){
@@ -459,109 +479,6 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
   }
 }
 
-async function tryGinifabUploadLocal_iOS(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_iOS]...');
-  try {
-    await tryCloseAd(page);
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片"/"上傳照片" link for iOS flow');
-    await uploadLink.click();
-    await page.waitForTimeout(1000);
-
-    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
-    if(!chooseFileBtn) throw new Error('No "選擇檔案"/"挑選檔案" link for iOS flow');
-    await chooseFileBtn.click();
-    await page.waitForTimeout(1000);
-
-    const [photoBtn] = await page.$x("//a[contains(text(),'照片圖庫') or contains(text(),'相簿') or contains(text(),'Photo Library')]");
-    if(!photoBtn) throw new Error('No "照片圖庫/相簿/Photo Library" link');
-    await photoBtn.click();
-    await page.waitForTimeout(1500);
-
-    const [finishBtn] = await page.$x("//a[contains(text(),'完成') or contains(text(),'Done') or contains(text(),'OK')]");
-    if(finishBtn){
-      await finishBtn.click();
-      await page.waitForTimeout(1000);
-    }
-
-    const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] for iOS flow');
-    await fileInput.uploadFile(localImagePath);
-    await page.waitForTimeout(2000);
-
-    console.log('[tryGinifabUploadLocal_iOS] success');
-    return true;
-  } catch(e){
-    console.warn('[tryGinifabUploadLocal_iOS] fail =>', e.message);
-    return false;
-  }
-}
-
-async function tryGinifabUploadLocal_Android(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_Android]...');
-  try {
-    await tryCloseAd(page);
-
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片"/"上傳照片" link for Android flow');
-    await uploadLink.click();
-    await page.waitForTimeout(1000);
-
-    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
-    if(!chooseFileBtn) throw new Error('No "選擇檔案"/"挑選檔案" link for Android flow');
-    await chooseFileBtn.click();
-    await page.waitForTimeout(2000);
-
-    const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] for Android flow');
-    await fileInput.uploadFile(localImagePath);
-    await page.waitForTimeout(2000);
-
-    console.log('[tryGinifabUploadLocal_Android] success');
-    return true;
-  } catch(e){
-    console.warn('[tryGinifabUploadLocal_Android] fail =>', e.message);
-    return false;
-  }
-}
-
-async function tryGinifabUploadLocal_Desktop(page, localImagePath){
-  console.log('[tryGinifabUploadLocal_Desktop]...');
-  try {
-    await tryCloseAd(page);
-    const [uploadLink] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'Upload from PC')]");
-    if(!uploadLink) throw new Error('No "上傳本機圖片"/"Upload from PC" link for Desktop flow');
-    await uploadLink.click();
-    await page.waitForTimeout(1000);
-
-    const fileInput = await page.$('input[type=file]');
-    if(!fileInput) throw new Error('No input[type=file] in Desktop flow');
-    await fileInput.uploadFile(localImagePath);
-    await page.waitForTimeout(2000);
-
-    console.log('[tryGinifabUploadLocal_Desktop] success');
-    return true;
-  } catch(e){
-    console.warn('[tryGinifabUploadLocal_Desktop] fail =>', e.message);
-    return false;
-  }
-}
-
-async function tryGinifabUploadLocalAllFlow(page, localImagePath){
-  console.log('[tryGinifabUploadLocalAllFlow] => start iOS/Android/Desktop attempts...');
-  let ok = await tryGinifabUploadLocal_iOS(page, localImagePath);
-  if(ok) return true;
-
-  ok = await tryGinifabUploadLocal_Android(page, localImagePath);
-  if(ok) return true;
-
-  ok = await tryGinifabUploadLocal_Desktop(page, localImagePath);
-  if(ok) return true;
-
-  // 全部失敗
-  return false;
-}
-
 async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) {
   console.log('[aggregatorSearchGinifab] => local=', localImagePath, ' url=', publicImageUrl);
   const ret = {
@@ -583,7 +500,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
     await page.waitForTimeout(2000);
     await saveDebugInfo(page, 'ginifab_afterGoto');
 
-    let successLocal = await tryGinifabUploadLocalAllFlow(page, localImagePath);
+    let successLocal = await tryGinifabUploadLocal(page, localImagePath);
     if(!successLocal){
       console.log('[aggregatorSearchGinifab] local upload fail => try URL approach...');
       successLocal = await tryGinifabWithUrl(page, publicImageUrl);
@@ -608,8 +525,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         return ret;
       } else {
         page = newPage;
-        let ok2 = await tryGinifabUploadLocalAllFlow(page, localImagePath);
-        if(!ok2) ok2 = await tryGinifabUploadLocal(page, localImagePath);
+        let ok2 = await tryGinifabUploadLocal(page, localImagePath);
         if(!ok2) ok2 = await tryGinifabWithUrl(page, publicImageUrl);
         if(!ok2){
           console.warn('[aggregatorSearchGinifab] still fail => aggregator stop');
@@ -643,13 +559,18 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         await popup.waitForTimeout(3000);
         await saveDebugInfo(popup, `agg_${eng.key}_popup`);
 
-        let hrefs= await popup.$$eval('a', as=> as.map(a=> a.href));
+        let hrefs= await popup.$$eval('a', as=> as.map(a=> a.href || ''));
+        // 過濾 ginifab / 三大引擎自身
         hrefs= hrefs.filter(h=>
-          h && !h.includes('ginifab') &&
+          h &&
+          !h.includes('ginifab') &&
           !h.includes('bing.com') &&
           !h.includes('tineye.com') &&
           !h.includes('baidu.com')
         );
+        // ★過濾無效連結
+        hrefs = hrefs.filter(isValidLink);
+
         ret[eng.key].links= hrefs.slice(0,5);
         ret[eng.key].success= ret[eng.key].links.length>0;
         await popup.close();
@@ -671,7 +592,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
 // ========================【修改區：為 Bing / TinEye / Baidu 增加更強健的容錯】========================
 
 /** 
- * directSearchBing - 改加 Try-Catch 容錯
+ * directSearchBing - 改加 Try-Catch 容錯 + 過濾無效連結
  */
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
@@ -689,10 +610,8 @@ async function directSearchBing(browser, imagePath){
     await saveDebugInfo(page, 'bing_afterGoto');
     await page.waitForTimeout(2000);
 
-    // 【修改】等待 FileChooser 或 "input[type=file]" 時，多做一層 try-catch
     let fileChooser;
     try {
-      // Bing 可能會改版或彈出其他區塊
       [fileChooser] = await Promise.all([
         page.waitForFileChooser({ timeout:8000 }),
         page.click('#sb_sbi').catch(()=>{})
@@ -700,7 +619,7 @@ async function directSearchBing(browser, imagePath){
     } catch(e1) {
       console.warn('[directSearchBing] waitForFileChooser fail => skip', e1.message);
       ret.success=false;
-      return ret; // 直接返回，避免整個流程卡死
+      return ret;
     }
 
     if(fileChooser){
@@ -708,8 +627,9 @@ async function directSearchBing(browser, imagePath){
       await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
       await page.waitForTimeout(3000);
 
-      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
-      hrefs= hrefs.filter(h=> h && !h.includes('bing.com'));
+      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
+      // 過濾自身 + 無效
+      hrefs= hrefs.filter(h=> h && !h.includes('bing.com')).filter(isValidLink);
       ret.links= [...new Set(hrefs)].slice(0,5);
       ret.success= ret.links.length>0;
     }
@@ -724,7 +644,7 @@ async function directSearchBing(browser, imagePath){
 }
 
 /**
- * directSearchTinEye - 同樣增強容錯
+ * directSearchTinEye - 同樣增強容錯 + 過濾無效連結
  */
 async function directSearchTinEye(browser, imagePath){
   console.log('[directSearchTinEye] =>', imagePath);
@@ -742,15 +662,15 @@ async function directSearchTinEye(browser, imagePath){
     await saveDebugInfo(page, 'tineye_afterGoto');
     await page.waitForTimeout(1500);
 
-    // 【修改】包起來防止找不到 input[type=file]
     try {
       const fileInput= await page.waitForSelector('input[type=file]', { timeout:8000 });
       await fileInput.uploadFile(imagePath);
       await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
       await page.waitForTimeout(2000);
 
-      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
-      hrefs= hrefs.filter(h=> h && !h.includes('tineye.com'));
+      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
+      // 過濾自身 + 無效
+      hrefs= hrefs.filter(h=> h && !h.includes('tineye.com')).filter(isValidLink);
       ret.links= [...new Set(hrefs)].slice(0,5);
       ret.success= ret.links.length>0;
     } catch(errTinEye) {
@@ -767,7 +687,7 @@ async function directSearchTinEye(browser, imagePath){
 }
 
 /**
- * directSearchBaidu - 同樣增強容錯
+ * directSearchBaidu - 同樣增強容錯 + 過濾無效連結
  */
 async function directSearchBaidu(browser, imagePath){
   console.log('[directSearchBaidu] =>', imagePath);
@@ -779,7 +699,6 @@ async function directSearchBaidu(browser, imagePath){
     await page.setDefaultTimeout(30000);
     await page.setDefaultNavigationTimeout(30000);
 
-    // 【修改】將原先硬性抓 input[type=file] 的流程用 try-catch 包起來
     // 先嘗試 https://graph.baidu.com
     await page.goto('https://graph.baidu.com/', {
       waitUntil:'domcontentloaded', timeout:20000
@@ -792,7 +711,7 @@ async function directSearchBaidu(browser, imagePath){
       await fInput.uploadFile(imagePath);
       await page.waitForTimeout(4000);
     } catch(eGraph) {
-      console.warn('[directSearchBaidu] graph.baidu.com => file input not found => skip this step =>', eGraph.message);
+      console.warn('[directSearchBaidu] graph.baidu.com => no file input =>', eGraph.message);
     }
 
     // 再嘗試 image.baidu.com
@@ -813,15 +732,14 @@ async function directSearchBaidu(browser, imagePath){
         } else {
           console.warn('[directSearchBaidu] image.baidu.com => no input[type=file] after clicking camera');
         }
-      } else {
-        console.warn('[directSearchBaidu] cannot find .soutu-btn camera icon');
       }
     } catch(eImgBaidu){
-      console.warn('[directSearchBaidu] image.baidu.com flow error =>', eImgBaidu.message);
+      console.warn('[directSearchBaidu] image.baidu.com =>', eImgBaidu.message);
     }
 
-    let hrefs= await page.$$eval('a', as=> as.map(a=> a.href));
-    hrefs= hrefs.filter(h=> h && !h.includes('baidu.com'));
+    let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
+    // 過濾自身 + 無效
+    hrefs= hrefs.filter(h=> h && !h.includes('baidu.com')).filter(isValidLink);
     ret.links= [...new Set(hrefs)].slice(0,5);
     ret.success= ret.links.length>0;
 
@@ -906,6 +824,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
   return ret;
 }
 
+// 抓網頁主圖
 async function fetchLinkMainImage(pageUrl){
   try {
     new URL(pageUrl);
@@ -1405,8 +1324,9 @@ router.get('/scan/:fileId', async(req,res)=>{
     const manualLinks = allManual[manKey] || [];
     allLinks.push(...manualLinks);
 
-    // 去重
-    const unique= [...new Set(allLinks)];
+    // ★去重 + 過濾無效連結
+    const unique= [...new Set(allLinks)].filter(isValidLink);
+
     fileRec.status='scanned';
     fileRec.infringingLinks= JSON.stringify(unique);
     await fileRec.save();
@@ -1482,7 +1402,8 @@ router.get('/scanLink', async(req,res)=>{
     if(aggregatorResult.bing?.links)   suspiciousLinks.push(...aggregatorResult.bing.links);
     if(aggregatorResult.tineye?.links) suspiciousLinks.push(...aggregatorResult.tineye.links);
     if(aggregatorResult.baidu?.links)  suspiciousLinks.push(...aggregatorResult.baidu.links);
-    suspiciousLinks = [...new Set(suspiciousLinks)];
+    // ★過濾無效連結
+    suspiciousLinks = [...new Set(suspiciousLinks)].filter(isValidLink);
 
     let matchedImages = [];
     if(vectorResult && vectorResult.results){
@@ -1603,20 +1524,28 @@ router.post('/flickerProtectFile', async (req, res) => {
     const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
     const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
 
-    await flickerEncodeAdvanced(sourcePath, protectedPath, {
-      useSubPixelShift : true,
-      useMaskOverlay   : true,
-      maskOpacity      : 0.25,
-      maskFreq         : 5,
-      maskSizeRatio    : 0.3,
-      useRgbSplit      : true,
-      useAiPerturb     : false,
-      flickerFps       : 120,
-      noiseStrength    : 25,
-      colorCurveDark   : '0/0 0.5/0.2 1/1',
-      colorCurveLight  : '0/0 0.5/0.4 1/1',
-      drawBoxSeconds   : 5
-    });
+    try {
+      await flickerEncodeAdvanced(sourcePath, protectedPath, {
+        useSubPixelShift : true,
+        useMaskOverlay   : true,
+        maskOpacity      : 0.25,
+        maskFreq         : 5,
+        maskSizeRatio    : 0.3,
+        useRgbSplit      : true,
+        useAiPerturb     : false,
+        flickerFps       : 120,
+        noiseStrength    : 25,
+        colorCurveDark   : '0/0 0.5/0.2 1/1',
+        colorCurveLight  : '0/0 0.5/0.4 1/1',
+        drawBoxSeconds   : 5
+      });
+    } catch(eFlicker){
+      console.error('[flickerProtectFile] flickerEncodeAdvanced fail =>', eFlicker);
+      return res.status(500).json({
+        error:'INTERNAL_ERROR',
+        detail: 'FFmpeg / flickerEncode failure: ' + (eFlicker.message || 'unknown')
+      });
+    }
 
     // 刪除暫存 MP4（若有）
     if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
