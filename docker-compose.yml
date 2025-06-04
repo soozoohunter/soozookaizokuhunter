@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -22,7 +24,11 @@ services:
     volumes:
       # ★★★ uploads 永久化 ─ 與主機/其他容器共用 ★★★
       - uploads_data:/app/uploads
-      # 其餘既有 volume 不變
+
+      # ★★★ 新增：掛入 Google Service-Account 金鑰 (唯讀) ★★★
+      - ./credentials:/app/credentials:ro
+
+      # 其餘既有 volume
       - ./express/fonts:/fonts:ro
       - ./express/debugShots:/app/debugShots
     environment:
@@ -45,6 +51,10 @@ services:
       SMTP_SECURE: ${SMTP_SECURE}
       EMAIL_FROM: ${EMAIL_FROM}
       PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
+
+      # ★★★ 新增：Google Vision SDK 將自動讀取此路徑 ★★★
+      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/gcp-vision.json
+
       # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
     depends_on:
@@ -238,10 +248,9 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-#──────────────────────────────────────────
 volumes:
   postgres_data:
-  uploads_data:   # ★★★ 新增，對應 /uploads ★★★
+  uploads_data:   # ★★★ 對應 /uploads ★★★
 
 networks:
   suzoo_net:
