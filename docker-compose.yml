@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
