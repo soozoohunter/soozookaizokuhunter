@@ -1,7 +1,7 @@
 /**
  * express/routes/protect.js
  *
- * 整合「防側錄、多引擎圖搜、向量檢索、IPFS、區塊鏈上鍊、PDF產出」等功能的主路由
+ * 整合「Google Vision、防側錄、多引擎圖搜、向量檢索、IPFS、區塊鏈上鍊、PDF產出」等功能的主路由
  */
 const express = require('express');
 const router = express.Router();
@@ -22,6 +22,34 @@ const ffmpeg      = require('fluent-ffmpeg');
 const ffmpegPath  = require('ffmpeg-static');
 if(ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
+}
+
+// ========== Google Vision API ==========
+const vision = require('@google-cloud/vision');
+const visionClient = new vision.ImageAnnotatorClient();
+
+/**
+ * 使用 Google Vision API 進行圖片搜尋
+ * @param {string} imagePath - 圖片本地路徑
+ * @returns {Promise<string[]>} - 找到的相關網址列表
+ */
+async function getVisionPageMatches(imagePath) {
+  try {
+    const buffer = await fs.promises.readFile(imagePath);
+    const [result] = await visionClient.webDetection({
+      image: { content: buffer },
+      maxResults: 10
+    });
+
+    const pages = result.webDetection?.pagesWithMatchingImages || [];
+    const urls = pages.map(p => p.url).filter(isValidLink);
+    
+    console.log('[Google Vision] found matches:', urls);
+    return urls;
+  } catch (e) {
+    console.error('[Google Vision] error:', e.message);
+    return [];
+  }
 }
 
 // ========== Models ==========
@@ -783,7 +811,7 @@ async function fallbackDirectEngines(imagePath){
 
 async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=''){
   console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
-  const ret = { bing:{}, tineye:{}, baidu:{} };
+  const ret = { bing:{}, tineye:{}, baidu:{}, vision:{} };
   let aggregatorOk=false;
 
   if(aggregatorFirst && aggregatorImageUrl){
@@ -821,6 +849,17 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
     ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
     ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
   }
+
+  // ========== 新增：Google Vision API 搜尋 ==========
+  try {
+    const visionUrls = await getVisionPageMatches(localFilePath);
+    if(visionUrls.length > 0) {
+      ret.vision = { links: visionUrls, success: true };
+    }
+  } catch(eVision) {
+    console.error('[doSearchEngines] Google Vision error =>', eVision);
+  }
+
   return ret;
 }
 
@@ -844,7 +883,7 @@ async function fetchLinkMainImage(pageUrl){
     }
     throw new Error('No og:image => fallback puppeteer...');
   } catch(eAxios) {
-    console.warn('[fetchLinkMainImage] axios fail =>', eAxios.message);
+    console.warn('[fetchLinkMainImage] axios fail =>', eAxios);
   }
 
   // fallback puppeteer
@@ -927,7 +966,7 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
     };
   }
 
-  // (3) aggregator => fallback
+  // (3) aggregator => fallback + Vision
   aggregatorResult = await doSearchEngines(localFilePath, true, mainImgUrl);
 
   // (4) 向量檢索
@@ -1266,7 +1305,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     let matchedImages = [];
 
     if(isVideo){
-      // (Video <=30s) => 抽幀 => aggregator/fallback
+      // (Video <=30s) => 抽幀 => aggregator/fallback + Vision
       try {
         const durSec= parseFloat(
           execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`)
@@ -1281,17 +1320,27 @@ router.get('/scan/:fileId', async(req,res)=>{
             const baseName = path.basename(fPath);
             const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
             const engineRes= await doSearchEngines(fPath, true, frameUrl);
-            allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
+            allLinks.push(
+              ...engineRes.bing.links, 
+              ...engineRes.tineye.links, 
+              ...engineRes.baidu.links,
+              ...(engineRes.vision?.links || []) // 新增：加入Vision結果
+            );
           }
         }
       } catch(eVid){
         console.error('[scan video aggregator error]', eVid);
       }
     } else {
-      // 單張圖片 => aggregator + fallback + 向量檢索
+      // 單張圖片 => aggregator + fallback + 向量檢索 + Vision
       const publicUrl= getPublicUrl(fileId, ext);
       const engineRes= await doSearchEngines(localPath, true, publicUrl);
-      allLinks.push(...engineRes.bing.links, ...engineRes.tineye.links, ...engineRes.baidu.links);
+      allLinks.push(
+        ...engineRes.bing.links, 
+        ...engineRes.tineye.links, 
+        ...engineRes.baidu.links,
+        ...(engineRes.vision?.links || []) // 新增：加入Vision結果
+      );
 
       // 向量檢索
       try {
@@ -1344,7 +1393,7 @@ router.get('/scan/:fileId', async(req,res)=>{
     }, scanPdfPath);
 
     return res.json({
-      message:'圖搜+文字爬蟲+向量檢索完成 => PDF已產生',
+      message:'圖搜+文字爬蟲+向量檢索+Google Vision完成 => PDF已產生',
       suspiciousLinks: unique,
       scanReportUrl:`/api/protect/scanReports/${fileRec.id}`
     });
@@ -1402,6 +1451,7 @@ router.get('/scanLink', async(req,res)=>{
     if(aggregatorResult.bing?.links)   suspiciousLinks.push(...aggregatorResult.bing.links);
     if(aggregatorResult.tineye?.links) suspiciousLinks.push(...aggregatorResult.tineye.links);
     if(aggregatorResult.baidu?.links)  suspiciousLinks.push(...aggregatorResult.baidu.links);
+    if(aggregatorResult.vision?.links) suspiciousLinks.push(...aggregatorResult.vision.links); // 新增：加入Vision結果
     // ★過濾無效連結
     suspiciousLinks = [...new Set(suspiciousLinks)].filter(isValidLink);
 
