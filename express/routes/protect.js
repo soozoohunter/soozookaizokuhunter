@@ -23,34 +23,9 @@ const ffmpegPath  = require('ffmpeg-static');
 if(ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
-
 // ========== Google Vision API ==========
+// 統一呼叫 services/visionService.js，避免重複定義
 const { getVisionPageMatches } = require('../services/visionService');
-
-/**
- * 使用 Google Vision API 進行圖片搜尋
- * @param {string} imagePath - 圖片本地路徑
- * @returns {Promise<string[]>} - 找到的相關網址列表
- */
-async function getVisionPageMatches(imagePath) {
-  try {
-    const buffer = await fs.promises.readFile(imagePath);
-    const [result] = await visionClient.webDetection({
-      image: { content: buffer },
-      maxResults: 10
-    });
-
-    const pages = result.webDetection?.pagesWithMatchingImages || [];
-    const urls = pages.map(p => p.url).filter(isValidLink);
-    
-    console.log('[Google Vision] found matches:', urls);
-    return urls;
-  } catch (e) {
-    console.error('[Google Vision] error:', e.message);
-    return [];
-  }
-}
-
 // ========== Models ==========
 const { User, File } = require('../models');
 
