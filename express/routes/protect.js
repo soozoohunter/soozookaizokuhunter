@@ -25,8 +25,7 @@ if(ffmpegPath) {
 }
 
 // ========== Google Vision API ==========
-const vision = require('@google-cloud/vision');
-const visionClient = new vision.ImageAnnotatorClient();
+const { getVisionPageMatches } = require('../services/visionService');
 
 /**
  * 使用 Google Vision API 進行圖片搜尋
