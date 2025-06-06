@@ -27,7 +27,7 @@ services:
       - ./credentials:/app/credentials:ro
 
       # 其餘既有 volume
-      - ./express/fonts:/fonts:ro
+      - ./express/fonts:/app/express/fonts:ro
       - ./express/debugShots:/app/debugShots
     environment:
       DATABASE_URL: ${DATABASE_URL}
