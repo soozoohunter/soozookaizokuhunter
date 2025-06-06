@@ -1,20 +1,19 @@
 /**
  * services/visionService.js
  * ------------------------------------------------------------
- * Google Vision  - Web Detection 封裝
- * 2025-06-05  Zack (凱) 專案
+ * Google Vision  - Web Detection 封裝 (含 includeGeoResults)
  * ------------------------------------------------------------
  */
 const fs     = require('fs');
 const path   = require('path');
 const vision = require('@google-cloud/vision');
 
-/** ※ 1. 讀取 Service-Account JSON 路徑 ------------------------- */
+/** 1. 讀取 Service-Account JSON 路徑 ------------------------- */
 const KEY_FILE =
   process.env.GOOGLE_APPLICATION_CREDENTIALS ||
   path.resolve(__dirname, '../../credentials/gcp-vision.json');
 
-/** ※ 2. 建立 Vision Client ------------------------------------ */
+/** 2. 建立 Vision Client (單例) ----------------------------- */
 const client = new vision.ImageAnnotatorClient({ keyFilename: KEY_FILE });
 
 /**
@@ -29,7 +28,11 @@ async function getVisionPageMatches(imagePath, maxResults = 10) {
   /** 呼叫 annotateImage – 僅啟用 WebDetection ，限制 maxResults */
   const [res] = await client.annotateImage({
     image    : { content: buffer },
-    features : [{ type: 'WEB_DETECTION', maxResults }]
+    features : [{
+      type: 'WEB_DETECTION',
+      maxResults,
+      webDetectionParams: { includeGeoResults: true }   // ★ 加上取地理資訊
+    }]
   });
 
   const pages = res.webDetection?.pagesWithMatchingImages ?? [];
