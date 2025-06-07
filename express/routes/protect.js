@@ -23,18 +23,20 @@ const ffmpegPath  = require('ffmpeg-static');
 if(ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
+
 // ========== Google Vision API ==========
-// 統一呼叫 services/visionService.js，避免重複定義
+// 同一呼叫 services/visionService.js，避免重複定義
 const { getVisionPageMatches } = require('../services/visionService');
+
 // ========== Models ==========
 const { User, File } = require('../models');
 
 // ========== Services/Utils ==========
-const fingerprintService = require('../services/fingerprintService');
-const ipfsService        = require('../services/ipfsService');
-const chain              = require('../utils/chain');
-const { convertAndUpload } = require('../utils/convertAndUpload');
-const { extractKeyFrames }  = require('../utils/extractFrames');
+const fingerprintService  = require('../services/fingerprintService');
+const ipfsService         = require('../services/ipfsService');
+const chain               = require('../utils/chain');
+const { convertAndUpload }= require('../utils/convertAndUpload');
+const { extractKeyFrames }= require('../utils/extractFrames');
 const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 
@@ -161,19 +163,13 @@ async function saveDebugInfo(page, tag){
 //----------------------------------------------------
 // [★ 核心工具] 過濾掉明顯無效的 URL
 //----------------------------------------------------
-function isValidLink(urlString) {
-  if(!urlString) return false;
-  // 排除 javascript:void(0) 或 data:xxxxx
-  const low = urlString.trim().toLowerCase();
-  if(low.startsWith('javascript:')) return false;
-  if(low.startsWith('data:')) return false;
-
+const INVALID_PREFIX_RE = /^(javascript:|data:)/i;
+function isValidLink(str) {
+  if (!str || INVALID_PREFIX_RE.test(str.trim())) return false;
   try {
-    const testUrl = new URL(urlString);
-    // 只接受 http/https
-    if(!['http:', 'https:'].includes(testUrl.protocol)) return false;
-    return true;
-  } catch(e){
+    const u = new URL(str);
+    return (u.protocol === 'http:' || u.protocol === 'https:');
+  } catch {
     return false;
   }
 }
@@ -591,10 +587,8 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
   return ret;
 }
 
-// ========================【修改區：為 Bing / TinEye / Baidu 增加更強健的容錯】========================
-
 /** 
- * directSearchBing - 改加 Try-Catch 容錯 + 過濾無效連結
+ * directSearchBing - Bing 鏡像搜尋
  */
 async function directSearchBing(browser, imagePath){
   console.log('[directSearchBing] =>', imagePath);
@@ -646,7 +640,7 @@ async function directSearchBing(browser, imagePath){
 }
 
 /**
- * directSearchTinEye - 同樣增強容錯 + 過濾無效連結
+ * directSearchTinEye
  */
 async function directSearchTinEye(browser, imagePath){
   console.log('[directSearchTinEye] =>', imagePath);
@@ -671,7 +665,6 @@ async function directSearchTinEye(browser, imagePath){
       await page.waitForTimeout(2000);
 
       let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
-      // 過濾自身 + 無效
       hrefs= hrefs.filter(h=> h && !h.includes('tineye.com')).filter(isValidLink);
       ret.links= [...new Set(hrefs)].slice(0,5);
       ret.success= ret.links.length>0;
@@ -689,7 +682,7 @@ async function directSearchTinEye(browser, imagePath){
 }
 
 /**
- * directSearchBaidu - 同樣增強容錯 + 過濾無效連結
+ * directSearchBaidu
  */
 async function directSearchBaidu(browser, imagePath){
   console.log('[directSearchBaidu] =>', imagePath);
@@ -740,7 +733,6 @@ async function directSearchBaidu(browser, imagePath){
     }
 
     let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
-    // 過濾自身 + 無效
     hrefs= hrefs.filter(h=> h && !h.includes('baidu.com')).filter(isValidLink);
     ret.links= [...new Set(hrefs)].slice(0,5);
     ret.success= ret.links.length>0;
@@ -764,7 +756,6 @@ async function fallbackDirectEngines(imagePath){
     browser = await launchBrowser();
     console.log('[fallbackDirectEngines] browser launched...');
 
-    // 三家引擎並行嘗試
     const [rBing, rTine, rBai] = await Promise.all([
       directSearchBing(browser, imagePath),
       directSearchTinEye(browser, imagePath),
@@ -783,6 +774,11 @@ async function fallbackDirectEngines(imagePath){
   return final;
 }
 
+/**
+ * 同步呼叫 aggregator + fallback + vision
+ * aggregator: Ginifab + (Bing/TinEye/Baidu)  or fallbackDirect
+ * vision: getVisionPageMatches
+ */
 async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=''){
   console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
   const ret = { bing:{}, tineye:{}, baidu:{}, vision:{} };
@@ -824,14 +820,14 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
     ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
   }
 
-  // ========== 新增：Google Vision API 搜尋 ==========
+  // ★ Vision
   try {
-    const visionUrls = await getVisionPageMatches(localFilePath);
-    if(visionUrls.length > 0) {
+    const visionUrls = await getVisionPageMatches(localFilePath, 10);
+    if (visionUrls.length) {
       ret.vision = { links: visionUrls, success: true };
     }
-  } catch(eVision) {
-    console.error('[doSearchEngines] Google Vision error =>', eVision);
+  } catch(eVision){
+    console.error('[doSearchEngines] Google Vision error =>', eVision.message);
   }
 
   return ret;
@@ -1272,8 +1268,8 @@ router.get('/scan/:fileId', async(req,res)=>{
     let allLinks=[...suspiciousLinks];
     const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
 
-    function getPublicUrl(fileId, extension){
-      return `${PUBLIC_HOST}/uploads/imageForSearch_${fileId}${extension}`;
+    function getPublicUrl(fid, extension){
+      return `${PUBLIC_HOST}/uploads/imageForSearch_${fid}${extension}`;
     }
 
     let matchedImages = [];
@@ -1298,7 +1294,7 @@ router.get('/scan/:fileId', async(req,res)=>{
               ...engineRes.bing.links, 
               ...engineRes.tineye.links, 
               ...engineRes.baidu.links,
-              ...(engineRes.vision?.links || []) // 新增：加入Vision結果
+              ...(engineRes.vision?.links || [])
             );
           }
         }
@@ -1313,7 +1309,7 @@ router.get('/scan/:fileId', async(req,res)=>{
         ...engineRes.bing.links, 
         ...engineRes.tineye.links, 
         ...engineRes.baidu.links,
-        ...(engineRes.vision?.links || []) // 新增：加入Vision結果
+        ...(engineRes.vision?.links || [])
       );
 
       // 向量檢索
@@ -1425,7 +1421,7 @@ router.get('/scanLink', async(req,res)=>{
     if(aggregatorResult.bing?.links)   suspiciousLinks.push(...aggregatorResult.bing.links);
     if(aggregatorResult.tineye?.links) suspiciousLinks.push(...aggregatorResult.tineye.links);
     if(aggregatorResult.baidu?.links)  suspiciousLinks.push(...aggregatorResult.baidu.links);
-    if(aggregatorResult.vision?.links) suspiciousLinks.push(...aggregatorResult.vision.links); // 新增：加入Vision結果
+    if(aggregatorResult.vision?.links) suspiciousLinks.push(...aggregatorResult.vision.links);
     // ★過濾無效連結
     suspiciousLinks = [...new Set(suspiciousLinks)].filter(isValidLink);
 
@@ -1530,7 +1526,7 @@ router.post('/flickerProtectFile', async (req, res) => {
     if (isImage) {
       const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
       try {
-        // scale filter 確保寬高都是偶數，避免 height not divisible by 2 錯誤
+        // scale filter 確保寬高都是偶數
         const cmd =
           `ffmpeg -y -loop 1 -i "${localPath}" ` +
           `-vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" ` +
@@ -1544,7 +1540,6 @@ router.post('/flickerProtectFile', async (req, res) => {
       }
     }
 
-    // 呼叫 flickerService.js 的函式做防錄製
     const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
     const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
 
