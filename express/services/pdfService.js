@@ -40,7 +40,7 @@ async function generateCertificate(filePath, originalName, previewUrl) {
 
       // ★★★ [核心] 註冊自訂字體 (中文) ★★★
       // 請注意此路徑需依您實際字體位置做相對/絕對修正
-      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
       doc.registerFont('NotoSansTC', fontPath);
 
       // 之後預設全程使用這個字體
@@ -95,7 +95,7 @@ async function generateReport(filePath, results) {
       const doc = new PDFDocument({ autoFirstPage: true });
 
       // ★★★ [核心] 註冊自訂字體 (中文) ★★★
-      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
       doc.registerFont('NotoSansTC', fontPath);
       doc.font('NotoSansTC');
 
@@ -169,7 +169,7 @@ async function generateScanPDFWithMatches(
       const doc = new PDFDocument({ autoFirstPage: true });
 
       // ★★★ [核心] 註冊自訂字體 (中文) ★★★
-      const fontPath = path.join(__dirname, '../../fonts/NotoSansTC-VariableFont_wght.ttf');
+      const fontPath = path.join(__dirname, '../fonts/NotoSansTC-VariableFont_wght.ttf');
       doc.registerFont('NotoSansTC', fontPath);
       doc.font('NotoSansTC');
 
