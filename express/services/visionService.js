@@ -14,6 +14,8 @@ const crypto= require('crypto');
 const sharp = require('sharp');
 const vision= require('@google-cloud/vision');
 
+const DEFAULT_KEY_FILE = path.resolve(__dirname, '../../credentials/gcp-vision.json');
+
 const MAX_VISION_SIZE   = 8 * 1024 * 1024;  // Vision 上限 8 MB
 const COMPRESS_THRESHOLD= 7 * 1024 * 1024;  // >7 MB 就壓縮
 const LRU_CAPACITY      = 100;             // 最多快取 100 筆
@@ -22,9 +24,12 @@ const LRU_CAPACITY      = 100;             // 最多快取 100 筆
 let visionClient;
 function getClient() {
   if (!visionClient) {
-    // 若 process.env.GOOGLE_APPLICATION_CREDENTIALS 未設定，會自動 fallback
-    // 或可手動加 => keyFilename: path.resolve(__dirname, '../../credentials/gcp-vision.json')
-    visionClient = new vision.ImageAnnotatorClient();
+    const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS || DEFAULT_KEY_FILE;
+    if (!fs.existsSync(keyFile)) {
+      console.error(`[visionService] credential file missing: ${keyFile}`);
+      throw new Error(`GOOGLE_APPLICATION_CREDENTIALS file not found at ${keyFile}`);
+    }
+    visionClient = new vision.ImageAnnotatorClient({ keyFilename: keyFile });
   }
   return visionClient;
 }
