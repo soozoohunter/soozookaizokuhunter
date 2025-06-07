@@ -123,9 +123,13 @@ function ensureDebugShotsDir(){
 ensureDebugShotsDir();
 
 async function launchBrowser(){
-  console.log('[launchBrowser] starting stealth browser...');
+  // Mirror utils/browserHelper.js logic for determining headless mode
+  const envHeadless = process.env.PPTR_HEADLESS ?? process.env.PUPPETEER_HEADLESS;
+  const HEADLESS = envHeadless === 'false' ? false : true;
+  console.log('[launchBrowser] starting stealth browser... headless=', HEADLESS);
+
   return puppeteer.launch({
-    headless: true,
+    headless: HEADLESS ? 'new' : false,
     executablePath: process.env.CHROMIUM_PATH || undefined,
     args:[
       '--no-sandbox',
