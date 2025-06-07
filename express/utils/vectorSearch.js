@@ -7,7 +7,8 @@ const fs = require('fs');
 const axios = require('axios');
 const FormData = require('form-data');
 
-const PYTHON_VECTOR_SERVICE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://python-vector-service:8000';
+// 可以透過環境變數覆蓋服務 URL，預設使用 docker-compose 內的 container name
+const PYTHON_VECTOR_SERVICE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://suzoo_python_vector:8000';
 const INDEX_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/index`;
 const SEARCH_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/search`;
 
