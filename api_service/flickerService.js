@@ -29,7 +29,8 @@ async function flickerEncode(
     if (useAiPerturb) {
       try {
         aiTempPath = path.join(path.dirname(outputPath), `tmpAi_${Date.now()}.mp4`);
-        execSync(`python aiPerturb.py "${encodeInput}" "${aiTempPath}"`, { stdio: 'inherit' });
+        const perturbScript = path.join(__dirname, '..', 'ai_service', 'aiPerturb.py');
+        execSync(`python "${perturbScript}" "${encodeInput}" "${aiTempPath}"`, { stdio: 'inherit' });
         encodeInput = aiTempPath;
       } catch (err) {
         console.error('[AI Perturb Error]', err);
