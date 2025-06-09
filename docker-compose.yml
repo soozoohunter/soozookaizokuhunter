@@ -69,9 +69,9 @@ services:
 
   suzoo_frontend:
     container_name: suzoo_frontend
+    image: suzookaizokuhunter-frontend:latest
     build:
       context: ./frontend
-      dockerfile: Dockerfile
     depends_on:
       - suzoo_express
       - suzoo_fastapi
@@ -82,7 +82,6 @@ services:
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-    command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
       - suzoo_net
     restart: unless-stopped
