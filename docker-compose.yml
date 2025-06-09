@@ -175,7 +175,7 @@ services:
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: "suzoo_etcd:2379"
-      MINIO_ADDRESS: "suzoo_minio:9000"
+      MINIO_ADDRESS: "http://suzoo_minio:9000"
       MINIO_ACCESS_KEY_ID: "admin"
       MINIO_SECRET_ACCESS_KEY: "admin123"
       MINIO_USE_SSL: "false"
