@@ -25,11 +25,20 @@ let visionClient;
 function getClient() {
   if (!visionClient) {
     const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS || DEFAULT_KEY_FILE;
+    console.log(`[visionService] using credential file: ${keyFile}`);
     if (!fs.existsSync(keyFile)) {
       console.error(`[visionService] credential file missing: ${keyFile}`);
       throw new Error(`GOOGLE_APPLICATION_CREDENTIALS file not found at ${keyFile}`);
     }
-    visionClient = new vision.ImageAnnotatorClient({ keyFilename: keyFile });
+    try {
+      visionClient = new vision.ImageAnnotatorClient({ keyFilename: keyFile });
+    } catch (err) {
+      console.error('[visionService] failed to create Vision client =>', err.message);
+      if (err.code === 16) { // UNAUTHENTICATED
+        console.error('[visionService] authentication failed. Check your credential file and GOOGLE_APPLICATION_CREDENTIALS env variable.');
+      }
+      throw err;
+    }
   }
   return visionClient;
 }
