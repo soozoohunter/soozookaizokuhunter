@@ -1,4 +1,3 @@
-```js
 /**
  * express/services/visionService.js
  *
@@ -140,4 +139,3 @@ async function getVisionPageMatches(filePath, maxResults = 10) {
 module.exports = {
   getVisionPageMatches
 };
-```
