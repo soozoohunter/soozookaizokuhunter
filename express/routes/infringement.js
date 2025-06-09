@@ -5,7 +5,10 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-// const { detectInfringement } = require('../services/crawlerService');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const { detectInfringement } = require('../services/infringementService');
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -25,15 +28,40 @@ function authMiddleware(req, res, next) {
 // POST /infringement/scan
 router.post('/scan', authMiddleware, async (req, res) => {
   try {
-    // const results = await detectInfringement(req.body.fingerprint);
-    const results = [
-      'https://fake.com/infringed1.jpg',
-      'https://fake.com/infringed2.jpg'
-    ];
-    return res.json({ message:'偵測完成', matches:results });
-  } catch(e) {
+    const { filePath, imageUrl } = req.body || {};
+    if (!filePath && !imageUrl) {
+      return res.status(400).json({ error: '請提供 imageUrl 或 filePath' });
+    }
+
+    let localFile = filePath;
+    let cleanup = false;
+
+    if (!localFile && imageUrl) {
+      try {
+        const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
+        const tmpName = `scan_${Date.now()}${ext}`;
+        localFile = path.join(__dirname, '../../uploads/tmp', tmpName);
+        const resp = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        fs.writeFileSync(localFile, resp.data);
+        cleanup = true;
+      } catch (err) {
+        console.error('[download image fail]', err);
+        return res.status(400).json({ error: '無法下載 imageUrl' });
+      }
+    } else if (localFile && !fs.existsSync(localFile)) {
+      return res.status(400).json({ error: 'filePath 無效' });
+    }
+
+    const result = await detectInfringement(localFile, imageUrl || '');
+
+    if (cleanup) {
+      fs.unlink(localFile, () => {});
+    }
+
+    return res.json(result);
+  } catch (e) {
     console.error('[Infringement Scan Error]', e);
-    return res.status(500).json({ error:e.message });
+    return res.status(500).json({ error: e.message });
   }
 });
 
