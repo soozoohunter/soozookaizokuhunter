@@ -1,3 +1,4 @@
+```js
 require('dotenv').config();
 const express       = require('express');
 const cors          = require('cors');
@@ -77,7 +78,7 @@ process.env.PUPPETEER_HEADLESS = 'new';
 
 /*───────────────────────────────────  
  | 7. Ginifab + fallback 測試路由 (/debug/gini)  
- *  建議正式環境可移除或保留為 debug 專用  
+ |  建議正式環境可移除或保留為 debug 專用  
  *───────────────────────────────────*/
 async function fallbackDirectEngines(imagePath) {
   let finalLinks = [];
@@ -88,7 +89,7 @@ async function fallbackDirectEngines(imagePath) {
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    /* -- Bing ------------------------------------------------ */
+    // Bing
     {
       const page = await browser.newPage();
       try {
@@ -105,7 +106,7 @@ async function fallbackDirectEngines(imagePath) {
       }
     }
 
-    /* -- TinEye ---------------------------------------------- */
+    // TinEye
     {
       const page = await browser.newPage();
       try {
@@ -123,7 +124,7 @@ async function fallbackDirectEngines(imagePath) {
       }
     }
 
-    /* -- Baidu ----------------------------------------------- */
+    // Baidu
     {
       const page = await browser.newPage();
       try {
@@ -152,12 +153,9 @@ app.get('/debug/gini', async (req, res) => {
   const imagePath = path.join(__dirname, '../uploads', 'test.jpg');
   let aggregatorOk = false, aggregatorLinks = [], browser = null;
 
-  /* 1) Ginifab Aggregator ------------------------------------ */
+  // Ginifab Aggregator
   try {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox','--disable-setuid-sandbox']
-    });
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log('[start] ginifab aggregator...');
     await page.goto('https://www.ginifab.com/feeds/reverse_image_search/', { waitUntil: 'domcontentloaded' });
@@ -185,9 +183,7 @@ app.get('/debug/gini', async (req, res) => {
       await popup.waitForTimeout(2000);
       let links = await popup.$$eval('a', as => as.map(a => a.href));
       aggregatorLinks.push(...links.filter(l =>
-        l && !l.includes('bing.com') &&
-        !l.includes('baidu.com') &&
-        !l.includes('tineye.com')
+        l && !l.includes('bing.com') && !l.includes('baidu.com') && !l.includes('tineye.com')
       ));
       await popup.close();
     }
@@ -199,15 +195,11 @@ app.get('/debug/gini', async (req, res) => {
     if (browser) await browser.close();
   }
 
-  /* 2) fallback direct approach ------------------------------ */
+  // fallback direct
   const finalLinks = aggregatorOk ? aggregatorLinks : await fallbackDirectEngines(imagePath);
   console.log('[Ginifab aggregator done] aggregatorOk=', aggregatorOk, ' count=', finalLinks.length);
 
-  return res.json({
-    aggregatorOk,
-    foundLinks: finalLinks.slice(0, 20),
-    totalCount: finalLinks.length
-  });
+  return res.json({ aggregatorOk, foundLinks: finalLinks.slice(0, 20), totalCount: finalLinks.length });
 });
 
 /*───────────────────────────────────  
@@ -217,3 +209,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] Running on port ${PORT}`);
 });
+```
