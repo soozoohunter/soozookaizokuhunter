@@ -219,9 +219,3 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
   return results;
 }
 
-module.exports = {
-  aggregatorSearchGinifabStrict,
-  tryCloseAd,
-  tryClickUploadLocal,
-  tryClickSpecifyImageUrl
-};
