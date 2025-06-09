@@ -1,4 +1,3 @@
-```js
 require('dotenv').config();
 const express       = require('express');
 const cors          = require('cors');
@@ -46,13 +45,13 @@ app.get('/health', (req, res) => {
 /*───────────────────────────────────  
  | 4. 掛載各路由  
  *───────────────────────────────────*/
-app.use('/api',          paymentRoutes);         // 付款相關
-app.use('/api/search',   searchMilvusRouter);    // 向量搜尋（Milvus）
-app.use('/api',          searchRoutes);          // TinEye / Vision 等整合搜尋
-app.use('/api/protect',  protectRouter);         // 侵權掃描
-app.use('/api/report',   reportRouter);          // 證據 PDF 報表
-app.use('/admin',        adminRouter);           // 管理者介面
-app.use('/auth',         authRouter);            // 認證
+app.use('/api',         paymentRoutes);          // 付款相關
+app.use('/api/search',  searchMilvusRouter);     // 向量搜尋（Milvus）
+app.use('/api',         searchRoutes);           // TinEye / Vision 等整合搜尋
+app.use('/api/protect', protectRouter);          // 侵權掃描
+app.use('/api/report',  reportRouter);           // 證據 PDF 報表
+app.use('/admin',       adminRouter);            // 管理者介面
+app.use('/auth',        authRouter);             // 認證
 
 /*───────────────────────────────────  
  | 5. Sequelize 連線 & 同步  
@@ -97,7 +96,7 @@ async function fallbackDirectEngines(imagePath) {
         const fileChooser = await page.waitForSelector('input[type=file]', { timeout: 5000 });
         await fileChooser.uploadFile(imagePath);
         await page.waitForTimeout(4000);
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('bing.com')));
       } catch (e) {
         console.error('[fallback Bing error]', e);
@@ -115,7 +114,7 @@ async function fallbackDirectEngines(imagePath) {
         await fileInput.uploadFile(imagePath);
         await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(3000);
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('tineye.com')));
       } catch (e) {
         console.error('[fallback TinEye error]', e);
@@ -132,7 +131,7 @@ async function fallbackDirectEngines(imagePath) {
         const fileInput = await page.waitForSelector('input[type=file]', { timeout: 5000 });
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(5000);
-        let links = await page.$$eval('a', as => as.map(a => a.href));
+        const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('baidu.com')));
       } catch (e) {
         console.error('[fallback Baidu error]', e);
@@ -151,11 +150,13 @@ async function fallbackDirectEngines(imagePath) {
 
 app.get('/debug/gini', async (req, res) => {
   const imagePath = path.join(__dirname, '../uploads', 'test.jpg');
-  let aggregatorOk = false, aggregatorLinks = [], browser = null;
+  let aggregatorOk = false;
+  let aggregatorLinks = [];
+  let browser = null;
 
   // Ginifab Aggregator
   try {
-    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox'] });
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log('[start] ginifab aggregator...');
     await page.goto('https://www.ginifab.com/feeds/reverse_image_search/', { waitUntil: 'domcontentloaded' });
@@ -171,7 +172,7 @@ app.get('/debug/gini', async (req, res) => {
       { name: 'tineye', text: /TinEye|眼睛/ },
       { name: 'baidu',  text: /Baidu|百度/ }
     ];
-    for (let eng of engines) {
+    for (const eng of engines) {
       const [popup] = await Promise.all([
         new Promise(resolve => browser.once('targetcreated', t => resolve(t.page()))),
         page.evaluate(rgx => {
@@ -181,7 +182,7 @@ app.get('/debug/gini', async (req, res) => {
       ]);
       await popup.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
       await popup.waitForTimeout(2000);
-      let links = await popup.$$eval('a', as => as.map(a => a.href));
+      const links = await popup.$$eval('a', as => as.map(a => a.href));
       aggregatorLinks.push(...links.filter(l =>
         l && !l.includes('bing.com') && !l.includes('baidu.com') && !l.includes('tineye.com')
       ));
@@ -209,4 +210,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] Running on port ${PORT}`);
 });
-```
