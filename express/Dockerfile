@@ -1,4 +1,4 @@
-FROM node:18
+FROM node:18-slim
 
 # 安裝必要套件 (Chromium / ffmpeg / 字體 / Puppeteer 等)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -6,8 +6,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatk-bridge2.0-0 libx11-xcb1 libxcomposite1 libxcursor1 \
     libxi6 libxtst6 libnss3 libglib2.0-0 libxrandr2 libatk1.0-0 \
     libdrm2 libgbm1 libpangocairo-1.0-0 libasound2 \
-    iputils-ping dnsutils curl vim bash \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iputils-ping dnsutils curl \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

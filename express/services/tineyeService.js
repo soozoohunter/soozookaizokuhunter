@@ -1,4 +1,3 @@
-```js
 require('dotenv').config();
 const axios = require('axios');
 
@@ -47,4 +46,3 @@ async function searchTinEyeApi(imageUrl) {
 }
 
 module.exports = { searchTinEyeApi };
-```
