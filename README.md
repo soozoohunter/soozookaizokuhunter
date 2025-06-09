@@ -4,9 +4,9 @@ Soozoo Kaizoku Hunter 是一個數位內容保護平台，整合了反向圖像�
 
 ## 必要條件（Prerequisites）
 
-- Docker 與 Docker Compose
-- Node.js 18+
-- Python 3.9+
+* Docker 與 Docker Compose
+* Node.js 18+
+* Python 3.9+
 
 請先複製專案並建立 `.env` 檔案（根據提供的範例），內含各服務所需的環境變數，無論 Docker 或本地端執行都需要。
 
@@ -23,11 +23,13 @@ docker-compose up --build
 3. 在 `.env` 或 Docker Compose 內設定環境變數：
 
    ```bash
-  GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-vision.json
-  ```
+   ```
+
+GOOGLE\_APPLICATION\_CREDENTIALS=/app/credentials/gcp-vision.json
+
+````
 
 4. 為避免洩漏，`credentials/*.json` 已加入 `.gitignore`，可改以 `credentials/gcp-vision.json.example` 提供範例檔。
-
 
 ## TinEye API
 
@@ -35,16 +37,22 @@ docker-compose up --build
 
 ```bash
 TINEYE_API_KEY=your_tineye_api_key
+````
 
 ## Protect API Endpoints
 
+### POST `/api/protect/step1`
+
+* 上傳圖片並生成保護證書
+* 回傳資訊包含 `fileId`、`imageUrl`、`cid` 等
+
 ### POST `/api/protect/step2`
 
-在使用者完成 Step1 上傳後，可呼叫此端點進行後續伺服器處理。
+* 使用者完成 Step1 上傳後，可呼叫此端點進行後續伺服器處理
 
 **參數**
 
-- `fileId` (number, required)：Step1 回傳的檔案 ID。
+* `fileId` (number, required)：Step1 回傳的檔案 ID
 
 **回應範例**
 
@@ -54,3 +62,7 @@ TINEYE_API_KEY=your_tineye_api_key
   "fileId": 123
 }
 ```
+
+## Protect API Routes
+
+Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳後即可依據 `fileId` 呼叫 Step2。
