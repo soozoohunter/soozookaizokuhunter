@@ -14,3 +14,16 @@ Soozoo Kaizoku Hunter 是一個數位內容保護平台，整合了反向圖像�
 
 ```bash
 docker-compose up --build
+```
+
+## 設定 Google Cloud Vision API
+
+1. 於 [Google Cloud Console](https://console.cloud.google.com/) 建立專案並啟用 **Vision API**。
+2. 建立服務帳戶並產生 **JSON 金鑰**，下載後放入 `credentials/gcp-vision.json`。
+3. 在 `.env` 或 Docker Compose 內設定環境變數：
+
+   ```bash
+   GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-vision.json
+   ```
+
+4. 為避免洩漏，`credentials/*.json` 已加入 `.gitignore`，可改以 `credentials/gcp-vision.json.example` 提供範例檔。
