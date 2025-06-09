@@ -9,6 +9,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter   = require('./routes/admin');
 const authRouter    = require('./routes/authRoutes');
+const reportRouter  = require('./routes/report');
 
 const fs   = require('fs');
 const path = require('path');
@@ -47,6 +48,7 @@ app.use('/api',          paymentRoutes);
 app.use('/api/protect',  protectRouter);
 app.use('/admin',        adminRouter);
 app.use('/auth',         authRouter);
+app.use('/api',          reportRouter);
 
 /*──────────────────────────────────────────────
  | 5. Sequelize 連線 & 同步
