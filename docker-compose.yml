@@ -69,7 +69,9 @@ services:
 
   suzoo_frontend:
     container_name: suzoo_frontend
-    image: nginx:alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     depends_on:
       - suzoo_express
       - suzoo_fastapi
@@ -79,7 +81,6 @@ services:
     volumes:
       - ./frontend/suzoo.conf:/etc/nginx/conf.d/suzoo_https.conf:ro
       - ./nginx/suzoo.conf:/etc/nginx/conf.d/suzoo_http.conf:ro
-      - ./frontend/build:/usr/share/nginx/html:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     command: ["/bin/sh", "-c", "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
     networks:
