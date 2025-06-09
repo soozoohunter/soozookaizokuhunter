@@ -1,3 +1,5 @@
+const puppeteer = require('puppeteer');
+
 /**
  * 嘗試關閉廣告 - 可根據實際網頁 HTML 結構修改 selector
  */
@@ -216,3 +218,10 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
   return results;
 }
+
+module.exports = {
+  aggregatorSearchGinifabStrict,
+  tryCloseAd,
+  tryClickUploadLocal,
+  tryClickSpecifyImageUrl
+};
