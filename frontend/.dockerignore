@@ -1,8 +1,7 @@
 # 忽略 node_modules 目錄，因為容器內會重新安裝相依套件
 node_modules
 
-# 忽略本地已建置的輸出目錄
-build
+# 保留 build 目錄以供 Nginx 直接提供靜態檔案
 
 # 忽略 Git 相關檔案
 .git
