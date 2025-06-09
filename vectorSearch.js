@@ -5,8 +5,8 @@ const fs = require('fs');
 const FormData = require('form-data');
 const axios = require('axios');
 
-// ★ 依您實際部署位置修改
-const VECTOR_SERVICE_BASE_URL = 'http://python-vector-service:8000';
+// 服務位置可由環境變數覆蓋，預設為 docker-compose 中的 container name
+const VECTOR_SERVICE_BASE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://suzoo_python_vector:8000';
 
 // 將單張圖片索引到 Milvus
 async function indexImageVector(localImagePath, fileId) {
