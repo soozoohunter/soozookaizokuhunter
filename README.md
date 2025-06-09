@@ -10,6 +10,17 @@ Soozoo Kaizoku Hunter 是一個數位內容保護平台，整合了反向圖像�
 
 請先複製專案並建立 `.env` 檔案（根據提供的範例），內含各服務所需的環境變數，無論 Docker 或本地端執行都需要。
 
+以下為常用的 API 金鑰範例，可在 `.env` 中設定：
+
+```bash
+CLOUDINARY_API_KEY=your_cloudinary_key
+RAPIDAPI_KEY=your_rapidapi_key
+AWS_ACCESS_KEY=your_aws_access_key
+AWS_SECRET_KEY=your_aws_secret_key
+GOOGLE_APPLICATION_CREDENTIALS=./credentials/gcp-vision.json
+TINEYE_API_KEY=your_tineye_api_key
+```
+
 ## 使用 Docker Compose 啟動整套系統
 
 ```bash
