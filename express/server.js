@@ -1,3 +1,4 @@
+```js
 require('dotenv').config();
 const express       = require('express');
 const cors          = require('cors');
@@ -45,13 +46,13 @@ app.get('/health', (req, res) => {
 /*───────────────────────────────────  
  | 4. 掛載各路由  
  *───────────────────────────────────*/
-app.use('/api',         paymentRoutes);          // 付款相關
-app.use('/api/search',  searchMilvusRouter);     // 向量搜尋（Milvus）
-app.use('/api',         searchRoutes);           // TinEye / Vision 等整合搜尋
-app.use('/api/protect', protectRouter);          // 侵權掃描
-app.use('/api/report',  reportRouter);           // 證據 PDF 報表
-app.use('/admin',       adminRouter);            // 管理者介面
-app.use('/auth',        authRouter);             // 認證
+app.use('/api',         paymentRoutes);         // 付款相關
+app.use('/api/search',  searchMilvusRouter);    // 向量搜尋（Milvus）
+app.use('/api',         searchRoutes);          // TinEye / Vision 等整合搜尋
+app.use('/api/protect', protectRouter);         // 侵權掃描
+app.use('/api/report',  reportRouter);          // 證據 PDF 報表
+app.use('/admin',       adminRouter);           // 管理者介面
+app.use('/auth',        authRouter);            // 認證
 
 /*───────────────────────────────────  
  | 5. Sequelize 連線 & 同步  
@@ -156,7 +157,7 @@ app.get('/debug/gini', async (req, res) => {
 
   // Ginifab Aggregator
   try {
-    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     console.log('[start] ginifab aggregator...');
     await page.goto('https://www.ginifab.com/feeds/reverse_image_search/', { waitUntil: 'domcontentloaded' });
@@ -184,7 +185,9 @@ app.get('/debug/gini', async (req, res) => {
       await popup.waitForTimeout(2000);
       const links = await popup.$$eval('a', as => as.map(a => a.href));
       aggregatorLinks.push(...links.filter(l =>
-        l && !l.includes('bing.com') && !l.includes('baidu.com') && !l.includes('tineye.com')
+        l && !l.includes('bing.com') &&
+        !l.includes('baidu.com') &&
+        !l.includes('tineye.com')
       ));
       await popup.close();
     }
@@ -210,3 +213,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] Running on port ${PORT}`);
 });
+```
