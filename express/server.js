@@ -9,6 +9,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter   = require('./routes/admin');
 const authRouter    = require('./routes/authRoutes');
+const searchMilvusRouter = require('./routes/searchMilvus');
 
 const fs   = require('fs');
 const path = require('path');
@@ -44,6 +45,7 @@ app.get('/health', (req, res) => {
  | 4. 掛載各路由
  *──────────────────────────────────────────────*/
 app.use('/api',          paymentRoutes);
+app.use('/api/search',  searchMilvusRouter);
 app.use('/api/protect',  protectRouter);
 app.use('/admin',        adminRouter);
 app.use('/auth',         authRouter);
