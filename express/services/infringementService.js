@@ -5,7 +5,7 @@ const { launchBrowser } = require('../../utils/browserHelper');
 const { searchGinifab } = require('./crawlers/ginifabCrawler');
 const { searchBing } = require('./crawlers/bingCrawler');
 const { searchTinEye } = require('./crawlers/tinEyeCrawler');
-const { searchBaidu } = require('./baiduCrawler');  // or crawlers/baiduCrawler
+const { searchBaidu } = require('./crawlers/baiduCrawler');
 // optional: 也可將 ginifabEngine(增強版) 直接放這裡
 
 /**
