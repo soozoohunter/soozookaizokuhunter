@@ -35,3 +35,19 @@ docker-compose up --build
 
 ```bash
 TINEYE_API_KEY=your_tineye_api_key
+```
+
+## Protect API Routes
+
+The Express service exposes endpoints under `/api/protect`.
+
+### `POST /api/protect/step1`
+
+- Upload a file and generate its protection certificate.
+- Returns information such as `fileId`, `fingerprint`, `ipfsHash` and `txHash`.
+
+### Step2 status
+
+There is currently **no** `/api/protect/step2` endpoint. The Step2 page in the
+UI simply reads the Step1 response from `localStorage` to display those
+details.
