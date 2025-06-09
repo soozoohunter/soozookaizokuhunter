@@ -102,7 +102,8 @@ function isValidLink(u) {
 }
 
 /**
- * 取得 Google Vision WebDetection 的 pagesWithMatchingImages
+ * 取得 Google Vision WebDetection 結果網址清單
+ * - 合併 fullMatchingImages / partialMatchingImages / pagesWithMatchingImages
  * @param {string} filePath - 本機圖檔路徑
  * @param {number} [maxResults=10]
  * @returns {Promise<string[]>} 合法 http/https 連結
@@ -129,9 +130,12 @@ async function getVisionPageMatches(filePath, maxResults = 10) {
       image: { content: buf },
       maxResults,
     });
-    urls = (res.webDetection?.pagesWithMatchingImages || [])
-      .map((p) => p.url)
-      .filter(isValidLink);
+    const wd = res.webDetection || {};
+    urls = [
+      ...(wd.fullMatchingImages || []).map(i => i.url),
+      ...(wd.partialMatchingImages || []).map(i => i.url),
+      ...(wd.pagesWithMatchingImages || []).map(p => p.url)
+    ].filter(isValidLink);
   } catch (err) {
     console.error('[visionService] getVisionPageMatches fail =>', err.message);
     return [];
