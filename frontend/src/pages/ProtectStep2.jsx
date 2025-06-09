@@ -99,6 +99,7 @@ export default function ProtectStep2() {
   const [protectedUrl, setProtectedUrl] = useState('');
   const [loadingProtect, setLoadingProtect] = useState(false);
   const [error, setError] = useState('');
+  const [processing, setProcessing] = useState(true);
 
   useEffect(() => {
     // 讀取 Step1 的資料
@@ -110,6 +111,24 @@ export default function ProtectStep2() {
     }
     const data = JSON.parse(stored);
     setResult(data);
+
+    async function callStep2() {
+      try {
+        const resp = await fetch('/api/protect/step2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: data.fileId })
+        });
+        const d = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(d.error || `Error ${resp.status}`);
+      } catch (e) {
+        console.error('[step2]', e);
+        setError(e.message);
+      } finally {
+        setProcessing(false);
+      }
+    }
+    callStep2();
   }, [navigate]);
 
   if (!result) {
@@ -171,6 +190,8 @@ export default function ProtectStep2() {
     <PageWrapper>
       <Container>
         <Title>Step 2: 上傳完成 &amp; 產生證書</Title>
+        {processing && <p>伺服器處理中...</p>}
+        {error && !protectedUrl && <ErrorMsg>{error}</ErrorMsg>}
         <InfoBlock>
           <p><strong>File ID:</strong> {fileId}</p>
           <p><strong>Fingerprint (SHA-256):</strong> {fingerprint || 'N/A'}</p>
