@@ -23,6 +23,11 @@
 const path = require('path');
 const fs   = require('fs');
 
+// selectors used to detect file upload inputs and url fields. additional
+// patterns are included so minor markup changes on ginifab won't break the flow
+const FILE_INPUT_SELECTOR = 'input[type=file], input[type="file"], input[name*=file], input[id*=file]';
+const URL_INPUT_SELECTOR  = 'input[type=text], input[type=url], input[name*=url], input[id*=url]';
+
 /** 可帶入以「關閉彈窗廣告」的輔助函式 */
 async function tryCloseAd(page) {
   try {
@@ -70,8 +75,8 @@ async function tryGinifabUploadLocal_iOS(page, localImagePath) {
       await page.waitForTimeout(800);
     }
 
-    // 最後再去抓 <input type="file">
-    const fileInput = await page.$('input[type=file]');
+    // 最後再去抓 <input type="file">，使用較寬鬆的 selector 並等待出現
+    const fileInput = await page.waitForSelector(FILE_INPUT_SELECTOR, { timeout: 5000 }).catch(() => null);
     if (!fileInput) throw new Error('iOS flow: no file input found');
     await fileInput.uploadFile(localImagePath);
     await page.waitForTimeout(2000);
@@ -100,7 +105,7 @@ async function tryGinifabUploadLocal_Android(page, localImagePath) {
     await chooseFileBtn.click();
     await page.waitForTimeout(1000);
 
-    const fileInput = await page.$('input[type=file]');
+    const fileInput = await page.waitForSelector(FILE_INPUT_SELECTOR, { timeout: 5000 }).catch(() => null);
     if (!fileInput) throw new Error('Android flow: no file input found');
     await fileInput.uploadFile(localImagePath);
     await page.waitForTimeout(2000);
@@ -124,7 +129,7 @@ async function tryGinifabUploadLocal_Desktop(page, localImagePath) {
     await linkDesktop.click();
     await page.waitForTimeout(1000);
 
-    const fileInput = await page.$('input[type=file]');
+    const fileInput = await page.waitForSelector(FILE_INPUT_SELECTOR, { timeout: 5000 }).catch(() => null);
     if (!fileInput) throw new Error('Desktop flow: no file input found');
     await fileInput.uploadFile(localImagePath);
     await page.waitForTimeout(2000);
@@ -166,9 +171,9 @@ async function tryGinifabWithUrl(page, publicImageUrl) {
       return false;
     }
 
-    // 等待輸入框
-    await page.waitForSelector('input[type=text]', { timeout: 5000 });
-    await page.type('input[type=text]', publicImageUrl, { delay: 50 });
+    // 等待輸入框 (可能是 text 或 url 類型)
+    await page.waitForSelector(URL_INPUT_SELECTOR, { timeout: 5000 });
+    await page.type(URL_INPUT_SELECTOR, publicImageUrl, { delay: 50 });
     await page.waitForTimeout(1000);
     console.log('[tryGinifabWithUrl] typed =>', publicImageUrl);
 
