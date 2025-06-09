@@ -19,17 +19,16 @@ docker-compose up --build
 ## 設定 Google Cloud Vision API
 
 1. 於 [Google Cloud Console](https://console.cloud.google.com/) 建立專案並啟用 **Vision API**。
-2. 建立服務帳戶並產生 **JSON 金鑰**，下載後放入 `credentials/gcp-vision.json`。
-3. 在 `.env` 或 Docker Compose 內設定環境變數：
+2. 建立服務帳戶並產生 **JSON 金鑰**，將其複製為 `credentials/gcp-vision.json`（可先以 `credentials/gcp-vision.json.example` 為模板）。
+3. 在 `.env` 或 `docker-compose.yml` 中加入下列設定：
 
    ```bash
+   GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-vision.json
    ```
 
-GOOGLE\_APPLICATION\_CREDENTIALS=/app/credentials/gcp-vision.json
+   `docker-compose.yml` 會自動將 `./credentials` 掛載到 `/app/credentials`（唯讀）。
+4. 真實金鑰檔案已被 `.gitignore` 排除，請勿提交至版本庫。
 
-````
-
-4. 為避免洩漏，`credentials/*.json` 已加入 `.gitignore`，可改以 `credentials/gcp-vision.json.example` 提供範例檔。
 
 ## TinEye API
 
