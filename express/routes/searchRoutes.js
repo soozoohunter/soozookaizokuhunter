@@ -1,4 +1,3 @@
-```js
 /*************************************************************
  * express/routes/searchRoutes.js
  *
@@ -26,4 +25,3 @@ router.post('/search/tineye', async (req, res) => {
 });
 
 module.exports = router;
-```
