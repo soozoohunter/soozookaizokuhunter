@@ -13,13 +13,13 @@ const app = express();
  | 路由 import  
  *───────────────────────────────────*/
 const paymentRoutes      = require('./routes/paymentRoutes');
-const protectRouter      = require('./routes/protect');
+const protectRouter      = require('./routes/protect');          // 侵權掃描
 const adminRouter        = require('./routes/admin');
 const authRouter         = require('./routes/authRoutes');
-const searchMilvusRouter = require('./routes/searchMilvus');  // Milvus 向量搜尋
-const searchRoutes       = require('./routes/searchRoutes');   // TinEye / Vision 等整合搜尋
-const reportRouter       = require('./routes/report');         // PDF 證據報表
-const infringementRouter = require('./routes/infringement');
+const searchMilvusRouter = require('./routes/searchMilvus');    // Milvus 向量搜尋
+const searchRoutes       = require('./routes/searchRoutes');     // TinEye / Vision 等整合搜尋
+const reportRouter       = require('./routes/report');           // PDF 證據報表
+const infringementRouter = require('./routes/infringement');     // 侵權相關 API
 
 /*───────────────────────────────────  
  | 1. 中介層  
@@ -50,7 +50,7 @@ app.use('/api',         paymentRoutes);         // 付款相關
 app.use('/api/search',  searchMilvusRouter);    // 向量搜尋（Milvus）
 app.use('/api',         searchRoutes);          // TinEye / Vision 等整合搜尋
 app.use('/api/protect', protectRouter);         // 侵權掃描
-app.use('/api/infringement', infringementRouter);
+app.use('/api/infringement', infringementRouter); // 侵權相關 API
 app.use('/api/report',  reportRouter);          // 證據 PDF 報表
 app.use('/admin',       adminRouter);           // 管理者介面
 app.use('/auth',        authRouter);            // 認證
@@ -79,16 +79,12 @@ process.env.PUPPETEER_HEADLESS = 'new';
 
 /*───────────────────────────────────  
  | 7. Ginifab + fallback 測試路由 (/debug/gini)  
- |  建議正式環境可移除或保留為 debug 專用  
  *───────────────────────────────────*/
 async function fallbackDirectEngines(imagePath) {
   let finalLinks = [];
   let browser;
   try {
-    browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
 
     // Bing
     {
