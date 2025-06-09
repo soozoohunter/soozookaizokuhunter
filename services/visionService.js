@@ -8,6 +8,19 @@ const fs     = require('fs');
 const path   = require('path');
 const vision = require('@google-cloud/vision');
 
+// --- link validator -----------------------------------------------------
+function isValidLink(u) {
+  if (!u) return false;
+  const s = u.trim().toLowerCase();
+  if (s.startsWith('javascript:') || s.startsWith('data:')) return false;
+  try {
+    const uo = new URL(u);
+    return uo.protocol === 'http:' || uo.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** 1. 讀取 Service-Account JSON 路徑 ------------------------- */
 const KEY_FILE =
   process.env.GOOGLE_APPLICATION_CREDENTIALS ||
@@ -35,12 +48,15 @@ async function getVisionPageMatches(imagePath, maxResults = 10) {
     }]
   });
 
-  const pages = res.webDetection?.pagesWithMatchingImages ?? [];
-  const urls  = pages
-    .map(p => p.url)
-    .filter(u => /^https?:\/\//i.test(u));   // 過濾無效連結
+  const wd = res.webDetection || {};
+  const urls = [
+    ...(wd.pagesWithMatchingImages || []).map(p => p.url),
+    ...(wd.fullMatchingImages || []).map(i => i.url),
+    ...(wd.partialMatchingImages || []).map(i => i.url)
+  ].filter(isValidLink);
 
-  return urls;
+  const unique = [...new Set(urls)].slice(0, maxResults);
+  return unique;
 }
 
 module.exports = { getVisionPageMatches };

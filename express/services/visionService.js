@@ -129,9 +129,12 @@ async function getVisionPageMatches(filePath, maxResults = 10) {
       image: { content: buf },
       maxResults,
     });
-    urls = (res.webDetection?.pagesWithMatchingImages || [])
-      .map((p) => p.url)
-      .filter(isValidLink);
+    const wd = res.webDetection || {};
+    urls = [
+      ...(wd.pagesWithMatchingImages || []).map(p => p.url),
+      ...(wd.fullMatchingImages || []).map(i => i.url),
+      ...(wd.partialMatchingImages || []).map(i => i.url)
+    ].filter(isValidLink);
   } catch (err) {
     console.error('[visionService] getVisionPageMatches fail =>', err.message);
     return [];
