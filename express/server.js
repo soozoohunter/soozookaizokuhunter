@@ -19,6 +19,7 @@ const authRouter         = require('./routes/authRoutes');
 const searchMilvusRouter = require('./routes/searchMilvus');  // Milvus 向量搜尋
 const searchRoutes       = require('./routes/searchRoutes');   // TinEye / Vision 等整合搜尋
 const reportRouter       = require('./routes/report');         // PDF 證據報表
+const infringementRouter = require('./routes/infringement');
 
 /*───────────────────────────────────  
  | 1. 中介層  
@@ -49,6 +50,7 @@ app.use('/api',         paymentRoutes);         // 付款相關
 app.use('/api/search',  searchMilvusRouter);    // 向量搜尋（Milvus）
 app.use('/api',         searchRoutes);          // TinEye / Vision 等整合搜尋
 app.use('/api/protect', protectRouter);         // 侵權掃描
+app.use('/api/infringement', infringementRouter);
 app.use('/api/report',  reportRouter);          // 證據 PDF 報表
 app.use('/admin',       adminRouter);           // 管理者介面
 app.use('/auth',        authRouter);            // 認證
