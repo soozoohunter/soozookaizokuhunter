@@ -23,7 +23,9 @@ DB_HOST = os.getenv("POSTGRES_HOST", "suzoo_postgres")
 DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 DB_NAME = os.getenv("POSTGRES_DB", "suzoo")
 DB_USER = os.getenv("POSTGRES_USER", "suzoo")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "KaiShieldDbPass2023!")
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+if not DB_PASSWORD:
+    raise RuntimeError("POSTGRES_PASSWORD environment variable is required")
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
