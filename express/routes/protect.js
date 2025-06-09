@@ -39,6 +39,7 @@ const { convertAndUpload }= require('../utils/convertAndUpload');
 const { extractKeyFrames }= require('../utils/extractFrames');
 const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
+const tinEyeApi = require('../services/tineyeApiService');
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
@@ -646,41 +647,16 @@ async function directSearchBing(browser, imagePath){
 /**
  * directSearchTinEye
  */
-async function directSearchTinEye(browser, imagePath){
+async function directSearchTinEye(_browser, imagePath){
   console.log('[directSearchTinEye] =>', imagePath);
   const ret={ success:false, links:[] };
-  let page;
   try {
-    page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    await page.setDefaultTimeout(30000);
-    await page.setDefaultNavigationTimeout(30000);
-
-    await page.goto('https://tineye.com/', {
-      waitUntil:'domcontentloaded', timeout:20000
-    });
-    await saveDebugInfo(page, 'tineye_afterGoto');
-    await page.waitForTimeout(1500);
-
-    try {
-      const fileInput= await page.waitForSelector('input[type=file]', { timeout:8000 });
-      await fileInput.uploadFile(imagePath);
-      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
-      await page.waitForTimeout(2000);
-
-      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
-      hrefs= hrefs.filter(h=> h && !h.includes('tineye.com')).filter(isValidLink);
-      ret.links= [...new Set(hrefs)].slice(0,5);
-      ret.success= ret.links.length>0;
-    } catch(errTinEye) {
-      console.warn('[directSearchTinEye] no file input => skip =>', errTinEye.message);
-    }
-
+    const data = await tinEyeApi.searchByFile(imagePath);
+    const links = tinEyeApi.extractLinks(data);
+    ret.links = links.slice(0,5);
+    ret.success = ret.links.length>0;
   } catch(e){
-    console.error('[directSearchTinEye] fail =>', e);
-    if(page) await saveDebugInfo(page, 'tineye_error');
-  } finally {
-    if(page) await page.close().catch(()=>{});
+    console.error('[directSearchTinEye] API fail =>', e.message);
   }
   return ret;
 }
