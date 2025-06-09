@@ -27,3 +27,11 @@ docker-compose up --build
    ```
 
 4. 為避免洩漏，`credentials/*.json` 已加入 `.gitignore`，可改以 `credentials/gcp-vision.json.example` 提供範例檔。
+
+## TinEye API
+
+若要啟用 TinEye 反向圖搜尋，請在 `.env` 中設定：
+
+```bash
+TINEYE_API_KEY=your_tineye_key
+```
