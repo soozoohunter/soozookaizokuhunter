@@ -1,56 +1,61 @@
 require('dotenv').config();
-const express   = require('express');
-const cors      = require('cors');
+const express       = require('express');
+const cors          = require('cors');
 const { sequelize } = require('./models');
 const createAdmin   = require('./createDefaultAdmin');
-
-// 路由
-const paymentRoutes = require('./routes/paymentRoutes');
-const protectRouter = require('./routes/protect');
-const adminRouter   = require('./routes/admin');
-const authRouter    = require('./routes/authRoutes');
-
-const fs   = require('fs');
-const path = require('path');
-const puppeteer = require('puppeteer');
+const fs            = require('fs');
+const path          = require('path');
+const puppeteer     = require('puppeteer');
 
 const app = express();
 
-/*──────────────────────────────────────────────
- | 1. 中介層
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 路由 import  
+ *───────────────────────────────────*/
+const paymentRoutes      = require('./routes/paymentRoutes');
+const protectRouter      = require('./routes/protect');
+const adminRouter        = require('./routes/admin');
+const authRouter         = require('./routes/authRoutes');
+const searchMilvusRouter = require('./routes/searchMilvus');  // Milvus 向量搜尋
+const searchRoutes       = require('./routes/searchRoutes');   // TinEye / Vision 等整合搜尋
+const reportRouter       = require('./routes/report');         // PDF 證據報表
+
+/*───────────────────────────────────  
+ | 1. 中介層  
+ *───────────────────────────────────*/
 app.use(cors());
 app.use(express.json());
 
-/*──────────────────────────────────────────────
- | 2. uploads 對外靜態目錄
- |    ⇒ 確保公開圖片 URL 不再 404
- *──────────────────────────────────────────────*/
-// 將 uploads 目錄映射到容器共用的 /uploads
-// 以確保 convertAndUpload() 等函式寫入的檔案能被存取
+/*───────────────────────────────────  
+ | 2. uploads 對外靜態目錄  
+ |    ⇒ 確保公開圖片 URL 不再 404  
+ *───────────────────────────────────*/
 app.use(
   '/uploads',
   express.static(path.resolve(__dirname, '../uploads'))
 );
 
-/*──────────────────────────────────────────────
- | 3. 健康檢查
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 3. 健康檢查  
+ *───────────────────────────────────*/
 app.get('/health', (req, res) => {
   res.send('Express OK (Production Version)');
 });
 
-/*──────────────────────────────────────────────
- | 4. 掛載各路由
- *──────────────────────────────────────────────*/
-app.use('/api',          paymentRoutes);
-app.use('/api/protect',  protectRouter);
-app.use('/admin',        adminRouter);
-app.use('/auth',         authRouter);
+/*───────────────────────────────────  
+ | 4. 掛載各路由  
+ *───────────────────────────────────*/
+app.use('/api',          paymentRoutes);         // 付款相關
+app.use('/api/search',   searchMilvusRouter);    // 向量搜尋（Milvus）
+app.use('/api',          searchRoutes);          // TinEye / Vision 等整合搜尋
+app.use('/api/protect',  protectRouter);         // 侵權掃描
+app.use('/api/report',   reportRouter);          // 證據 PDF 報表
+app.use('/admin',        adminRouter);           // 管理者介面
+app.use('/auth',         authRouter);            // 認證
 
-/*──────────────────────────────────────────────
- | 5. Sequelize 連線 & 同步
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 5. Sequelize 連線 & 同步  
+ *───────────────────────────────────*/
 (async () => {
   try {
     await sequelize.authenticate();
@@ -65,26 +70,25 @@ app.use('/auth',         authRouter);
   }
 })();
 
-/*──────────────────────────────────────────────
- | 6. Puppeteer：強制使用新版 Headless
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 6. Puppeteer：強制使用新版 Headless  
+ *───────────────────────────────────*/
 process.env.PUPPETEER_HEADLESS = 'new';
 
-/*──────────────────────────────────────────────
- | 7. Ginifab + fallback 測試路由 (/debug/gini)
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 7. Ginifab + fallback 測試路由 (/debug/gini)  
+ *  建議正式環境可移除或保留為 debug 專用  
+ *───────────────────────────────────*/
 async function fallbackDirectEngines(imagePath) {
   let finalLinks = [];
   let browser;
-  const puppeteer = require('puppeteer');
-
   try {
     browser = await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    /* -- Bing --------------------------------------------------- */
+    /* -- Bing ------------------------------------------------ */
     {
       const page = await browser.newPage();
       try {
@@ -93,8 +97,7 @@ async function fallbackDirectEngines(imagePath) {
         await fileChooser.uploadFile(imagePath);
         await page.waitForTimeout(4000);
         let links = await page.$$eval('a', as => as.map(a => a.href));
-        links = links.filter(l => l && !l.includes('bing.com'));
-        finalLinks.push(...links);
+        finalLinks.push(...links.filter(l => l && !l.includes('bing.com')));
       } catch (e) {
         console.error('[fallback Bing error]', e);
       } finally {
@@ -102,7 +105,7 @@ async function fallbackDirectEngines(imagePath) {
       }
     }
 
-    /* -- TinEye ------------------------------------------------- */
+    /* -- TinEye ---------------------------------------------- */
     {
       const page = await browser.newPage();
       try {
@@ -111,10 +114,8 @@ async function fallbackDirectEngines(imagePath) {
         await fileInput.uploadFile(imagePath);
         await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(3000);
-
         let links = await page.$$eval('a', as => as.map(a => a.href));
-        links = links.filter(l => l && !l.includes('tineye.com'));
-        finalLinks.push(...links);
+        finalLinks.push(...links.filter(l => l && !l.includes('tineye.com')));
       } catch (e) {
         console.error('[fallback TinEye error]', e);
       } finally {
@@ -122,7 +123,7 @@ async function fallbackDirectEngines(imagePath) {
       }
     }
 
-    /* -- Baidu -------------------------------------------------- */
+    /* -- Baidu ----------------------------------------------- */
     {
       const page = await browser.newPage();
       try {
@@ -130,10 +131,8 @@ async function fallbackDirectEngines(imagePath) {
         const fileInput = await page.waitForSelector('input[type=file]', { timeout: 5000 });
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(5000);
-
         let links = await page.$$eval('a', as => as.map(a => a.href));
-        links = links.filter(l => l && !l.includes('baidu.com'));
-        finalLinks.push(...links);
+        finalLinks.push(...links.filter(l => l && !l.includes('baidu.com')));
       } catch (e) {
         console.error('[fallback Baidu error]', e);
       } finally {
@@ -146,35 +145,27 @@ async function fallbackDirectEngines(imagePath) {
   } finally {
     if (browser) await browser.close();
   }
-
   return Array.from(new Set(finalLinks));
 }
 
 app.get('/debug/gini', async (req, res) => {
-  const imagePath = path.join(__dirname, 'uploads', 'test.jpg');
-  let aggregatorOk = false;
-  let aggregatorLinks = [];
-  let browser = null;
+  const imagePath = path.join(__dirname, '../uploads', 'test.jpg');
+  let aggregatorOk = false, aggregatorLinks = [], browser = null;
 
   /* 1) Ginifab Aggregator ------------------------------------ */
   try {
-    const puppeteer = require('puppeteer');
     browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox','--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-
     console.log('[start] ginifab aggregator...');
     await page.goto('https://www.ginifab.com/feeds/reverse_image_search/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
 
     const fileInput = await page.$('input[type=file]');
-    if (fileInput) {
-      await fileInput.uploadFile(imagePath);
-    } else {
-      throw new Error('Mock fail => no local fileInput found');
-    }
+    if (!fileInput) throw new Error('No local fileInput found');
+    await fileInput.uploadFile(imagePath);
     await page.waitForTimeout(1500);
 
     const engines = [
@@ -184,58 +175,44 @@ app.get('/debug/gini', async (req, res) => {
     ];
     for (let eng of engines) {
       const [popup] = await Promise.all([
-        new Promise(resolve => {
-          browser.once('targetcreated', t => resolve(t.page()));
-        }),
+        new Promise(resolve => browser.once('targetcreated', t => resolve(t.page()))),
         page.evaluate(rgx => {
           const link = [...document.querySelectorAll('a')].find(a => rgx.test(a.innerText));
           if (link) link.click();
         }, eng.text)
       ]);
-
       await popup.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
       await popup.waitForTimeout(2000);
-
       let links = await popup.$$eval('a', as => as.map(a => a.href));
-      links = links.filter(l =>
+      aggregatorLinks.push(...links.filter(l =>
         l && !l.includes('bing.com') &&
         !l.includes('baidu.com') &&
         !l.includes('tineye.com')
-      );
-      aggregatorLinks.push(...links);
-
+      ));
       await popup.close();
     }
-
     aggregatorOk = true;
     await browser.close();
 
   } catch (eAg) {
-    console.error('[Ginifab aggregator fail => fallback direct approach]', eAg);
+    console.error('[Ginifab aggregator fail => fallback]', eAg);
     if (browser) await browser.close();
   }
 
   /* 2) fallback direct approach ------------------------------ */
-  let fallbackLinks = [];
-  if (!aggregatorOk) {
-    fallbackLinks = await fallbackDirectEngines(imagePath);
-  }
-
-  /* 3) response ---------------------------------------------- */
-  const finalLinks = aggregatorOk ? aggregatorLinks : fallbackLinks;
-  const unique = [...new Set(finalLinks)];
-  console.log('[Ginifab aggregator done] aggregatorOk=', aggregatorOk, ' total links=', unique.length);
+  const finalLinks = aggregatorOk ? aggregatorLinks : await fallbackDirectEngines(imagePath);
+  console.log('[Ginifab aggregator done] aggregatorOk=', aggregatorOk, ' count=', finalLinks.length);
 
   return res.json({
     aggregatorOk,
-    foundLinks: unique.slice(0, 20),
-    totalCount: unique.length
+    foundLinks: finalLinks.slice(0, 20),
+    totalCount: finalLinks.length
   });
 });
 
-/*──────────────────────────────────────────────
- | 8. 啟動伺服器
- *──────────────────────────────────────────────*/
+/*───────────────────────────────────  
+ | 8. 啟動伺服器  
+ *───────────────────────────────────*/
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Express] Running on port ${PORT}`);
