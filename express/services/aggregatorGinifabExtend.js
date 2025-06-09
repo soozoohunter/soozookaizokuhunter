@@ -23,6 +23,95 @@ const UA_ANDROID = 'Mozilla/5.0 (Linux; Android 12; Pixel 5) AppleWebKit/537.36 
 // etc...
 ////////////////////////////////////////////////////
 
+// 供選擇檔案 input 的通用 selector
+const FILE_INPUT_SELECTOR = 'input[type=file], input[type="file"], input[name*=file], input[id*=file]';
+
+/**
+ * iOS 風格的本機上傳流程
+ * @param {object} page puppeteer Page instance
+ * @param {string} localImagePath 要上傳的檔案路徑
+ */
+async function tryGinifabUploadLocal_iOS(page, localImagePath) {
+  console.log('[tryGinifabUploadLocal_iOS] ...');
+  try {
+    await tryCloseAd(page);
+
+    const [linkiOS] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if (!linkiOS) throw new Error('iOS flow: cannot find "上傳本機圖片" link');
+    await linkiOS.click();
+    await page.waitForTimeout(1000);
+
+    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
+    if (!chooseFileBtn) throw new Error('iOS flow: cannot find "選擇檔案" link');
+    await chooseFileBtn.click();
+    await page.waitForTimeout(1000);
+
+    const [photoBtn] = await page.$x("//a[contains(text(),'照片圖庫') or contains(text(),'相簿') or contains(text(),'Photo Library')]");
+    if (!photoBtn) throw new Error('iOS flow: cannot find "照片圖庫" or "相簿" link');
+    await photoBtn.click();
+    await page.waitForTimeout(1500);
+
+    const [finishBtn] = await page.$x("//a[contains(text(),'完成') or contains(text(),'Done') or contains(text(),'OK')]");
+    if (finishBtn) {
+      await finishBtn.click();
+      await page.waitForTimeout(800);
+    }
+
+    const fileInput = await page.waitForSelector(FILE_INPUT_SELECTOR, { timeout: 5000 }).catch(() => null);
+    if (!fileInput) throw new Error('iOS flow: no file input found');
+    await fileInput.uploadFile(localImagePath);
+    await page.waitForTimeout(2000);
+
+    console.log('[tryGinifabUploadLocal_iOS] success');
+    return true;
+  } catch (e) {
+    console.warn('[tryGinifabUploadLocal_iOS] fail =>', e.message);
+    return false;
+  }
+}
+
+/**
+ * Android 風格的本機上傳流程
+ * @param {object} page puppeteer Page instance
+ * @param {string} localImagePath 要上傳的檔案路徑
+ */
+async function tryGinifabUploadLocal_Android(page, localImagePath) {
+  console.log('[tryGinifabUploadLocal_Android] ...');
+  try {
+    await tryCloseAd(page);
+
+    const [linkAndroid] = await page.$x("//a[contains(text(),'上傳本機圖片') or contains(text(),'上傳照片')]");
+    if (!linkAndroid) throw new Error('Android flow: cannot find "上傳本機圖片" link');
+    await linkAndroid.click();
+    await page.waitForTimeout(1000);
+
+    const [chooseFileBtn] = await page.$x("//a[contains(text(),'選擇檔案') or contains(text(),'挑選檔案')]");
+    if (!chooseFileBtn) throw new Error('Android flow: cannot find "選擇檔案" link');
+    await chooseFileBtn.click();
+    await page.waitForTimeout(1000);
+
+    const fileInput = await page.waitForSelector(FILE_INPUT_SELECTOR, { timeout: 5000 }).catch(() => null);
+    if (!fileInput) throw new Error('Android flow: no file input found');
+    await fileInput.uploadFile(localImagePath);
+    await page.waitForTimeout(2000);
+
+    console.log('[tryGinifabUploadLocal_Android] success');
+    return true;
+  } catch (e) {
+    console.warn('[tryGinifabUploadLocal_Android] fail =>', e.message);
+    return false;
+  }
+}
+
+/**
+ * 依序嘗試 iOS -> Android 兩種本機上傳流程 (以及 Desktop, 若需要)
+ */
+async function tryGinifabUploadLocalAllFlow(page, localImagePath) {
+  if (await tryGinifabUploadLocal_iOS(page, localImagePath)) return true;
+  if (await tryGinifabUploadLocal_Android(page, localImagePath)) return true;
+  return false;
+}
+
 // ============== 新增：向量檢索 & OCR Demo ==============
 /**
  * @function callVectorSearchService
@@ -124,10 +213,9 @@ async function fullImageCheckFlow(browser, imagePath) {
 // (保留您原檔案的 module.exports 也可以)
 ////////////////////////////////////////////////////
 module.exports = {
-  // TODO: 下面三個函式，請從您原 aggregatorGinifab.js 直接複製過來或保留
-  // tryGinifabUploadLocalAllFlow,
-  // tryGinifabUploadLocal_iOS,
-  // tryGinifabUploadLocal_Android,
+  tryGinifabUploadLocalAllFlow,
+  tryGinifabUploadLocal_iOS,
+  tryGinifabUploadLocal_Android,
 
   // 新增匯出
   callVectorSearchService,
