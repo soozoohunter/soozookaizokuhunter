@@ -66,3 +66,12 @@ TINEYE_API_KEY=your_tineye_api_key
 ## Protect API Routes
 
 Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳後即可依據 `fileId` 呼叫 Step2。
+
+## Development
+
+更新 Express API 程式碼（例如新增 `/api/protect/step2`）後，需要重新建置 Docker 容器才能套用變更，請執行：
+
+```bash
+docker compose build suzoo_express
+docker compose up -d suzoo_express
+```
