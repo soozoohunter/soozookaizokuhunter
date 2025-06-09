@@ -1187,7 +1187,32 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 });
 
 //===========================================================
-// [8] GET /protect/certificates/:fileId => 下載 PDF
+// [8] POST /protect/step2 => 處理 Step1 後續作業
+//===========================================================
+router.post('/step2', async (req, res) => {
+  try {
+    const { fileId } = req.body || {};
+    if (!fileId) {
+      return res.status(400).json({ error: 'MISSING_FILE_ID', message: '請提供 fileId' });
+    }
+
+    const fileRec = await File.findByPk(fileId);
+    if (!fileRec) {
+      return res.status(404).json({ error: 'FILE_NOT_FOUND', message: '無此 File ID' });
+    }
+
+    fileRec.status = 'uploaded';
+    await fileRec.save();
+
+    return res.json({ message: 'Step2 處理完成', fileId: fileRec.id });
+  } catch (e) {
+    console.error('[step2 error]', e);
+    return res.status(500).json({ error: 'STEP2_ERROR', detail: e.message });
+  }
+});
+
+//===========================================================
+// [9] GET /protect/certificates/:fileId => 下載 PDF
 //===========================================================
 router.get('/certificates/:fileId', async(req,res)=>{
   try {
@@ -1204,7 +1229,7 @@ router.get('/certificates/:fileId', async(req,res)=>{
 });
 
 //===========================================================
-// [9] GET /protect/scan/:fileId => 侵權掃描
+// [10] GET /protect/scan/:fileId => 侵權掃描
 //===========================================================
 router.get('/scan/:fileId', async(req,res)=>{
   try {
@@ -1355,7 +1380,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 });
 
 //===========================================================
-// [10] GET /protect/scanReports/:fileId => 下載報告 PDF
+// [11] GET /protect/scanReports/:fileId => 下載報告 PDF
 //===========================================================
 router.get('/scanReports/:fileId', async(req,res)=>{
   try {

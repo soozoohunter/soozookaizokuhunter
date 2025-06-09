@@ -35,3 +35,22 @@ docker-compose up --build
 
 ```bash
 TINEYE_API_KEY=your_tineye_api_key
+
+## Protect API Endpoints
+
+### POST `/api/protect/step2`
+
+在使用者完成 Step1 上傳後，可呼叫此端點進行後續伺服器處理。
+
+**參數**
+
+- `fileId` (number, required)：Step1 回傳的檔案 ID。
+
+**回應範例**
+
+```json
+{
+  "message": "Step2 處理完成",
+  "fileId": 123
+}
+```
