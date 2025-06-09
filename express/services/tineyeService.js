@@ -1,9 +1,11 @@
+```js
+require('dotenv').config();
 const axios = require('axios');
 
-const TINEYE_ENDPOINT = 'https://api.tineye.com/rest/search/';
+const TINEYE_ENDPOINT = process.env.TINEYE_API_URL || 'https://api.tineye.com/rest/search/';
 
 /**
- * Query the TinEye API for matches.
+ * Search TinEye API with a remote image URL.
  * @param {string} imageUrl - URL of the image to search.
  * @returns {Promise<Array<{url:string, score:number, source:string}>>}
  */
@@ -12,17 +14,31 @@ async function searchTinEyeApi(imageUrl) {
   if (!apiKey) {
     throw new Error('TINEYE_API_KEY is not set');
   }
+  if (!imageUrl) {
+    throw new Error('imageUrl is required');
+  }
 
   try {
-    const { data } = await axios.get(TINEYE_ENDPOINT, {
-      params: { image_url: imageUrl, api_key: apiKey }
+    const resp = await axios.get(TINEYE_ENDPOINT, {
+      params: {
+        image_url: imageUrl,
+        api_key: apiKey
+      },
+      timeout: 10000
     });
 
-    const matches = ((data || {}).results || {}).matches || [];
+    const data = resp.data;
+    // support both 'results.matches' and 'result.matches'
+    const matches = Array.isArray(data.results?.matches)
+      ? data.results.matches
+      : Array.isArray(data.result?.matches)
+        ? data.result.matches
+        : [];
+
     return matches.map(m => ({
-      url: (m.backlinks && m.backlinks[0] && m.backlinks[0].url) || '',
+      url: m.backlinks?.[0]?.url || '',
       score: m.score,
-      source: m.domain || m.site
+      source: m.domain || m.image_url || ''
     }));
   } catch (err) {
     console.error('[TinEye API] error:', err.message);
@@ -31,3 +47,4 @@ async function searchTinEyeApi(imageUrl) {
 }
 
 module.exports = { searchTinEyeApi };
+```
