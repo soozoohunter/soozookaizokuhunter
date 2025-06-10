@@ -42,6 +42,8 @@ const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 const tinEyeApi = require('../services/tineyeApiService');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
 
@@ -578,7 +580,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         // ★過濾無效連結
         hrefs = hrefs.filter(isValidLink);
 
-        ret[eng.key].links= hrefs.slice(0,5);
+        ret[eng.key].links= hrefs.slice(0, ENGINE_MAX_LINKS);
         ret[eng.key].success= ret[eng.key].links.length>0;
         await popup.close();
       } catch(eSub){
@@ -635,7 +637,7 @@ async function directSearchBing(browser, imagePath){
       let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
       // 過濾自身 + 無效
       hrefs= hrefs.filter(h=> h && !h.includes('bing.com')).filter(isValidLink);
-      ret.links= [...new Set(hrefs)].slice(0,5);
+      ret.links= [...new Set(hrefs)].slice(0, ENGINE_MAX_LINKS);
       ret.success= ret.links.length>0;
     }
 
@@ -657,7 +659,7 @@ async function directSearchTinEye(_browser, imagePath){
   try {
     const data = await tinEyeApi.searchByFile(imagePath);
     const links = tinEyeApi.extractLinks(data);
-    ret.links = links.slice(0,5);
+    ret.links = links.slice(0, ENGINE_MAX_LINKS);
     ret.success = ret.links.length>0;
   } catch(e){
     console.error('[directSearchTinEye] API fail =>', e.message);
@@ -718,7 +720,7 @@ async function directSearchBaidu(browser, imagePath){
 
     let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
     hrefs= hrefs.filter(h=> h && !h.includes('baidu.com')).filter(isValidLink);
-    ret.links= [...new Set(hrefs)].slice(0,5);
+    ret.links= [...new Set(hrefs)].slice(0, ENGINE_MAX_LINKS);
     ret.success= ret.links.length>0;
 
   } catch(e){
