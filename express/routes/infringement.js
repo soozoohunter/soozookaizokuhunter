@@ -16,6 +16,7 @@ const axios = require('axios');
 const { detectInfringement } = require('../services/infringementService');
 const tinEyeApi = require('../services/tineyeApiService');
 const { getVisionPageMatches } = require('../services/visionService');
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -107,7 +108,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     try {
       const data = await tinEyeApi.searchByFile(localFile);
       const links = tinEyeApi.extractLinks(data);
-      tineyeRes = { success: links.length > 0, links: links.slice(0, 5) };
+      tineyeRes = { success: links.length > 0, links: links.slice(0, ENGINE_MAX_LINKS) };
     } catch (err) {
       console.error('[TinEye API error]', err);
       tineyeRes = { success: false, message: err.message };
