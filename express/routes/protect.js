@@ -42,7 +42,9 @@ const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 const tinEyeApi = require('../services/tineyeApiService');
 
-const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+// 上限: 各搜尋引擎總合可疑連結最大數量
+// If the environment variable is not provided, default to 50
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
@@ -84,8 +86,6 @@ ensureUploadDirs();
 
 // ★ 公開網域 (請自行改為你的正式域名)
 const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
-// 上限: 各搜尋引擎總合可疑連結最大數量
-const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // Multer: 上傳檔案大小上限 100MB
 const upload = multer({
