@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -21,13 +23,12 @@ services:
       dockerfile: Dockerfile
     volumes:
       # ★★★ uploads 永久化 ─ 與主機/其他容器共用 ★★★
-      # 挂载至 /app/uploads 以符合程式碼路徑
       - uploads_data:/app/uploads
 
       # ★★★ 新增：掛入 Google Service-Account 金鑰 (唯讀) ★★★
       - ./credentials:/app/credentials:ro
 
-      # 其餘既有 volume
+      # 其他原本就有的 volumes
       - ./express/fonts:/app/express/fonts:ro
       - ./express/debugShots:/app/debugShots
     environment:
@@ -53,6 +54,9 @@ services:
 
       # ★★★ 新增：Google Vision SDK 將自動讀取此路徑 ★★★
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/gcp-vision.json
+
+      # ★★★ 新增：TinEye API Key (修正錯誤) ★★★
+      TINEYE_API_KEY: ${TINEYE_API_KEY}
 
       # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
