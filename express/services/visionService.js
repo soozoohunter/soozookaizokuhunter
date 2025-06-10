@@ -107,10 +107,12 @@ function isValidLink(u) {
  * 取得 Google Vision WebDetection 結果網址清單
  * - 合併 fullMatchingImages / partialMatchingImages / pagesWithMatchingImages
  * @param {string} filePath - 本機圖檔路徑
- * @param {number} [maxResults=10]
+ * @param {number} [maxResults] - 回傳數量上限 (預設由環境變數 VISION_MAX_RESULTS 決定，預設 50)
  * @returns {Promise<string[]>}
  */
-async function getVisionPageMatches(filePath, maxResults = 10) {
+const DEFAULT_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
+
+async function getVisionPageMatches(filePath, maxResults = DEFAULT_MAX_RESULTS) {
   if (!fs.existsSync(filePath)) {
     throw new Error('FILE_NOT_FOUND: ' + filePath);
   }
