@@ -81,6 +81,8 @@ ensureUploadDirs();
 
 // ★ 公開網域 (請自行改為你的正式域名)
 const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
+// 上限: 各搜尋引擎總合可疑連結最大數量
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // Multer: 上傳檔案大小上限 100MB
 const upload = multer({
@@ -1353,9 +1355,10 @@ router.get('/scan/:fileId', async(req,res)=>{
 
     // ★去重 + 過濾無效連結
     const unique= [...new Set(allLinks)].filter(isValidLink);
+    const truncated = unique.slice(0, ENGINE_MAX_LINKS);
 
     fileRec.status='scanned';
-    fileRec.infringingLinks= JSON.stringify(unique);
+    fileRec.infringingLinks= JSON.stringify(truncated);
     await fileRec.save();
 
     // 產出掃描報告 PDF
@@ -1365,14 +1368,14 @@ router.get('/scan/:fileId', async(req,res)=>{
 
     await generateScanPDFWithMatches({
       file: fileRec,
-      suspiciousLinks: unique,
+      suspiciousLinks: truncated,
       matchedImages,
       stampImagePath: fs.existsSync(stampPath)? stampPath:null
     }, scanPdfPath);
 
     return res.json({
       message:'圖搜+文字爬蟲+向量檢索+Google Vision完成 => PDF已產生',
-      suspiciousLinks: unique,
+      suspiciousLinks: truncated,
       scanReportUrl:`/api/protect/scanReports/${fileRec.id}`
     });
 
