@@ -2,6 +2,11 @@
  * express/routes/infringement.js
  * - 侵權掃描 / DMCA 申訴
  */
+// Load environment variables from .env at startup. The key values used here are
+// TINEYE_API_KEY (TinEye REST API key) and GOOGLE_APPLICATION_CREDENTIALS for
+// Google Vision. Any missing required config will cause the service to exit.
+require('dotenv').config();
+
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
@@ -9,9 +14,34 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { detectInfringement } = require('../services/infringementService');
+const tinEyeApi = require('../services/tineyeApiService');
+const { getVisionPageMatches } = require('../services/visionService');
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
+const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
+const VISION_CRED_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || '/app/credentials/gcp-vision.json';
+
+if (!TINEYE_API_KEY) {
+  // Fail fast when the service starts if TinEye API key is missing
+  throw new Error('Startup failed: TINEYE_API_KEY is not defined');
+}
+
+function ensureVisionCredentials(req, res, next) {
+  try {
+    if (!fs.existsSync(VISION_CRED_PATH)) {
+      throw new Error('credential file missing');
+    }
+    const raw = fs.readFileSync(VISION_CRED_PATH, 'utf-8');
+    JSON.parse(raw); // will throw if invalid
+    // set for vision client to pick up
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = VISION_CRED_PATH;
+    next();
+  } catch (err) {
+    console.error('[Vision Credential Error]', err);
+    return res.status(500).json({ success: false, message: 'Vision credential invalid' });
+  }
+}
 
 // --- Mock Data ------------------------------------------------------------
 const works = [
@@ -46,7 +76,7 @@ function authMiddleware(req, res, next) {
 }
 
 // POST /infringement/scan
-router.post('/scan', authMiddleware, async (req, res) => {
+router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) => {
   try {
     const { filePath, imageUrl } = req.body || {};
     if (!filePath && !imageUrl) {
@@ -72,13 +102,39 @@ router.post('/scan', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'filePath 無效' });
     }
 
-    const result = await detectInfringement(localFile, imageUrl || '');
+    // TinEye search
+    let tineyeRes = { success: false, links: [] };
+    try {
+      const data = await tinEyeApi.searchByFile(localFile);
+      const links = tinEyeApi.extractLinks(data);
+      tineyeRes = { success: links.length > 0, links: links.slice(0, 5) };
+    } catch (err) {
+      console.error('[TinEye API error]', err);
+      tineyeRes = { success: false, message: err.message };
+    }
+
+    // Google Vision search
+    let visionRes = { success: false, links: [] };
+    try {
+      const urls = await getVisionPageMatches(localFile, 10);
+      visionRes = { success: urls.length > 0, links: urls };
+    } catch (err) {
+      console.error('[Google Vision error]', err);
+      visionRes = { success: false, message: err.message };
+    }
+
+    if (!tineyeRes.success && !visionRes.success) {
+      if (cleanup) fs.unlink(localFile, () => {});
+      return res.json({ success: false, message: 'TinEye and Vision search failed', tineye: tineyeRes, vision: visionRes });
+    }
+
+    const fallback = await detectInfringement(localFile, imageUrl || '');
 
     if (cleanup) {
       fs.unlink(localFile, () => {});
     }
 
-    return res.json(result);
+    return res.json({ success: true, tineye: tineyeRes, vision: visionRes, fallback });
   } catch (e) {
     console.error('[Infringement Scan Error]', e);
     return res.status(500).json({ error: e.message });
