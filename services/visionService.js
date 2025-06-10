@@ -34,10 +34,12 @@ const client = new vision.ImageAnnotatorClient({ keyFilename: KEY_FILE });
 /**
  * 透過 Google Vision WebDetection 取得「網頁上出現此圖片」的網址
  * @param  {string} imagePath - 本機圖片路徑
- * @param  {number} maxResults (預設 10)
+ * @param  {number} maxResults (預設由環境變數 VISION_MAX_RESULTS 決定，預設 50)
  * @return {Promise<string[]>} 只回傳有效 http/https URL 陣列
  */
-async function getVisionPageMatches(imagePath, maxResults = 10) {
+const DEFAULT_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
+
+async function getVisionPageMatches(imagePath, maxResults = DEFAULT_MAX_RESULTS) {
   const buffer = await fs.promises.readFile(imagePath);
 
   /** 呼叫 annotateImage – 僅啟用 WebDetection ，限制 maxResults */
