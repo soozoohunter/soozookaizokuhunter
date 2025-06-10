@@ -168,18 +168,10 @@ async function saveDebugInfo(page, tag){
 //----------------------------------------------------
 // [★ 核心工具] 過濾掉明顯無效的 URL
 //----------------------------------------------------
-const INVALID_PREFIX_RE = /^(javascript:|data:)/i;
-const INVALID_CHAR_RE = /\s/;
+const { isValidHttpUrl } = require('../utils/urlUtils');
+
 function isValidLink(str) {
-  if (!str) return false;
-  const trimmed = str.trim();
-  if (INVALID_PREFIX_RE.test(trimmed) || INVALID_CHAR_RE.test(trimmed)) return false;
-  try {
-    const u = new URL(trimmed);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return isValidHttpUrl(str);
 }
 
 //----------------------------------------------------

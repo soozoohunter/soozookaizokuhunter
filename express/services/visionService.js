@@ -89,18 +89,10 @@ async function readAndMaybeCompress(filePath) {
 }
 
 // --- 過濾連結 ---
-const INVALID_PREFIX_RE = /^(javascript:|data:)/i;
-const INVALID_CHAR_RE = /\s/;
+const { isValidHttpUrl } = require('../utils/urlUtils');
+
 function isValidLink(u) {
-  if (!u) return false;
-  const trimmed = u.trim();
-  if (INVALID_PREFIX_RE.test(trimmed) || INVALID_CHAR_RE.test(trimmed)) return false;
-  try {
-    const uo = new URL(trimmed);
-    return uo.protocol === 'http:' || uo.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return isValidHttpUrl(u);
 }
 
 /**
