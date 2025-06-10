@@ -69,9 +69,11 @@ services:
 
   suzoo_frontend:
     container_name: suzoo_frontend
-    image: suzookaizokuhunter-frontend:latest
     build:
       context: ./frontend
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-https://api.suzookaizokuhunter.com}
+    image: suzookaizokuhunter-frontend
     depends_on:
       - suzoo_express
       - suzoo_fastapi

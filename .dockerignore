@@ -1,3 +1,7 @@
 # Ignore dependencies and build output to speed up Docker build
 node_modules
 build
+dist
+.git
+Dockerfile
+*.log
