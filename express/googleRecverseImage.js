@@ -16,6 +16,8 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 (async () => {
   // 1) 解析命令列參數 => 圖片路徑
   const imagePath = process.argv[2];
@@ -59,7 +61,7 @@ const path = require('path');
     const resultsSelector = 'div.g a';
     await page.waitForSelector(resultsSelector, { timeout: 15000 });
     const links = await page.$$eval(resultsSelector, (anchors) =>
-      anchors.slice(0, 5).map((a) => a.href)
+      anchors.slice(0, ENGINE_MAX_LINKS).map((a) => a.href)
     );
 
     console.log('【以圖搜圖】前 5 個搜尋結果連結：');

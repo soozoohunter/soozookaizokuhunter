@@ -2,6 +2,8 @@
 const path = require('path');
 const { saveScreenshot, handleEngineError } = require('../../utils/screenshotUtil');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 async function searchBing(browser, imagePath) {
   const engineName = 'bing';
   let page;
@@ -47,7 +49,7 @@ async function searchBing(browser, imagePath) {
       // 擷取外部連結
       let links = await page.$$eval('a', as=>as.map(a=>a.href));
       links = links.filter(l => l && !l.includes('bing.com'));
-      foundLinks = links.slice(0,5);
+      foundLinks = links.slice(0, ENGINE_MAX_LINKS);
 
       console.log(`[Bing] found ${foundLinks.length} links at attempt #${attempt}`);
       break;

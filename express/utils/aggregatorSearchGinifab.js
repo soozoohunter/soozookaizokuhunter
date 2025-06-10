@@ -23,6 +23,8 @@
 const path = require('path');
 const fs   = require('fs');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 // selectors used to detect file upload inputs and url fields. additional
 // patterns are included so minor markup changes on ginifab won't break the flow
 const FILE_INPUT_SELECTOR = 'input[type=file], input[type="file"], input[name*=file], input[id*=file]';
@@ -276,7 +278,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
           !h.includes('tineye.com') &&
           !h.includes('baidu.com')
         );
-        ret[eng.key].links = [...new Set(hrefs)].slice(0, 5);
+        ret[eng.key].links = [...new Set(hrefs)].slice(0, ENGINE_MAX_LINKS);
         ret[eng.key].success = ret[eng.key].links.length > 0;
 
         await popupPage.close();
