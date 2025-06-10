@@ -33,6 +33,7 @@ function getClient() {
       JSON.parse(fs.readFileSync(keyFile, 'utf-8'));
     } catch (err) {
       console.error('[visionService] credential parse error =>', err.message);
+      console.error('[visionService] make sure GOOGLE_APPLICATION_CREDENTIALS points to a valid service account JSON');
       throw new Error('GOOGLE_APPLICATION_CREDENTIALS file invalid');
     }
     try {
@@ -41,6 +42,8 @@ function getClient() {
       console.error('[visionService] failed to create Vision client =>', err.message);
       if (err.code === 16) { // UNAUTHENTICATED
         console.error('[visionService] authentication failed. Check your credential file and GOOGLE_APPLICATION_CREDENTIALS env variable.');
+      } else {
+        console.error('[visionService] unexpected error while creating Vision client =>', err);
       }
       throw err;
     }
