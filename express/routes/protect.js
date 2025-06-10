@@ -27,6 +27,7 @@ if(ffmpegPath) {
 // ========== Google Vision API ==========
 // 同一呼叫 services/visionService.js，避免重複定義
 const { getVisionPageMatches } = require('../services/visionService');
+const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 
 // ========== Models ==========
 const { User, File } = require('../models');
@@ -805,7 +806,7 @@ async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorIm
 
   // ★ Vision
   try {
-    const visionUrls = await getVisionPageMatches(localFilePath, 10);
+    const visionUrls = await getVisionPageMatches(localFilePath, VISION_MAX_RESULTS);
     if (visionUrls.length) {
       ret.vision = { links: visionUrls, success: true };
     }
