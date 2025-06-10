@@ -18,6 +18,7 @@ RAPIDAPI_KEY=your_rapidapi_key
 AWS_ACCESS_KEY=your_aws_access_key
 AWS_SECRET_KEY=your_aws_secret_key
 GOOGLE_APPLICATION_CREDENTIALS=./credentials/gcp-vision.json
+VISION_MAX_RESULTS=50
 TINEYE_API_KEY=your_tineye_api_key
 ```
 
@@ -35,6 +36,8 @@ docker-compose up --build
 
    ```bash
    GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gcp-vision.json
+   # 每次 Google Vision 搜尋回傳的網址數量上限 (預設 50)
+   VISION_MAX_RESULTS=50
    ```
 
    `docker-compose.yml` 會自動將 `./credentials` 掛載到 `/app/credentials`（唯讀）。

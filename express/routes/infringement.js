@@ -16,6 +16,7 @@ const axios = require('axios');
 const { detectInfringement } = require('../services/infringementService');
 const tinEyeApi = require('../services/tineyeApiService');
 const { getVisionPageMatches } = require('../services/visionService');
+const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -116,7 +117,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     // Google Vision search
     let visionRes = { success: false, links: [] };
     try {
-      const urls = await getVisionPageMatches(localFile, 10);
+      const urls = await getVisionPageMatches(localFile, VISION_MAX_RESULTS);
       visionRes = { success: urls.length > 0, links: urls };
     } catch (err) {
       console.error('[Google Vision error]', err);
