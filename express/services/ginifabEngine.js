@@ -7,6 +7,8 @@ puppeteer.use(StealthPlugin());
 const fs = require('fs');
 const path = require('path');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 // ============== fallback 直連 Bing/TinEye/Baidu ==============
 async function fallbackDirectEngines(imagePath) {
   const results = {
@@ -36,7 +38,7 @@ async function fallbackDirectEngines(imagePath) {
 
         let links = await page.$$eval('a', as=> as.map(a=> a.href));
         links = links.filter(x=> x && !x.includes('bing.com'));
-        results.bing.push(...links.slice(0,5));
+        results.bing.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
       await page.close();
     } catch(e) {
@@ -57,7 +59,7 @@ async function fallbackDirectEngines(imagePath) {
 
         let links = await page.$$eval('a', as=> as.map(a=> a.href));
         links = links.filter(x=> x && !x.includes('tineye.com'));
-        results.tineye.push(...links.slice(0,5));
+        results.tineye.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
       await page.close();
     } catch(e) {
@@ -77,7 +79,7 @@ async function fallbackDirectEngines(imagePath) {
 
         let links = await page.$$eval('a', as=> as.map(a=> a.href));
         links = links.filter(x=> x && !x.includes('baidu.com'));
-        results.baidu.push(...links.slice(0,5));
+        results.baidu.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
       await page.close();
     } catch(e) {
@@ -270,7 +272,7 @@ async function aggregatorSearchGinifab(localFilePath, aggregatorImageUrl) {
           return true;
         });
         // 只取前 5
-        result[eng.key].links = hrefs.slice(0,5);
+        result[eng.key].links = hrefs.slice(0, ENGINE_MAX_LINKS);
 
         await popup.close().catch(()=>{});
       } catch(eEng){

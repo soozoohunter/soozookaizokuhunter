@@ -16,7 +16,15 @@ const axios = require('axios');
 const { detectInfringement } = require('../services/infringementService');
 const tinEyeApi = require('../services/tineyeApiService');
 const { getVisionPageMatches } = require('../services/visionService');
+
+//
+// 兼容兩邊的環境變數設定：
+// ENGINE_MAX_LINKS: TinEye 搜尋結果截取
+// VISION_MAX_RESULTS: Google Vision 搜尋結果截取
+//
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
 const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
+
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -67,12 +75,12 @@ const infringements = [
 function authMiddleware(req, res, next) {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s*/, '');
-    if (!token) return res.status(401).json({ error:'缺少 Token' });
+    if (!token) return res.status(401).json({ error: '缺少 Token' });
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
-  } catch(e){
-    return res.status(401).json({ error:'Token 無效' });
+  } catch (e) {
+    return res.status(401).json({ error: 'Token 無效' });
   }
 }
 
@@ -87,6 +95,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     let localFile = filePath;
     let cleanup = false;
 
+    // 1) 若只有 imageUrl => 下載圖檔到本地暫存
     if (!localFile && imageUrl) {
       try {
         const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
@@ -99,7 +108,9 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
         console.error('[download image fail]', err);
         return res.status(400).json({ error: '無法下載 imageUrl' });
       }
-    } else if (localFile && !fs.existsSync(localFile)) {
+    }
+    // 2) 若有 filePath (本地路徑) => 檢查是否存在
+    else if (localFile && !fs.existsSync(localFile)) {
       return res.status(400).json({ error: 'filePath 無效' });
     }
 
@@ -108,7 +119,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     try {
       const data = await tinEyeApi.searchByFile(localFile);
       const links = tinEyeApi.extractLinks(data);
-      tineyeRes = { success: links.length > 0, links: links.slice(0, 5) };
+      tineyeRes = { success: links.length > 0, links: links.slice(0, ENGINE_MAX_LINKS) };
     } catch (err) {
       console.error('[TinEye API error]', err);
       tineyeRes = { success: false, message: err.message };
@@ -124,11 +135,13 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
       visionRes = { success: false, message: err.message };
     }
 
+    // 若兩者皆搜尋失敗
     if (!tineyeRes.success && !visionRes.success) {
       if (cleanup) fs.unlink(localFile, () => {});
       return res.json({ success: false, message: 'TinEye and Vision search failed', tineye: tineyeRes, vision: visionRes });
     }
 
+    // fallback => 由 infringementService.detectInfringement 執行更多邏輯
     const fallback = await detectInfringement(localFile, imageUrl || '');
 
     if (cleanup) {
@@ -147,14 +160,14 @@ router.post('/dmca', authMiddleware, async (req, res) => {
   try {
     const { targetUrls } = req.body;
     if (!Array.isArray(targetUrls) || !targetUrls.length) {
-      return res.status(400).json({ error:'請提供 targetUrls (Array)' });
+      return res.status(400).json({ error: '請提供 targetUrls (Array)' });
     }
     // const result = await sendDmcaNotice(targetUrls);
-    const result = { success:true, detail:'Mock DMCA notice sent' };
+    const result = { success: true, detail: 'Mock DMCA notice sent' };
     return res.json(result);
-  } catch(e){
+  } catch (e) {
     console.error('[DMCA Error]', e);
-    return res.status(500).json({ error:e.message });
+    return res.status(500).json({ error: e.message });
   }
 });
 

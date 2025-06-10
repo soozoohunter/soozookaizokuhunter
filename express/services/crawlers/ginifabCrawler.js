@@ -2,6 +2,8 @@
 const path = require('path');
 const { saveScreenshot, handleEngineError } = require('../../utils/screenshotUtil');
 
+const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
+
 /**
  * 透過 Ginifab Aggregator, 輸入 imageUrl(公開連結)
  * 順序點擊「微軟必應 / 錫眼睛 / 百度」
@@ -72,7 +74,7 @@ async function searchGinifab(browser, imageUrl) {
             !h.includes('tineye.com') &&
             !h.includes('baidu.com')
           );
-          const top5=hrefs.slice(0,5);
+          const top5=hrefs.slice(0, ENGINE_MAX_LINKS);
 
           results[eng.name].success= top5.length>0;
           results[eng.name].links= top5;
