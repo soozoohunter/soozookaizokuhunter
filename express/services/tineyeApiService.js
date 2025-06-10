@@ -5,6 +5,11 @@ const FormData = require('form-data');
 const API_URL = 'https://api.tineye.com/rest';
 const API_KEY = process.env.TINEYE_API_KEY;
 
+if (!API_KEY) {
+  // Fail fast during service startup if API key missing
+  throw new Error('TINEYE_API_KEY is not defined');
+}
+
 function ensureApiKey(){
   if(!API_KEY){
     throw new Error('TINEYE_API_KEY is not defined');
