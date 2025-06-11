@@ -2,12 +2,12 @@ celery
 requests
 beautifulsoup4
 pymilvus
-torch
+torch==1.13.1
 transformers
 pillow
 sentence_transformers
 ffmpeg-python
 opencv-python
 open_clip_torch
-torchvision
+torchvision==0.14.1
 pytube
