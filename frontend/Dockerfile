@@ -6,7 +6,9 @@ WORKDIR /app
 
 # 先複製 package* 以便快取 install 步驟
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+# Ensure lock file is in sync with package.json
+RUN npm install --package-lock-only && \
+    npm ci --legacy-peer-deps
 
 # 再複製其餘原始碼
 COPY . .
