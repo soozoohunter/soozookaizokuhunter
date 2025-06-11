@@ -79,13 +79,8 @@ async function getVisionPageMatches(filePath, maxResults = VISION_MAX_RESULTS) {
     return [...new Set(urls)].slice(0, maxResults);
 
   } catch (err) {
-    const msg = String(err.message || '');
-    if (msg.includes('DECODER') || msg.includes('unsupported') || msg.includes('UNKNOWN')) {
-      console.error('[visionService] getVisionPageMatches fail =>', msg);
-      return [];
-    }
-    // 其它错误抛出
-    throw err;
+    console.error('[visionService] getVisionPageMatches fail =>', err.message || err);
+    return [];
 
   } finally {
     // 清理临时文件
