@@ -19,7 +19,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
  */
 router.post('/login', async (req, res) => {
   try {
-    const { identifier, password } = req.body;
+    const identifier = req.body.identifier || req.body.account;
+    const { password } = req.body;
     if (!identifier || !password) {
       return res.status(400).json({ message: '請輸入帳號與密碼' });
     }
