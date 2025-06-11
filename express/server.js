@@ -26,6 +26,8 @@ const infringementRouter = require('./routes/infringement');     // 侵權相關
  *───────────────────────────────────*/
 app.use(cors());
 app.use(express.json());
+// Allow parsing of application/x-www-form-urlencoded bodies
+app.use(express.urlencoded({ extended: true }));
 
 /*───────────────────────────────────  
  | 2. uploads 對外靜態目錄  
