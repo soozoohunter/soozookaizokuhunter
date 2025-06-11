@@ -16,12 +16,21 @@ let client;
  */
 function getClient() {
   if (!client) {
-    // 检查并报错如果凭证文件不存在
+    // 檢查並驗證憑證檔案
     const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS || DEFAULT_KEY_FILE;
     if (!fs.existsSync(keyFile)) {
       throw new Error(`Vision credential file missing: ${keyFile}`);
     }
-    console.log(`[visionService] using credential file: ${keyFile}`);
+    let cred;
+    try {
+      cred = JSON.parse(fs.readFileSync(keyFile, 'utf-8'));
+      if (!cred.private_key || !cred.client_email) {
+        throw new Error('missing private_key or client_email');
+      }
+    } catch (e) {
+      throw new Error(`Vision credential invalid: ${e.message}`);
+    }
+    console.log(`[visionService] using credential file: ${keyFile} (${cred.client_email})`);
     client = new vision.ImageAnnotatorClient({ keyFilename: keyFile });
   }
   return client;

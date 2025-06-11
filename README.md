@@ -43,6 +43,9 @@ docker-compose up --build
    `docker-compose.yml` 會自動將 `./credentials` 掛載到 `/app/credentials`（唯讀）。
 4. 真實金鑰檔案已被 `.gitignore` 排除，請勿提交至版本庫。
 
+若啟動時出現 `DECODER routines::unsupported` 等錯誤，通常表示金鑰內容無法解析。
+請重新下載服務帳戶金鑰並確認 `private_key` 與 `client_email` 欄位完整。
+
 
 ## TinEye API
 
