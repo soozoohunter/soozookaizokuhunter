@@ -4,55 +4,50 @@ const FormData = require('form-data');
 
 const API_URL = 'https://api.tineye.com/rest';
 const API_KEY = process.env.TINEYE_API_KEY;
+if (!API_KEY) throw new Error('必须定义 TINEYE_API_KEY');
 
-if (!API_KEY) {
-  // Fail fast during service startup if API key missing
-  throw new Error('TINEYE_API_KEY is not defined');
-}
-
-function ensureApiKey(){
-  if(!API_KEY){
-    throw new Error('TINEYE_API_KEY is not defined');
-  }
-}
-
-async function searchByUrl(imageUrl, options={}){
-  ensureApiKey();
-  const params = { image_url: imageUrl, ...options };
-  const { data } = await axios.get(`${API_URL}/search/`, {
-    params,
-    headers: { 'X-API-Key': API_KEY }
+async function searchByUrl(imageUrl, options = {}) {
+  const resp = await axios.get('https://api.tineye.com/rest/search/', {
+    params: { image_url: imageUrl, ...options },
+    headers: { 'X-API-Key': API_KEY },
+    validateStatus: () => true
   });
-  return data;
+  if (resp.status !== 200) throw new Error(`TinEye 搜索失败：${resp.status}`);
+  return resp.data;
 }
 
-async function searchByFile(filePath, options={}){
-  ensureApiKey();
+async function searchByFile(filePath, options = {}) {
   const form = new FormData();
   form.append('image_upload', fs.createReadStream(filePath));
-  const query = new URLSearchParams(options).toString();
-  const { data } = await axios.post(`${API_URL}/search/?${query}`, form, {
-    headers: { ...form.getHeaders(), 'X-API-Key': API_KEY }
-  });
-  return data;
+  const resp = await axios.post(
+    `https://api.tineye.com/rest/search/?${new URLSearchParams(options).toString()}`,
+    form,
+    {
+      headers: { ...form.getHeaders(), 'X-API-Key': API_KEY },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+      validateStatus: () => true
+    }
+  );
+  if (resp.status !== 200) throw new Error(`TinEye 搜索失败：${resp.status}`);
+  return resp.data;
 }
 
-function extractLinks(apiResponse){
+function extractLinks(apiResponse) {
+  const matches = apiResponse.results?.matches || [];
   const links = [];
-  const matches = apiResponse?.results?.matches || [];
-  for(const m of matches){
-    if(Array.isArray(m.backlinks)){
-      for(const b of m.backlinks){
-        if(b.backlink) links.push(b.backlink);
-        else if(typeof b === 'string') links.push(b);
+  for (const m of matches) {
+    if (Array.isArray(m.backlinks)) {
+      for (const b of m.backlinks) {
+        if (typeof b === 'string') links.push(b);
+        else if (b.backlink) links.push(b.backlink);
+        else if (b.url) links.push(b.url);
       }
+    } else if (m.backlink) {
+      links.push(m.backlink);
     }
   }
-  return Array.from(new Set(links));
+  return [...new Set(links)];
 }
 
-module.exports = {
-  searchByUrl,
-  searchByFile,
-  extractLinks
-};
+module.exports = { searchByUrl, searchByFile, extractLinks };

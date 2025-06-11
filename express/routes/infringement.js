@@ -117,7 +117,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     // TinEye search
     let tineyeRes = { success: false, links: [] };
     try {
-      const data = await tinEyeApi.searchByFile(localFile);
+      const data = await tinEyeApi.searchByFile(localFile, { limit: ENGINE_MAX_LINKS });
       const links = tinEyeApi.extractLinks(data);
       tineyeRes = { success: links.length > 0, links: links.slice(0, ENGINE_MAX_LINKS) };
     } catch (err) {
