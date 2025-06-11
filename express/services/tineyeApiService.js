@@ -21,6 +21,9 @@ async function searchByUrl(imageUrl, options = {}) {
     headers: { 'X-API-Key': API_KEY },
     validateStatus: () => true
   });
+  if (resp.status === 401 || resp.status === 403) {
+    throw new Error('TinEye API authentication failed');
+  }
   if (resp.status !== 200) {
     throw new Error(`TinEye 搜索失败：${resp.status}`);
   }
@@ -50,6 +53,9 @@ async function searchByFile(filePath, options = {}) {
       validateStatus: () => true
     }
   );
+  if (resp.status === 401 || resp.status === 403) {
+    throw new Error('TinEye API authentication failed');
+  }
   if (resp.status !== 200) {
     throw new Error(`TinEye 搜索失败：${resp.status}`);
   }
