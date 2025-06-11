@@ -15,7 +15,7 @@ const path = require('path');
 const axios = require('axios');
 const { detectInfringement } = require('../services/infringementService');
 const tinEyeApi = require('../services/tineyeApiService');
-const { getVisionPageMatches } = require('../services/visionService');
+const { getVisionPageMatches, VISION_MAX_RESULTS } = require('../services/visionService');
 
 //
 // 兼容兩邊的環境變數設定：
@@ -23,7 +23,6 @@ const { getVisionPageMatches } = require('../services/visionService');
 // VISION_MAX_RESULTS: Google Vision 搜尋結果截取
 //
 const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
-const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 
 // const { sendDmcaNotice } = require('../services/dmcaService');
 
@@ -117,7 +116,7 @@ router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) =
     // TinEye search
     let tineyeRes = { success: false, links: [] };
     try {
-      const data = await tinEyeApi.searchByFile(localFile);
+      const data = await tinEyeApi.searchByFile(localFile, { limit: ENGINE_MAX_LINKS });
       const links = tinEyeApi.extractLinks(data);
       tineyeRes = { success: links.length > 0, links: links.slice(0, ENGINE_MAX_LINKS) };
     } catch (err) {
