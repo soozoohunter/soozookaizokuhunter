@@ -4,9 +4,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 COPY requirements.txt .
-# 使用阿里云镜像，加速 apt
-RUN sed -i 's#deb.debian.org#mirrors.aliyun.com#g' /etc/apt/sources.list \
- && apt-get update \
+RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       build-essential \
       libgl1 \
