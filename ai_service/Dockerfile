@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:1.13.1-cpu
+FROM pytorch/pytorch:1.13.1-cuda11.6-cudnn8-runtime
 
 # 安裝必要套件 (含 opencv)
 RUN apt-get update && apt-get install -y libgl1-mesa-glx && rm -rf /var/lib/apt/lists/*
