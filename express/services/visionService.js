@@ -134,4 +134,29 @@ async function infringementScan({ buffer }) {
   return { tineye: tineyeRes, vision: visionRes };
 }
 
-module.exports = { getVisionPageMatches, VISION_MAX_RESULTS, infringementScan };
+/**
+ * Get Google Vision page matches from an image buffer.
+ * @param {Buffer} buffer
+ * @param {number} [maxResults]
+ * @returns {Promise<string[]>}
+ */
+async function searchVisionByBuffer(buffer, maxResults = VISION_MAX_RESULTS) {
+  if (!buffer) throw new Error('buffer required');
+  const tmpDir = path.join(os.tmpdir(), 'vision-buf');
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpPath = path.join(tmpDir, `vision_${Date.now()}.jpg`);
+  fs.writeFileSync(tmpPath, buffer);
+  try {
+    const urls = await getVisionPageMatches(tmpPath, maxResults);
+    return urls;
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch {}
+  }
+}
+
+module.exports = {
+  getVisionPageMatches,
+  VISION_MAX_RESULTS,
+  infringementScan,
+  searchVisionByBuffer
+};
