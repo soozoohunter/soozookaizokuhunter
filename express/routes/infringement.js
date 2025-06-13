@@ -11,11 +11,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const { detectInfringement } = require('../services/infringementService');
-const tinEyeApi = require('../services/tineyeApiService');
-const { getVisionPageMatches, VISION_MAX_RESULTS } = require('../services/visionService');
+const visionService = require('../services/visionService');
+const upload = require('../middleware/upload');
 
 //
 // 兼容兩邊的環境變數設定：
@@ -84,73 +81,15 @@ function authMiddleware(req, res, next) {
 }
 
 // POST /infringement/scan
-router.post('/scan', authMiddleware, ensureVisionCredentials, async (req, res) => {
+router.post('/scan', upload.single('file'), authMiddleware, ensureVisionCredentials, async (req, res) => {
   try {
-    const { filePath, imageUrl } = req.body || {};
-    if (!filePath && !imageUrl) {
-      return res.status(400).json({ error: '請提供 imageUrl 或 filePath' });
-    }
-
-    let localFile = filePath;
-    let cleanup = false;
-
-    // 1) 若只有 imageUrl => 下載圖檔到本地暫存
-    if (!localFile && imageUrl) {
-      try {
-        const ext = path.extname(new URL(imageUrl).pathname) || '.jpg';
-        const tmpName = `scan_${Date.now()}${ext}`;
-        localFile = path.join(__dirname, '../../uploads/tmp', tmpName);
-        const resp = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        fs.writeFileSync(localFile, resp.data);
-        cleanup = true;
-      } catch (err) {
-        console.error('[download image fail]', err);
-        return res.status(400).json({ error: '無法下載 imageUrl' });
-      }
-    }
-    // 2) 若有 filePath (本地路徑) => 檢查是否存在
-    else if (localFile && !fs.existsSync(localFile)) {
-      return res.status(400).json({ error: 'filePath 無效' });
-    }
-
-    // TinEye search
-    let tineyeRes = { success: false, links: [] };
-    try {
-      const data = await tinEyeApi.searchByFile(localFile, { limit: ENGINE_MAX_LINKS });
-      const links = tinEyeApi.extractLinks(data);
-      tineyeRes = { success: links.length > 0, links: links.slice(0, ENGINE_MAX_LINKS) };
-    } catch (err) {
-      console.error('[TinEye API error]', err);
-      tineyeRes = { success: false, message: err.message };
-    }
-
-    // Google Vision search
-    let visionRes = { success: false, links: [] };
-    try {
-      const urls = await getVisionPageMatches(localFile, VISION_MAX_RESULTS);
-      visionRes = { success: urls.length > 0, links: urls };
-    } catch (err) {
-      console.error('[Google Vision error]', err);
-      visionRes = { success: false, message: err.message };
-    }
-
-    // 若兩者皆搜尋失敗
-    if (!tineyeRes.success && !visionRes.success) {
-      if (cleanup) fs.unlink(localFile, () => {});
-      return res.json({ success: false, message: 'TinEye and Vision search failed', tineye: tineyeRes, vision: visionRes });
-    }
-
-    // fallback => 由 infringementService.detectInfringement 執行更多邏輯
-    const fallback = await detectInfringement(localFile, imageUrl || '');
-
-    if (cleanup) {
-      fs.unlink(localFile, () => {});
-    }
-
-    return res.json({ success: true, tineye: tineyeRes, vision: visionRes, fallback });
+    if (!req.file) return res.status(400).json({ message: 'file required' });
+    const buffer = req.file.buffer;
+    const report = await visionService.infringementScan({ buffer });
+    return res.json(report);
   } catch (e) {
     console.error('[Infringement Scan Error]', e);
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ message: e.message });
   }
 });
 

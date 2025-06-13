@@ -5,18 +5,19 @@
  *************************************************************/
 const express = require('express');
 const router = express.Router();
-const { searchTinEyeApi } = require('../services/tineyeService');
+const tineyeService = require('../services/tineyeService');
+const upload = require('../middleware/upload');
 
 // POST /api/search/tineye
 // Body: { imageUrl: "..." }
-router.post('/search/tineye', async (req, res) => {
-  const { imageUrl } = req.body || {};
-  if (!imageUrl) {
-    return res.status(400).json({ error: 'imageUrl required' });
-  }
-
+router.post('/search/tineye', upload.single('file'), async (req, res) => {
   try {
-    const matches = await searchTinEyeApi(imageUrl);
+    if (!req.file) {
+      return res.status(400).json({ error: 'file required' });
+    }
+
+    const buffer = req.file.buffer;
+    const matches = await tineyeService.searchByBuffer(buffer);
     return res.json({ matches });
   } catch (err) {
     console.error('[POST /api/search/tineye] error =>', err.message || err);
