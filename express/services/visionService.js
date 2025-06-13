@@ -97,4 +97,41 @@ async function getVisionPageMatches(filePath, maxResults = VISION_MAX_RESULTS) {
   }
 }
 
-module.exports = { getVisionPageMatches, VISION_MAX_RESULTS };
+const os = require('os');
+const tinEyeApi = require('./tineyeApiService');
+
+/**
+ * Perform infringement scan using TinEye and Google Vision with an image buffer.
+ * @param {{buffer: Buffer}} param0
+ * @returns {Promise<{tineye: object, vision: object}>}
+ */
+async function infringementScan({ buffer }) {
+  if (!buffer) throw new Error('buffer required');
+  const tmpDir = path.join(os.tmpdir(), 'infr-scan');
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpPath = path.join(tmpDir, `scan_${Date.now()}.jpg`);
+  fs.writeFileSync(tmpPath, buffer);
+
+  let tineyeRes = { success: false, links: [] };
+  try {
+    const data = await tinEyeApi.searchByFile(tmpPath, { limit: VISION_MAX_RESULTS });
+    const links = tinEyeApi.extractLinks(data);
+    tineyeRes = { success: links.length > 0, links: links.slice(0, VISION_MAX_RESULTS) };
+  } catch (err) {
+    tineyeRes = { success: false, message: err.message };
+  }
+
+  let visionRes = { success: false, links: [] };
+  try {
+    const urls = await getVisionPageMatches(tmpPath, VISION_MAX_RESULTS);
+    visionRes = { success: urls.length > 0, links: urls };
+  } catch (err) {
+    visionRes = { success: false, message: err.message };
+  }
+
+  try { fs.unlinkSync(tmpPath); } catch {}
+
+  return { tineye: tineyeRes, vision: visionRes };
+}
+
+module.exports = { getVisionPageMatches, VISION_MAX_RESULTS, infringementScan };
