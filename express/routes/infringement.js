@@ -84,8 +84,12 @@ function authMiddleware(req, res, next) {
 router.post('/scan', upload.single('file'), authMiddleware, ensureVisionCredentials, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'file required' });
+    const { originalname, size } = req.file;
+    console.log(`[scan] user=${req.user?.id || 'anon'} file=${originalname} size=${size}`);
+    const start = Date.now();
     const buffer = req.file.buffer;
     const report = await visionService.infringementScan({ buffer });
+    console.log(`[scan] completed in ${Date.now() - start}ms tinEyeLinks=${report.tineye.links.length} visionLinks=${report.vision.links.length}`);
     return res.json(report);
   } catch (e) {
     console.error('[Infringement Scan Error]', e);
