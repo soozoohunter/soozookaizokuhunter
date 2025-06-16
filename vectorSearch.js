@@ -2,23 +2,24 @@
 // 與 Python Towhee+Milvus 微服務溝通
 
 const fs = require('fs');
-const FormData = require('form-data');
 const axios = require('axios');
 
 // 服務位置可由環境變數覆蓋，預設為 docker-compose 中的 container name
 const VECTOR_SERVICE_BASE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://suzoo_python_vector:8000';
 
+const INDEX_ENDPOINT = `${VECTOR_SERVICE_BASE_URL}/api/v1/image-insert`;
+const SEARCH_ENDPOINT = `${VECTOR_SERVICE_BASE_URL}/api/v1/image-search`;
+
 // 將單張圖片索引到 Milvus
 async function indexImageVector(localImagePath, fileId) {
   try {
-    const form = new FormData();
-    form.append('image', fs.createReadStream(localImagePath));
-    form.append('id', fileId.toString());
+    const imageBase64 = fs.readFileSync(localImagePath, { encoding: 'base64' });
+    const body = { image_base64: imageBase64, id: fileId };
 
     const res = await axios.post(
-      `${VECTOR_SERVICE_BASE_URL}/api/v1/index`,
-      form,
-      { headers: form.getHeaders(), timeout:30000 }
+      INDEX_ENDPOINT,
+      body,
+      { timeout: 30000 }
     );
     console.log('[indexImageVector] success =>', res.data);
     return res.data;
@@ -31,15 +32,17 @@ async function indexImageVector(localImagePath, fileId) {
 // 用來搜尋相似圖片 (Top-K)
 async function searchImageByVector(localImagePath, options={}) {
   try {
-    const form = new FormData();
-    form.append('image', fs.createReadStream(localImagePath));
-    if(options.topK) form.append('topK', String(options.topK));
-    if(options.modelName) form.append('modelName', options.modelName);
+    const imageBase64 = fs.readFileSync(localImagePath, { encoding: 'base64' });
+    const body = {
+      image_base64: imageBase64,
+      top_k: options.topK || 3,
+    };
+    if(options.modelName) body.model_name = options.modelName;
 
     const res = await axios.post(
-      `${VECTOR_SERVICE_BASE_URL}/api/v1/search`,
-      form,
-      { headers: form.getHeaders(), timeout:30000 }
+      SEARCH_ENDPOINT,
+      body,
+      { timeout: 30000 }
     );
     console.log('[searchImageByVector] success =>', res.data);
     return res.data;
