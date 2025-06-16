@@ -1,0 +1,8 @@
+# 忽略 Node.js 的依賴包
+node_modules
+
+# 忽略日誌檔案
+npm-debug.log
+
+# 【最關鍵】忽略整個 credentials 資料夾
+credentials
