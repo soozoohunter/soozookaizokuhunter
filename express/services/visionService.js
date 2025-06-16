@@ -74,6 +74,12 @@ async function infringementScan({ buffer }) {
   };
 }
 
+async function searchVisionByBuffer(buffer){
+  const { vision } = await infringementScan({ buffer });
+  return vision.links;
+}
+
 module.exports = {
   infringementScan,
+  searchVisionByBuffer,
 };
