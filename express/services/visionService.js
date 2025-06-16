@@ -5,6 +5,13 @@ const os = require('os');
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const tinEyeApi = require('./tineyeApiService');
 
+// --- [診斷程式碼開始] ---
+console.log("==============================================");
+console.log("DIAGNOSTIC LOG: Checking Environment Variable...");
+console.log(`Value of GOOGLE_APPLICATION_CREDENTIALS is: "${process.env.GOOGLE_APPLICATION_CREDENTIALS}"`);
+console.log("==============================================");
+// --- [診斷程式碼結束] ---
+
 const visionClient = new ImageAnnotatorClient();
 console.log('[Service] Google Vision Client initialized.');
 
