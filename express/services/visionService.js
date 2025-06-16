@@ -111,22 +111,29 @@ async function infringementScan({ buffer }) {
   fs.mkdirSync(tmpDir, { recursive: true });
   const tmpPath = path.join(tmpDir, `scan_${Date.now()}.jpg`);
   fs.writeFileSync(tmpPath, buffer);
+  console.log(`[visionService] tmp file created: ${tmpPath}`);
 
   let tineyeRes = { success: false, links: [] };
   try {
+    console.log('[visionService] calling TinEye API...');
     const data = await tinEyeApi.searchByFile(tmpPath, { limit: VISION_MAX_RESULTS });
     const links = tinEyeApi.extractLinks(data);
     tineyeRes = { success: links.length > 0, links: links.slice(0, VISION_MAX_RESULTS) };
+    console.log(`[visionService] TinEye links: ${tineyeRes.links.length}`);
   } catch (err) {
     tineyeRes = { success: false, message: err.message };
+    console.error('[visionService] TinEye error =>', err.message || err);
   }
 
   let visionRes = { success: false, links: [] };
   try {
+    console.log('[visionService] calling Google Vision WebDetection...');
     const urls = await getVisionPageMatches(tmpPath, VISION_MAX_RESULTS);
     visionRes = { success: urls.length > 0, links: urls };
+    console.log(`[visionService] Vision links: ${visionRes.links.length}`);
   } catch (err) {
     visionRes = { success: false, message: err.message };
+    console.error('[visionService] Vision error =>', err.message || err);
   }
 
   try { fs.unlinkSync(tmpPath); } catch {}
