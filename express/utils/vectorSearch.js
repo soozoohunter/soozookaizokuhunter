@@ -9,8 +9,8 @@ const FormData = require('form-data');
 
 // 可以透過環境變數覆蓋服務 URL，預設使用 docker-compose 內的 container name
 const PYTHON_VECTOR_SERVICE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://suzoo_python_vector:8000';
-const INDEX_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/index`;
-const SEARCH_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/search`;
+const INDEX_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/image-insert`;
+const SEARCH_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/image-search`;
 
 async function indexImageVector(localImagePath, fileId, options={}) {
   if(!fs.existsSync(localImagePath)){
@@ -42,15 +42,14 @@ async function searchImageByVector(localImagePath, options={}) {
   }
   const { topK=3, modelName } = options;
   try {
-    const form = new FormData();
-    form.append('image', fs.createReadStream(localImagePath));
-    form.append('topK', `${topK}`);
-    if(modelName) form.append('modelName', modelName);
+    const imageBase64 = fs.readFileSync(localImagePath, { encoding: 'base64' });
+    const body = {
+      image_base64: imageBase64,
+      top_k: topK,
+    };
+    if(modelName) body.model_name = modelName;
 
-    const res = await axios.post(SEARCH_ENDPOINT, form, {
-      headers: form.getHeaders(),
-      timeout:30000
-    });
+    const res = await axios.post(SEARCH_ENDPOINT, body, { timeout:30000 });
     console.log('[searchImageByVector] =>', res.data);
     return res.data;
   } catch(e){
