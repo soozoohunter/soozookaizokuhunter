@@ -51,7 +51,7 @@ services:
       PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
 
       # ★★★ 新增：Google Vision SDK 將自動讀取此路徑 ★★★
-      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/gcp-vision.json
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
 
       # ★★★ 新增：TinEye API Key (修正錯誤) ★★★
       TINEYE_API_KEY: ${TINEYE_API_KEY}
