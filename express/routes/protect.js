@@ -25,9 +25,8 @@ if(ffmpegPath) {
 }
 
 // ========== Google Vision API ==========
-// 同一呼叫 services/visionService.js，避免重複定義
-const { getVisionPageMatches } = require('../services/visionService');
-const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
+// 改為直接呼叫 visionService.infringementScan
+const { infringementScan } = require('../services/visionService');
 
 // ========== Models ==========
 const { User, File } = require('../models');
@@ -490,336 +489,6 @@ async function gotoGinifabViaGoogle(page, publicImageUrl){
   }
 }
 
-async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) {
-  console.log('[aggregatorSearchGinifab] => local=', localImagePath, ' url=', publicImageUrl);
-  const ret = {
-    bing:   { success:false, links:[] },
-    tineye: { success:false, links:[] },
-    baidu:  { success:false, links:[] }
-  };
-
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    await page.setDefaultTimeout(30000);
-    await page.setDefaultNavigationTimeout(30000);
-
-    await page.goto('https://www.ginifab.com.tw/tools/search_image_by_image/', {
-      waitUntil:'domcontentloaded', timeout:20000
-    });
-    await page.waitForTimeout(2000);
-    await saveDebugInfo(page, 'ginifab_afterGoto');
-
-    let successLocal = await tryGinifabUploadLocal(page, localImagePath);
-    if(!successLocal){
-      console.log('[aggregatorSearchGinifab] local upload fail => try URL approach...');
-      successLocal = await tryGinifabWithUrl(page, publicImageUrl);
-    }
-
-    if(!successLocal) {
-      console.warn('[aggregatorSearchGinifab] local+URL both fail => goto google fallback...');
-      await saveDebugInfo(page, 'ginifab_failBeforeGoogle');
-      await page.close().catch(()=>{});
-      page = null;
-
-      const newPage = await browser.newPage();
-      await newPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-      await newPage.setDefaultTimeout(30000);
-      await newPage.setDefaultNavigationTimeout(30000);
-
-      const googleOk = await gotoGinifabViaGoogle(newPage, publicImageUrl);
-      if(!googleOk) {
-        console.warn('[aggregatorSearchGinifab] google fallback also fail => aggregator stop');
-        await saveDebugInfo(newPage, 'ginifab_googleAlsoFail');
-        await newPage.close().catch(()=>{});
-        return ret;
-      } else {
-        page = newPage;
-        let ok2 = await tryGinifabUploadLocal(page, localImagePath);
-        if(!ok2) ok2 = await tryGinifabWithUrl(page, publicImageUrl);
-        if(!ok2){
-          console.warn('[aggregatorSearchGinifab] still fail => aggregator stop');
-          await saveDebugInfo(page, 'ginifab_secondFail');
-          await page.close().catch(()=>{});
-          return ret;
-        }
-      }
-    }
-
-    // 順序點 Bing / TinEye / Baidu
-    const engList = [
-      { key:'bing',   label:['微軟必應','Bing'] },
-      { key:'tineye', label:['錫眼睛','TinEye'] },
-      { key:'baidu',  label:['百度','Baidu'] }
-    ];
-    for(const eng of engList){
-      try {
-        const newTab = new Promise(resolve=>{
-          browser.once('targetcreated', async t => resolve(await t.page()));
-        });
-        await page.evaluate((labels)=>{
-          const as= [...document.querySelectorAll('a')];
-          for(const lab of labels){
-            const found= as.find(x=> x.innerText.includes(lab));
-            if(found){ found.click(); return; }
-          }
-        }, eng.label);
-
-        const popup= await newTab;
-        await popup.waitForTimeout(3000);
-        await saveDebugInfo(popup, `agg_${eng.key}_popup`);
-
-        let hrefs= await popup.$$eval('a', as=> as.map(a=> a.href || ''));
-        // 過濾 ginifab / 三大引擎自身
-        hrefs= hrefs.filter(h=>
-          h &&
-          !h.includes('ginifab') &&
-          !h.includes('bing.com') &&
-          !h.includes('tineye.com') &&
-          !h.includes('baidu.com')
-        );
-        // ★過濾無效連結
-        hrefs = hrefs.filter(isValidLink);
-
-        ret[eng.key].links= hrefs.slice(0, ENGINE_MAX_LINKS);
-        ret[eng.key].success= ret[eng.key].links.length>0;
-        await popup.close();
-      } catch(eSub){
-        console.error(`[aggregatorSearchGinifab] sub-engine fail => ${eng.key}]`, eSub);
-        if(page) await saveDebugInfo(page, `agg_${eng.key}_error`);
-      }
-    }
-
-  } catch(e){
-    console.error('[aggregatorSearchGinifab fail]', e);
-    if(page) await saveDebugInfo(page, 'aggregatorSearchGinifab_error');
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return ret;
-}
-
-/** 
- * directSearchBing - Bing 鏡像搜尋
- */
-async function directSearchBing(browser, imagePath){
-  console.log('[directSearchBing] =>', imagePath);
-  const ret={ success:false, links:[] };
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    await page.setDefaultTimeout(30000);
-    await page.setDefaultNavigationTimeout(30000);
-
-    await page.goto('https://www.bing.com/images', {
-      waitUntil:'domcontentloaded', timeout:20000
-    });
-    await saveDebugInfo(page, 'bing_afterGoto');
-    await page.waitForTimeout(2000);
-
-    let fileChooser;
-    try {
-      [fileChooser] = await Promise.all([
-        page.waitForFileChooser({ timeout:8000 }),
-        page.click('#sb_sbi').catch(()=>{})
-      ]);
-    } catch(e1) {
-      console.warn('[directSearchBing] waitForFileChooser fail => skip', e1.message);
-      ret.success=false;
-      return ret;
-    }
-
-    if(fileChooser){
-      await fileChooser.accept([imagePath]);
-      await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
-      await page.waitForTimeout(3000);
-
-      let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
-      // 過濾自身 + 無效
-      hrefs= hrefs.filter(h=> h && !h.includes('bing.com')).filter(isValidLink);
-      ret.links= [...new Set(hrefs)].slice(0, ENGINE_MAX_LINKS);
-      ret.success= ret.links.length>0;
-    }
-
-  } catch(e){
-    console.error('[directSearchBing] fail =>', e);
-    if(page) await saveDebugInfo(page, 'bing_error');
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return ret;
-}
-
-/**
- * directSearchTinEye
- */
-async function directSearchTinEye(_browser, imagePath){
-  console.log('[directSearchTinEye] =>', imagePath);
-  const ret={ success:false, links:[] };
-  try {
-    const data = await tinEyeApi.searchByFile(imagePath);
-    const links = tinEyeApi.extractLinks(data);
-    ret.links = links.slice(0, ENGINE_MAX_LINKS);
-    ret.success = ret.links.length>0;
-  } catch(e){
-    console.error('[directSearchTinEye] API fail =>', e.message);
-  }
-  return ret;
-}
-
-/**
- * directSearchBaidu
- */
-async function directSearchBaidu(browser, imagePath){
-  console.log('[directSearchBaidu] =>', imagePath);
-  const ret={ success:false, links:[] };
-  let page;
-  try {
-    page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
-    await page.setDefaultTimeout(30000);
-    await page.setDefaultNavigationTimeout(30000);
-
-    // 先嘗試 https://graph.baidu.com
-    await page.goto('https://graph.baidu.com/', {
-      waitUntil:'domcontentloaded', timeout:20000
-    });
-    await saveDebugInfo(page, 'baidu_afterGoto');
-    await page.waitForTimeout(2000);
-
-    try {
-      const fInput= await page.waitForSelector('input[type=file]', { timeout:5000 });
-      await fInput.uploadFile(imagePath);
-      await page.waitForTimeout(4000);
-    } catch(eGraph) {
-      console.warn('[directSearchBaidu] graph.baidu.com => no file input =>', eGraph.message);
-    }
-
-    // 再嘗試 image.baidu.com
-    try {
-      await page.goto('https://image.baidu.com/', {
-        waitUntil:'domcontentloaded', timeout:20000
-      });
-      await page.waitForTimeout(2000);
-
-      const cameraBtn = await page.$('span.soutu-btn');
-      if(cameraBtn){
-        await cameraBtn.click();
-        await page.waitForTimeout(1500);
-        const f2 = await page.$('input[type=file]');
-        if(f2){
-          await f2.uploadFile(imagePath);
-          await page.waitForTimeout(3000);
-        } else {
-          console.warn('[directSearchBaidu] image.baidu.com => no input[type=file] after clicking camera');
-        }
-      }
-    } catch(eImgBaidu){
-      console.warn('[directSearchBaidu] image.baidu.com =>', eImgBaidu.message);
-    }
-
-    let hrefs= await page.$$eval('a', as=> as.map(a=> a.href || ''));
-    hrefs= hrefs.filter(h=> h && !h.includes('baidu.com')).filter(isValidLink);
-    ret.links= [...new Set(hrefs)].slice(0, ENGINE_MAX_LINKS);
-    ret.success= ret.links.length>0;
-
-  } catch(e){
-    console.error('[directSearchBaidu] fail =>', e);
-    if(page) await saveDebugInfo(page, 'baidu_error');
-  } finally {
-    if(page) await page.close().catch(()=>{});
-  }
-  return ret;
-}
-
-/** 
- * fallbackDirectEngines - 順序呼叫 Bing / TinEye / Baidu 
- */
-async function fallbackDirectEngines(imagePath){
-  let final = { bing:[], tineye:[], baidu:[] };
-  let browser;
-  try {
-    browser = await launchBrowser();
-    console.log('[fallbackDirectEngines] browser launched...');
-
-    const [rBing, rTine, rBai] = await Promise.all([
-      directSearchBing(browser, imagePath),
-      directSearchTinEye(browser, imagePath),
-      directSearchBaidu(browser, imagePath)
-    ]);
-    final.bing   = rBing.links;
-    final.tineye = rTine.links;
-    final.baidu  = rBai.links;
-
-    console.log('[fallbackDirectEngines] done =>', final);
-  } catch(e){
-    console.error('[fallbackDirectEngines error]', e);
-  } finally {
-    if(browser) await browser.close().catch(()=>{});
-  }
-  return final;
-}
-
-/**
- * 同步呼叫 aggregator + fallback + vision
- * aggregator: Ginifab + (Bing/TinEye/Baidu)  or fallbackDirect
- * vision: getVisionPageMatches
- */
-async function doSearchEngines(localFilePath, aggregatorFirst=true, aggregatorImageUrl=''){
-  console.log('[doSearchEngines] aggregatorFirst=', aggregatorFirst, ' aggregatorUrl=', aggregatorImageUrl);
-  const ret = { bing:{}, tineye:{}, baidu:{}, vision:{} };
-  let aggregatorOk=false;
-
-  if(aggregatorFirst && aggregatorImageUrl){
-    let browser;
-    try {
-      browser = await launchBrowser();
-      const aggRes = await aggregatorSearchGinifab(browser, localFilePath, aggregatorImageUrl);
-      console.log('[doSearchEngines] aggregator =>', aggRes);
-      const total = aggRes.bing.links.length
-                  + aggRes.tineye.links.length
-                  + aggRes.baidu.links.length;
-      if(total>0){
-        aggregatorOk= true;
-        ret.bing   = { links: aggRes.bing.links,   success:true };
-        ret.tineye = { links: aggRes.tineye.links, success:true };
-        ret.baidu  = { links: aggRes.baidu.links,  success:true };
-      }
-    } catch(eAg){
-      console.error('[doSearchEngines] aggregatorSearchGinifab error =>', eAg);
-    } finally {
-      if(browser) await browser.close().catch(()=>{});
-    }
-
-    if(!aggregatorOk){
-      console.log('[doSearchEngines] aggregator fail => fallbackDirect');
-      const fb = await fallbackDirectEngines(localFilePath);
-      ret.bing   = { links: fb.bing,    success: fb.bing.length>0 };
-      ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
-      ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
-    }
-  } else {
-    console.log('[doSearchEngines] fallbackDirect only');
-    const fb = await fallbackDirectEngines(localFilePath);
-    ret.bing   = { links: fb.bing,    success: fb.bing.length>0 };
-    ret.tineye = { links: fb.tineye,  success: fb.tineye.length>0 };
-    ret.baidu  = { links: fb.baidu,   success: fb.baidu.length>0 };
-  }
-
-  // ★ Vision
-  try {
-    const visionUrls = await getVisionPageMatches(localFilePath, VISION_MAX_RESULTS);
-    if (visionUrls.length) {
-      ret.vision = { links: visionUrls, success: true };
-    }
-  } catch(eVision){
-    console.error('[doSearchEngines] Google Vision error =>', eVision.message);
-  }
-
-  return ret;
-}
 
 // 抓網頁主圖
 async function fetchLinkMainImage(pageUrl){
@@ -924,8 +593,14 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
     };
   }
 
-  // (3) aggregator => fallback + Vision
-  aggregatorResult = await doSearchEngines(localFilePath, true, mainImgUrl);
+  // (3) 改為直接呼叫 infringementScan 取得 TinEye 及 Google Vision 結果
+  const report = await infringementScan({ buffer: fs.readFileSync(localFilePath) });
+  aggregatorResult = {
+    bing:   { links: [], success: false },
+    tineye: { links: report.tineye.links, success: report.tineye.success },
+    baidu:  { links: [], success: false },
+    vision: { links: report.vision.links, success: report.vision.success }
+  };
 
   // (4) 向量檢索
   if(needVector){
@@ -1279,75 +954,40 @@ router.get('/scan/:fileId', async(req,res)=>{
     }
 
     let allLinks=[...suspiciousLinks];
-    const isVideo= !!ext.match(/\.(mp4|mov|avi|mkv|webm)$/i);
-
-    function getPublicUrl(fid, extension){
-      return `${PUBLIC_HOST}/uploads/imageForSearch_${fid}${extension}`;
-    }
-
     let matchedImages = [];
 
-    if(isVideo){
-      // (Video <=30s) => 抽幀 => aggregator/fallback + Vision
-      try {
-        const durSec= parseFloat(
-          execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${localPath}"`)
-            .toString().trim()
-        )||9999;
-        if(durSec<=30){
-          const frameDir= path.join(UPLOAD_BASE_DIR, `frames_${fileRec.id}`);
-          if(!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
+    // 直接呼叫 infringementScan
+    try {
+      const fileBuffer = fs.readFileSync(localPath);
+      const report = await infringementScan({ buffer: fileBuffer });
+      if (report.tineye?.success) allLinks.push(...report.tineye.links);
+      if (report.vision?.success) allLinks.push(...report.vision.links);
+    } catch(eScan) {
+      console.error('[scan infringementScan error]', eScan);
+    }
 
-          const frames= await extractKeyFrames(localPath, frameDir, 10,5);
-          for(const fPath of frames){
-            const baseName = path.basename(fPath);
-            const frameUrl = `${PUBLIC_HOST}/uploads/frames_${fileRec.id}/${baseName}`;
-            const engineRes= await doSearchEngines(fPath, true, frameUrl);
-            allLinks.push(
-              ...engineRes.bing.links, 
-              ...engineRes.tineye.links, 
-              ...engineRes.baidu.links,
-              ...(engineRes.vision?.links || [])
-            );
-          }
-        }
-      } catch(eVid){
-        console.error('[scan video aggregator error]', eVid);
-      }
-    } else {
-      // 單張圖片 => aggregator + fallback + 向量檢索 + Vision
-      const publicUrl= getPublicUrl(fileId, ext);
-      const engineRes= await doSearchEngines(localPath, true, publicUrl);
-      allLinks.push(
-        ...engineRes.bing.links, 
-        ...engineRes.tineye.links, 
-        ...engineRes.baidu.links,
-        ...(engineRes.vision?.links || [])
-      );
-
-      // 向量檢索
-      try {
-        const vectorRes = await searchImageByVector(localPath, { topK: 3 });
-        if(vectorRes && vectorRes.results){
-          for(const r of vectorRes.results){
-            if(r.url){
-              try {
-                const resp = await axios.get(r.url, { responseType:'arraybuffer' });
-                const b64 = Buffer.from(resp.data).toString('base64');
-                matchedImages.push({
-                  id: r.id,
-                  score: r.score,
-                  base64: b64
-                });
-              } catch(eDn){
-                console.error('[scan] download matched url fail =>', r.url, eDn);
-              }
+    // 向量檢索
+    try {
+      const vectorRes = await searchImageByVector(localPath, { topK: 3 });
+      if(vectorRes && vectorRes.results){
+        for(const r of vectorRes.results){
+          if(r.url){
+            try {
+              const resp = await axios.get(r.url, { responseType:'arraybuffer' });
+              const b64 = Buffer.from(resp.data).toString('base64');
+              matchedImages.push({
+                id: r.id,
+                score: r.score,
+                base64: b64
+              });
+            } catch(eDn){
+              console.error('[scan] download matched url fail =>', r.url, eDn);
             }
           }
         }
-      } catch(eVec){
-        console.error('[searchImageByVector error]', eVec);
       }
+    } catch(eVec){
+      console.error('[searchImageByVector error]', eVec);
     }
 
     // (3) 讀取人工連結
