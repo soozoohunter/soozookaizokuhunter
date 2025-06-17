@@ -20,6 +20,8 @@ AWS_SECRET_KEY=your_aws_secret_key
 GOOGLE_APPLICATION_CREDENTIALS=./credentials/gcp-vision.json
 VISION_MAX_RESULTS=50
 TINEYE_API_KEY=your_tineye_api_key
+JWT_ACCESS_SECRET=your_super_secret_for_access_token
+JWT_REFRESH_SECRET=your_super_secret_for_refresh_token
 ```
 
 ## 使用 Docker Compose 啟動整套系統
