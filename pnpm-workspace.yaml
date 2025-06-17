@@ -1,8 +1,0 @@
-packages:
-  - 'frontend'
-  - 'express'
-  - 'fastapi'
-  - 'python-vector-service'
-  - 'python_crawlers'
-  - 'api_service'
-  - 'ai_service'

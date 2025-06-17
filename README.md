@@ -20,8 +20,6 @@ AWS_SECRET_KEY=your_aws_secret_key
 GOOGLE_APPLICATION_CREDENTIALS=./credentials/gcp-vision.json
 VISION_MAX_RESULTS=50
 TINEYE_API_KEY=your_tineye_api_key
-JWT_ACCESS_SECRET=your_super_secret_for_access_token
-JWT_REFRESH_SECRET=your_super_secret_for_refresh_token
 ```
 
 ## 使用 Docker Compose 啟動整套系統
@@ -30,7 +28,6 @@ JWT_REFRESH_SECRET=your_super_secret_for_refresh_token
 docker-compose up --build
 ```
 
-在服務啟動後，Docker Compose 會根據 healthcheck 等待核心服務就緒。
 ## 設定 Google Cloud Vision API
 
 1. 於 [Google Cloud Console](https://console.cloud.google.com/) 建立專案並啟用 **Vision API**。
@@ -93,23 +90,4 @@ Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳�
 ```bash
 docker compose build suzoo_express
 docker compose up -d suzoo_express
-```
-
-## Monorepo Workflow
-
-專案採用 pnpm 與 Turborepo 管理多個服務，開發前可執行：
-
-```bash
-corepack enable
-corepack prepare pnpm@latest --activate
-pnpm install
-```
-
-常用指令：
-
-```bash
-pnpm dev    # 啟動所有服務
-pnpm build  # 建構所有套件
-pnpm lint   # 執行 ESLint
-pnpm test   # 執行測試
 ```
