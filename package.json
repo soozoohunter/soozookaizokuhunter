@@ -2,5 +2,31 @@
   "dependencies": {
     "jwt-decode": "^4.0.0",
     "styled-components": "^6.1.17"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@10.5.2",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.9.0",
+    "eslint": "^8.56.0",
+    "prettier": "^2.8.8",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
+    "turbo": "^1.11.3"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx}": "eslint --fix"
   }
 }
