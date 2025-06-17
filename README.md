@@ -30,6 +30,7 @@ JWT_REFRESH_SECRET=your_super_secret_for_refresh_token
 docker-compose up --build
 ```
 
+在服務啟動後，Docker Compose 會根據 healthcheck 等待核心服務就緒。
 ## 設定 Google Cloud Vision API
 
 1. 於 [Google Cloud Console](https://console.cloud.google.com/) 建立專案並啟用 **Vision API**。
