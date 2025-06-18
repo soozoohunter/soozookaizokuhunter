@@ -16,6 +16,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - suzoo_net
 
   suzoo_redis:
     container_name: suzoo_redis
