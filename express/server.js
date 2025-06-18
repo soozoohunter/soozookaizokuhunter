@@ -8,6 +8,9 @@ const path          = require('path');
 const puppeteer     = require('puppeteer');
 
 const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /*───────────────────────────────────  
  | 路由 import  
@@ -24,10 +27,6 @@ const infringementRouter = require('./routes/infringement');     // 侵權相關
 /*───────────────────────────────────  
  | 1. 中介層  
  *───────────────────────────────────*/
-app.use(cors());
-app.use(express.json());
-// Allow parsing of application/x-www-form-urlencoded bodies
-app.use(express.urlencoded({ extended: true }));
 
 /*───────────────────────────────────  
  | 2. uploads 對外靜態目錄  
