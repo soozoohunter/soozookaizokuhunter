@@ -2,6 +2,7 @@
 import os
 import io
 import sqlite3
+import sys
 import requests
 import base64
 from typing import Optional
@@ -33,7 +34,8 @@ IMAGE_COLLECTION_NAME = "image_collection"
 DIM_IMAGE = 512
 
 # SQLite 路径
-DB_PATH = os.path.join(os.path.dirname(__file__), "sqlite_db", "sources.db")
+BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "sqlite_db", "sources.db")
 
 # FastAPI & Celery
 app = FastAPI(title="Suzoo Vector Service")

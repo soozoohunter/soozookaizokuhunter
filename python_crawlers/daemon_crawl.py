@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 import os
 import sqlite3
+import sys
 import requests
 import time
 from bs4 import BeautifulSoup
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "sqlite_db", "sources.db")
+BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "sqlite_db", "sources.db")
 API_BASE = os.environ.get("API_BASE", "http://suzoo_python_vector:8000")
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "15"))  # 每隔幾秒檢查一次
 
