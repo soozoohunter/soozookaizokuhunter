@@ -31,12 +31,6 @@ router.post(
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      // Validate original filename to prevent unexpected patterns
-      const allowedPattern = /^[a-zA-Z0-9_\-.]+\.(jpe?g|png|gif|mp4|mov)$/i;
-      if (!allowedPattern.test(req.file.originalname)) {
-        return res.status(400).json({ error: 'Filename does not match expected pattern' });
-      }
-
       // 舉例：依照原檔名決定副檔名
       const ext = path.extname(req.file.originalname) || '';
       // 生成一個新檔名 => "upload_1685630470123.jpg"
@@ -56,10 +50,9 @@ router.post(
       const targetPath = path.join(uploadsDir, newFileName);
       fs.renameSync(sourcePath, targetPath);
 
-      // 4) 更新 req.file 路徑供後續使用
+      // 4) 可將 newPath 註冊到 req.file，讓後續 uploadController 用
       req.file.newPath = targetPath;
       req.file.newFilename = newFileName;
-      req.file.path = targetPath; // ensure controller reads the correct path
 
       // 繼續
       next();
