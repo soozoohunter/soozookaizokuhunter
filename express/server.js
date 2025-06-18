@@ -60,7 +60,11 @@ app.use('/auth',        authRouter);            // 認證
 /*───────────────────────────────────  
  | 5. Sequelize 連線 & 同步  
  *───────────────────────────────────*/
-(async () => {
+// DB 連線重試機制
+const MAX_RETRIES = parseInt(process.env.DB_CONNECT_RETRIES || '5');
+const RETRY_DELAY = parseInt(process.env.DB_CONNECT_RETRY_DELAY || '5000');
+
+async function connectWithRetry(attempt = 1) {
   try {
     await sequelize.authenticate();
     console.log('[Express] Sequelize connected.');
@@ -70,9 +74,18 @@ app.use('/auth',        authRouter);            // 認證
 
     await createAdmin();
   } catch (err) {
-    console.error('[Express] Sequelize connect error:', err);
+    console.error(`[Express] Sequelize connect error (attempt ${attempt}/${MAX_RETRIES}):`, err);
+    if (attempt < MAX_RETRIES) {
+      console.log(`[Express] Retrying DB connection in ${RETRY_DELAY / 1000}s...`);
+      setTimeout(() => connectWithRetry(attempt + 1), RETRY_DELAY);
+    } else {
+      console.error('[Express] DB connection failed after maximum retries, exiting.');
+      process.exit(1);
+    }
   }
-})();
+}
+
+connectWithRetry();
 
 /*───────────────────────────────────  
  | 6. Puppeteer：強制使用新版 Headless  
