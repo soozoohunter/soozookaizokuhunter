@@ -1,4 +1,6 @@
+'use strict';
 require('dotenv').config();
+// Ensure Express is loaded before using it
 const express = require('express');
 const cors = require('cors');
 const { sequelize } = require('./models');
