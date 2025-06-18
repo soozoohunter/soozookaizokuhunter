@@ -9,3 +9,4 @@ dist
 coverage
 .turbo
 credentials/gcp-vision.json
+credentials/gcp-vision.json
