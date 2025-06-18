@@ -1,12 +1,3 @@
 fastapi.log
 nginx.log
 credentials/*.json
-
-node_modules
-.env
-dist
-.next
-coverage
-.turbo
-credentials/gcp-vision.json
-credentials/gcp-vision.json
