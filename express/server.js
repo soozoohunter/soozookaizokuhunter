@@ -1,11 +1,11 @@
 require('dotenv').config();
-const express       = require('express');
-const cors          = require('cors');
+const express = require('express');
+const cors = require('cors');
 const { sequelize } = require('./models');
-const createAdmin   = require('./createDefaultAdmin');
-const fs            = require('fs');
-const path          = require('path');
-const puppeteer     = require('puppeteer');
+const createAdmin = require('./createDefaultAdmin');
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer');
 
 const app = express();
 app.use(cors());
