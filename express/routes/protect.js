@@ -1009,11 +1009,27 @@ router.get('/scan/:fileId', async(req,res)=>{
     const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
     const stampPath= path.join(__dirname, '../../public/stamp.png');
 
+    let shotPath = null;
+    if (truncated.length > 0) {
+      const browser = await launchBrowser();
+      try {
+        const page = await browser.newPage();
+        await page.goto(truncated[0], { waitUntil:'domcontentloaded', timeout:30000 }).catch(()=>{});
+        const shotDir = path.join(UPLOAD_BASE_DIR, 'infringe_shots');
+        if(!fs.existsSync(shotDir)) fs.mkdirSync(shotDir, { recursive:true });
+        shotPath = path.join(shotDir, `file_${fileRec.id}_${Date.now()}.png`);
+        await page.screenshot({ path: shotPath, fullPage:true }).catch(()=>{});
+      } finally {
+        await browser.close().catch(()=>{});
+      }
+    }
+
     await generateScanPDFWithMatches({
       file: fileRec,
       suspiciousLinks: truncated,
       matchedImages,
-      stampImagePath: fs.existsSync(stampPath)? stampPath:null
+      stampImagePath: fs.existsSync(stampPath)? stampPath:null,
+      screenshotPath: shotPath
     }, scanPdfPath);
 
     return res.json({
@@ -1101,6 +1117,20 @@ router.get('/scanLink', async(req,res)=>{
     const pdfName = `linkScanReport_${Date.now()}.pdf`;
     const pdfPath = path.join(REPORTS_DIR, pdfName);
 
+    let shotPath = null;
+    try {
+      const browser = await launchBrowser();
+      const page = await browser.newPage();
+      await page.goto(pageUrl, { waitUntil:'domcontentloaded', timeout:30000 }).catch(()=>{});
+      const shotDir = path.join(UPLOAD_BASE_DIR, 'infringe_shots');
+      if(!fs.existsSync(shotDir)) fs.mkdirSync(shotDir, { recursive:true });
+      shotPath = path.join(shotDir, `link_${Date.now()}.png`);
+      await page.screenshot({ path: shotPath, fullPage:true }).catch(()=>{});
+      await browser.close();
+    } catch(e){
+      console.error('[scanLink screenshot error]', e);
+    }
+
     await generateScanPDFWithMatches({
       file: {
         id: '(linkScan)',
@@ -1112,7 +1142,8 @@ router.get('/scanLink', async(req,res)=>{
       matchedImages,
       stampImagePath: fs.existsSync(path.join(__dirname, '../../public/stamp.png'))
         ? path.join(__dirname, '../../public/stamp.png')
-        : null
+        : null,
+      screenshotPath: shotPath
     }, pdfPath);
 
     // 清理暫存

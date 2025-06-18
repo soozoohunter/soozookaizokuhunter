@@ -102,22 +102,9 @@ export default function ProtectStep4Infringement() {
   } = info;
 
   /**
-   * 方法1：用 window.open 在新分頁打開 PDF
+   * 直接下載 PDF
    */
-  const handleDownloadScanPdfNewTab = () => {
-    if (!scanReportUrl) {
-      alert('無法找到「侵權偵測報告 PDF」的下載連結');
-      return;
-    }
-    // 直接開新分頁
-    window.open(scanReportUrl, '_blank');
-  };
-
-  /**
-   * 方法2：直接下載 PDF
-   * 說明：若想直接下載檔案，可改用此函數
-   */
-  const handleDownloadScanPdfDirect = () => {
+  const handleDownloadScanPdf = () => {
     if (!scanReportUrl) {
       alert('無法找到「侵權偵測報告 PDF」的下載連結');
       return;
@@ -159,13 +146,8 @@ export default function ProtectStep4Infringement() {
         )}
 
         <div style={{ marginTop:'1.5rem' }}>
-          {/* 按鈕1：預設用「新分頁開啟 PDF」 */}
-          <Button onClick={handleDownloadScanPdfNewTab}>
-            下載侵權偵測報告 (另開視窗)
-          </Button>
-          {/* 按鈕2：可選用「直接下載」功能，若不需要可隱藏或移除 */}
-          <Button onClick={handleDownloadScanPdfDirect}>
-            直接下載 PDF
+          <Button onClick={handleDownloadScanPdf}>
+            下載侵權偵測報告
           </Button>
 
           <Button onClick={() => navigate('/')}>
