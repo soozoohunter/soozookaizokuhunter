@@ -21,14 +21,8 @@ const uploadController = {
       }
 
       // 2) 讀取本地檔案
-      const filePath = req.file.newPath || req.file.path;
+      const filePath = req.file.path;
       const fileBuffer = fs.readFileSync(filePath);
-
-      // 2.1) 檢查檔案 MIME 類型
-      if (!/^image\//i.test(req.file.mimetype) && !/^video\//i.test(req.file.mimetype)) {
-        fs.unlinkSync(filePath);
-        return res.status(400).json({ error: 'Unsupported file type' });
-      }
 
       // 3) 計算指紋 (SHA256)
       const fingerprint = fingerprintService.sha256(fileBuffer);
