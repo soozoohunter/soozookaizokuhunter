@@ -75,10 +75,14 @@ services:
       # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
     depends_on:
-      - suzoo_postgres
-      - suzoo_ipfs
-      - suzoo_ganache
-      - suzoo_milvus
+      suzoo_postgres:
+        condition: service_healthy
+      suzoo_ipfs:
+        condition: service_started
+      suzoo_ganache:
+        condition: service_started
+      suzoo_milvus:
+        condition: service_started
     ports:
       - "3000:3000"
     networks:
