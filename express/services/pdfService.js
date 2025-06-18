@@ -158,10 +158,11 @@ async function generateReport(filePath, results) {
  *   - matchedImages: Array<{id:string, score:number, base64:string}>
  *   - stampImagePath: (可選) 浮水印圖
  *   - cachedHtmlContent: (可選) 來自各平台的 HTML 字串快取
+ *   - screenshotPath: (可選) 侵權頁面截圖路徑
  * @param {string} outputPath - 輸出PDF檔案路徑
  */
 async function generateScanPDFWithMatches(
-  { file, suspiciousLinks, matchedImages, stampImagePath, cachedHtmlContent },
+  { file, suspiciousLinks, matchedImages, stampImagePath, cachedHtmlContent, screenshotPath },
   outputPath
 ) {
   return new Promise((resolve, reject) => {
@@ -225,6 +226,13 @@ async function generateScanPDFWithMatches(
           doc.fontSize(10).fillColor('gray').text(summary);
           doc.moveDown();
         });
+        doc.moveDown();
+      }
+
+      // (NEW) 侵權頁面截圖
+      if (screenshotPath && fs.existsSync(screenshotPath)) {
+        doc.fontSize(14).text('偵測到侵權頁面截圖:', { underline: true });
+        doc.image(screenshotPath, { fit: [500, 400], align: 'center' });
         doc.moveDown();
       }
 
