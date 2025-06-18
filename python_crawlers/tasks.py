@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import sys
 import requests
 from celery import Celery
 from bs4 import BeautifulSoup
@@ -10,8 +9,7 @@ RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "rpc://")
 
 app = Celery("tasks", broker=BROKER_URL, backend=RESULT_BACKEND)
 
-BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-DB_PATH  = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "sqlite_db", "sources.db"))
+DB_PATH  = os.environ.get("DB_PATH", "/app/sqlite_db/sources.db")
 API_BASE = os.environ.get("API_BASE", "http://suzoo_python_vector:8000")
 
 @app.task(name="tasks.crawl_url")

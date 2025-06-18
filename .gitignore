@@ -1,22 +1,12 @@
-# log files
 fastapi.log
 nginx.log
-
-# credential files (always keep them out of git)
 credentials/*.json
 
-# dependency directories
-node_modules/
-
-# environment and build artifacts
+node_modules
 .env
-dist/
-.next/
-coverage/
-.turbo/
-
-# lockfiles: 若您使用 yarn/npm/pnpm，確保只留必要的 lockfile
-# package-lock.json
-yarn.lock
-# 如果使用 pnpm，請保留 pnpm-lock.yaml 並移除此註解
-# pnpm-lock.yaml
+dist
+.next
+coverage
+.turbo
+credentials/gcp-vision.json
+credentials/gcp-vision.json
