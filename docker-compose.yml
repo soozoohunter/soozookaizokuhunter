@@ -72,6 +72,9 @@ services:
       # ★★★ 新增：TinEye API Key (修正錯誤) ★★★
       TINEYE_API_KEY: ${TINEYE_API_KEY}
 
+      # ★★★ 新增：RapidAPI Key (這是你缺失的！) ★★★
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY} # <-- 新增這一行
+
       # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
     depends_on:
@@ -285,7 +288,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  uploads_data:   # ★★★ 對應 /app/uploads ★★★
+  uploads_data: # ★★★ 對應 /app/uploads ★★★
 
 networks:
   suzoo_net:
