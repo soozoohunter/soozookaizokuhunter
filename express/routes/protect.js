@@ -47,7 +47,6 @@ const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
-const rapidApi = require('../services/rapidApiService');
 
 //----------------------------------------------------
 // [★ 人工搜圖連結檔案] express/data/manual_links.json
@@ -1286,50 +1285,6 @@ router.get('/flickerDownload', (req, res)=>{
   } catch(e){
     console.error('[flickerDownload error]', e);
     return res.status(500).send('Download error: ' + e.message);
-  }
-});
-
-// ========== RapidAPI 整合路由 ==========
-router.get('/scanTikTok', async (req, res) => {
-  try {
-    const data = await rapidApi.searchTikTok(req.query.q);
-    res.json(data);
-  } catch (err) {
-    console.error('scanTikTok error:', err);
-    res.status(500).json({ error: 'Failed to fetch TikTok data' });
-  }
-});
-
-router.get('/scanFacebook', async (req, res) => {
-  try {
-    const data = await rapidApi.getFacebookPost(req.query.id);
-    res.json(data);
-  } catch (err) {
-    console.error('scanFacebook error:', err);
-    res.status(500).json({ error: 'Failed to fetch Facebook post' });
-  }
-});
-
-router.get('/scanInstagram', async (req, res) => {
-  try {
-    const data = await rapidApi.getInstagramComments(
-      req.query.mediaId,
-      req.query.cursor
-    );
-    res.json(data);
-  } catch (err) {
-    console.error('scanInstagram error:', err);
-    res.status(500).json({ error: 'Failed to fetch Instagram comments' });
-  }
-});
-
-router.get('/suggestYouTube', async (req, res) => {
-  try {
-    const data = await rapidApi.autoCompleteYouTube(req.query.q);
-    res.json(data);
-  } catch (err) {
-    console.error('suggestYouTube error:', err);
-    res.status(500).json({ error: 'Failed to fetch YouTube suggestions' });
   }
 });
 
