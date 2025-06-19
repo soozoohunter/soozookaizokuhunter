@@ -47,7 +47,7 @@ const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
-const rapidApiService = require('../services/rapidApiService'); // 新增這行
+const rapidApiService = require('../services/rapidApiService');
 
 //----------------------------------------------------
 // [★ 人工搜圖連結檔案] express/data/manual_links.json
@@ -504,7 +504,7 @@ async function fetchLinkMainImage(pageUrl){
     const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(resp.data);
     const ogImg = $('meta[property="og:image"]').attr('content')
-              || $('meta[name="og:image"]').attr('content');
+               || $('meta[name="og:image"]').attr('content');
     if(ogImg) {
       console.log('[fetchLinkMainImage] found og:image =>', ogImg);
       return ogImg;
@@ -933,7 +933,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       try {
         const rTT = await rapidApiService.tiktokSearch(query);
         const items = rTT?.videos || rTT?.data || [];
-        items.forEach(v => { if(v.link) suspiciousLinks.push(v.link); });
+        // 新增陣列檢查
+        if (Array.isArray(items)) {
+          items.forEach(v => { if(v.link) suspiciousLinks.push(v.link); });
+        }
       } catch(eTT){
         console.error('[scan Tiktok error]', eTT.message);
       }
@@ -941,7 +944,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       try {
         const rIG = await rapidApiService.instagramSearch(query);
         const igItems = rIG?.results || rIG?.data || [];
-        igItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        // 新增陣列檢查
+        if (Array.isArray(igItems)) {
+          igItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        }
       } catch(eIG){
         console.error('[scan Instagram error]', eIG.message);
       }
@@ -949,7 +955,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       try {
         const rFB = await rapidApiService.facebookSearch(query);
         const fbItems = rFB?.results || rFB?.data || [];
-        fbItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        // 新增陣列檢查
+        if (Array.isArray(fbItems)) {
+          fbItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        }
       } catch(eFB){
         console.error('[scan Facebook error]', eFB.message);
       }
@@ -957,7 +966,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       try {
         const rYT = await rapidApiService.youtubeSearch(query);
         const ytItems = rYT?.items || rYT?.data || [];
-        ytItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        // 新增陣列檢查
+        if (Array.isArray(ytItems)) {
+          ytItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+        }
       } catch(eYT){
         console.error('[scan YouTube error]', eYT.message);
       }
