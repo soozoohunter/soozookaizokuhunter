@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styled from 'styled-components';
-import axiosInstance from '../api/axiosInstance';
-import authService from '../api/authService';
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -97,12 +95,22 @@ export default function Login() {
         ? { email: identifier.trim().toLowerCase(), password }
         : { username: identifier.trim(), password };
 
-      const { data } = await axiosInstance.post('/auth/login', payload);
+      const resp = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
 
-      if (data && data.accessToken) {
-        authService.setAccessToken(data.accessToken);
+      if (!resp.ok) {
+        setErrorMsg(data.message || '登入失敗');
+        return;
       }
-      alert('登入成功');
+
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      alert(data.message || '登入成功');
       navigate('/');
     } catch (err) {
       console.error(err);
