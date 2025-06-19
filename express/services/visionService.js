@@ -4,6 +4,7 @@ const path = require('path');
 const os = require('os');
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const tinEyeApi = require('./tineyeApiService');
+const rapidApiService = require('./rapidApiService');
 
 // --- [診斷程式碼開始] ---
 console.log("==============================================");
@@ -72,12 +73,27 @@ async function infringementScan({ buffer }) {
     }
     visionResult = { success: false, links: [], error: err.message };
   }
-  
+
+  // --- RapidAPI 多平台搜尋 ---
+  const rapidResults = {};
+  if (process.env.RAPIDAPI_KEY) {
+    try {
+      console.log('[Service] Calling RapidAPI integrations...');
+      rapidResults.tiktok = await rapidApiService.tiktokSearch(tmpPath);
+      rapidResults.instagram = await rapidApiService.instagramSearch(tmpPath);
+      rapidResults.facebook = await rapidApiService.facebookSearch(tmpPath);
+      rapidResults.youtube = await rapidApiService.youtubeSearch(tmpPath);
+    } catch (err) {
+      console.error('[Service] RapidAPI search error:', err.message);
+    }
+  }
+
   console.log(`[Service] Overall scan finished in ${Date.now() - overallStart}ms.`);
-  
+
   return {
     tineye: tineyeResult,
     vision: visionResult,
+    rapid: rapidResults,
   };
 }
 
