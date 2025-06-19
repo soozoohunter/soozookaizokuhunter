@@ -28,20 +28,23 @@ async function infringementScan({ buffer }) {
   console.log('[Service] Starting infringement scan...');
   const overallStart = Date.now();
 
-  // 為 RapidAPI 服務創建臨時文件
+  // 為 TinEye 和 RapidAPI 服務創建臨時文件
   const tmpDir = os.tmpdir();
+  // 為了防止文件衝突，使用更具唯一性的文件名
   const tmpFileName = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`; // 假設為 JPG
   const tmpPath = path.join(tmpDir, tmpFileName);
 
   try {
     await fs.writeFile(tmpPath, buffer);
+    console.log(`[Service] Temp file created for scan: ${tmpPath}`);
   } catch (e) {
-    console.error(`Failed to write temp file for RapidAPI: ${e.message}`);
-    // 如果無法寫入臨時文件，RapidAPI 相關的調用將會跳過或失敗
+    console.error(`[Service] Failed to write temp file for API services: ${e.message}`);
+    // 如果無法寫入臨時文件，相關的 API 調用將會跳過或失敗
+    // 但不阻斷整個掃描流程，因為 Google Vision 不依賴文件路徑
   }
 
 
-  // --- TinEye 掃描 (修正版) ---
+  // --- TinEye 掃描 ---
   let tineyeResult = { success: false, links: [], error: null };
   try {
     console.log('[Service] Calling TinEye API...');
@@ -53,16 +56,6 @@ async function infringementScan({ buffer }) {
   } catch (err) {
     console.error('[Service] TinEye API call failed:', err.message);
     tineyeResult = { success: false, links: [], error: err.message };
-  } finally {
-    // 無論成功或失敗，都嘗試刪除臨時檔案
-    // 注意：這裡的 tmpPath 是為 TinEye 創建的，如果 RapidAPI 也使用此文件，則需謹慎處理刪除時機
-    // 考慮到 RapidAPI 也在這裡使用 tmpPath，最終刪除放在整個函數結束時會更安全。
-    // 但是，由於 TinEye 和 RapidAPI 可能需要不同的臨時文件處理方式，
-    // 這裡我們假設 TinEye 處理完畢後可以立即刪除其專用文件。
-    // 如果 RapidAPI 需要相同文件，則必須在整個函數結束時處理。
-    // 根據你提供的 diff，tmpPath 是在 TinEye 之前建立的，所以可以在 TinEye 後刪除。
-    // 但因為 RapidAPI 也會用到 tmpPath，所以不能在 TinEye 後就刪除，應該放在整個 infringementScan 函數的末尾。
-    // 為了安全，我們將刪除邏輯移到最外層的 finally 區塊。
   }
 
   // --- Google Vision 掃描 ---
@@ -88,7 +81,8 @@ async function infringementScan({ buffer }) {
 
   // --- RapidAPI 多平台搜索 ---
   const rapidResults = {};
-  if (process.env.RAPIDAPI_KEY) { // 檢查 RAPIDAPI_KEY 是否存在
+  // 只有當 RAPIDAPI_KEY 存在且臨時文件已成功創建時才嘗試調用 RapidAPI
+  if (process.env.RAPIDAPI_KEY && tmpPath && fs.existsSync(tmpPath)) {
     try {
       console.log('[Service] Calling RapidAPI integrations...');
       rapidResults.tiktok = await rapidApiService.tiktokSearch(tmpPath);
@@ -99,12 +93,12 @@ async function infringementScan({ buffer }) {
       console.error('[Service] RapidAPI search error:', err.message);
     }
   } else {
-    console.warn('[Service] RAPIDAPI_KEY is not set. Skipping RapidAPI integrations.');
+    console.warn('[Service] RAPIDAPI_KEY is not set or temp file not available. Skipping RapidAPI integrations.');
   }
 
   // 最後刪除臨時文件，確保所有服務都使用完畢
   try {
-    if (tmpPath && fs.existsSync(tmpPath)) {
+    if (tmpPath && await fs.access(tmpPath).then(() => true).catch(() => false)) { // 檢查文件是否存在
         await fs.unlink(tmpPath);
         console.log(`[Service] Deleted temp file: ${tmpPath}`);
     }
