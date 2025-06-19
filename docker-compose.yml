@@ -73,7 +73,13 @@ services:
       TINEYE_API_KEY: ${TINEYE_API_KEY}
 
       # ★★★ 新增：RapidAPI Key (這是你缺失的！) ★★★
-      RAPIDAPI_KEY: ${RAPIDAPI_KEY} # <-- 新增這一行
+      RAPIDAPI_KEY: ${RAPIDAPI_KEY} # <-- 上次新增的
+
+      # ★★★ 新增：RapidAPI 平台主機地址 (根據最新 .env diff 新增) ★★★
+      TIKTOK_HOST: ${TIKTOK_HOST}
+      FACEBOOK_HOST: ${FACEBOOK_HOST}
+      INSTAGRAM_HOST: ${INSTAGRAM_HOST}
+      YOUTUBE_HOST: ${YOUTUBE_HOST}
 
       # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
