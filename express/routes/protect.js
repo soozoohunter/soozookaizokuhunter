@@ -47,6 +47,7 @@ const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
+const rapidApiService = require('../services/rapidApiService');
 
 //----------------------------------------------------
 // [★ 人工搜圖連結檔案] express/data/manual_links.json
@@ -927,15 +928,35 @@ router.get('/scan/:fileId', async(req,res)=>{
     const query= fileRec.filename || fileRec.fingerprint;
     if(process.env.RAPIDAPI_KEY){
       try {
-        const rTT= await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
-          params:{ keywords: query, region:'us', count:'3' },
-          headers:{ 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY },
-          timeout:10000
-        });
-        const items= rTT.data?.videos||[];
-        items.forEach(v=>{ if(v.link) suspiciousLinks.push(v.link); });
+        const rTT = await rapidApiService.tiktokSearch(query);
+        const items = rTT?.videos || rTT?.data || [];
+        items.forEach(v => { if(v.link) suspiciousLinks.push(v.link); });
       } catch(eTT){
-        console.error('[scan Tiktok error]', eTT);
+        console.error('[scan Tiktok error]', eTT.message);
+      }
+
+      try {
+        const rIG = await rapidApiService.instagramSearch(query);
+        const igItems = rIG?.results || rIG?.data || [];
+        igItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+      } catch(eIG){
+        console.error('[scan Instagram error]', eIG.message);
+      }
+
+      try {
+        const rFB = await rapidApiService.facebookSearch(query);
+        const fbItems = rFB?.results || rFB?.data || [];
+        fbItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+      } catch(eFB){
+        console.error('[scan Facebook error]', eFB.message);
+      }
+
+      try {
+        const rYT = await rapidApiService.youtubeSearch(query);
+        const ytItems = rYT?.items || rYT?.data || [];
+        ytItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
+      } catch(eYT){
+        console.error('[scan YouTube error]', eYT.message);
       }
     }
 
