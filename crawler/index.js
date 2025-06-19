@@ -34,17 +34,11 @@ async function mainCrawler() {
     const token = await loginExpress();
     console.log('[Crawler] 已取得後端 token:', token);
     
-    // 呼叫 RapidAPI 的 TikTok API
-    const resp = await axios.get(
-      'https://tiktok-scraper7.p.rapidapi.com/featured/list/entertainment',
-      {
-        headers: {
-          'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': process.env.RAPIDAPI_HOST
-        },
-        params: { cursor: '0' }
-      }
-    );
+    // 範例：呼叫 RapidAPI 取得疑似侵權清單
+    // 注意：此 URL 僅為示範，請根據實際需求修改
+    const resp = await axios.get('https://example-rapidapi.com/infringements', {
+      headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY }
+    });
     const results = resp.data;
     console.log('[Crawler] 取得外部API結果:', results);
     
