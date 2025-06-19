@@ -1,19 +1,14 @@
 const axios = require('axios');
 
-const TIKTOK_HOST = process.env.TIKTOK_HOST || 'tiktok-scraper7.p.rapidapi.com';
-const INSTAGRAM_HOST = process.env.INSTAGRAM_HOST || 'instagram-data1.p.rapidapi.com';
-const FACEBOOK_HOST = process.env.FACEBOOK_HOST || 'facebook-data1.p.rapidapi.com';
-const YOUTUBE_HOST = process.env.YOUTUBE_HOST || 'youtube-search-results.p.rapidapi.com';
-
 async function tiktokSearch(keyword) {
   console.log('[RapidAPI][TikTok] request:', keyword);
-  const url = `https://${TIKTOK_HOST}/feed/search`;
+  const url = 'https://tiktok-scraper7.p.rapidapi.com/feed/search';
   try {
     const res = await axios.get(url, {
       params: { keywords: keyword, region: 'us', count: '3' },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': TIKTOK_HOST,
+        'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com',
       },
       timeout: 10000,
     });
@@ -27,13 +22,13 @@ async function tiktokSearch(keyword) {
 
 async function instagramSearch(keyword) {
   console.log('[RapidAPI][Instagram] request:', keyword);
-  const url = `https://${INSTAGRAM_HOST}/search`;
+  const url = 'https://instagram-data1.p.rapidapi.com/search';
   try {
     const res = await axios.get(url, {
       params: { query: keyword, type: 'top' },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': INSTAGRAM_HOST,
+        'X-RapidAPI-Host': 'instagram-data1.p.rapidapi.com',
       },
       timeout: 10000,
     });
@@ -47,13 +42,13 @@ async function instagramSearch(keyword) {
 
 async function facebookSearch(keyword) {
   console.log('[RapidAPI][Facebook] request:', keyword);
-  const url = `https://${FACEBOOK_HOST}/search`;
+  const url = 'https://facebook-data1.p.rapidapi.com/search';
   try {
     const res = await axios.get(url, {
       params: { query: keyword },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': FACEBOOK_HOST,
+        'X-RapidAPI-Host': 'facebook-data1.p.rapidapi.com',
       },
       timeout: 10000,
     });
@@ -67,13 +62,13 @@ async function facebookSearch(keyword) {
 
 async function youtubeSearch(keyword) {
   console.log('[RapidAPI][YouTube] request:', keyword);
-  const url = `https://${YOUTUBE_HOST}/youtube-search`;
+  const url = 'https://youtube-search-results.p.rapidapi.com/youtube-search';
   try {
     const res = await axios.get(url, {
       params: { q: keyword },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': YOUTUBE_HOST,
+        'X-RapidAPI-Host': 'youtube-search-results.p.rapidapi.com',
       },
       timeout: 10000,
     });
