@@ -5,7 +5,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
@@ -14,12 +14,12 @@ const cheerio = require('cheerio');
 const { execSync, spawnSync, spawn } = require('child_process');
 const { Op } = require('sequelize');
 
-const puppeteer    = require('puppeteer-extra');
-const StealthPlugin= require('puppeteer-extra-plugin-stealth');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
-const ffmpeg      = require('fluent-ffmpeg');
-const ffmpegPath  = require('ffmpeg-static');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
 if(ffmpegPath) {
   ffmpeg.setFfmpegPath(ffmpegPath);
 }
@@ -32,11 +32,11 @@ const { infringementScan } = require('../services/visionService');
 const { User, File } = require('../models');
 
 // ========== Services/Utils ==========
-const fingerprintService  = require('../services/fingerprintService');
-const ipfsService         = require('../services/ipfsService');
-const chain               = require('../utils/chain');
-const { convertAndUpload }= require('../utils/convertAndUpload');
-const { extractKeyFrames }= require('../utils/extractFrames');
+const fingerprintService = require('../services/fingerprintService');
+const ipfsService = require('../services/ipfsService');
+const chain = require('../utils/chain');
+const { convertAndUpload } = require('../utils/convertAndUpload');
+const { extractKeyFrames } = require('../utils/extractFrames');
 const { searchImageByVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 const tinEyeApi = require('../services/tineyeApiService');
@@ -47,7 +47,7 @@ const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 // ** (重點) 新增：引用 flickerService.js **
 const { flickerEncodeAdvanced } = require('../services/flickerService');
-const rapidApiService = require('../services/rapidApiService');
+const rapidApiService = require('../services/rapidApiService'); // 新增這行
 
 //----------------------------------------------------
 // [★ 人工搜圖連結檔案] express/data/manual_links.json
@@ -67,8 +67,8 @@ function getAllManualLinks() {
 // [1] 建立 /uploads /uploads/certificates /uploads/reports 目錄
 //----------------------------------------------------
 const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
-const CERT_DIR        = path.join(UPLOAD_BASE_DIR, 'certificates');
-const REPORTS_DIR     = path.join(UPLOAD_BASE_DIR, 'reports');
+const CERT_DIR = path.join(UPLOAD_BASE_DIR, 'certificates');
+const REPORTS_DIR = path.join(UPLOAD_BASE_DIR, 'reports');
 
 function ensureUploadDirs(){
   try {
@@ -288,7 +288,7 @@ async function generateCertificatePDF(data, outputPath){
 
 //----------------------------------------------------
 // [5] 產生「侵權偵測報告 PDF」(Puppeteer) - (基本示範)
-//    (完整功能已移至 services/pdfService.js => generateScanPDFWithMatches)
+//     (完整功能已移至 services/pdfService.js => generateScanPDFWithMatches)
 //----------------------------------------------------
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outputPath){
   console.log('[generateScanPDF] =>', outputPath);
@@ -372,7 +372,7 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 }
 
 // ---------------------------------------------------------------------------
-//                      aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
+//             aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
 // ---------------------------------------------------------------------------
 async function tryCloseAd(page) {
   try {
@@ -504,7 +504,7 @@ async function fetchLinkMainImage(pageUrl){
     const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(resp.data);
     const ogImg = $('meta[property="og:image"]').attr('content')
-             || $('meta[name="og:image"]').attr('content');
+              || $('meta[name="og:image"]').attr('content');
     if(ogImg) {
       console.log('[fetchLinkMainImage] found og:image =>', ogImg);
       return ogImg;
@@ -563,8 +563,8 @@ async function fetchLinkMainImage(pageUrl){
 
 async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
   let aggregatorResult = null;
-  let vectorResult     = null;
-  let mainImgUrl       = '';
+  let vectorResult = null;
+  let mainImgUrl = '';
 
   // (1) 抓主圖
   try {
@@ -595,13 +595,16 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
   }
 
   // (3) 改為直接呼叫 infringementScan 取得 TinEye 及 Google Vision 結果
+  // infringementScan 現在會返回 RapidAPI 的結果
   const report = await infringementScan({ buffer: fs.readFileSync(localFilePath) });
   aggregatorResult = {
-    bing:   { links: [], success: false },
+    bing:   { links: [], success: false }, // Bing 目前還是留空，因為沒直接調用
     tineye: { links: report.tineye.links, success: report.tineye.success },
-    baidu:  { links: [], success: false },
-    vision: { links: report.vision.links, success: report.vision.success }
+    baidu:  { links: [], success: false }, // Baidu 目前還是留空，因為沒直接調用
+    vision: { links: report.vision.links, success: report.vision.success },
+    rapid:  { links: report.rapid?.links || [], success: report.rapid ? true : false, data: report.rapid } // 新增 RapidAPI 結果
   };
+
 
   // (4) 向量檢索
   if(needVector){
@@ -631,8 +634,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       return res.status(400).json({ error:'POLICY_REQUIRED', message:'請勾選服務條款' });
     }
 
-    const mimeType   = req.file.mimetype;
-    const isVideo    = mimeType.startsWith('video');
+    const mimeType = req.file.mimetype;
+    const isVideo = mimeType.startsWith('video');
     const isUnlimited= ALLOW_UNLIMITED.includes(phone) || ALLOW_UNLIMITED.includes(email);
 
     // 若非白名單 => 無法上傳影片
@@ -664,14 +667,14 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     let realExt = '';
     if(mimeType.includes('png'))   realExt='.png';
     else if(mimeType.includes('jpeg')) realExt='.jpg';
-    else if(mimeType.includes('jpg'))  realExt='.jpg';
-    else if(mimeType.includes('gif'))  realExt='.gif';
-    else if(mimeType.includes('bmp'))  realExt='.bmp';
+    else if(mimeType.includes('jpg'))   realExt='.jpg';
+    else if(mimeType.includes('gif'))   realExt='.gif';
+    else if(mimeType.includes('bmp'))   realExt='.bmp';
     else if(mimeType.includes('webp')) realExt='.webp';
-    else if(mimeType.includes('mp4'))  realExt='.mp4';
-    else if(mimeType.includes('mov'))  realExt='.mov';
-    else if(mimeType.includes('avi'))  realExt='.avi';
-    else if(mimeType.includes('mkv'))  realExt='.mkv';
+    else if(mimeType.includes('mp4'))   realExt='.mp4';
+    else if(mimeType.includes('mov'))   realExt='.mov';
+    else if(mimeType.includes('avi'))   realExt='.avi';
+    else if(mimeType.includes('mkv'))   realExt='.mkv';
     if(realExt && realExt.toLowerCase() !== ext.toLowerCase()){
       console.log(`[step1] extension mismatch => origin=${ext} => corrected=${realExt}`);
       ext = realExt;
@@ -687,7 +690,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.log(`[step1] duplicated => File ID=${exist.id}`);
       const extExist = path.extname(exist.filename) || ext;
       const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
-      const pdfExistPath   = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
+      const pdfExistPath = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
 
       if(isUnlimited){
         // 若舊檔案不在 => rename
@@ -715,19 +718,19 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             const stampImg = path.join(__dirname, '../../public/stamp.png');
             await generateCertificatePDF({
               name : oldUser?.realName || '',
-              dob  : oldUser?.birthDate || '',
+              dob : oldUser?.birthDate || '',
               phone: oldUser?.phone || '',
               address: oldUser?.address || '',
               email : oldUser?.email || '',
               title,
-              fileName  : exist.filename || req.file.originalname,
+              fileName : exist.filename || req.file.originalname,
               fingerprint: exist.fingerprint,
-              ipfsHash   : exist.ipfs_hash,
-              txHash     : exist.tx_hash,
-              serial     : oldUser?.serialNumber || '',
-              mimeType   : (mimeType.startsWith('video') ? mimeType : 'image/jpeg'),
-              issueDate  : new Date().toLocaleString(),
-              filePath   : fs.existsSync(finalPathExist) ? finalPathExist : null,
+              ipfsHash : exist.ipfs_hash,
+              txHash : exist.tx_hash,
+              serial : oldUser?.serialNumber || '',
+              mimeType : (mimeType.startsWith('video') ? mimeType : 'image/jpeg'),
+              issueDate : new Date().toLocaleString(),
+              filePath : fs.existsSync(finalPathExist) ? finalPathExist : null,
               stampImagePath: fs.existsSync(stampImg) ? stampImg : null
             }, pdfExistPath);
           } catch(ePDF){
@@ -774,7 +777,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       fingerprint,
       ipfs_hash: ipfsHash,
       tx_hash : txHash,
-      status  :'pending'
+      status :'pending'
     });
 
     if(isVideo) user.uploadVideos=(user.uploadVideos||0)+1;
@@ -834,19 +837,19 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
     try {
       await generateCertificatePDF({
         name : user.realName,
-        dob  : user.birthDate,
+        dob : user.birthDate,
         phone: user.phone,
         address: user.address,
         email : user.email,
         title,
-        fileName  : req.file.originalname,
+        fileName : req.file.originalname,
         fingerprint,
         ipfsHash,
         txHash,
-        serial     : user.serialNumber,
-        mimeType   : mimeType,
-        issueDate  : new Date().toLocaleString(),
-        filePath   : previewPath,
+        serial : user.serialNumber,
+        mimeType : mimeType, // 更正：這裡應該是原始的 mimeType
+        issueDate : new Date().toLocaleString(),
+        filePath : previewPath,
         stampImagePath: fs.existsSync(stampImg)? stampImg:null
       }, pdfPath);
     } catch(ePDF){
@@ -855,8 +858,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     return res.json({
       message : '上傳成功並完成證書PDF',
-      fileId  : newFile.id,
-      pdfUrl  : `/api/protect/certificates/${newFile.id}`,
+      fileId : newFile.id,
+      pdfUrl : `/api/protect/certificates/${newFile.id}`,
       fingerprint,
       ipfsHash,
       txHash,
@@ -901,7 +904,7 @@ router.post('/step2', async (req, res) => {
 router.get('/certificates/:fileId', async(req,res)=>{
   try {
     const fileId=req.params.fileId;
-    const pdfPath  = path.join(CERT_DIR, `certificate_${fileId}.pdf`);
+    const pdfPath = path.join(CERT_DIR, `certificate_${fileId}.pdf`);
     if(!fs.existsSync(pdfPath)){
       return res.status(404).json({ error:'NOT_FOUND', message:'證書PDF不存在' });
     }
@@ -983,6 +986,15 @@ router.get('/scan/:fileId', async(req,res)=>{
       const report = await infringementScan({ buffer: fileBuffer });
       if (report.tineye?.success) allLinks.push(...report.tineye.links);
       if (report.vision?.success) allLinks.push(...report.vision.links);
+      // 這裡也要把 rapid 的連結加進來
+      if (report.rapid?.success) {
+        // rapidResult 裡面的 tiktok, instagram 等會是物件，需要遍歷它們的 links 陣列
+        for (const platform in report.rapid) {
+          if (report.rapid[platform]?.links && Array.isArray(report.rapid[platform].links)) {
+            allLinks.push(...report.rapid[platform].links);
+          }
+        }
+      }
     } catch(eScan) {
       console.error('[scan infringementScan error]', eScan);
     }
@@ -1071,7 +1083,7 @@ router.get('/scan/:fileId', async(req,res)=>{
 router.get('/scanReports/:fileId', async(req,res)=>{
   try {
     const fileId= req.params.fileId;
-    const pdfPath   = path.join(REPORTS_DIR, `scanReport_${fileId}.pdf`);
+    const pdfPath = path.join(REPORTS_DIR, `scanReport_${fileId}.pdf`);
     if(!fs.existsSync(pdfPath)){
       return res.status(404).json({ error:'NOT_FOUND', message:'掃描報告不存在' });
     }
@@ -1111,8 +1123,16 @@ router.get('/scanLink', async(req,res)=>{
     let suspiciousLinks = [];
     if(aggregatorResult.bing?.links)   suspiciousLinks.push(...aggregatorResult.bing.links);
     if(aggregatorResult.tineye?.links) suspiciousLinks.push(...aggregatorResult.tineye.links);
-    if(aggregatorResult.baidu?.links)  suspiciousLinks.push(...aggregatorResult.baidu.links);
+    if(aggregatorResult.baidu?.links)   suspiciousLinks.push(...aggregatorResult.baidu.links);
     if(aggregatorResult.vision?.links) suspiciousLinks.push(...aggregatorResult.vision.links);
+    // 新增：處理 aggregatorResult.rapid 的連結
+    if (aggregatorResult.rapid?.success) {
+      for (const platform in aggregatorResult.rapid.data) {
+        if (aggregatorResult.rapid.data[platform]?.links && Array.isArray(aggregatorResult.rapid.data[platform].links)) {
+          suspiciousLinks.push(...aggregatorResult.rapid.data[platform].links);
+        }
+      }
+    }
     // ★過濾無效連結
     suspiciousLinks = [...new Set(suspiciousLinks)].filter(isValidLink);
 
@@ -1122,7 +1142,7 @@ router.get('/scanLink', async(req,res)=>{
         if(r.url){
           try {
             const resp = await axios.get(r.url, { responseType:'arraybuffer' });
-            const b64  = Buffer.from(resp.data).toString('base64');
+            const b64 = Buffer.from(resp.data).toString('base64');
             matchedImages.push({
               url: r.url,
               score: r.score,
@@ -1252,17 +1272,17 @@ router.post('/flickerProtectFile', async (req, res) => {
     try {
       await flickerEncodeAdvanced(sourcePath, protectedPath, {
         useSubPixelShift : true,
-        useMaskOverlay   : true,
-        maskOpacity      : 0.25,
-        maskFreq         : 5,
-        maskSizeRatio    : 0.3,
-        useRgbSplit      : true,
-        useAiPerturb     : false,
-        flickerFps       : 120,
-        noiseStrength    : 25,
-        colorCurveDark   : '0/0 0.5/0.2 1/1',
-        colorCurveLight  : '0/0 0.5/0.4 1/1',
-        drawBoxSeconds   : 5
+        useMaskOverlay : true,
+        maskOpacity : 0.25,
+        maskFreq : 5,
+        maskSizeRatio : 0.3,
+        useRgbSplit : true,
+        useAiPerturb : false,
+        flickerFps : 120,
+        noiseStrength : 25,
+        colorCurveDark : '0/0 0.5/0.2 1/1',
+        colorCurveLight : '0/0 0.5/0.4 1/1',
+        drawBoxSeconds : 5
       });
     } catch(eFlicker){
       console.error('[flickerProtectFile] flickerEncodeAdvanced fail =>', eFlicker);
