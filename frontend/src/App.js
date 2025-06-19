@@ -13,6 +13,8 @@ import {
   useLocation
 } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
+import axiosInstance from './api/axiosInstance';
+import authService from './api/authService';
 
 import HomePage from './pages/Home';
 import PricingPage from './pages/PricingPage';
@@ -33,7 +35,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 
 function RootLayout() {
-  const token = localStorage.getItem('token') || '';
+  const token = authService.getAccessToken();
   let userRole = '';
   if (token) {
     try {
@@ -48,7 +50,7 @@ function RootLayout() {
   const showBanner = location.pathname === '/';
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    authService.clearTokens();
     window.location.href = '/';
   };
 
