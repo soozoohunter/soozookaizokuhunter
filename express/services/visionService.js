@@ -19,6 +19,20 @@ console.log('[Service] Google Vision Client initialized.');
 const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 
 /**
+ * 檢查文件是否存在 (異步版本)
+ * @param {string} path 文件路徑
+ * @returns {Promise<boolean>} 如果文件存在則為 true，否則為 false
+ */
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * 執行侵權掃描
  * @param {{buffer: Buffer}} param0
  * @returns {Promise<{tineye: object, vision: object}>}
@@ -34,9 +48,11 @@ async function infringementScan({ buffer }) {
   const tmpFileName = `upload_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`; // 假設為 JPG
   const tmpPath = path.join(tmpDir, tmpFileName);
 
+  let tmpFileCreated = false;
   try {
     await fs.writeFile(tmpPath, buffer);
     console.log(`[Service] Temp file created for scan: ${tmpPath}`);
+    tmpFileCreated = true;
   } catch (e) {
     console.error(`[Service] Failed to write temp file for API services: ${e.message}`);
     // 如果無法寫入臨時文件，相關的 API 調用將會跳過或失敗
@@ -46,17 +62,21 @@ async function infringementScan({ buffer }) {
 
   // --- TinEye 掃描 ---
   let tineyeResult = { success: false, links: [], error: null };
-  try {
-    console.log('[Service] Calling TinEye API...');
-    const start = Date.now();
-    // 傳遞 tmpPath 而不是 buffer
-    const result = await tinEyeApi.searchByFile(tmpPath);
-    tineyeResult = { success: true, links: result.links || [] };
-    console.log(`[Service] TinEye scan completed in ${Date.now() - start}ms, found ${tineyeResult.links.length} links.`);
-  } catch (err) {
-    console.error('[Service] TinEye API call failed:', err.message);
-    tineyeResult = { success: false, links: [], error: err.message };
+  if (tmpFileCreated) { // 只有當臨時文件成功創建時才嘗試 TinEye
+    try {
+      console.log('[Service] Calling TinEye API...');
+      const start = Date.now();
+      const result = await tinEyeApi.searchByFile(tmpPath);
+      tineyeResult = { success: true, links: result.links || [] };
+      console.log(`[Service] TinEye scan completed in ${Date.now() - start}ms, found ${tineyeResult.links.length} links.`);
+    } catch (err) {
+      console.error('[Service] TinEye API call failed:', err.message);
+      tineyeResult = { success: false, links: [], error: err.message };
+    }
+  } else {
+    console.warn('[Service] Skipping TinEye API due to temp file creation failure.');
   }
+
 
   // --- Google Vision 掃描 ---
   let visionResult = { success: false, links: [], error: null };
@@ -82,7 +102,7 @@ async function infringementScan({ buffer }) {
   // --- RapidAPI 多平台搜索 ---
   const rapidResults = {};
   // 只有當 RAPIDAPI_KEY 存在且臨時文件已成功創建時才嘗試調用 RapidAPI
-  if (process.env.RAPIDAPI_KEY && tmpPath && fs.existsSync(tmpPath)) {
+  if (process.env.RAPIDAPI_KEY && tmpFileCreated) { // 這裡也使用 tmpFileCreated 旗標
     try {
       console.log('[Service] Calling RapidAPI integrations...');
       rapidResults.tiktok = await rapidApiService.tiktokSearch(tmpPath);
@@ -98,7 +118,8 @@ async function infringementScan({ buffer }) {
 
   // 最後刪除臨時文件，確保所有服務都使用完畢
   try {
-    if (tmpPath && await fs.access(tmpPath).then(() => true).catch(() => false)) { // 檢查文件是否存在
+    // 檢查文件是否存在並刪除
+    if (tmpFileCreated && await fileExists(tmpPath)) { // 使用異步的 fileExists 函數
         await fs.unlink(tmpPath);
         console.log(`[Service] Deleted temp file: ${tmpPath}`);
     }
