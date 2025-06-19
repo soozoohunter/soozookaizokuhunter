@@ -929,7 +929,10 @@ router.get('/scan/:fileId', async(req,res)=>{
       try {
         const rTT= await axios.get('https://tiktok-scraper7.p.rapidapi.com/feed/search',{
           params:{ keywords: query, region:'us', count:'3' },
-          headers:{ 'X-RapidAPI-Key': process.env.RAPIDAPI_KEY },
+          headers:{
+            'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
+            'X-RapidAPI-Host': process.env.RAPIDAPI_HOST
+          },
           timeout:10000
         });
         const items= rTT.data?.videos||[];
