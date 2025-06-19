@@ -32,8 +32,6 @@ services:
 
   suzoo_express:
     container_name: suzoo_express
-    env_file:
-      - ./.env
     build:
       context: ./express
       dockerfile: Dockerfile
@@ -259,8 +257,6 @@ services:
 
   api_service:
     container_name: api_service
-    env_file:
-      - ./.env
     build:
       context: ./api_service
     ports:
