@@ -28,10 +28,15 @@ const infringementRouter = require('./routes/infringement');     // 侵權相關
  | 1. 中介層  
  *───────────────────────────────────*/
 
-/*───────────────────────────────────  
- | 2. uploads 對外靜態目錄  
- |    ⇒ 確保公開圖片 URL 不再 404  
+/*───────────────────────────────────
+ | 2. uploads 對外靜態目錄
+ |    ⇒ 確保公開圖片 URL 不再 404
  *───────────────────────────────────*/
+app.use(
+  '/uploads/publicImages',
+  express.static(path.join(__dirname, '../uploads/publicImages'))
+);
+
 app.use(
   '/uploads',
   express.static(path.resolve(__dirname, '../uploads'))
