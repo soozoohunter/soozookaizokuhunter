@@ -1,14 +1,20 @@
 const axios = require('axios');
 
+// 從環境變數讀取 RapidAPI 各平台主機，若未設置則使用預設值
+const TIKTOK_HOST = process.env.TIKTOK_HOST || 'tiktok-scraper7.p.rapidapi.com';
+const INSTAGRAM_HOST = process.env.INSTAGRAM_HOST || 'instagram-data1.p.rapidapi.com';
+const FACEBOOK_HOST = process.env.FACEBOOK_HOST || 'facebook-data1.p.rapidapi.com';
+const YOUTUBE_HOST = process.env.YOUTUBE_HOST || 'Youtube-results.p.rapidapi.com';
+
 async function tiktokSearch(keyword) {
   console.log('[RapidAPI][TikTok] request:', keyword);
-  const url = 'https://tiktok-scraper7.p.rapidapi.com/feed/search';
+  const url = `https://${TIKTOK_HOST}/feed/search`; // 使用環境變數
   try {
     const res = await axios.get(url, {
       params: { keywords: keyword, region: 'us', count: '3' },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com',
+        'X-RapidAPI-Host': TIKTOK_HOST, // 使用環境變數
       },
       timeout: 10000,
     });
@@ -22,13 +28,13 @@ async function tiktokSearch(keyword) {
 
 async function instagramSearch(keyword) {
   console.log('[RapidAPI][Instagram] request:', keyword);
-  const url = 'https://instagram-data1.p.rapidapi.com/search';
+  const url = `https://${INSTAGRAM_HOST}/search`; // 使用環境變數
   try {
     const res = await axios.get(url, {
       params: { query: keyword, type: 'top' },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'instagram-data1.p.rapidapi.com',
+        'X-RapidAPI-Host': INSTAGRAM_HOST, // 使用環境變數
       },
       timeout: 10000,
     });
@@ -42,13 +48,13 @@ async function instagramSearch(keyword) {
 
 async function facebookSearch(keyword) {
   console.log('[RapidAPI][Facebook] request:', keyword);
-  const url = 'https://facebook-data1.p.rapidapi.com/search';
+  const url = `https://${FACEBOOK_HOST}/search`; // 使用環境變數
   try {
     const res = await axios.get(url, {
       params: { query: keyword },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'facebook-data1.p.rapidapi.com',
+        'X-RapidAPI-Host': FACEBOOK_HOST, // 使用環境變數
       },
       timeout: 10000,
     });
@@ -62,13 +68,13 @@ async function facebookSearch(keyword) {
 
 async function youtubeSearch(keyword) {
   console.log('[RapidAPI][YouTube] request:', keyword);
-  const url = 'https://youtube-search-results.p.rapidapi.com/youtube-search';
+  const url = `https://${YOUTUBE_HOST}/Youtube`; // 使用環境變數
   try {
     const res = await axios.get(url, {
       params: { q: keyword },
       headers: {
         'X-RapidAPI-Key': process.env.RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'youtube-search-results.p.rapidapi.com',
+        'X-RapidAPI-Host': YOUTUBE_HOST, // 使用環境變數
       },
       timeout: 10000,
     });
