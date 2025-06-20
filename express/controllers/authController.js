@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { Op } = require('sequelize'); // 引入 Op 以便使用 OR 查詢
 const blockchainService = require('../services/blockchainService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
@@ -22,14 +23,9 @@ async function register(req, res) {
     } = req.body;
 
     // [A] 檢查必填欄位
-    if (!email || !username || !password) {
+    if (!email || !username || !password || !confirmPassword) {
       return res.status(400).json({
         message: '請填寫所有必填欄位 (Please fill in all required fields)'
-      });
-    }
-    if (!confirmPassword) {
-      return res.status(400).json({
-        message: '缺少 confirmPassword (Missing confirmPassword)'
       });
     }
 
@@ -49,18 +45,24 @@ async function register(req, res) {
       });
     }
 
-    // [D] 檢查 email / username 是否已存在
-    const existEmail = await User.findOne({ where: { email } });
-    if (existEmail) {
-      return res.status(400).json({
-        message: '此 Email 已被使用 (Email already in use)'
-      });
-    }
-    const existUser = await User.findOne({ where: { username } });
-    if (existUser) {
-      return res.status(400).json({
-        message: '此用戶名已被使用 (Username already in use)'
-      });
+    // [D] **優化**：一次性檢查 email / username 是否已存在
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ email: email.toLowerCase() }, { username }]
+      }
+    });
+
+    if (existingUser) {
+      if (existingUser.email === email.toLowerCase()) {
+        return res.status(409).json({ // 409 Conflict
+          message: '此 Email 已被使用 (Email already in use)'
+        });
+      }
+      if (existingUser.username === username) {
+        return res.status(409).json({ // 409 Conflict
+          message: '此用戶名已被使用 (Username already in use)'
+        });
+      }
     }
 
     // [E] 密碼加密
@@ -75,7 +77,7 @@ async function register(req, res) {
 
     // [H] 建立新用戶
     const newUser = await User.create({
-      email,
+      email: email.toLowerCase(), // 儲存小寫 email
       username,
       password: hashedPassword,
       IG, FB, YouTube, TikTok,
@@ -84,7 +86,7 @@ async function register(req, res) {
       role: finalRole
     });
 
-    // [I] 同步寫入區塊鏈
+    // [I] 同步寫入區塊鏈 (非阻塞式)
     try {
       await blockchainService.storeUserOnChain({
         email: newUser.email,
@@ -104,7 +106,7 @@ async function register(req, res) {
       });
     } catch (chainErr) {
       console.error('Blockchain sync error:', chainErr);
-      // 失敗時是否要回滾或僅記錄，不影響主要註冊流程，可自行決定
+      // 失敗時僅記錄，不影響主要註冊流程
     }
 
     // [J] 回傳成功
@@ -113,14 +115,6 @@ async function register(req, res) {
     });
   } catch (err) {
     console.error('Register error:', err);
-
-    // 若違反唯一約束 (SequelizeUniqueConstraintError)
-    if (err.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        message: '電子郵件或用戶名已被使用 (Email or username already in use)'
-      });
-    }
-
     // 其他未預期錯誤
     return res.status(500).json({
       message: '伺服器發生錯誤，無法完成註冊 (Server error: Unable to complete registration)'
@@ -131,7 +125,6 @@ async function register(req, res) {
 // ============ 2) 登入 ============ //
 async function login(req, res) {
   try {
-    // 前端若傳 { email, password } 或 { username, password }
     const { email, username, password } = req.body;
 
     if (!password) {
@@ -140,28 +133,24 @@ async function login(req, res) {
 
     // A) 判斷用 email or username
     let user;
+    const whereClause = {};
     if (email) {
-      user = await User.findOne({ where: { email } });
+        whereClause.email = email.toLowerCase();
     } else if (username) {
-      user = await User.findOne({ where: { username } });
+        whereClause.username = username;
     } else {
       return res.status(400).json({
         message: '請輸入 email 或 username (Missing email or username)'
       });
     }
 
-    // B) 查無此人
-    if (!user) {
-      return res.status(400).json({
-        message: '帳號或密碼錯誤 (Invalid credentials)'
-      });
-    }
+    user = await User.findOne({ where: whereClause });
 
-    // C) 驗證密碼
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(400).json({
-        message: '帳號或密碼錯誤 (Wrong password)'
+    // B & C) **安全性強化**：合併「查無此人」與「密碼錯誤」的判斷
+    // 無論是帳號錯還是密碼錯，都回傳相同的錯誤訊息，防止用戶枚舉攻擊
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ // 401 Unauthorized
+        message: '帳號或密碼錯誤 (Invalid credentials)'
       });
     }
 
@@ -183,7 +172,7 @@ async function login(req, res) {
   } catch (err) {
     console.error('[Login Error]', err);
     return res.status(500).json({
-      message: '登入失敗 (Login failed)'
+      message: '登入失敗，伺服器發生錯誤 (Login failed due to server error)'
     });
   }
 }
