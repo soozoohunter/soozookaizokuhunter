@@ -594,15 +594,17 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
     };
   }
 
-  // (3) 改為直接呼叫 infringementScan 取得 TinEye 及 Google Vision 結果
-  // infringementScan 現在會返回 RapidAPI 的結果
-  const report = await infringementScan({ buffer: fs.readFileSync(localFilePath) });
+  // (3) 改為直接呼叫 infringementScan
+  // **【修正點】** 呼叫 infringementScan 時傳入 buffer 和 keyword
+  const fileBufferForScan = fs.readFileSync(localFilePath);
+  const keywordForScan = path.basename(pageUrl); // 使用 URL 的 basename 作為 keyword
+  const report = await infringementScan({ buffer: fileBufferForScan, keyword: keywordForScan });
   aggregatorResult = {
     bing:   { links: [], success: false }, // Bing 目前還是留空，因為沒直接調用
     tineye: { links: report.tineye.links, success: report.tineye.success },
     baidu:  { links: [], success: false }, // Baidu 目前還是留空，因為沒直接調用
     vision: { links: report.vision.links, success: report.vision.success },
-    rapid:  { links: report.rapid?.links || [], success: report.rapid ? true : false, data: report.rapid } // 新增 RapidAPI 結果
+    rapid:  report.rapid // 直接傳遞整個 rapid 結果物件
   };
 
 
@@ -762,14 +764,21 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
       console.error('[step1 IPFS error]', eIPFS);
     }
 
-    // 區塊鏈
-    let txHash='';
-    try {
-      const rec= await chain.storeRecord(fingerprint, ipfsHash||'');
-      txHash= rec?.transactionHash||'';
-    } catch(eChain){
-      console.error('[step1 chain error]', eChain);
+    // ========== 【修正點】 ==========
+    // 只有在 fingerprint 和 ipfsHash 都成功取得時，才執行上鏈操作
+    let txHash = '';
+    if (fingerprint && ipfsHash) {
+        try {
+            const rec = await chain.storeRecord(fingerprint, ipfsHash);
+            txHash = rec?.transactionHash || '';
+        } catch (eChain) {
+            console.error('[step1 chain error]', eChain);
+            // 即使上鏈失敗，也只記錄錯誤，不中斷流程
+        }
+    } else {
+        console.warn(`[step1] Skipping blockchain record due to missing fingerprint or ipfsHash. Fingerprint: ${fingerprint}, IPFS Hash: ${ipfsHash}`);
     }
+    // ========== 【修正結束】 ==========
 
     const newFile= await File.create({
       user_id : user.id,
@@ -926,90 +935,55 @@ router.get('/scan/:fileId', async(req,res)=>{
       return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此File ID' });
     }
 
-    // (1) 多平台文字爬蟲 (示範)
-    let suspiciousLinks=[];
-    const query= fileRec.filename || fileRec.fingerprint;
-    if(process.env.RAPIDAPI_KEY){
-      try {
-        const rTT = await rapidApiService.tiktokSearch(query);
-        const items = rTT?.videos || rTT?.data || [];
-        // 新增陣列檢查
-        if (Array.isArray(items)) {
-          items.forEach(v => { if(v.link) suspiciousLinks.push(v.link); });
-        }
-      } catch(eTT){
-        console.error('[scan Tiktok error]', eTT.message);
-      }
-
-      try {
-        const rIG = await rapidApiService.instagramSearch(query);
-        const igItems = rIG?.results || rIG?.data || [];
-        // 新增陣列檢查
-        if (Array.isArray(igItems)) {
-          igItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
-        }
-      } catch(eIG){
-        console.error('[scan Instagram error]', eIG.message);
-      }
-
-      try {
-        const rFB = await rapidApiService.facebookSearch(query);
-        const fbItems = rFB?.results || rFB?.data || [];
-        // 新增陣列檢查
-        if (Array.isArray(fbItems)) {
-          fbItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
-        }
-      } catch(eFB){
-        console.error('[scan Facebook error]', eFB.message);
-      }
-
-      try {
-        const rYT = await rapidApiService.youtubeSearch(query);
-        const ytItems = rYT?.items || rYT?.data || [];
-        // 新增陣列檢查
-        if (Array.isArray(ytItems)) {
-          ytItems.forEach(v => { if(v.link || v.url) suspiciousLinks.push(v.link || v.url); });
-        }
-      } catch(eYT){
-        console.error('[scan YouTube error]', eYT.message);
-      }
-    }
-
-    // (2) 檔案是否存在
     const ext= path.extname(fileRec.filename)||'';
     const localPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${ext}`);
     if(!fs.existsSync(localPath)){
-      // 檔不在 => 只做文字爬蟲
-      fileRec.status='scanned';
-      fileRec.infringingLinks= JSON.stringify(suspiciousLinks);
-      await fileRec.save();
-      return res.json({
-        message:'原始檔不存在 => 僅文字爬蟲',
-        suspiciousLinks
+      return res.status(404).json({
+        message:'原始檔不存在，無法進行圖片掃描。',
       });
     }
 
-    let allLinks=[...suspiciousLinks];
+    let allLinks=[];
     let matchedImages = [];
 
-    // 直接呼叫 infringementScan
+    // ========== 【修正點】 ==========
+    // 整合所有掃描服務於 infringementScan
     try {
-      const fileBuffer = fs.readFileSync(localPath);
-      const report = await infringementScan({ buffer: fileBuffer });
-      if (report.tineye?.success) allLinks.push(...report.tineye.links);
-      if (report.vision?.success) allLinks.push(...report.vision.links);
-      // 這裡也要把 rapid 的連結加進來
-      if (report.rapid?.success) {
-        // rapidResult 裡面的 tiktok, instagram 等會是物件，需要遍歷它們的 links 陣列
-        for (const platform in report.rapid) {
-          if (report.rapid[platform]?.links && Array.isArray(report.rapid[platform].links)) {
-            allLinks.push(...report.rapid[platform].links);
-          }
+        const fileBuffer = fs.readFileSync(localPath);
+        // 使用檔名（不含副檔名）或 fingerprint 作為文字搜尋關鍵字
+        const keyword = fileRec.filename.replace(/\.[^/.]+$/, "") || fileRec.fingerprint;
+
+        const report = await infringementScan({ buffer: fileBuffer, keyword: keyword });
+
+        // 收集 TinEye 連結
+        if (report.tineye?.success && Array.isArray(report.tineye.links)) {
+            allLinks.push(...report.tineye.links);
         }
-      }
+        // 收集 Google Vision 連結
+        if (report.vision?.success && Array.isArray(report.vision.links)) {
+            allLinks.push(...report.vision.links);
+        }
+        // 收集 RapidAPI 各平台的連結
+        if (report.rapid) {
+            for (const platform of Object.keys(report.rapid)) {
+                const platformResult = report.rapid[platform];
+                if (platformResult && !platformResult.error) {
+                    const items = platformResult?.videos || platformResult?.results || platformResult?.data || platformResult?.items || [];
+                    if (Array.isArray(items)) {
+                        items.forEach(item => {
+                            if (item && (item.link || item.url)) {
+                                allLinks.push(item.link || item.url);
+                            }
+                        });
+                    }
+                }
+            }
+        }
     } catch(eScan) {
       console.error('[scan infringementScan error]', eScan);
     }
+    // ========== 【修正結束】 ==========
+
 
     // 向量檢索
     try {
@@ -1138,12 +1112,20 @@ router.get('/scanLink', async(req,res)=>{
     if(aggregatorResult.baidu?.links)   suspiciousLinks.push(...aggregatorResult.baidu.links);
     if(aggregatorResult.vision?.links) suspiciousLinks.push(...aggregatorResult.vision.links);
     // 新增：處理 aggregatorResult.rapid 的連結
-    if (aggregatorResult.rapid?.success) {
-      for (const platform in aggregatorResult.rapid.data) {
-        if (aggregatorResult.rapid.data[platform]?.links && Array.isArray(aggregatorResult.rapid.data[platform].links)) {
-          suspiciousLinks.push(...aggregatorResult.rapid.data[platform].links);
+    if (aggregatorResult.rapid) {
+        for (const platform of Object.keys(aggregatorResult.rapid)) {
+            const platformResult = aggregatorResult.rapid[platform];
+            if (platformResult && !platformResult.error) {
+                const items = platformResult?.videos || platformResult?.results || platformResult?.data || platformResult?.items || [];
+                if (Array.isArray(items)) {
+                    items.forEach(item => {
+                        if (item && (item.link || item.url)) {
+                            suspiciousLinks.push(item.link || item.url);
+                        }
+                    });
+                }
+            }
         }
-      }
     }
     // ★過濾無效連結
     suspiciousLinks = [...new Set(suspiciousLinks)].filter(isValidLink);
