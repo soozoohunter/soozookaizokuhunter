@@ -12,8 +12,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/*───────────────────────────────────  
- | 路由 import  
+/*───────────────────────────────────
+ | 路由 import
  *───────────────────────────────────*/
 const paymentRoutes      = require('./routes/paymentRoutes');
 const protectRouter      = require('./routes/protect');          // 侵權掃描
@@ -24,13 +24,13 @@ const searchRoutes       = require('./routes/searchRoutes');     // TinEye / Vis
 const reportRouter       = require('./routes/report');           // PDF 證據報表
 const infringementRouter = require('./routes/infringement');     // 侵權相關 API
 
-/*───────────────────────────────────  
- | 1. 中介層  
+/*───────────────────────────────────
+ | 1. 中介層
  *───────────────────────────────────*/
 
-/*───────────────────────────────────  
- | 2. uploads 對外靜態目錄  
- |    ⇒ 確保公開圖片 URL 不再 404  
+/*───────────────────────────────────
+ | 2. uploads 對外靜態目錄
+ |   ⇒ 確保公開圖片 URL 不再 404
  *───────────────────────────────────*/
 app.use(
   '/uploads/publicImages',
@@ -43,27 +43,27 @@ app.use(
   express.static(path.resolve(__dirname, '../uploads'))
 );
 
-/*───────────────────────────────────  
- | 3. 健康檢查  
+/*───────────────────────────────────
+ | 3. 健康檢查
  *───────────────────────────────────*/
 app.get('/health', (req, res) => {
   res.send('Express OK (Production Version)');
 });
 
-/*───────────────────────────────────  
- | 4. 掛載各路由  
+/*───────────────────────────────────
+ | 4. 掛載各路由
  *───────────────────────────────────*/
-app.use('/api',         paymentRoutes);         // 付款相關
-app.use('/api/search',  searchMilvusRouter);    // 向量搜尋（Milvus）
-app.use('/api',         searchRoutes);          // TinEye / Vision 等整合搜尋
-app.use('/api/protect', protectRouter);         // 侵權掃描
+app.use('/api',         paymentRoutes);        // 付款相關
+app.use('/api/search',  searchMilvusRouter);   // 向量搜尋（Milvus）
+app.use('/api',         searchRoutes);         // TinEye / Vision 等整合搜尋
+app.use('/api/protect', protectRouter);        // 侵權掃描
 app.use('/api/infringement', infringementRouter); // 侵權相關 API
-app.use('/api/report',  reportRouter);          // 證據 PDF 報表
-app.use('/admin',       adminRouter);           // 管理者介面
-app.use('/auth',        authRouter);            // 認證
+app.use('/api/report',  reportRouter);         // 證據 PDF 報表
+app.use('/admin',       adminRouter);          // 管理者介面
+app.use('/auth',        authRouter);           // 認證
 
-/*───────────────────────────────────  
- | 5. Sequelize 連線 & 同步  
+/*───────────────────────────────────
+ | 5. Sequelize 連線 & 同步
  *───────────────────────────────────*/
 // DB 連線重試機制
 const MAX_RETRIES = parseInt(process.env.DB_CONNECT_RETRIES || '5');
@@ -92,14 +92,15 @@ async function connectWithRetry(attempt = 1) {
 
 connectWithRetry();
 
-/*───────────────────────────────────  
- | 6. Puppeteer：強制使用新版 Headless  
+/*───────────────────────────────────
+ | 6. Puppeteer：強制使用新版 Headless
  *───────────────────────────────────*/
 process.env.PUPPETEER_HEADLESS = 'new';
 
-/*───────────────────────────────────  
- | 7. Ginifab + fallback 測試路由 (/debug/gini)  
+/*───────────────────────────────────
+ | 7. Ginifab + fallback 測試路由 (/debug/gini)
  *───────────────────────────────────*/
+// [註] 以下為內部測試用路由，建議在正式環境中移除或加上權限驗證。
 async function fallbackDirectEngines(imagePath) {
   let finalLinks = [];
   let browser;
@@ -223,8 +224,8 @@ app.get('/debug/gini', async (req, res) => {
   return res.json({ aggregatorOk, foundLinks: finalLinks.slice(0, 20), totalCount: finalLinks.length });
 });
 
-/*───────────────────────────────────  
- | 8. 啟動伺服器  
+/*───────────────────────────────────
+ | 8. 啟動伺服器
  *───────────────────────────────────*/
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
