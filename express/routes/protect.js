@@ -372,7 +372,7 @@ async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, output
 }
 
 // ---------------------------------------------------------------------------
-//             aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
+//                   aggregator/fallback 搜圖邏輯 (Ginifab / Bing / TinEye / Baidu)
 // ---------------------------------------------------------------------------
 async function tryCloseAd(page) {
   try {
@@ -504,7 +504,7 @@ async function fetchLinkMainImage(pageUrl){
     const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(resp.data);
     const ogImg = $('meta[property="og:image"]').attr('content')
-               || $('meta[name="og:image"]').attr('content');
+              || $('meta[name="og:image"]').attr('content');
     if(ogImg) {
       console.log('[fetchLinkMainImage] found og:image =>', ogImg);
       return ogImg;
