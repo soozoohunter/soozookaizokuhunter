@@ -1,11 +1,9 @@
 /**
- * express/routes/protect.js (完整修復與優化版)
+ * express/routes/protect.js (完整修正版)
  *
  * 【核心修正】:
- * 1. 在 /scan/:fileId 和 /scanLink 路由中，修正了導致崩潰的 TypeError。
- * 2. 處理 RapidAPI 結果時，會先檢查回傳物件的 `.success` 屬性，確保程式的健壯性。
- * 3. 簡化了連結收集邏輯，現在直接使用來自各服務回傳的 `.links` 陣列。
- * 4. 保留了您所有的核心功能（PDF、IPFS、區塊鏈等）不變，僅修正了與 API 互動的部分。
+ * 1. 【偵錯日誌】在路由頂部增加一個日誌中間件，用來捕捉並印出所有傳入的請求，以幫助您定位前端發送的 404 錯誤 URL。
+ * 2. 【邏輯修正】在 /step1 路由中，當新檔案成功儲存後，立即呼叫 `indexImageVector` 將其特徵加入向量資料庫，確保後續的掃描可以進行相似度比對。
  */
 const express = require('express');
 const router = express.Router();
@@ -40,7 +38,8 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const { convertAndUpload } = require('../utils/convertAndUpload');
 const { extractKeyFrames } = require('../utils/extractFrames');
-const { searchImageByVector } = require('../utils/vectorSearch');
+// 【邏輯修正】: 同時引入 indexImageVector 以便在 step1 中使用
+const { searchImageByVector, indexImageVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 const tinEyeApi = require('../services/tineyeApiService');
 
@@ -48,6 +47,18 @@ const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS || '50', 10);
 
 const { flickerEncodeAdvanced } = require('../services/flickerService');
 const rapidApiService = require('../services/rapidApiService');
+
+
+// ===================================================================
+// 【偵錯日誌】: 新增日誌中間件，記錄所有進入此路由的請求
+// 這將幫助我們看到前端發送的 404 請求的具體路徑是什麼。
+// ===================================================================
+router.use((req, res, next) => {
+    console.log(`[Protect Router] Received request: ${req.method} ${req.originalUrl}`);
+    next(); // 繼續處理請求
+});
+// ===================================================================
+
 
 const MANUAL_LINKS_PATH = path.join(__dirname, '../', 'data', 'manual_links.json');
 function getAllManualLinks() {
@@ -115,11 +126,11 @@ ensureDebugShotsDir();
 
 async function launchBrowser(){
     const envHeadless = process.env.PPTR_HEADLESS ?? process.env.PUPPETEER_HEADLESS;
-    const HEADLESS = envHeadless === 'false' ? false : true;
+    const HEADLESS = envHeadless === 'false' ? false : 'new';
     console.log('[launchBrowser] starting stealth browser... headless=', HEADLESS);
 
     return puppeteer.launch({
-        headless: HEADLESS ? 'new' : false,
+        headless: HEADLESS,
         executablePath: process.env.CHROMIUM_PATH || undefined,
         args:[
             '--no-sandbox',
@@ -194,7 +205,7 @@ async function generateCertificatePDF(data, outputPath){
         ` : '';
 
         let previewTag='';
-        if(filePath && fs.existsSync(filePath) && mimeType.startsWith('image')){
+        if(filePath && fs.existsSync(filePath) && mimeType && mimeType.startsWith('image')){
             const ext= path.extname(filePath).replace('.','');
             const b64= fs.readFileSync(filePath).toString('base64');
             previewTag= `<img src="data:image/${ext};base64,${b64}" style="max-width:300px; margin:10px auto; display:block;" />`;
@@ -356,7 +367,7 @@ async function fetchLinkMainImage(pageUrl){
         const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
         const $ = cheerio.load(resp.data);
         const ogImg = $('meta[property="og:image"]').attr('content')
-                    || $('meta[name="og:image"]').attr('content');
+                        || $('meta[name="og:image"]').attr('content');
         if(ogImg) {
             console.log('[fetchLinkMainImage] found og:image =>', ogImg);
             return ogImg;
@@ -442,7 +453,6 @@ async function aggregatorSearchLink(pageUrl, localFilePath, needVector=true){
         };
     }
 
-    //【修正點】呼叫 infringementScan 時傳入 buffer 和 keyword
     const fileBufferForScan = fs.readFileSync(localFilePath);
     const keywordForScan = path.basename(pageUrl);
     const report = await infringementScan({ buffer: fileBufferForScan, keyword: keywordForScan });
@@ -529,24 +539,13 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
             const pdfExistPath = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
 
+            // Always remove the newly uploaded file to prevent clutter
+            fs.unlinkSync(req.file.path);
+
             if(isUnlimited){
                 if(!fs.existsSync(finalPathExist)){
-                    console.log('[step1] older file missing => rename new file => finalPathExist');
-                    try {
-                        fs.renameSync(req.file.path, finalPathExist);
-                    } catch(eRen){
-                        if(eRen.code==='EXDEV'){
-                            fs.copyFileSync(req.file.path, finalPathExist);
-                            fs.unlinkSync(req.file.path);
-                        } else {
-                            throw eRen;
-                        }
-                    }
-                } else {
-                    console.log('[step1] old file found => remove new file');
-                    fs.unlinkSync(req.file.path);
+                    console.log('[step1] older file missing => cannot proceed with operations for duplicate.');
                 }
-
                 if(!fs.existsSync(pdfExistPath)){
                     try {
                         const oldUser = await User.findByPk(exist.user_id);
@@ -557,14 +556,14 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
                             phone: oldUser?.phone || '',
                             address: oldUser?.address || '',
                             email : oldUser?.email || '',
-                            title,
-                            fileName : exist.filename || req.file.originalname,
+                            title: exist.title || title, // Use existing title if available
+                            fileName : exist.filename,
                             fingerprint: exist.fingerprint,
                             ipfsHash : exist.ipfs_hash,
                             txHash : exist.tx_hash,
                             serial : oldUser?.serialNumber || '',
-                            mimeType : exist.mimetype || mimeType, // Use existing mimeType if available
-                            issueDate : new Date().toLocaleString(),
+                            mimeType : exist.mimetype,
+                            issueDate : new Date(exist.createdAt).toLocaleString(),
                             filePath : fs.existsSync(finalPathExist) ? finalPathExist : null,
                             stampImagePath: fs.existsSync(stampImg) ? stampImg : null
                         }, pdfExistPath);
@@ -583,8 +582,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
                     defaultPassword: null
                 });
             } else {
-                fs.unlinkSync(req.file.path);
-                return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在' });
+                return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在', fileId: exist.id });
             }
         }
 
@@ -604,13 +602,14 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
                 console.error('[step1 chain error]', eChain);
             }
         } else {
-            console.warn(`[step1] Skipping blockchain record due to missing fingerprint or ipfsHash. Fingerprint: ${fingerprint}, IPFS Hash: ${ipfsHash}`);
+            console.warn(`[step1] Skipping blockchain record due to missing fingerprint or ipfsHash.`);
         }
 
         const newFile= await File.create({
             user_id : user.id,
             filename: req.file.originalname,
-            mimetype: mimeType, // Store mimetype in DB
+            title: title, // Save title to file record
+            mimetype: mimeType,
             fingerprint,
             ipfs_hash: ipfsHash,
             tx_hash : txHash,
@@ -631,6 +630,17 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             } else {
                 throw eRen;
             }
+        }
+
+        // 【邏輯修正】: 在此處將新檔案加入向量資料庫索引，確保後續可以被搜尋到
+        try {
+            if (!isVideo) { // 通常只對圖片做向量索引
+                console.log(`[step1] Indexing image to vector database for fileId: ${newFile.id}`);
+                await indexImageVector(finalPath, newFile.id.toString());
+            }
+        } catch(eVecIndex) {
+            console.error(`[step1] Vector indexing failed for fileId ${newFile.id}:`, eVecIndex);
+            // 不阻斷主流程，僅記錄錯誤。
         }
 
         let previewPath=null;
@@ -702,6 +712,10 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     } catch(err){
         console.error('[step1 error]', err);
+        // 確保如果中途出錯，上傳的暫存檔案會被刪除
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
         return res.status(500).json({ error:'STEP1_ERROR', detail:err.message });
     }
 });
@@ -735,7 +749,7 @@ router.get('/certificates/:fileId', async(req,res)=>{
         if(!fs.existsSync(pdfPath)){
             return res.status(404).json({ error:'NOT_FOUND', message:'證書PDF不存在' });
         }
-        return res.download(pdfPath, `KaiKaiShield_Certificate_${fileId}.pdf`);
+        return res.download(pdfPath, `KaiShield_Certificate_${fileId}.pdf`);
     } catch(e){
         console.error('[certificates error]', e);
         return res.status(500).json({ error:'CERT_DOWNLOAD_ERROR', detail:e.message });
@@ -805,11 +819,16 @@ router.get('/scan/:fileId', async(req,res)=>{
         }
         // ========== 【優化結束】 ==========
 
-        // 向量檢索 (保持不變)
+        // 向量檢索
         try {
             const vectorRes = await searchImageByVector(localPath, { topK: 3 });
-            if(vectorRes && vectorRes.results){
+            if(vectorRes && Array.isArray(vectorRes.results)){
                 for(const r of vectorRes.results){
+                    // 確保搜尋結果不是自己
+                    if (r.id && r.id.toString() === fileId.toString()) {
+                        console.log(`[Scan Route] Vector search result is self (id: ${r.id}), skipping.`);
+                        continue;
+                    }
                     if(r.url){
                         try {
                             const resp = await axios.get(r.url, { responseType:'arraybuffer' });
@@ -829,13 +848,13 @@ router.get('/scan/:fileId', async(req,res)=>{
             console.error('[searchImageByVector error]', eVec);
         }
 
-        // 讀取人工連結 (保持不變)
+        // 讀取人工連結
         const allManual = getAllManualLinks();
         const manKey = `fingerprint_${fileRec.fingerprint}`;
         const manualLinks = allManual[manKey] || [];
         allLinks.push(...manualLinks);
 
-        // 去重 + 過濾無效連結 (保持不變)
+        // 去重 + 過濾無效連結
         const unique= [...new Set(allLinks)].filter(isValidLink);
         const truncated = unique.slice(0, ENGINE_MAX_LINKS);
         console.log(`[Scan Route] Total unique links found: ${truncated.length}`);
@@ -844,7 +863,7 @@ router.get('/scan/:fileId', async(req,res)=>{
         fileRec.infringingLinks= JSON.stringify(truncated);
         await fileRec.save();
 
-        // 產出掃描報告 PDF (保持不變)
+        // 產出掃描報告 PDF
         const scanPdfName= `scanReport_${fileRec.id}.pdf`;
         const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
         const stampPath= path.join(__dirname, '../../public/stamp.png');
@@ -926,7 +945,6 @@ router.get('/scanLink', async(req,res)=>{
         }
 
         let suspiciousLinks = [];
-        //【核心修正】: 健壯地處理來自 aggregator 的結果
         if(aggregatorResult.tineye?.success) suspiciousLinks.push(...aggregatorResult.tineye.links);
         if(aggregatorResult.vision?.success) suspiciousLinks.push(...aggregatorResult.vision.links);
 
