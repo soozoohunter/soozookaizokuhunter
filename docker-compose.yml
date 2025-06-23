@@ -30,61 +30,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  etcd:
-    container_name: suzoo_etcd
-    image: quay.io/coreos/etcd:v3.5.5
-    environment:
-      - ETCD_AUTO_COMPACTION_MODE=revision
-      - ETCD_AUTO_COMPACTION_RETENTION=1000
-      - ETCD_QUOTA_BACKEND_BYTES=4294967296
-      - ETCD_SNAPSHOT_COUNT=50000
-    volumes:
-      - milvus-etcd:/etcd
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  minio:
-    container_name: suzoo_minio
-    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    volumes:
-      - milvus-minio:/minio_data
-    command: minio server /minio_data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  standalone:
-    container_name: suzoo_milvus
-    # ★★★ 最終修正：使用 v2.2 系列的穩定浮動標籤，確保能拉取到 x86_64 的鏡像 ★★★
-    image: milvusdb/milvus:2.2-standalone
-    command: ["milvus", "run", "standalone"]
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    volumes:
-      - milvus-standalone:/var/lib/milvus
-    ports:
-      - "19530:19530"
-      - "9091:9091"
-    depends_on:
-      etcd:
-        condition: service_started
-      minio:
-        condition: service_healthy
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
   suzoo_express:
     container_name: suzoo_express
     build:
@@ -106,8 +51,10 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       FASTAPI_URL: ${FASTAPI_URL}
-      MILVUS_HOST: ${MILVUS_HOST}
-      MILVUS_PORT: ${MILVUS_PORT}
+      # MILVUS_HOST 與 MILVUS_PORT 不再被 python-vector-service 使用
+      # 但為避免其他服務可能引用到，暫時保留
+      MILVUS_HOST: "localhost"
+      MILVUS_PORT: "19530"
       EMAIL_USER: ${EMAIL_USER}
       EMAIL_PASS: ${EMAIL_PASS}
       SMTP_HOST: ${SMTP_HOST}
@@ -130,8 +77,7 @@ services:
         condition: service_started
       suzoo_ganache:
         condition: service_started
-      standalone:
-        condition: service_started
+      # ★★★ 已移除對外部 milvus 容器的依賴 ★★★
     ports:
       - "3000:3000"
     networks:
@@ -230,8 +176,10 @@ services:
     build:
       context: ./python-vector-service
       dockerfile: Dockerfile
-    depends_on:
-      - standalone
+    # ★★★ 已移除對外部 milvus 容器的依賴 ★★★
+    volumes:
+      # ★★★ 新增一個數據卷，給 Milvus Lite 用來永久保存數據 ★★★
+      - milvus_lite_data:/app/milvus_data
     ports:
       - "8001:8000"
     networks:
@@ -282,9 +230,8 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
-  milvus-etcd:
-  milvus-minio:
-  milvus-standalone:
+  # ★★★ 新增給 Milvus Lite 使用的數據卷 ★★★
+  milvus_lite_data:
 
 networks:
   suzoo_net:
