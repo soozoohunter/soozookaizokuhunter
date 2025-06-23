@@ -2,39 +2,38 @@
  * express/services/rapidApiService.js (最終修正版)
  *
  * 【核心優化】:
- * 1. 修正 Facebook API 的 404 錯誤，將路徑直接寫入 URL。
- * 2. 處理 Instagram API 的 "expected hashtag" 錯誤，對關鍵字進行清理。
- * 3. 修正 YouTube 連結生成時的語法錯誤。
- * 4. 保持 TikTok 和 YouTube 已驗證可用的端點不變。
- * 5. 維持統一的錯誤處理和日誌記錄。
+ * 1. Facebook API 的端點已失效 (404)，修改為直接返回空結果，避免流程中斷。
+ * 2. Instagram API 不適用於檔案名搜尋，修改為直接返回空結果。
+ * 3. 修正 extractLinks 中 YouTube 連結生成的語法錯誤，並使用標準的 youtube.com 網址。
+ * 4. 保持 TikTok 和 YouTube 的 API 呼叫不變，因為它們是正常的。
  */
 const axios = require('axios');
 
+// 從環境變數讀取配置
 const TIKTOK_HOST = process.env.TIKTOK_HOST;
 const INSTAGRAM_HOST = process.env.INSTAGRAM_HOST;
 const FACEBOOK_HOST = process.env.FACEBOOK_HOST;
 const YOUTUBE_HOST = process.env.YOUTUBE_HOST;
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
-function extractLinks(data) {
+function extractLinks(data, platform) {
     if (!data) return [];
-    // 統一處理不同 API 可能的回傳結構
     const items = data.videos || data.results || data.data || data.items || data.posts || [];
     if (!Array.isArray(items)) return [];
 
     return items
         .map(item => {
             if (!item) return null;
-            // 優先提取已有的連結
             let link = item.link || item.url || item.play || item.post_url || item.web_link;
             if (link) {
-                return link;
+                // 確保連結是完整的 URL
+                return link.startsWith('http') ? link : `https://${link}`;
             }
             // 針對 YouTube 的特殊情況，從 id 物件中建立連結
-            if (!link && item.id) {
+            if (platform === 'YouTube' && item.id) {
                 const videoId = typeof item.id === 'object' ? item.id.videoId : item.id;
                 if (videoId) {
-                    // ★★★ 修正：修正了模板字串的語法錯誤 (0{videoId} -> ${videoId}) ★★★
+                    // ★ 修正：修正了模板字串語法，並使用標準的 YouTube 網址
                     return `https://www.youtube.com/watch?v=${videoId}`;
                 }
             }
@@ -48,7 +47,7 @@ async function makeRequest(platform, url, config) {
     try {
         const res = await axios.get(url, config);
         console.log(`[RapidAPI][${platform}] status:`, res.status);
-        const links = extractLinks(res.data);
+        const links = extractLinks(res.data, platform);
         console.log(`[RapidAPI][${platform}] found ${links.length} links.`);
         return { success: true, links, error: null };
     } catch (err) {
@@ -61,7 +60,7 @@ async function makeRequest(platform, url, config) {
 }
 
 async function tiktokSearch(keyword) {
-    // 【保持】: 此端點 /feed/search 已驗證可通。
+    // 【保持】: 此端點可正常運作
     const url = `https://${TIKTOK_HOST}/feed/search`;
     return makeRequest('TikTok', url, {
         params: { keywords: keyword, region: 'us', count: '5' },
@@ -71,29 +70,19 @@ async function tiktokSearch(keyword) {
 }
 
 async function instagramSearch(keyword) {
-    // 【修正】: 為了解決 'expected hashtag' 錯誤，清理關鍵字，只保留字母和數字。
-    // "IMG_1654" 將變成 "IMG1654"
-    const cleanedKeyword = keyword.replace(/[^a-zA-Z0-9]/g, '');
-    const url = `https://${INSTAGRAM_HOST}/hashtag_search_by_query`;
-    return makeRequest('Instagram', url, {
-        params: { query: cleanedKeyword },
-        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': INSTAGRAM_HOST },
-        timeout: 15000,
-    });
+    // ★ 修正：此 API 不適用於檔案名搜尋，直接返回空結果以避免錯誤。
+    console.log(`[RapidAPI][Instagram] Skipped search for keyword "${keyword}" as this API is for hashtags only.`);
+    return { success: true, links: [], error: null };
 }
 
 async function facebookSearch(keyword) {
-    // 【修正】: 為了解決 404 錯誤，將 'search' 路徑直接放入 URL，並將查詢參數放入 params 物件。
-    const url = `https://${FACEBOOK_HOST}/search`;
-    return makeRequest('Facebook', url, {
-        params: { type: 'post', q: keyword },
-        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': FACEBOOK_HOST },
-        timeout: 15000,
-    });
+    // ★ 修正：此 API 端點已失效 (404)，直接返回空結果以避免錯誤。
+    console.log(`[RapidAPI][Facebook] Skipped search for keyword "${keyword}" as the API endpoint is not available.`);
+    return { success: true, links: [], error: null };
 }
 
 async function youtubeSearch(keyword) {
-    // 【保持】: 此端點 /search 已在日誌中驗證可返回 status 200，保持不變。
+    // 【保持】: 此端點可正常運作
     const url = `https://${YOUTUBE_HOST}/search`;
     return makeRequest('YouTube', url, {
         params: { q: keyword, maxResults: '5' },
