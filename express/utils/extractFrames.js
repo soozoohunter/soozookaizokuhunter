@@ -1,107 +1,80 @@
-**
- * express/utils/extractFrames.js (優化版)
- *
- * 【本次優化】:
- * - [健壯性] 增加對 ffprobe 失敗的錯誤處理，並提供更清晰的日誌。
- * - [健壯性] 在執行 ffmpeg 前，檢查 timemarks 陣列是否為空，避免不必要的執行。
- * - [日誌] 增加更詳細的日誌輸出，便於追蹤影片處理過程。
- * - [可讀性] 增加程式碼註解，解釋各個參數的作用。
+/**
+ * express/utils/extractFrames.js
+ * - 從影片檔案中抽取多個關鍵畫格的輔助工具
  */
-const fs = require('fs');
+const { execSync } = require('child_process');
 const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
+const fs = require('fs');
 
-// 確保 ffmpeg 執行檔路徑已設定
-if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+
+/**
+ * 使用 ffprobe 獲取影片的總時長（秒）
+ * @param {string} videoPath - 影片檔案的絕對路徑
+ * @returns {number} 影片時長（秒），失敗則返回 0
+ */
+function getVideoDuration(videoPath) {
+    try {
+        // 使用 ffprobe 命令獲取影片時長
+        const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`;
+        const duration = parseFloat(execSync(command).toString().trim());
+        return isNaN(duration) ? 0 : duration;
+    } catch (error) {
+        console.error(`[ffprobe] Error getting duration for ${videoPath}:`, error.stderr ? error.stderr.toString() : error);
+        return 0;
+    }
 }
 
 /**
- * 從影片中依固定間隔抽取多個關鍵畫面。
- * @param {string} videoPath 來源影片的絕對路徑。
- * @param {string} outputDir 輸出畫面的資料夾路徑。
- * @param {number} intervalSec 抽圖的時間間隔（秒）。預設為 10 秒。
- * @param {number} maxCount 最多抽取的畫面數量。預設為 5 張。
- * @returns {Promise<string[]>} 一個 Promise，解析後回傳所有成功產生的畫面檔案絕對路徑陣列。
+ * 從影片中抽取指定數量的關鍵畫格
+ * @param {string} videoPath - 影片檔案的絕對路徑
+ * @param {number} frameCount - 要抽取的畫格數量
+ * @returns {Promise<string[]>} 一個包含所有暫存畫格圖片路徑的陣列
  */
-function extractKeyFrames(videoPath, outputDir, intervalSec = 10, maxCount = 5) {
-    return new Promise((resolve, reject) => {
-        console.log(`[extractKeyFrames] Starting frame extraction for: ${videoPath}`);
+async function extractKeyFrames(videoPath, frameCount = 3) {
+    const duration = getVideoDuration(videoPath);
+    if (duration <= 0) {
+        console.error('[extractKeyFrames] Cannot get video duration or duration is zero.');
+        return [];
+    }
 
-        if (!fs.existsSync(videoPath)) {
-            const errorMsg = `Video file not found at path: ${videoPath}`;
-            console.error(`[extractKeyFrames] Error: ${errorMsg}`);
-            return reject(new Error(errorMsg));
+    const framePaths = [];
+    // 建立一個暫存資料夾來存放抽取的畫格
+    const tempDir = path.join(UPLOAD_BASE_DIR, 'temp_frames');
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // 計算每個畫格的抽取時間點（例如，對於3個畫格，在 25%, 50%, 75% 處抽取）
+    const interval = duration / (frameCount + 1);
+
+    for (let i = 1; i <= frameCount; i++) {
+        const timestamp = interval * i;
+        // 將秒數轉換為 HH:MM:SS 格式
+        const timestampFormatted = new Date(timestamp * 1000).toISOString().substr(11, 8);
+        const outputFramePath = path.join(tempDir, `frame_${path.basename(videoPath)}_${i}_${Date.now()}.jpg`);
+        
+        try {
+            // -ss: 定位到時間點
+            // -vframes 1: 只抽取一個畫格
+            // -q:v 2: 輸出高品質的 JPG 圖片
+            // -update 1: 確保 ffmpeg 正確寫入單一圖片檔案，避免報錯
+            const command = `ffmpeg -y -ss ${timestampFormatted} -i "${videoPath}" -vframes 1 -q:v 2 -update 1 "${outputFramePath}"`;
+            execSync(command, { stdio: 'pipe' }); // 使用 'pipe' 避免在 console 中輸出大量 ffmpeg log
+
+            if (fs.existsSync(outputFramePath)) {
+                framePaths.push(outputFramePath);
+                console.log(`[extractKeyFrames] Successfully extracted frame at ${timestamp.toFixed(2)}s to ${outputFramePath}`);
+            }
+        } catch (error) {
+            console.error(`[ffmpeg] Error extracting frame for ${videoPath} at ${timestampFormatted}:`, error.stderr ? error.stderr.toString() : error);
         }
+    }
 
-        if (!fs.existsSync(outputDir)) {
-            console.log(`[extractKeyFrames] Creating output directory: ${outputDir}`);
-            fs.mkdirSync(outputDir, { recursive: true });
-        }
-
-        // 1. 使用 ffprobe 讀取影片元數據 (metadata)
-        ffmpeg.ffprobe(videoPath, (err, data) => {
-            if (err) {
-                const errorMsg = `Cannot probe video info. It might be corrupted or in an unsupported format. Error: ${err.message}`;
-                console.error(`[extractKeyFrames] ffprobe Error for ${videoPath}:`, err);
-                return reject(new Error(errorMsg));
-            }
-
-            const duration = data.format.duration || 0;
-            if (duration === 0) {
-                console.warn(`[extractKeyFrames] Video duration is 0 for ${videoPath}. Cannot extract frames.`);
-                return resolve([]); // 回傳空陣列，不視為錯誤
-            }
-
-            // 2. 根據影片長度和設定，計算要擷取的時間點 (timemarks)
-            const totalSpan = intervalSec * maxCount;
-            const actualSpan = Math.min(duration, totalSpan);
-            const effectiveCount = Math.floor(actualSpan / intervalSec) + 1;
-
-            let timemarks = [];
-            for (let i = 0; i < Math.min(maxCount, effectiveCount); i++) {
-                timemarks.push(String(i * intervalSec));
-            }
-            // 確保影片結尾也被考慮
-            if (duration > 0 && !timemarks.includes(String(duration)) && timemarks.length < maxCount) {
-                 // 可以在此加入最後一幀的邏輯，但為求間隔一致，暫時省略
-            }
-
-
-            console.log(`[extractKeyFrames] Video duration: ${duration}s. Generating ${timemarks.length} frames at intervals of ${intervalSec}s. Timestamps:`, timemarks);
-
-            if (timemarks.length === 0) {
-                console.warn('[extractKeyFrames] No timemarks generated, skipping ffmpeg execution.');
-                return resolve([]);
-            }
-
-            let generatedFiles = [];
-            
-            // 3. 執行 ffmpeg 進行截圖
-            ffmpeg(videoPath)
-                .on('error', (ffmpegErr) => {
-                    const errorMsg = `FFmpeg process failed during screenshotting. Error: ${ffmpegErr.message}`;
-                    console.error('[extractKeyFrames] FFmpeg Error:', ffmpegErr);
-                    reject(new Error(errorMsg));
-                })
-                .on('end', () => {
-                    console.log(`[extractKeyFrames] Successfully extracted ${generatedFiles.length} frames.`);
-                    resolve(generatedFiles);
-                })
-                .on('filenames', (filenames) => {
-                    // 將相對路徑轉為絕對路徑
-                    generatedFiles = filenames.map(name => path.join(outputDir, name));
-                    console.log('[extractKeyFrames] Generated filenames:', generatedFiles);
-                })
-                .screenshots({
-                    timemarks: timemarks,
-                    folder: outputDir,
-                    filename: 'frame-%s-%i.png', // %s = timestamp, %i = index
-                    size: '800x?' // 限制寬度以加快處理速度
-                });
-        });
-    });
+    return framePaths;
 }
 
-module.exports = { extractKeyFrames };
+module.exports = {
+    extractKeyFrames,
+    getVideoDuration
+};
