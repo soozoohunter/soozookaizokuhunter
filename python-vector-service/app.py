@@ -1,8 +1,21 @@
-# python-vector-service/app.py (最終統一API修正版)
+# python-vector-service/app.py (Milvus Lite 整合最終版)
+
+# 步驟 1: 在檔案最頂部加入 Milvus Lite 初始化程式碼
+# 這會在本應用程式內部啟動一個 Milvus 服務，不再需要外部容器。
+import logging
+try:
+    from milvus_lite.server import server
+    # 設定一個在容器內的路徑來永久保存 Milvus 數據
+    server.set_config("storage.path", "/app/milvus_data")
+    server.start()
+    logging.info("[Milvus Lite] 伺服器已成功啟動。")
+except Exception as e:
+    logging.error(f"[Milvus Lite] 伺服器啟動失敗: {e}", exc_info=True)
+# --- 初始化結束 ---
+
 
 import os
 import io
-import logging
 from typing import Optional
 
 # 引入 FastAPI 的必要工具
@@ -11,50 +24,46 @@ from pydantic import BaseModel
 from PIL import Image
 import torch
 from transformers import CLIPProcessor, CLIPModel
+import base64 # 為了處理 base64 字串
 
 from pymilvus import (
     connections, FieldSchema, CollectionSchema,
     DataType, Collection, utility
 )
 
-# 日誌設定
+# 日誌設定 (調整，避免與上方重複)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 环境变量
-MILVUS_HOST = os.environ.get("MILVUS_HOST", "suzoo_milvus")
-MILVUS_PORT = os.environ.get("MILVUS_PORT", "19530")
 
-# Collection 配置
-IMAGE_COLLECTION_NAME = "image_collection_v2" # 使用新名稱以避免與舊 schema 衝突
+# Collection 配置 (保持不變)
+IMAGE_COLLECTION_NAME = "image_collection_v2" 
 DIM_IMAGE = 512
 
 # FastAPI 應用
-app = FastAPI(title="Suzoo Vector Service")
+app = FastAPI(title="Suzoo Vector Service with Milvus Lite")
 router = APIRouter(prefix="/api/v1")
 
 
 # ========== 服務與模型初始化 ==========
-collection = None
-def get_collection():
-    global collection
-    if collection is not None:
-        try:
-            # 簡單檢查連線是否健康
-            if utility.has_collection(IMAGE_COLLECTION_NAME, using='default'):
-                return collection
-            else: # Collection 被意外刪除
-                logger.warning(f"Collection {IMAGE_COLLECTION_NAME} no longer exists. Re-initializing...")
-                collection = None # 強制重新初始化
-        except Exception:
-            logger.warning("Milvus connection lost. Reconnecting...")
-            collection = None # 強制重新初始化
 
-    # 如果 collection 是 None, 則進行初始化
+# 步驟 2: 重寫 get_collection 函數，使其連接到本地的 Milvus Lite
+collection_instance = None
+def get_collection():
+    """
+    連接到本地 Milvus Lite 服務並確保 Collection 已準備就緒。
+    """
+    global collection_instance
+    if collection_instance is not None:
+        return collection_instance
+
     try:
-        logger.info(f"Connecting to Milvus at {MILVUS_HOST}:{MILVUS_PORT}...")
-        connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT, timeout=20)
-        
+        # 連接到由 Milvus Lite 在本地啟動的預設伺服器
+        logger.info("Connecting to local Milvus Lite server...")
+        connections.connect(alias="default")
+        logger.info("Successfully connected to Milvus Lite.")
+
+        # 檢查 Collection 是否存在，若不存在則建立
         if not utility.has_collection(IMAGE_COLLECTION_NAME):
             logger.info(f"Collection '{IMAGE_COLLECTION_NAME}' not found. Creating...")
             fields = [
@@ -63,20 +72,26 @@ def get_collection():
             ]
             schema = CollectionSchema(fields, description="Stores CLIP embeddings of images.")
             coll = Collection(name=IMAGE_COLLECTION_NAME, schema=schema)
+            
+            # 建立索引
             index_params = {"index_type":"IVF_FLAT", "metric_type":"IP", "params":{"nlist":1024}}
             coll.create_index(field_name="embedding", index_params=index_params)
             logger.info("Index created successfully.")
         else:
             logger.info(f"Found existing collection '{IMAGE_COLLECTION_NAME}'.")
-        
-        collection = Collection(IMAGE_COLLECTION_NAME)
-        collection.load()
-        logger.info(f"Collection '{IMAGE_COLLECTION_NAME}' loaded successfully.")
-        return collection
-    except Exception as e:
-        logger.error(f"Milvus initialization failed: {e}", exc_info=True)
-        raise HTTPException(status_code=503, detail=f"Cannot connect to or initialize Milvus service: {e}")
 
+        # 載入 Collection 到記憶體
+        collection_instance = Collection(IMAGE_COLLECTION_NAME)
+        collection_instance.load()
+        logger.info(f"Collection '{IMAGE_COLLECTION_NAME}' loaded successfully.")
+        return collection_instance
+
+    except Exception as e:
+        logger.error(f"Milvus Lite initialization failed: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"Cannot initialize Milvus Lite service: {e}")
+
+
+# CLIP 模型載入 (保持不變)
 logger.info("Loading CLIP model...")
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -90,6 +105,13 @@ def process_and_embed_image(image_bytes: bytes) -> list:
     with torch.no_grad():
         vector = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
     return vector
+
+# API 端點的程式碼，這裡的邏輯幾乎不變，但我們要確保它能處理來自 vectorSearch.js 的請求
+# vectorSearch.js 中的 searchLocalImage 是以 base64 發送的，因此我們需要一個 Pydantic 模型來接收它
+
+class SearchRequest(BaseModel):
+    image_base64: Optional[str] = None
+    top_k: int = 5
 
 @router.post("/image-insert")
 async def image_insert_from_upload(
@@ -111,14 +133,24 @@ async def image_insert_from_upload(
         logger.error(f"Error processing indexing request for ID '{id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Insert error: {e}")
 
+# 步驟 3: 修改 image-search 端點以接受來自 vectorSearch.js 的 multipart/form-data
 @router.post("/image-search")
 async def image_search_from_upload(
-    image: UploadFile = File(..., description="The image file for searching"),
+    image: Optional[UploadFile] = File(None, description="The image file for searching"),
+    image_base64: Optional[str] = Form(None, description="Base64 encoded image string"),
     top_k: int = Form(5, description="Number of similar results to return")
 ):
-    try:
-        logger.info(f"Received search request: top_k={top_k}, filename='{image.filename}'")
+    contents = None
+    if image:
+        logger.info(f"Received search request via file upload: top_k={top_k}, filename='{image.filename}'")
         contents = await image.read()
+    elif image_base64:
+        logger.info(f"Received search request via base64: top_k={top_k}")
+        contents = base64.b64decode(image_base64)
+    else:
+        raise HTTPException(status_code=400, detail="No image provided. Use 'image' or 'image_base64'.")
+
+    try:
         query_vector = process_and_embed_image(contents)
 
         coll = get_collection()
@@ -143,4 +175,4 @@ app.include_router(router)
 
 @app.get("/")
 def read_root():
-    return {"status": "Vector Search Service is running"}
+    return {"status": "Vector Search Service with Milvus Lite is running"}
