@@ -30,8 +30,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  # ★★★ Milvus 官方配置開始 ★★★
-  # 採用 Milvus v2.2.14 官方的 docker-compose.yml 內容，確保兼容性
   etcd:
     container_name: suzoo_etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -67,8 +65,8 @@ services:
 
   standalone:
     container_name: suzoo_milvus
-    # 使用 v2.2.x 系列最終穩定版的 -standalone 鏡像，兼容 x86_64 非 AVX2 CPU
-    image: milvusdb/milvus:v2.2.14-standalone
+    # ★★★ 最終修正：使用 v2.2 系列的穩定浮動標籤，確保能拉取到 x86_64 的鏡像 ★★★
+    image: milvusdb/milvus:2.2-standalone
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: etcd:2379
@@ -86,7 +84,6 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
-  # ★★★ Milvus 官方配置結束 ★★★
 
   suzoo_express:
     container_name: suzoo_express
@@ -133,7 +130,6 @@ services:
         condition: service_started
       suzoo_ganache:
         condition: service_started
-      # ★★★ 修正：依賴於新的 milvus 'standalone' 服務 ★★★
       standalone:
         condition: service_started
     ports:
@@ -235,7 +231,6 @@ services:
       context: ./python-vector-service
       dockerfile: Dockerfile
     depends_on:
-      # ★★★ 修正：依賴於新的 milvus 'standalone' 服務 ★★★
       - standalone
     ports:
       - "8001:8000"
@@ -287,7 +282,6 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
-  # ★★★ 新增 Milvus 官方配置所需的 volumes ★★★
   milvus-etcd:
   milvus-minio:
   milvus-standalone:
