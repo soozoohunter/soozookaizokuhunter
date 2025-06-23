@@ -36,13 +36,8 @@ services:
       context: ./express
       dockerfile: Dockerfile
     volumes:
-      # ★★★ uploads 永久化 ─ 與主機/其他容器共用 ★★★
       - uploads_data:/app/uploads
-
-      # ★★★ 新增：掛入 Google Service-Account 金鑰 (唯讀) ★★★
       - ./credentials:/app/credentials:ro
-
-      # 其他原本就有的 volumes
       - ./express/fonts:/app/express/fonts:ro
       - ./express/debugShots:/app/debugShots
     environment:
@@ -65,23 +60,13 @@ services:
       SMTP_SECURE: ${SMTP_SECURE}
       EMAIL_FROM: ${EMAIL_FROM}
       PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
-
-      # ★★★ 新增：Google Vision SDK 將自動讀取此路徑 ★★★
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-
-      # ★★★ 新增：TinEye API Key (修正錯誤) ★★★
       TINEYE_API_KEY: ${TINEYE_API_KEY}
-
-      # ★★★ 新增：RapidAPI Key (這是你缺失的！) ★★★
       RAPIDAPI_KEY: ${RAPIDAPI_KEY}
-
-      # ★★★ 新增：RapidAPI 平台主機地址 (已更新為精確值) ★★★
       TIKTOK_HOST: ${TIKTOK_HOST}
       FACEBOOK_HOST: ${FACEBOOK_HOST}
       INSTAGRAM_HOST: ${INSTAGRAM_HOST}
       YOUTUBE_HOST: ${YOUTUBE_HOST}
-
-      # Puppeteer 新版 Headless 警告抑制
       PUPPETEER_HEADLESS: "new"
     depends_on:
       suzoo_postgres:
@@ -90,8 +75,9 @@ services:
         condition: service_started
       suzoo_ganache:
         condition: service_started
+      # ★★★ 修正：等待 Milvus 完全健康再啟動 ★★★
       suzoo_milvus:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "3000:3000"
     networks:
@@ -208,7 +194,7 @@ services:
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: "suzoo_etcd:2379"
-      MINIO_ADDRESS: "http://suzoo_minio:9000"
+      MINIO_ADDRESS: "suzoo_minio:9000"
       MINIO_ACCESS_KEY_ID: "admin"
       MINIO_SECRET_ACCESS_KEY: "admin123"
       MINIO_USE_SSL: "false"
@@ -218,6 +204,13 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
+    # ★★★ 新增：健康檢查，確保 Milvus 服務完全就緒 ★★★
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19121/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
@@ -294,7 +287,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  uploads_data: # ★★★ 對應 /app/uploads ★★★
+  uploads_data:
 
 networks:
   suzoo_net:
