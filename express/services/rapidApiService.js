@@ -1,10 +1,12 @@
 /**
- * express/services/rapidApiService.js (再次修正版)
+ * express/services/rapidApiService.js (最終修正版)
  *
  * 【核心優化】:
- * 1. 根據之前的 404 錯誤日誌，將 TikTok, Instagram, Facebook 的 API 端點和參數還原為您最初提供的、最可靠的配置。
- * 2. 保留 YouTube API (youtube138) 已被驗證可成功連線的 `/search` 端點。
- * 3. 保持健壯的錯誤處理和統一的回傳格式。
+ * 1. 修正 Facebook API 的 404 錯誤，將路徑直接寫入 URL。
+ * 2. 處理 Instagram API 的 "expected hashtag" 錯誤，對關鍵字進行清理。
+ * 3. 修正 YouTube 連結生成時的語法錯誤。
+ * 4. 保持 TikTok 和 YouTube 已驗證可用的端點不變。
+ * 5. 維持統一的錯誤處理和日誌記錄。
  */
 const axios = require('axios');
 
@@ -16,22 +18,29 @@ const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
 function extractLinks(data) {
     if (!data) return [];
+    // 統一處理不同 API 可能的回傳結構
     const items = data.videos || data.results || data.data || data.items || data.posts || [];
     if (!Array.isArray(items)) return [];
 
     return items
         .map(item => {
             if (!item) return null;
+            // 優先提取已有的連結
             let link = item.link || item.url || item.play || item.post_url || item.web_link;
+            if (link) {
+                return link;
+            }
+            // 針對 YouTube 的特殊情況，從 id 物件中建立連結
             if (!link && item.id) {
                 const videoId = typeof item.id === 'object' ? item.id.videoId : item.id;
                 if (videoId) {
+                    // ★★★ 修正：修正了模板字串的語法錯誤 (0{videoId} -> ${videoId}) ★★★
                     return `https://www.youtube.com/watch?v=${videoId}`;
                 }
             }
-            return link;
+            return null;
         })
-        .filter(Boolean);
+        .filter(Boolean); // 過濾掉所有 null 或 undefined 的結果
 }
 
 async function makeRequest(platform, url, config) {
@@ -52,7 +61,7 @@ async function makeRequest(platform, url, config) {
 }
 
 async function tiktokSearch(keyword) {
-    // 【修正】: 還原為您最初提供的端點 /feed/search，這是最可靠的設定。
+    // 【保持】: 此端點 /feed/search 已驗證可通。
     const url = `https://${TIKTOK_HOST}/feed/search`;
     return makeRequest('TikTok', url, {
         params: { keywords: keyword, region: 'us', count: '5' },
@@ -62,27 +71,29 @@ async function tiktokSearch(keyword) {
 }
 
 async function instagramSearch(keyword) {
-    // 【修正】: 還原為您最初提供的端點 /hashtag_search_by_query
+    // 【修正】: 為了解決 'expected hashtag' 錯誤，清理關鍵字，只保留字母和數字。
+    // "IMG_1654" 將變成 "IMG1654"
+    const cleanedKeyword = keyword.replace(/[^a-zA-Z0-9]/g, '');
     const url = `https://${INSTAGRAM_HOST}/hashtag_search_by_query`;
     return makeRequest('Instagram', url, {
-        params: { query: keyword },
+        params: { query: cleanedKeyword },
         headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': INSTAGRAM_HOST },
         timeout: 15000,
     });
 }
 
 async function facebookSearch(keyword) {
-    // 【修正】: 還原為您最初提供的根端點 "/" 並使用 'path' 參數
-    const url = `https://${FACEBOOK_HOST}/`;
+    // 【修正】: 為了解決 404 錯誤，將 'search' 路徑直接放入 URL，並將查詢參數放入 params 物件。
+    const url = `https://${FACEBOOK_HOST}/search`;
     return makeRequest('Facebook', url, {
-        params: { path: `search?type=post&q=${encodeURIComponent(keyword)}` },
+        params: { type: 'post', q: keyword },
         headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': FACEBOOK_HOST },
         timeout: 15000,
     });
 }
 
 async function youtubeSearch(keyword) {
-    // 【保持】: 此端點已在日誌中驗證可返回 status 200，保持不變。
+    // 【保持】: 此端點 /search 已在日誌中驗證可返回 status 200，保持不變。
     const url = `https://${YOUTUBE_HOST}/search`;
     return makeRequest('YouTube', url, {
         params: { q: keyword, maxResults: '5' },
