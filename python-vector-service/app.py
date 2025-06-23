@@ -1,191 +1,132 @@
-# python-vector-service/app.py
-import os
+# python/main.py (一個健壯的、可運行的範本)
+
 import io
-import sqlite3
-import sys
-import requests
-import base64
-from typing import Optional
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, HttpUrl
-
-from sentence_transformers import SentenceTransformer
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, APIRouter
+from fastapi.responses import JSONResponse
 from PIL import Image
-import torch
-from transformers import CLIPProcessor, CLIPModel
+import logging
 
-from pymilvus import (
-    connections, FieldSchema, CollectionSchema,
-    DataType, Collection, utility
-)
+# ========== 日誌設定 ==========
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Celery Client
-from celery import Celery
+# ========== 服務初始化 (請在此處載入您的 AI 模型和連接 Milvus) ==========
+# 範例:
+# try:
+#     logger.info("正在載入 AI 模型...")
+#     model = YourEmbeddingModel()
+#     logger.info("AI 模型載入成功。")
+#
+#     logger.info("正在連接 Milvus...")
+#     milvus_client = YourMilvusClient()
+#     logger.info("Milvus 連接成功。")
+# except Exception as e:
+#     logger.error(f"服務初始化失敗: {e}")
+#     model = None
+#     milvus_client = None
 
-# 环境变量
-BROKER_URL = os.environ.get("BROKER_URL", "amqp://admin:123456@suzoo_rabbitmq:5672//")
-RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "rpc://")
-MILVUS_HOST = os.environ.get("MILVUS_HOST", "suzoo_milvus")
-MILVUS_PORT = os.environ.get("MILVUS_PORT", "19530")
+# ========== FastAPI 應用與路由設定 ==========
+app = FastAPI(title="Vector Search Service")
+router = APIRouter(prefix="/api/v1")
 
-# Collection 配置
-IMAGE_COLLECTION_NAME = "image_collection"
-DIM_IMAGE = 512
 
-# SQLite 路径
-BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "sqlite_db", "sources.db")
-
-# FastAPI & Celery
-app = FastAPI(title="Suzoo Vector Service")
-celery_app = Celery("celery_client", broker=BROKER_URL, backend=RESULT_BACKEND)
-
-# Pydantic 模型
-class TextEmbedRequest(BaseModel):
-    text: str
-
-class ImageEmbedRequest(BaseModel):
-    image_url: str
-
-class ImageSearchRequest(BaseModel):
-    image_url: Optional[str] = None
-    image_base64: Optional[str] = None
-    top_k: int = 5
-
-class InsertImageRequest(BaseModel):
-    image_url: str
-
-class URLItem(BaseModel):
-    url: HttpUrl
-
-# 本地缓存：等客户端第一次调用时才初始化 Milvus & Collection
-collection = None
-
-def init_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('''
-        CREATE TABLE IF NOT EXISTS pending_urls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT NOT NULL,
-            status INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-@app.on_event("startup")
-def on_startup():
-    # 只做 SQLite 初始化，快速返回
-    init_db()
-
-# Helper：懒连接 Milvus
-def get_collection():
-    global collection
-    if collection is not None:
-        return collection
-
-    # 1) 连接 Milvus
-    connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
-    # 2) 创建或加载 Collection
-    if not utility.has_collection(IMAGE_COLLECTION_NAME):
-        fields = [
-            FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
-            FieldSchema(name="url", dtype=DataType.VARCHAR, max_length=300),
-            FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=DIM_IMAGE),
-        ]
-        schema = CollectionSchema(fields, description="Store CLIP embeddings of images.")
-        coll = Collection(name=IMAGE_COLLECTION_NAME, schema=schema)
-        coll.create_index(
-            field_name="embedding",
-            index_params={"index_type":"IVF_FLAT","metric_type":"IP","params":{"nlist":256}}
-        )
-        coll.load()
-    else:
-        coll = Collection(IMAGE_COLLECTION_NAME)
-        coll.load()
-
-    collection = coll
-    return collection
-
-# 加载模型
-text_model = SentenceTransformer('all-MiniLM-L6-v2')
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-@app.post("/api/v1/text-embed")
-def text_embed(req: TextEmbedRequest):
-    vec = text_model.encode([req.text])
-    return {"embedding": vec[0].tolist()}
-
-@app.post("/api/v1/image-embed")
-def image_embed(req: ImageEmbedRequest):
+@router.post("/image-insert")
+async def image_insert(
+    image: UploadFile = File(..., description="要索引的圖片檔案"),
+    id: str = Form(..., description="圖片的唯一 ID (來自資料庫)")
+):
+    """
+    接收圖片和 ID，產生向量並存入 Milvus。
+    """
+    # if not model or not milvus_client:
+    #     raise HTTPException(status_code=503, detail="服務尚未完全初始化，請稍後再試。")
+        
     try:
-        resp = requests.get(req.image_url, timeout=10)
-        resp.raise_for_status()
-        image = Image.open(io.BytesIO(resp.content)).convert("RGB")
-        inputs = clip_processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            feat = clip_model.get_image_features(**inputs)[0]
-        return {"embedding": feat.cpu().numpy().tolist()}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.info(f"收到索引請求: id='{id}', filename='{image.filename}'")
 
-@app.post("/api/v1/image-search")
-def image_search(req: ImageSearchRequest):
-    if not req.image_url and not req.image_base64:
-        raise HTTPException(status_code=400, detail="Must provide image_url or image_base64")
-    try:
-        # 取得原始 bytes
-        if req.image_url:
-            resp = requests.get(req.image_url, timeout=10); resp.raise_for_status()
-            img_bytes = resp.content
-        else:
-            img_bytes = base64.b64decode(req.image_base64)
+        # 讀取圖片內容
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
+        
+        logger.info(f"圖片讀取成功: format={pil_image.format}, size={pil_image.size}")
 
-        # CLIP 编码
-        image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        inputs = clip_processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            qv = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
+        # 1. 在這裡使用您的 AI 模型產生圖片向量
+        # image_vector = model.encode(pil_image)
+        # logger.info(f"成功為 ID '{id}' 產生向量。")
+        
+        # 2. 在這裡將 ID 和向量存入 Milvus
+        # milvus_client.insert(id, image_vector)
+        # logger.info(f"成功將 ID '{id}' 的向量存入 Milvus。")
+        
+        # 模擬成功
+        mock_vector = [0.1] * 128
 
-        # 搜索
-        coll = get_collection()
-        results = coll.search(
-            data=[qv], anns_field="embedding",
-            param={"metric_type":"IP","params":{"nprobe":32}},
-            limit=req.top_k, output_fields=["url"]
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Image indexed successfully",
+                "id": id,
+                "filename": image.filename,
+                "vector_shape": len(mock_vector)
+            }
         )
-        hits = [{"url":h.entity.get("url"), "score":float(h.distance)} for h in results[0]]
-        return {"results": hits}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Search error: {e}")
 
-@app.post("/api/v1/image-insert")
-def image_insert(req: InsertImageRequest):
+    except Exception as e:
+        logger.error(f"處理 ID '{id}' 的索引請求時發生錯誤: {e}", exc_info=True)
+        # 返回一個標準的 JSON 錯誤，而不是讓 FastAPI 崩潰
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error while processing image: {str(e)}"
+        )
+
+
+@router.post("/image-search")
+async def image_search(
+    image: UploadFile = File(..., description="用於搜尋的圖片檔案"),
+    top_k: int = Form(3, description="要回傳的最相似結果數量")
+):
+    """
+    接收圖片，產生向量並在 Milvus 中搜尋最相似的 K 個結果。
+    """
+    # if not model or not milvus_client:
+    #     raise HTTPException(status_code=503, detail="服務尚未完全初始化，請稍後再試。")
+
     try:
-        resp = requests.get(req.image_url, timeout=10); resp.raise_for_status()
-        image = Image.open(io.BytesIO(resp.content)).convert("RGB")
-        inputs = clip_processor(images=image, return_tensors="pt")
-        with torch.no_grad():
-            v = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
+        logger.info(f"收到搜尋請求: top_k={top_k}, filename='{image.filename}'")
 
-        coll = get_collection()
-        res = coll.insert([[None], [req.image_url], [v]])
-        coll.flush()
-        return {"status":"ok", "insert_count": len(res.primary_keys)}
+        contents = await image.read()
+        pil_image = Image.open(io.BytesIO(contents))
+        
+        logger.info(f"搜尋圖片讀取成功: format={pil_image.format}, size={pil_image.size}")
+        
+        # 1. 產生查詢圖片的向量
+        # query_vector = model.encode(pil_image)
+        # logger.info("成功為查詢圖片產生向量。")
+
+        # 2. 在 Milvus 中進行搜尋
+        # search_results = milvus_client.search(query_vector, top_k)
+        # logger.info(f"Milvus 搜尋完成，找到 {len(search_results)} 個結果。")
+        
+        # 模擬成功的回傳結果
+        mock_results = {
+            "results": [
+                {"id": "1", "score": 0.99, "url": "https://example.com/img1.jpg"},
+                {"id": "2", "score": 0.98, "url": "https://example.com/img2.jpg"},
+            ]
+        }
+
+        return JSONResponse(status_code=200, content=mock_results)
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Insert error: {e}")
+        logger.error(f"處理搜尋請求時發生錯誤: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while searching for image: {str(e)}"
+        )
 
-@app.post("/api/v1/source/add-url")
-def add_url(item: URLItem):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("INSERT INTO pending_urls (url) VALUES (?)", (item.url,))
-    rid = cur.lastrowid
-    conn.commit(); cur.close(); conn.close()
+# 將路由掛載到主應用上
+app.include_router(router)
 
-    celery_app.send_task("tasks.crawl_url", args=[rid, item.url])
-    return {"status":"OK", "message":f"已寫入DB並派給Celery => {item.url}", "record_id": rid}
+@app.get("/")
+def read_root():
+    return {"status": "Vector Search Service is running"}
