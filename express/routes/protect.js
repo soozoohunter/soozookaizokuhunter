@@ -1,12 +1,11 @@
 /**
- * express/routes/protect.js (整合優化修復版)
+ * express/routes/protect.js (二次修正並優化版)
  *
  * 【本次整合優化】:
- * - [BUG修復] 在 /scan/:fileId 路由中，徹底修復了 `LOCAL_FILE_NOT_FOUND` 的錯誤。根本原因是在 step1 中，副檔名被標準化 (例如 .jpeg -> .jpg)，但在掃描時，回退邏輯未能正確重建檔案路徑。
- * - [健壯性提升] 新的檔案尋找機制不再依賴資料庫中的 mimetype 或 filename 來重建路徑。而是直接探測 (probe) 硬碟上實際存在的檔案 (`imageForSearch_[id].jpg`, `imageForSearch_[id].png` 等)，這能有效避免資料庫資訊與實體檔案不一致所導致的錯誤。
- * - 綜合「最終修正版」與「已整合修正」兩份程式碼的優點。
- * - [邏輯保留] 維持 /step1 路由中使用 `indexImageVector` 進行向量索引的邏輯。
- * - [邏輯保留] 維持 /scan/:fileId 路由中處理 Python 服務回傳的 `{id, score}` 格式的向量搜尋結果。
+ * - [BUG修復] 在 /scan/:fileId 路由中，修復了向量比對成功後，因無法找到對應的公開預覽圖 (`public_*.png`) 而導致報告中缺少比對圖片的問題。
+ * - [健壯性提升] 更新了尋找公開預覽圖的邏輯。由於預覽圖檔名包含時間戳 (`public_{id}_{timestamp}.png`)，新邏輯會掃描 `publicImages` 目錄，尋找檔名以 `public_{id}_` 開頭的檔案，從而正確地定位檔案。
+ * - [品質優化] 修正了掃描時，中文關鍵字可能因編碼問題變成亂碼 (如 "å½±åƒ 3") 的情況，確保傳遞給後端服務 (如 RapidAPI) 的關鍵字是正確的 UTF-8 字串。
+ * - 延續並保留了第一次修正案的所有優點。
  *
  * 【核心功能】:
  * 1. Step1: 接收檔案上傳，建立使用者，計算指紋，存證上鏈(IPFS/Blockchain)，產生證書PDF，並對圖片進行向量索引。
@@ -726,28 +725,23 @@ router.get('/scan/:fileId', async(req,res)=>{
             return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此File ID' });
         }
 
-        // ★★★★★ 【核心BUG修復與健壯性優化】 ★★★★★
-        // 舊方法依賴 mimetype 和 filename 來重建路徑，但這在 step1 修正副檔名 (如 .jpeg -> .jpg) 時會出錯。
-        // 新方法：不再重建路徑，而是直接探測磁碟上實際存在的檔案。這更加健壯，能應對資料庫資訊與實際檔案不符的情況。
+        // ★★★★★ 【檔案探測邏輯 v2】 ★★★★★
         let localPath = null;
         const baseName = `imageForSearch_${fileRec.id}`;
-        // 定義一個可能的副檔名列表，優先檢查最常見或被標準化後的副檔名
         const possibleExtensions = [
-            '.jpg', '.png', '.gif', '.bmp', '.webp', '.jpeg', // 圖片 (將 .jpeg 放在後面)
-            '.mp4', '.mov', '.avi', '.mkv' // 影片
+            '.jpg', '.png', '.gif', '.bmp', '.webp', '.jpeg',
+            '.mp4', '.mov', '.avi', '.mkv'
         ];
 
-        // 探測檔案是否存在
         for (const ext of possibleExtensions) {
             const testPath = path.join(UPLOAD_BASE_DIR, `${baseName}${ext}`);
             if (fs.existsSync(testPath)) {
                 localPath = testPath;
                 console.log(`[Scan Route] File found by probing: ${localPath}`);
-                break; // 找到檔案，跳出迴圈
+                break;
             }
         }
         
-        // 如果常用副檔名都沒找到，最後嘗試使用資料庫中記錄的原始檔名副檔名 (作為額外保險)
         if (!localPath && fileRec.filename) {
             const originalExt = path.extname(fileRec.filename);
             if (originalExt) {
@@ -768,14 +762,17 @@ router.get('/scan/:fileId', async(req,res)=>{
                 details: `System could not locate the file for ID ${fileId} on disk.`
             });
         }
-        // ★★★★★ 【核心BUG修復結束】 ★★★★★
+        // ★★★★★ 【檔案探測邏輯結束】 ★★★★★
 
         let allLinks=[];
         let matchedImages = [];
 
         try {
             const fileBuffer = fs.readFileSync(localPath);
-            const keyword = fileRec.filename.replace(/\.[^/.]+$/, "") || fileRec.fingerprint;
+            // ★★★★★ 【關鍵字編碼修正】 ★★★★★
+            // 從資料庫取出的 filename 可能包含非 ASCII 字元，確保其為 UTF-8
+            const cleanFilename = Buffer.from(fileRec.filename, 'latin1').toString('utf8');
+            const keyword = cleanFilename.replace(/\.[^/.]+$/, "") || fileRec.fingerprint;
             console.log(`[Scan Route] Starting infringementScan for fileId: ${fileId} with keyword: "${keyword}"`);
 
             const report = await infringementScan({ buffer: fileBuffer, keyword: keyword });
@@ -803,7 +800,6 @@ router.get('/scan/:fileId', async(req,res)=>{
             console.error(`[Scan Route] Critical error during infringementScan execution for fileId ${fileId}:`, eScan);
         }
 
-        // [邏輯保留]: 保持 `已整合修正` 版中處理 Python 服務回傳的 `{id, score}` 格式的向量搜尋結果。
         try {
             const vectorRes = await searchImageByVector(localPath, { topK: 4 });
             if(vectorRes && Array.isArray(vectorRes.results)){
@@ -812,25 +808,30 @@ router.get('/scan/:fileId', async(req,res)=>{
                         console.log(`[Scan Route] Vector search result is self (id: ${r.id}), skipping.`);
                         continue;
                     }
-                    if(r.id){ // Python服務回傳 {id, score}
+                    if(r.id){
                         const matchedFile = await File.findByPk(r.id);
                         if (matchedFile) {
-                            // 根據 matchedFile 資訊去本地找公開圖片檔
-                            //
-                            // **重要**: 這裡也需要用健壯的方式尋找檔案，因為匹配到的檔案也可能副檔名不一致
+                            // ★★★★★ 【公開預覽圖尋找邏輯修正】 ★★★★★
+                            // 新邏輯：掃描 publicImages 目錄，尋找檔名以 'public_{id}_' 開頭的檔案
                             let matchedPublicImagePath = null;
-                            const matchedBaseName = `public_${r.id}`;
-                            // 只需尋找圖片副檔名
-                            const publicImageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']; 
-                            for (const ext of publicImageExtensions) {
-                                const testPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `${matchedBaseName}${ext}`);
-                                if (fs.existsSync(testPath)) {
-                                    matchedPublicImagePath = testPath;
-                                    break;
+                            const publicImagesDir = path.join(UPLOAD_BASE_DIR, 'publicImages');
+                            const filePrefix = `public_${r.id}_`;
+
+                            if (fs.existsSync(publicImagesDir)) {
+                                try {
+                                    const allPublicFiles = fs.readdirSync(publicImagesDir);
+                                    const matchedFilename = allPublicFiles.find(f => f.startsWith(filePrefix));
+                                    
+                                    if (matchedFilename) {
+                                        matchedPublicImagePath = path.join(publicImagesDir, matchedFilename);
+                                    }
+                                } catch (eDir) {
+                                    console.error(`[Scan Route] Error reading publicImages directory:`, eDir);
                                 }
                             }
 
                             if(matchedPublicImagePath) {
+                                console.log(`[Scan Route] Found matched public image: ${matchedPublicImagePath}`);
                                 const b64 = fs.readFileSync(matchedPublicImagePath).toString('base64');
                                 matchedImages.push({
                                     id: r.id,
@@ -838,9 +839,10 @@ router.get('/scan/:fileId', async(req,res)=>{
                                     base64: b64
                                 });
                             } else {
-                                const attemptedPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `${matchedBaseName}[ext]`);
-                                console.warn(`[Scan Route] Matched public image file not found locally: ${attemptedPath}`);
+                                const attemptedPath = path.join(publicImagesDir, `${filePrefix}*`);
+                                console.warn(`[Scan Route] Matched public image file not found locally. Searched for pattern: ${attemptedPath}`);
                             }
+                            // ★★★★★ 【修正結束】 ★★★★★
                         } else {
                            console.warn(`[Scan Route] Vector search returned an ID (${r.id}) not found in the database.`);
                         }
