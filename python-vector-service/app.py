@@ -1,8 +1,7 @@
-# python-vector-service/app.py (Milvus Lite 整合最終版)
+# python-vector-service/app.py (Milvus Lite 連線修正版)
 
-# 步驟 1: 在檔案最頂部加入 Milvus Lite 初始化程式碼
-# 這會在本應用程式內部啟動一個 Milvus 服務，不再需要外部容器。
 import logging
+# --- Milvus Lite 初始化開始 ---
 try:
     from milvus_lite.server import server
     # 設定一個在容器內的路徑來永久保存 Milvus 數據
@@ -17,26 +16,24 @@ except Exception as e:
 import os
 import io
 from typing import Optional
+import base64 
 
-# 引入 FastAPI 的必要工具
 from fastapi import FastAPI, HTTPException, APIRouter, File, UploadFile, Form
 from pydantic import BaseModel
 from PIL import Image
 import torch
 from transformers import CLIPProcessor, CLIPModel
-import base64 # 為了處理 base64 字串
 
 from pymilvus import (
     connections, FieldSchema, CollectionSchema,
     DataType, Collection, utility
 )
 
-# 日誌設定 (調整，避免與上方重複)
+# 日誌設定
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-
-# Collection 配置 (保持不變)
+# Collection 配置
 IMAGE_COLLECTION_NAME = "image_collection_v2" 
 DIM_IMAGE = 512
 
@@ -46,8 +43,6 @@ router = APIRouter(prefix="/api/v1")
 
 
 # ========== 服務與模型初始化 ==========
-
-# 步驟 2: 重寫 get_collection 函數，使其連接到本地的 Milvus Lite
 collection_instance = None
 def get_collection():
     """
@@ -58,9 +53,10 @@ def get_collection():
         return collection_instance
 
     try:
-        # 連接到由 Milvus Lite 在本地啟動的預設伺服器
-        logger.info("Connecting to local Milvus Lite server...")
-        connections.connect(alias="default")
+        # ★★★ 核心修正：明確告訴 pymilvus 客戶端要連接的本地資料庫檔案路徑 ★★★
+        # 這個路徑與頂部 server.set_config 的路徑相呼應。
+        logger.info("Connecting to local Milvus Lite DB at /app/milvus_data/milvus.db...")
+        connections.connect("default", uri="/app/milvus_data/milvus.db")
         logger.info("Successfully connected to Milvus Lite.")
 
         # 檢查 Collection 是否存在，若不存在則建立
@@ -91,7 +87,7 @@ def get_collection():
         raise HTTPException(status_code=503, detail=f"Cannot initialize Milvus Lite service: {e}")
 
 
-# CLIP 模型載入 (保持不變)
+# CLIP 模型載入
 logger.info("Loading CLIP model...")
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -105,13 +101,6 @@ def process_and_embed_image(image_bytes: bytes) -> list:
     with torch.no_grad():
         vector = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
     return vector
-
-# API 端點的程式碼，這裡的邏輯幾乎不變，但我們要確保它能處理來自 vectorSearch.js 的請求
-# vectorSearch.js 中的 searchLocalImage 是以 base64 發送的，因此我們需要一個 Pydantic 模型來接收它
-
-class SearchRequest(BaseModel):
-    image_base64: Optional[str] = None
-    top_k: int = 5
 
 @router.post("/image-insert")
 async def image_insert_from_upload(
@@ -133,7 +122,6 @@ async def image_insert_from_upload(
         logger.error(f"Error processing indexing request for ID '{id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Insert error: {e}")
 
-# 步驟 3: 修改 image-search 端點以接受來自 vectorSearch.js 的 multipart/form-data
 @router.post("/image-search")
 async def image_search_from_upload(
     image: Optional[UploadFile] = File(None, description="The image file for searching"),
