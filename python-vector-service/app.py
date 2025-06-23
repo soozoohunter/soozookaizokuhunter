@@ -5,8 +5,9 @@ import io
 import logging
 from typing import Optional
 
+# 引入 FastAPI 的必要工具
 from fastapi import FastAPI, HTTPException, APIRouter, File, UploadFile, Form
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from PIL import Image
 import torch
 from transformers import CLIPProcessor, CLIPModel
@@ -39,12 +40,17 @@ def get_collection():
     global collection
     if collection is not None:
         try:
-            utility.has_collection(IMAGE_COLLECTION_NAME, using='default')
-            return collection
+            # 簡單檢查連線是否健康
+            if utility.has_collection(IMAGE_COLLECTION_NAME, using='default'):
+                return collection
+            else: # Collection 被意外刪除
+                logger.warning(f"Collection {IMAGE_COLLECTION_NAME} no longer exists. Re-initializing...")
+                collection = None # 強制重新初始化
         except Exception:
             logger.warning("Milvus connection lost. Reconnecting...")
-            collection = None
+            collection = None # 強制重新初始化
 
+    # 如果 collection 是 None, 則進行初始化
     try:
         logger.info(f"Connecting to Milvus at {MILVUS_HOST}:{MILVUS_PORT}...")
         connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT, timeout=20)
@@ -85,7 +91,6 @@ def process_and_embed_image(image_bytes: bytes) -> list:
         vector = clip_model.get_image_features(**inputs)[0].cpu().numpy().tolist()
     return vector
 
-# 【API 修正】: 統一使用檔案上傳 (multipart/form-data)
 @router.post("/image-insert")
 async def image_insert_from_upload(
     image: UploadFile = File(..., description="The image file to be indexed"),
@@ -106,7 +111,6 @@ async def image_insert_from_upload(
         logger.error(f"Error processing indexing request for ID '{id}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Insert error: {e}")
 
-# 【API 修正】: 統一使用檔案上傳 (multipart/form-data)
 @router.post("/image-search")
 async def image_search_from_upload(
     image: UploadFile = File(..., description="The image file for searching"),
