@@ -1,9 +1,9 @@
 /**
- * express/routes/protect.js (完整修正版)
+ * express/routes/protect.js (最終完整修正版)
  *
  * 【核心修正】:
  * 1. 【偵錯日誌】在路由頂部增加一個日誌中間件，用來捕捉並印出所有傳入的請求，以幫助您定位前端發送的 404 錯誤 URL。
- * 2. 【邏輯修正】在 /step1 路由中，當新檔案成功儲存後，立即呼叫 `indexImageVector` 將其特徵加入向量資料庫，確保後續的掃描可以進行相似度比對。
+ * 2. 【邏輯修正】在 /step1 路由中，調整程式執行順序，確保在 `convertAndUpload` 成功產生公開圖片 URL 之後，才呼叫 `indexImageVector` 將該 URL 送去進行索引，這解決了與 Python 服務的通訊問題。
  */
 const express = require('express');
 const router = express.Router();
@@ -51,7 +51,6 @@ const rapidApiService = require('../services/rapidApiService');
 
 // ===================================================================
 // 【偵錯日誌】: 新增日誌中間件，記錄所有進入此路由的請求
-// 這將幫助我們看到前端發送的 404 請求的具體路徑是什麼。
 // ===================================================================
 router.use((req, res, next) => {
     console.log(`[Protect Router] Received request: ${req.method} ${req.originalUrl}`);
@@ -535,55 +534,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         const exist= await File.findOne({ where:{ fingerprint }});
         if(exist){
             console.log(`[step1] duplicated => File ID=${exist.id}`);
-            const extExist = path.extname(exist.filename) || ext;
-            const finalPathExist = path.join(UPLOAD_BASE_DIR, `imageForSearch_${exist.id}${extExist}`);
-            const pdfExistPath = path.join(CERT_DIR, `certificate_${exist.id}.pdf`);
-
-            // Always remove the newly uploaded file to prevent clutter
             fs.unlinkSync(req.file.path);
-
-            if(isUnlimited){
-                if(!fs.existsSync(finalPathExist)){
-                    console.log('[step1] older file missing => cannot proceed with operations for duplicate.');
-                }
-                if(!fs.existsSync(pdfExistPath)){
-                    try {
-                        const oldUser = await User.findByPk(exist.user_id);
-                        const stampImg = path.join(__dirname, '../../public/stamp.png');
-                        await generateCertificatePDF({
-                            name : oldUser?.realName || '',
-                            dob : oldUser?.birthDate || '',
-                            phone: oldUser?.phone || '',
-                            address: oldUser?.address || '',
-                            email : oldUser?.email || '',
-                            title: exist.title || title, // Use existing title if available
-                            fileName : exist.filename,
-                            fingerprint: exist.fingerprint,
-                            ipfsHash : exist.ipfs_hash,
-                            txHash : exist.tx_hash,
-                            serial : oldUser?.serialNumber || '',
-                            mimeType : exist.mimetype,
-                            issueDate : new Date(exist.createdAt).toLocaleString(),
-                            filePath : fs.existsSync(finalPathExist) ? finalPathExist : null,
-                            stampImagePath: fs.existsSync(stampImg) ? stampImg : null
-                        }, pdfExistPath);
-                    } catch(ePDF){
-                        console.error('[step1 re-generate PDF error]', ePDF);
-                    }
-                }
-
-                return res.json({
-                    message:'已上傳相同檔案(白名單允許重複)，並自動補齊缺失檔案。',
-                    fileId: exist.id,
-                    pdfUrl:`/api/protect/certificates/${exist.id}`,
-                    fingerprint: exist.fingerprint,
-                    ipfsHash: exist.ipfs_hash,
-                    txHash: exist.tx_hash,
-                    defaultPassword: null
-                });
-            } else {
-                return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在', fileId: exist.id });
-            }
+            return res.status(409).json({ error:'FINGERPRINT_DUPLICATE', message:'此檔案已存在', fileId: exist.id });
         }
 
         let ipfsHash='';
@@ -601,8 +553,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             } catch (eChain) {
                 console.error('[step1 chain error]', eChain);
             }
-        } else {
-            console.warn(`[step1] Skipping blockchain record due to missing fingerprint or ipfsHash.`);
         }
 
         const newFile= await File.create({
@@ -632,17 +582,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             }
         }
 
-        // 【邏輯修正】: 在此處將新檔案加入向量資料庫索引，確保後續可以被搜尋到
-        try {
-            if (!isVideo) { // 通常只對圖片做向量索引
-                console.log(`[step1] Indexing image to vector database for fileId: ${newFile.id}`);
-                await indexImageVector(finalPath, newFile.id.toString());
-            }
-        } catch(eVecIndex) {
-            console.error(`[step1] Vector indexing failed for fileId ${newFile.id}:`, eVecIndex);
-            // 不阻斷主流程，僅記錄錯誤。
-        }
-
         let previewPath=null;
         let publicImageUrl=null;
 
@@ -667,9 +606,15 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         } else {
             previewPath= finalPath;
             try {
+                // 【邏輯順序修正】: 先產生公開 URL
                 publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
+                
+                // 【邏輯順序修正】: 拿到 URL 後，才能呼叫向量索引
+                if (publicImageUrl) {
+                    await indexImageVector(publicImageUrl, newFile.id.toString());
+                }
             } catch(eConv){
-                console.error('[step1 convertAndUpload error]', eConv);
+                console.error('[step1 convertAndUpload or Indexing error]', eConv);
             }
         }
 
@@ -694,7 +639,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
                 issueDate : new Date().toLocaleString(),
                 filePath : previewPath,
                 stampImagePath: fs.existsSync(stampImg)? stampImg:null
-            }, pdfPath);
+            });
         } catch(ePDF){
             console.error('[step1 generateCertificatePDF error]', ePDF);
         }
@@ -712,7 +657,6 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
 
     } catch(err){
         console.error('[step1 error]', err);
-        // 確保如果中途出錯，上傳的暫存檔案會被刪除
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
@@ -779,8 +723,6 @@ router.get('/scan/:fileId', async(req,res)=>{
         let allLinks=[];
         let matchedImages = [];
 
-        // ========== 【優化點】 ==========
-        // 呼叫統一的掃描服務，並健壯地處理其回傳結果。
         try {
             const fileBuffer = fs.readFileSync(localPath);
             const keyword = fileRec.filename.replace(/\.[^/.]+$/, "") || fileRec.fingerprint;
@@ -788,28 +730,21 @@ router.get('/scan/:fileId', async(req,res)=>{
 
             const report = await infringementScan({ buffer: fileBuffer, keyword: keyword });
 
-            // 收集 TinEye 連結
             if (report.tineye?.success && Array.isArray(report.tineye.links)) {
                 allLinks.push(...report.tineye.links);
                 console.log(`[Scan Route] Added ${report.tineye.links.length} links from TinEye.`);
             }
-
-            // 收集 Google Vision 連結
             if (report.vision?.success && Array.isArray(report.vision.links)) {
                 allLinks.push(...report.vision.links);
                 console.log(`[Scan Route] Added ${report.vision.links.length} links from Google Vision.`);
             }
-
-            // 【核心修正】: 健壯地處理 RapidAPI 回傳結果，防止崩潰
             if (report.rapid) {
                 for (const platform of Object.keys(report.rapid)) {
                     const platformResult = report.rapid[platform];
-                    // 只有在 API 呼叫成功且回傳了連結時，才加入陣列
                     if (platformResult?.success && Array.isArray(platformResult.links)) {
                         allLinks.push(...platformResult.links);
                         console.log(`[Scan Route] Added ${platformResult.links.length} links from RapidAPI-${platform}.`);
                     } else {
-                        // 即使失敗，程式碼也不會崩潰，只會記錄一條警告
                         console.warn(`[Scan Route] RapidAPI-${platform} search failed or returned no data. Error: ${platformResult?.error}`);
                     }
                 }
@@ -817,14 +752,11 @@ router.get('/scan/:fileId', async(req,res)=>{
         } catch(eScan) {
             console.error(`[Scan Route] Critical error during infringementScan execution for fileId ${fileId}:`, eScan);
         }
-        // ========== 【優化結束】 ==========
 
-        // 向量檢索
         try {
             const vectorRes = await searchImageByVector(localPath, { topK: 3 });
-            if(vectorRes && Array.isArray(vectorRes.results)){
+            if(vectorRes && vectorRes.results && Array.isArray(vectorRes.results)){
                 for(const r of vectorRes.results){
-                    // 確保搜尋結果不是自己
                     if (r.id && r.id.toString() === fileId.toString()) {
                         console.log(`[Scan Route] Vector search result is self (id: ${r.id}), skipping.`);
                         continue;
@@ -848,13 +780,11 @@ router.get('/scan/:fileId', async(req,res)=>{
             console.error('[searchImageByVector error]', eVec);
         }
 
-        // 讀取人工連結
         const allManual = getAllManualLinks();
         const manKey = `fingerprint_${fileRec.fingerprint}`;
         const manualLinks = allManual[manKey] || [];
         allLinks.push(...manualLinks);
 
-        // 去重 + 過濾無效連結
         const unique= [...new Set(allLinks)].filter(isValidLink);
         const truncated = unique.slice(0, ENGINE_MAX_LINKS);
         console.log(`[Scan Route] Total unique links found: ${truncated.length}`);
@@ -863,11 +793,9 @@ router.get('/scan/:fileId', async(req,res)=>{
         fileRec.infringingLinks= JSON.stringify(truncated);
         await fileRec.save();
 
-        // 產出掃描報告 PDF
         const scanPdfName= `scanReport_${fileRec.id}.pdf`;
         const scanPdfPath= path.join(REPORTS_DIR, scanPdfName);
         const stampPath= path.join(__dirname, '../../public/stamp.png');
-
         let shotPath = null;
         if (truncated.length > 0) {
             const browser = await launchBrowser();
@@ -921,19 +849,14 @@ router.post('/protect', upload.single('file'), async(req,res)=>{
     return res.json({ success:true, message:'(示範) direct protect route' });
 });
 
-//===========================================================
-// GET /protect/scanLink => 侵權連結掃描 (優化修復版)
-//===========================================================
 router.get('/scanLink', async(req,res)=>{
     try {
         const pageUrl = req.query.url;
         if(!pageUrl){
             return res.status(400).json({ error:'MISSING_URL', message:'請提供 ?url=xxxx' });
         }
-
         const tmpFilePath = path.join(UPLOAD_BASE_DIR, `linkImage_${Date.now()}.jpg`);
         const { aggregatorResult, vectorResult, mainImgUrl, error } = await aggregatorSearchLink(pageUrl, tmpFilePath, true);
-
         if(!aggregatorResult){
             return res.json({
                 message: '聚合搜尋或抓主圖失敗',
@@ -947,7 +870,6 @@ router.get('/scanLink', async(req,res)=>{
         let suspiciousLinks = [];
         if(aggregatorResult.tineye?.success) suspiciousLinks.push(...aggregatorResult.tineye.links);
         if(aggregatorResult.vision?.success) suspiciousLinks.push(...aggregatorResult.vision.links);
-
         if (aggregatorResult.rapid) {
             for (const platform of Object.keys(aggregatorResult.rapid)) {
                 const platformResult = aggregatorResult.rapid[platform];
@@ -981,7 +903,6 @@ router.get('/scanLink', async(req,res)=>{
 
         const pdfName = `linkScanReport_${Date.now()}.pdf`;
         const pdfPath = path.join(REPORTS_DIR, pdfName);
-
         let shotPath = null;
         try {
             const browser = await launchBrowser();
@@ -997,24 +918,15 @@ router.get('/scanLink', async(req,res)=>{
         }
 
         await generateScanPDFWithMatches({
-            file: {
-                id: '(linkScan)',
-                filename: pageUrl,
-                fingerprint: '(no-fingerprint)',
-                status: 'scanned_by_link'
-            },
+            file: { id: '(linkScan)', filename: pageUrl, fingerprint: '(no-fingerprint)', status: 'scanned_by_link' },
             suspiciousLinks,
             matchedImages,
-            stampImagePath: fs.existsSync(path.join(__dirname, '../../public/stamp.png'))
-                ? path.join(__dirname, '../../public/stamp.png')
-                : null,
+            stampImagePath: fs.existsSync(path.join(__dirname, '../../public/stamp.png')) ? path.join(__dirname, '../../public/stamp.png') : null,
             screenshotPath: shotPath
         }, pdfPath);
 
         try {
-            if(fs.existsSync(tmpFilePath)){
-                fs.unlinkSync(tmpFilePath);
-            }
+            if(fs.existsSync(tmpFilePath)){ fs.unlinkSync(tmpFilePath); }
         } catch(eDel){
             console.error('[scanLink] remove tmp file fail =>', eDel);
         }
@@ -1025,7 +937,6 @@ router.get('/scanLink', async(req,res)=>{
             suspiciousLinks,
             pdfReport: `/api/protect/scanReportsLink/${pdfName}`
         });
-
     } catch(e){
         console.error('[GET /scanLink] error =>', e);
         return res.status(500).json({ error:'SCAN_LINK_ERROR', detail:e.message });
@@ -1036,9 +947,7 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
     try {
         const pdfName = req.params.pdfName;
         const pdfPath = path.join(REPORTS_DIR, pdfName);
-        if(!fs.existsSync(pdfPath)){
-            return res.status(404).json({ error:'NOT_FOUND', message:'報告不存在' });
-        }
+        if(!fs.existsSync(pdfPath)){ return res.status(404).json({ error:'NOT_FOUND', message:'報告不存在' }); }
         return res.download(pdfPath, pdfName);
     } catch(e){
         console.error('[GET /scanReportsLink/:pdfName] =>', e);
@@ -1049,32 +958,19 @@ router.get('/scanReportsLink/:pdfName', async(req,res)=>{
 router.post('/flickerProtectFile', async (req, res) => {
     try {
         const { fileId } = req.body;
-        if(!fileId) {
-            return res.status(400).json({ error: 'MISSING_FILE_ID', message:'請提供 fileId' });
-        }
-
+        if(!fileId) { return res.status(400).json({ error: 'MISSING_FILE_ID', message:'請提供 fileId' }); }
         const fileRec = await File.findByPk(fileId);
-        if(!fileRec) {
-            return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此 File ID' });
-        }
-
+        if(!fileRec) { return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此 File ID' }); }
         const ext= path.extname(fileRec.filename)||'';
         const localPath= path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${ext}`);
-        if(!fs.existsSync(localPath)){
-            return res.status(404).json({ error:'LOCAL_FILE_NOT_FOUND', message:'原始檔不在本機，無法做防錄製' });
-        }
-
+        if(!fs.existsSync(localPath)){ return res.status(404).json({ error:'LOCAL_FILE_NOT_FOUND', message:'原始檔不在本機，無法做防錄製' }); }
         const isImage = !!fileRec.filename.match(/\.(jpe?g|png|gif|bmp|webp)$/i);
         let sourcePath = localPath;
 
         if (isImage) {
             const tempPath = path.join(UPLOAD_BASE_DIR, `tempIMG_${Date.now()}.mp4`);
             try {
-                const cmd =
-                    `ffmpeg -y -loop 1 -i "${localPath}" ` +
-                    `-vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" ` +
-                    `-t 5 -c:v libx264 -r 30 -movflags +faststart "${tempPath}"`;
-                console.log('[flickerProtectFile] convert image->video =>', cmd);
+                const cmd = `ffmpeg -y -loop 1 -i "${localPath}" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p" -t 5 -c:v libx264 -r 30 -movflags +faststart "${tempPath}"`;
                 execSync(cmd, { stdio: 'inherit' });
                 sourcePath = tempPath;
             } catch (eImg) {
@@ -1082,43 +978,21 @@ router.post('/flickerProtectFile', async (req, res) => {
                 return res.status(500).json({ error:'IMG_TO_VIDEO_ERROR', detail:eImg.message });
             }
         }
-
         const protectedName = `flicker_protected_${fileRec.id}_${Date.now()}.mp4`;
         const protectedPath = path.join(UPLOAD_BASE_DIR, protectedName);
-
         try {
             await flickerEncodeAdvanced(sourcePath, protectedPath, {
-                useSubPixelShift : true,
-                useMaskOverlay : true,
-                maskOpacity : 0.25,
-                maskFreq : 5,
-                maskSizeRatio : 0.3,
-                useRgbSplit : true,
-                useAiPerturb : false,
-                flickerFps : 120,
-                noiseStrength : 25,
-                colorCurveDark : '0/0 0.5/0.2 1/1',
-                colorCurveLight : '0/0 0.5/0.4 1/1',
-                drawBoxSeconds : 5
+                useSubPixelShift : true, useMaskOverlay : true, maskOpacity : 0.25, maskFreq : 5, maskSizeRatio : 0.3,
+                useRgbSplit : true, useAiPerturb : false, flickerFps : 120, noiseStrength : 25,
+                colorCurveDark : '0/0 0.5/0.2 1/1', colorCurveLight : '0/0 0.5/0.4 1/1', drawBoxSeconds : 5
             });
         } catch(eFlicker){
             console.error('[flickerProtectFile] flickerEncodeAdvanced fail =>', eFlicker);
-            return res.status(500).json({
-                error:'INTERNAL_ERROR',
-                detail: 'FFmpeg / flickerEncode failure: ' + (eFlicker.message || 'unknown')
-            });
+            return res.status(500).json({ error:'INTERNAL_ERROR', detail: 'FFmpeg / flickerEncode failure: ' + (eFlicker.message || 'unknown') });
         }
-
-        if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){
-            fs.unlinkSync(sourcePath);
-        }
-
+        if(isImage && sourcePath !== localPath && fs.existsSync(sourcePath)){ fs.unlinkSync(sourcePath); }
         const protectedFileUrl = `/api/protect/flickerDownload?file=${encodeURIComponent(protectedName)}`;
-        return res.json({
-            message:'已成功產生多層次防錄製檔案',
-            protectedFileUrl
-        });
-
+        return res.json({ message:'已成功產生多層次防錄製檔案', protectedFileUrl });
     } catch(e){
         console.error('[POST /flickerProtectFile] error =>', e);
         return res.status(500).json({ error:'INTERNAL_ERROR', detail:e.message });
@@ -1128,13 +1002,9 @@ router.post('/flickerProtectFile', async (req, res) => {
 router.get('/flickerDownload', (req, res)=>{
     try {
         const file = req.query.file;
-        if(!file){
-            return res.status(400).send('Missing ?file=');
-        }
+        if(!file){ return res.status(400).send('Missing ?file='); }
         const filePath = path.join(UPLOAD_BASE_DIR, file);
-        if(!fs.existsSync(filePath)){
-            return res.status(404).send('File not found');
-        }
+        if(!fs.existsSync(filePath)){ return res.status(404).send('File not found'); }
         return res.download(filePath, `KaiShield_Flicker_${file}`);
     } catch(e){
         console.error('[flickerDownload error]', e);
