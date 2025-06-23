@@ -9,3 +9,4 @@ pymilvus
 torch
 transformers
 Pillow
+milvus-lite
