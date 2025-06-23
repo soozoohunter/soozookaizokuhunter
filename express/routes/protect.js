@@ -2,7 +2,8 @@
  * express/routes/protect.js (整合優化修復版)
  *
  * 【本次整合優化】:
- * - [BUG修復] 在 /scan/:fileId 路由中，增加了對資料庫中 mimetype 欄位可能為空的防禦性檢查。當 mimetype 不存在時，程式將不再崩潰，而是會從檔名中回退(fallback)提取副檔名，從而修復了 `Cannot read properties of undefined (reading 'includes')` 的錯誤。
+ * - [BUG修復] 在 /scan/:fileId 路由中，徹底修復了 `LOCAL_FILE_NOT_FOUND` 的錯誤。根本原因是在 step1 中，副檔名被標準化 (例如 .jpeg -> .jpg)，但在掃描時，回退邏輯未能正確重建檔案路徑。
+ * - [健壯性提升] 新的檔案尋找機制不再依賴資料庫中的 mimetype 或 filename 來重建路徑。而是直接探測 (probe) 硬碟上實際存在的檔案 (`imageForSearch_[id].jpg`, `imageForSearch_[id].png` 等)，這能有效避免資料庫資訊與實體檔案不一致所導致的錯誤。
  * - 綜合「最終修正版」與「已整合修正」兩份程式碼的優點。
  * - [邏輯保留] 維持 /step1 路由中使用 `indexImageVector` 進行向量索引的邏輯。
  * - [邏輯保留] 維持 /scan/:fileId 路由中處理 Python 服務回傳的 `{id, score}` 格式的向量搜尋結果。
@@ -373,7 +374,7 @@ async function fetchLinkMainImage(pageUrl){
         const resp = await axios.get(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
         const $ = cheerio.load(resp.data);
         const ogImg = $('meta[property="og:image"]').attr('content')
-                        || $('meta[name="og:image"]').attr('content');
+                            || $('meta[name="og:image"]').attr('content');
         if(ogImg) {
             console.log('[fetchLinkMainImage] found og:image =>', ogImg);
             return ogImg;
@@ -725,38 +726,46 @@ router.get('/scan/:fileId', async(req,res)=>{
             return res.status(404).json({ error:'FILE_NOT_FOUND', message:'無此File ID' });
         }
 
-        // ★★★★★ 【核心BUG修復】 ★★★★★
-        // 從資料庫中的 mimetype 推導檔案的正確副檔名，並增加對 mimetype 為空的防禦性處理。
-        let correctedExt = '';
-        const mimeType = fileRec.mimetype;
+        // ★★★★★ 【核心BUG修復與健壯性優化】 ★★★★★
+        // 舊方法依賴 mimetype 和 filename 來重建路徑，但這在 step1 修正副檔名 (如 .jpeg -> .jpg) 時會出錯。
+        // 新方法：不再重建路徑，而是直接探測磁碟上實際存在的檔案。這更加健壯，能應對資料庫資訊與實際檔案不符的情況。
+        let localPath = null;
+        const baseName = `imageForSearch_${fileRec.id}`;
+        // 定義一個可能的副檔名列表，優先檢查最常見或被標準化後的副檔名
+        const possibleExtensions = [
+            '.jpg', '.png', '.gif', '.bmp', '.webp', '.jpeg', // 圖片 (將 .jpeg 放在後面)
+            '.mp4', '.mov', '.avi', '.mkv' // 影片
+        ];
 
-        if (mimeType && typeof mimeType === 'string') {
-            if (mimeType.includes('png')) correctedExt = '.png';
-            else if (mimeType.includes('jpeg')) correctedExt = '.jpg';
-            else if (mimeType.includes('jpg')) correctedExt = '.jpg';
-            else if (mimeType.includes('gif')) correctedExt = '.gif';
-            else if (mimeType.includes('bmp')) correctedExt = '.bmp';
-            else if (mimeType.includes('webp')) correctedExt = '.webp';
-            else if (mimeType.includes('mp4')) correctedExt = '.mp4';
-            else if (mimeType.includes('mov')) correctedExt = '.mov';
-            else if (mimeType.includes('avi')) correctedExt = '.avi';
-            else if (mimeType.includes('mkv')) correctedExt = '.mkv';
+        // 探測檔案是否存在
+        for (const ext of possibleExtensions) {
+            const testPath = path.join(UPLOAD_BASE_DIR, `${baseName}${ext}`);
+            if (fs.existsSync(testPath)) {
+                localPath = testPath;
+                console.log(`[Scan Route] File found by probing: ${localPath}`);
+                break; // 找到檔案，跳出迴圈
+            }
         }
-
-        // 如果 mimetype 不存在或無法識別，則從原始檔名中獲取副檔名作為備用方案
-        if (!correctedExt) {
-            console.warn(`[Scan Route] Mimetype for fileId ${fileId} is missing or unrecognized: "${mimeType}". Falling back to filename.`);
-            correctedExt = path.extname(fileRec.filename) || '';
-        }
-
-        const localPath = path.join(UPLOAD_BASE_DIR, `imageForSearch_${fileRec.id}${correctedExt}`);
         
-        if(!fs.existsSync(localPath)){
-            console.error(`[Scan Route] CRITICAL: File not found at reconstructed path: ${localPath}`);
+        // 如果常用副檔名都沒找到，最後嘗試使用資料庫中記錄的原始檔名副檔名 (作為額外保險)
+        if (!localPath && fileRec.filename) {
+            const originalExt = path.extname(fileRec.filename);
+            if (originalExt) {
+                const finalTryPath = path.join(UPLOAD_BASE_DIR, `${baseName}${originalExt}`);
+                if (fs.existsSync(finalTryPath)) {
+                    localPath = finalTryPath;
+                    console.log(`[Scan Route] File found by probing with original extension: ${localPath}`);
+                }
+            }
+        }
+
+        if (!localPath) {
+            const attemptedPathForLog = path.join(UPLOAD_BASE_DIR, `${baseName}[.jpg, .png, etc.]`);
+            console.error(`[Scan Route] CRITICAL: File not found for id ${fileId}. Probed for path: ${attemptedPathForLog}`);
             return res.status(404).json({
                 error: 'LOCAL_FILE_NOT_FOUND',
-                message:'系統內部錯誤：掃描時找不到原始檔案。',
-                details: `Tried to access ${localPath} but it does not exist.`
+                message: '系統內部錯誤：掃描時找不到對應的本地原始檔案。',
+                details: `System could not locate the file for ID ${fileId} on disk.`
             });
         }
         // ★★★★★ 【核心BUG修復結束】 ★★★★★
@@ -807,21 +816,33 @@ router.get('/scan/:fileId', async(req,res)=>{
                         const matchedFile = await File.findByPk(r.id);
                         if (matchedFile) {
                             // 根據 matchedFile 資訊去本地找公開圖片檔
-                            const matchedExt = path.extname(matchedFile.filename) || '.jpg';
-                            const publicImgPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `public_${r.id}${matchedExt}`);
+                            //
+                            // **重要**: 這裡也需要用健壯的方式尋找檔案，因為匹配到的檔案也可能副檔名不一致
+                            let matchedPublicImagePath = null;
+                            const matchedBaseName = `public_${r.id}`;
+                            // 只需尋找圖片副檔名
+                            const publicImageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']; 
+                            for (const ext of publicImageExtensions) {
+                                const testPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `${matchedBaseName}${ext}`);
+                                if (fs.existsSync(testPath)) {
+                                    matchedPublicImagePath = testPath;
+                                    break;
+                                }
+                            }
 
-                            if(fs.existsSync(publicImgPath)) {
-                                const b64 = fs.readFileSync(publicImgPath).toString('base64');
+                            if(matchedPublicImagePath) {
+                                const b64 = fs.readFileSync(matchedPublicImagePath).toString('base64');
                                 matchedImages.push({
                                     id: r.id,
                                     score: r.score,
                                     base64: b64
                                 });
                             } else {
-                                console.warn(`[Scan Route] Matched image file not found locally: ${publicImgPath}`);
+                                const attemptedPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `${matchedBaseName}[ext]`);
+                                console.warn(`[Scan Route] Matched public image file not found locally: ${attemptedPath}`);
                             }
                         } else {
-                             console.warn(`[Scan Route] Vector search returned an ID (${r.id}) not found in the database.`);
+                           console.warn(`[Scan Route] Vector search returned an ID (${r.id}) not found in the database.`);
                         }
                     }
                 }
