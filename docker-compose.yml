@@ -75,7 +75,6 @@ services:
         condition: service_started
       suzoo_ganache:
         condition: service_started
-      # ★★★ 修正：等待 Milvus 完全健康再啟動 ★★★
       suzoo_milvus:
         condition: service_healthy
     ports:
@@ -187,7 +186,8 @@ services:
 
   suzoo_milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:v2.3.11
+    # ★★★ 核心修正：更換為 legacy 鏡像以提高硬體兼容性 ★★★
+    image: milvusdb/milvus:v2.3.11-legacy
     depends_on:
       - suzoo_etcd
       - suzoo_minio
@@ -204,7 +204,6 @@ services:
     networks:
       - suzoo_net
     restart: unless-stopped
-    # ★★★ 新增：健康檢查，確保 Milvus 服務完全就緒 ★★★
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:19121/healthz"]
       interval: 30s
