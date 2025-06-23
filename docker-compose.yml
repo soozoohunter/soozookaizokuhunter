@@ -30,6 +30,64 @@ services:
       - suzoo_net
     restart: unless-stopped
 
+  # ★★★ Milvus 官方配置開始 ★★★
+  # 採用 Milvus v2.2.14 官方的 docker-compose.yml 內容，確保兼容性
+  etcd:
+    container_name: suzoo_etcd
+    image: quay.io/coreos/etcd:v3.5.5
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - milvus-etcd:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  minio:
+    container_name: suzoo_minio
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - milvus-minio:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+
+  standalone:
+    container_name: suzoo_milvus
+    # 使用 v2.2.x 系列最終穩定版的 -standalone 鏡像，兼容 x86_64 非 AVX2 CPU
+    image: milvusdb/milvus:v2.2.14-standalone
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus-standalone:/var/lib/milvus
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      etcd:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    networks:
+      - suzoo_net
+    restart: unless-stopped
+  # ★★★ Milvus 官方配置結束 ★★★
+
   suzoo_express:
     container_name: suzoo_express
     build:
@@ -75,8 +133,9 @@ services:
         condition: service_started
       suzoo_ganache:
         condition: service_started
-      suzoo_milvus:
-        condition: service_healthy
+      # ★★★ 修正：依賴於新的 milvus 'standalone' 服務 ★★★
+      standalone:
+        condition: service_started
     ports:
       - "3000:3000"
     networks:
@@ -151,66 +210,6 @@ services:
       - suzoo_net
     restart: unless-stopped
 
-  suzoo_etcd:
-    container_name: suzoo_etcd
-    image: quay.io/coreos/etcd:v3.5.5
-    environment:
-      ETCD_NAME: suzoo_etcd
-      ETCD_ADVERTISE_CLIENT_URLS: http://0.0.0.0:2379
-      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
-      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
-      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://suzoo_etcd:2380
-      ETCD_INITIAL_CLUSTER: suzoo_etcd=http://suzoo_etcd:2380
-      ETCD_INITIAL_CLUSTER_STATE: new
-      ETCD_INITIAL_CLUSTER_TOKEN: etcd-cluster
-    ports:
-      - "2379:2379"
-      - "2380:2380"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_minio:
-    container_name: suzoo_minio
-    image: minio/minio
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: admin123
-    command: server /data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_milvus:
-    container_name: suzoo_milvus
-    # ★★★ 核心修正：使用經過驗證確實存在的 v2.2.3-legacy 鏡像 ★★★
-    image: milvusdb/milvus:v2.2.3-legacy
-    depends_on:
-      - suzoo_etcd
-      - suzoo_minio
-    command: ["milvus", "run", "standalone"]
-    environment:
-      ETCD_ENDPOINTS: "suzoo_etcd:2379"
-      MINIO_ADDRESS: "suzoo_minio:9000"
-      MINIO_ACCESS_KEY_ID: "admin"
-      MINIO_SECRET_ACCESS_KEY: "admin123"
-      MINIO_USE_SSL: "false"
-    ports:
-      - "19530:19530"
-      - "19121:19121"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:19121/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.11-management
@@ -236,7 +235,8 @@ services:
       context: ./python-vector-service
       dockerfile: Dockerfile
     depends_on:
-      - suzoo_milvus
+      # ★★★ 修正：依賴於新的 milvus 'standalone' 服務 ★★★
+      - standalone
     ports:
       - "8001:8000"
     networks:
@@ -287,6 +287,10 @@ volumes:
   postgres_data:
   redis_data:
   uploads_data:
+  # ★★★ 新增 Milvus 官方配置所需的 volumes ★★★
+  milvus-etcd:
+  milvus-minio:
+  milvus-standalone:
 
 networks:
   suzoo_net:
