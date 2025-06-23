@@ -186,8 +186,8 @@ services:
 
   suzoo_milvus:
     container_name: suzoo_milvus
-    # ★★★ 核心修正：更換為 legacy 鏡像以提高硬體兼容性 ★★★
-    image: milvusdb/milvus:v2.3.11-legacy
+    # ★★★ 核心修正：降級到 v2.2.8-legacy 以解決 CPU 兼容性問題 ★★★
+    image: milvusdb/milvus:v2.2.8-legacy
     depends_on:
       - suzoo_etcd
       - suzoo_minio
