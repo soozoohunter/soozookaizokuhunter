@@ -1,9 +1,10 @@
 /**
- * express/routes/protect.js (最終完整修正版)
+ * express/routes/protect.js (已整合修正)
  *
  * 【核心修正】:
- * 1. 【偵錯日誌】在路由頂部增加一個日誌中間件，用來捕捉並印出所有傳入的請求，以幫助您定位前端發送的 404 錯誤 URL。
- * 2. 【邏輯修正】在 /step1 路由中，調整程式執行順序，確保在 `convertAndUpload` 成功產生公開圖片 URL 之後，才呼叫 `indexImageVector` 將該 URL 送去進行索引，這解決了與 Python 服務的通訊問題。
+ * 1. [邏輯修正] /step1 路由中，在檔案儲存到本地後，直接使用本地路徑 `finalPath` 呼叫 `indexImageVector`，以配合 `vectorSearch.js` 的改動。
+ * 2. [邏輯修正] /scan/:fileId 路由中，修正處理向量搜尋結果的邏輯，以匹配 Python 服務回傳的 {id, score} 格式，並從本地讀取匹配的圖片。
+ * 3. [偵錯輔助] 保留頂部的日誌中間件及其他偵錯輔助函式。
  */
 const express = require('express');
 const router = express.Router();
@@ -38,7 +39,6 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const { convertAndUpload } = require('../utils/convertAndUpload');
 const { extractKeyFrames } = require('../utils/extractFrames');
-// 【邏輯修正】: 同時引入 indexImageVector 以便在 step1 中使用
 const { searchImageByVector, indexImageVector } = require('../utils/vectorSearch');
 const { generateScanPDFWithMatches } = require('../services/pdfService');
 const tinEyeApi = require('../services/tineyeApiService');
@@ -88,7 +88,7 @@ function ensureUploadDirs(){
 }
 ensureUploadDirs();
 
-const PUBLIC_HOST = 'https://suzookaizokuhunter.com';
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
 
 const upload = multer({
     dest: 'uploads/',
@@ -164,12 +164,11 @@ async function saveDebugInfo(page, tag){
     }
 }
 
-const INVALID_PREFIX_RE = /^(javascript:|data:)/i;
-const INVALID_CHAR_RE = /\s/;
 function isValidLink(str) {
     if (!str) return false;
     const trimmed = str.trim();
-    if (INVALID_PREFIX_RE.test(trimmed) || INVALID_CHAR_RE.test(trimmed)) return false;
+    const INVALID_PREFIX_RE = /^(javascript:|data:)/i;
+    if (INVALID_PREFIX_RE.test(trimmed)) return false;
     try {
         const u = new URL(trimmed);
         return u.protocol === 'http:' || u.protocol === 'https:';
@@ -274,6 +273,7 @@ async function generateCertificatePDF(data, outputPath){
     }
 }
 
+// Note: generateScanPDF is kept for compatibility but generateScanPDFWithMatches is used by /scan/:fileId
 async function generateScanPDF({ file, suspiciousLinks, stampImagePath }, outputPath){
     console.log('[generateScanPDF] =>', outputPath);
     let browser;
@@ -558,7 +558,7 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
         const newFile= await File.create({
             user_id : user.id,
             filename: req.file.originalname,
-            title: title, // Save title to file record
+            title: title,
             mimetype: mimeType,
             fingerprint,
             ipfs_hash: ipfsHash,
@@ -605,16 +605,21 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
             }
         } else {
             previewPath= finalPath;
+            // 【核心修正】: 整合後的邏輯
             try {
-                // 【邏輯順序修正】: 先產生公開 URL
+                // 1. 直接使用本地檔案路徑 finalPath 進行向量索引
+                console.log(`[step1] Indexing local file for vector search: ${finalPath}`);
+                await indexImageVector(finalPath, newFile.id.toString());
+
+                // 2. 索引後，再處理上傳以獲取公開 URL，用於API回傳給前端
                 publicImageUrl = await convertAndUpload(finalPath, ext, newFile.id);
-                
-                // 【邏輯順序修正】: 拿到 URL 後，才能呼叫向量索引
-                if (publicImageUrl) {
-                    await indexImageVector(publicImageUrl, newFile.id.toString());
+
+            } catch(eProcessing){
+                console.error('[step1 image processing/indexing error]', eProcessing);
+                // 即使索引或上傳失敗，也繼續後續流程，只是 publicImageUrl 可能為 null
+                if (!publicImageUrl) {
+                    publicImageUrl = null;
                 }
-            } catch(eConv){
-                console.error('[step1 convertAndUpload or Indexing error]', eConv);
             }
         }
 
@@ -635,8 +640,8 @@ router.post('/step1', upload.single('file'), async(req,res)=>{
                 ipfsHash,
                 txHash,
                 serial : user.serialNumber,
-                mimeType : mimeType,
-                issueDate : new Date().toLocaleString(),
+                mimetype : mimeType,
+                issueDate : new Date(newFile.createdAt).toLocaleString(),
                 filePath : previewPath,
                 stampImagePath: fs.existsSync(stampImg)? stampImg:null
             });
@@ -753,25 +758,34 @@ router.get('/scan/:fileId', async(req,res)=>{
             console.error(`[Scan Route] Critical error during infringementScan execution for fileId ${fileId}:`, eScan);
         }
 
+        // 【核心修正】: 替換成新的向量搜尋結果處理邏輯
         try {
-            const vectorRes = await searchImageByVector(localPath, { topK: 3 });
-            if(vectorRes && vectorRes.results && Array.isArray(vectorRes.results)){
+            const vectorRes = await searchImageByVector(localPath, { topK: 4 });
+            if(vectorRes && Array.isArray(vectorRes.results)){
                 for(const r of vectorRes.results){
                     if (r.id && r.id.toString() === fileId.toString()) {
                         console.log(`[Scan Route] Vector search result is self (id: ${r.id}), skipping.`);
                         continue;
                     }
-                    if(r.url){
-                        try {
-                            const resp = await axios.get(r.url, { responseType:'arraybuffer' });
-                            const b64 = Buffer.from(resp.data).toString('base64');
-                            matchedImages.push({
-                                id: r.id,
-                                score: r.score,
-                                base64: b64
-                            });
-                        } catch(eDn){
-                            console.error('[scan] download matched url fail =>', r.url, eDn);
+                    if(r.id){ // Python服務回傳 {id, score}
+                        const matchedFile = await File.findByPk(r.id);
+                        if (matchedFile) {
+                            // 根據 matchedFile 資訊去本地找公開圖片檔
+                            const matchedExt = path.extname(matchedFile.filename) || '.jpg';
+                            const publicImgPath = path.join(UPLOAD_BASE_DIR, 'publicImages', `public_${r.id}${matchedExt}`);
+
+                            if(fs.existsSync(publicImgPath)) {
+                                const b64 = fs.readFileSync(publicImgPath).toString('base64');
+                                matchedImages.push({
+                                    id: r.id,
+                                    score: r.score,
+                                    base64: b64
+                                });
+                            } else {
+                                console.warn(`[Scan Route] Matched image file not found locally: ${publicImgPath}`);
+                            }
+                        } else {
+                             console.warn(`[Scan Route] Vector search returned an ID (${r.id}) not found in the database.`);
                         }
                     }
                 }
