@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ★★★★★★★★★★★★★★★★★★
 
 # 過濾掉基礎映像檔已包含的 torch 和 torchvision，然後安裝其餘的 Python 依賴和 Gunicorn
-RUN grep -v '^torch' requirements.txt | grep -v '^torchvision' > /tmp/reqs.txt \
+RUN grep -Ev '^(torch==|torchvision==)' requirements.txt > /tmp/reqs.txt \
     && pip install --no-cache-dir -r /tmp/reqs.txt gunicorn
 
 # 複製整個應用程式的程式碼到工作目錄
