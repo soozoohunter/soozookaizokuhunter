@@ -7,6 +7,7 @@ const fs            = require('fs');
 const path          = require('path');
 const puppeteer     = require('puppeteer');
 const logger        = require('./utils/logger');
+const { initChainService } = require('./utils/chain'); // 【*新增*】 引入區塊鏈初始化函式
 
 const app = express();
 app.use(cors());
@@ -70,34 +71,36 @@ app.use('/admin',       adminRouter);          // 管理者介面
 app.use('/auth',        authRouter);           // 認證
 
 /*───────────────────────────────────
- | 5. Sequelize 連線 & 同步
+ | 5. Sequelize 連線 & 同步 (修改為 Promise-based)
  *───────────────────────────────────*/
-// DB 連線重試機制
 const MAX_RETRIES = parseInt(process.env.DB_CONNECT_RETRIES || '5');
 const RETRY_DELAY = parseInt(process.env.DB_CONNECT_RETRY_DELAY || '5000');
 
-async function connectWithRetry(attempt = 1) {
-  try {
-    await sequelize.authenticate();
-    logger.info('[Express] Sequelize connected.');
+// 【*修改*】將連線函式改為回傳 Promise，以便在啟動程序中 await
+async function connectToDatabase() {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await sequelize.authenticate();
+      logger.info('[Express] Sequelize connected.');
 
-    await sequelize.sync({ alter: true });
-    logger.info('[Express] Sequelize synced.');
+      await sequelize.sync({ alter: true });
+      logger.info('[Express] Sequelize synced.');
 
-    await createAdmin();
-  } catch (err) {
-    logger.error(`[Express] Sequelize connect error (attempt ${attempt}/${MAX_RETRIES}):`, err);
-    if (attempt < MAX_RETRIES) {
-      logger.info(`[Express] Retrying DB connection in ${RETRY_DELAY / 1000}s...`);
-      setTimeout(() => connectWithRetry(attempt + 1), RETRY_DELAY);
-    } else {
-      logger.error('[Express] DB connection failed after maximum retries, exiting.');
-      process.exit(1);
+      await createAdmin();
+      return; // 連線成功，結束函式
+    } catch (err) {
+      logger.error(`[Express] Sequelize connect error (attempt ${attempt}/${MAX_RETRIES}):`, err.message);
+      if (attempt < MAX_RETRIES) {
+        logger.info(`[Express] Retrying DB connection in ${RETRY_DELAY / 1000}s...`);
+        await new Promise(res => setTimeout(res, RETRY_DELAY));
+      } else {
+        logger.error('[Express] DB connection failed after maximum retries.');
+        // 【*關鍵*】拋出錯誤，讓主啟動流程捕獲
+        throw new Error("Database connection failed after maximum retries.");
+      }
     }
   }
 }
-
-connectWithRetry();
 
 /*───────────────────────────────────
  | 6. Puppeteer：強制使用新版 Headless
@@ -232,9 +235,33 @@ app.get('/debug/gini', async (req, res) => {
 });
 
 /*───────────────────────────────────
- | 8. 啟動伺服器
+ | 8. 啟動伺服器 (修改為結構化啟動)
  *───────────────────────────────────*/
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`[Express] Running on port ${PORT}`);
-});
+
+// 【*新增*】統一的、異步的伺服器啟動函式
+async function startServer() {
+  try {
+    // 步驟 1: 連線資料庫
+    logger.info('[Startup] Initializing Database connection...');
+    await connectToDatabase();
+    logger.info('[Startup] Database connection successful.');
+
+    // 步驟 2: 初始化區塊鏈服務
+    logger.info('[Startup] Initializing Blockchain service...');
+    await initChainService();
+    logger.info('[Startup] Blockchain service initialization successful.');
+    
+    // 步驟 3: 所有服務就緒，啟動 Express 監聽
+    app.listen(PORT, '0.0.0.0', () => {
+      logger.info(`[Express] Server is ready and running on port ${PORT}`);
+    });
+
+  } catch (error) {
+    logger.error(`[Startup] FAILED to start server: ${error.message}`);
+    process.exit(1); // 關鍵服務啟動失敗，結束程序
+  }
+}
+
+// 執行啟動程序
+startServer();
