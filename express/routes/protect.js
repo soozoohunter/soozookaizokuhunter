@@ -1,12 +1,10 @@
 /**
- * express/routes/protect.js (修正版)
+ * express/routes/protect.js (路徑修正版)
  *
  * 【核心修正】:
- * 1.  在 Step 1 (檔案註冊) 流程中，增加了「指紋存在性檢查」。
- * 2.  在上傳檔案並計算出 fingerprint 後，會先查詢資料庫。
- * 3.  若 fingerprint 已存在，則直接回傳 409 Conflict 錯誤，告知前端該檔案已被註冊，並中斷後續流程。
- * 4.  若 fingerprint 不存在，才繼續執行 IPFS 上傳、區塊鏈上鏈、以及資料庫寫入操作。
- * 5.  優化了錯誤處理，對 Sequelize 的 unique constraint 錯誤有更明確的回應。
+ * 1.  修正了 `require` 敘述句的模組路徑。
+ * 2.  將 `ipfsService` 和 `milvus` 的引用路徑從 `../utils/` 變更為 `../services/`。
+ * 3.  保持 `imageProcessor`, `chain`, `logger` 的路徑在 `../utils/`。
  */
 const express = require('express');
 const multer = require('multer');
@@ -14,11 +12,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { File, User } = require('../models');
-const ipfsService = require('../utils/ipfsService');
-const { storeRecord } = require('../utils/chain');
-const { indexImage, findSimilarImages } = require('../utils/milvus'); // 引入 Milvus 服務
 const logger = require('../utils/logger');
+const { storeRecord } = require('../utils/chain');
 const { convertAndUpload, createPublicImageLink } = require('../utils/imageProcessor');
+const ipfsService = require('../services/ipfsService');
+const { indexImage, findSimilarImages } = require('../services/milvus');
 
 const router = express.Router();
 
@@ -65,7 +63,7 @@ router.post('/step1', upload.single('image'), async (req, res) => {
   try {
     const fingerprint = await getFileFingerprint(req.file.path);
 
-    // 【*核心修正*】: 檢查 fingerprint 是否已存在
+    // 檢查 fingerprint 是否已存在
     const existingFile = await File.findOne({ where: { fingerprint } });
     if (existingFile) {
       logger.warn(`[POST /step1] Duplicate file upload detected. Fingerprint: ${fingerprint.slice(0, 20)}...`);
