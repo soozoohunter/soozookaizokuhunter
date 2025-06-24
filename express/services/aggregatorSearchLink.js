@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const logger = require('../utils/logger');
 
 /**
  * 嘗試關閉廣告 - 可根據實際網頁 HTML 結構修改 selector
@@ -11,7 +12,7 @@ async function tryCloseAd(page, maxTimes=3) {
       // 您需自行查看 ginifab 網站實際 DOM，改成對應的 selector
       const closeBtn = await page.$('div#ad_box button.close, span#ad_close_btn');
       if(closeBtn){
-        console.log('[tryCloseAd] found ad close button => clicking...');
+        logger.info('[tryCloseAd] found ad close button => clicking...');
         await closeBtn.click();
         await page.waitForTimeout(1000);
         closedCount++;
@@ -20,12 +21,12 @@ async function tryCloseAd(page, maxTimes=3) {
         break;
       }
     } catch(e){
-      console.warn('[tryCloseAd] click fail =>', e);
+      logger.warn('[tryCloseAd] click fail =>', e);
       break;
     }
   }
   if(closedCount>0){
-    console.log(`[tryCloseAd] total closed => ${closedCount}`);
+    logger.info(`[tryCloseAd] total closed => ${closedCount}`);
     return true;
   }
   return false;
@@ -36,7 +37,7 @@ async function tryCloseAd(page, maxTimes=3) {
  */
 async function tryClickUploadLocal(page, localFilePath) {
   try {
-    console.log('[tryClickUploadLocal] => start...');
+    logger.info('[tryClickUploadLocal] => start...');
     // (1) 可能先關閉彈窗
     await tryCloseAd(page, 2);
 
@@ -46,24 +47,24 @@ async function tryClickUploadLocal(page, localFilePath) {
       await link[0].click();
       await page.waitForTimeout(1500);
     } else {
-      console.warn('[tryClickUploadLocal] "上傳本機圖片" link not found');
+      logger.warn('[tryClickUploadLocal] "上傳本機圖片" link not found');
       return false;
     }
 
     // (3) 找 input[type=file] 並上傳
     const fileInput = await page.$('input[type=file]');
     if(!fileInput){
-      console.warn('[tryClickUploadLocal] input[type=file] not found');
+      logger.warn('[tryClickUploadLocal] input[type=file] not found');
       return false;
     }
     await fileInput.uploadFile(localFilePath);
-    console.log('[tryClickUploadLocal] uploaded =>', localFilePath);
+    logger.info('[tryClickUploadLocal] uploaded =>', localFilePath);
 
     await page.waitForTimeout(2000);
     return true;
 
   } catch(err){
-    console.error('[tryClickUploadLocal] error =>', err);
+    logger.error('[tryClickUploadLocal] error =>', err);
     return false;
   }
 }
@@ -73,7 +74,7 @@ async function tryClickUploadLocal(page, localFilePath) {
  */
 async function tryClickSpecifyImageUrl(page, publicImageUrl) {
   try {
-    console.log('[tryClickSpecifyImageUrl] =>', publicImageUrl);
+    logger.info('[tryClickSpecifyImageUrl] =>', publicImageUrl);
     await tryCloseAd(page, 2);
 
     // 找「指定圖片網址」文字鏈結
@@ -82,19 +83,19 @@ async function tryClickSpecifyImageUrl(page, publicImageUrl) {
       await link2[0].click();
       await page.waitForTimeout(1000);
     } else {
-      console.warn('[tryClickSpecifyImageUrl] link not found');
+      logger.warn('[tryClickSpecifyImageUrl] link not found');
       return false;
     }
 
     // 等待輸入框
     const input = await page.waitForSelector('input[type=text]', { timeout:5000 });
     await input.type(publicImageUrl, { delay:50 });
-    console.log('[tryClickSpecifyImageUrl] typed =>', publicImageUrl);
+    logger.info('[tryClickSpecifyImageUrl] typed =>', publicImageUrl);
     await page.waitForTimeout(1500);
 
     return true;
   } catch(e){
-    console.error('[tryClickSpecifyImageUrl] error =>', e);
+    logger.error('[tryClickSpecifyImageUrl] error =>', e);
     return false;
   }
 }
@@ -104,7 +105,7 @@ async function tryClickSpecifyImageUrl(page, publicImageUrl) {
  * 依序點 Bing/TinEye/Baidu，最後在 Baidu 做二次上傳 (若介面可行)。
  */
 async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl='') {
-  console.log('[aggregatorSearchGinifabStrict] => file=', localFilePath, ' url=', publicImageUrl);
+  logger.info('[aggregatorSearchGinifabStrict] => file=', localFilePath, ' url=', publicImageUrl);
 
   const results = {
     bing: [],
@@ -139,7 +140,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
     if(localFilePath){
       ok = await tryClickUploadLocal(page, localFilePath);
       if(!ok && publicImageUrl){
-        console.log('[aggregatorSearchGinifabStrict] local upload fail => try publicImageUrl approach...');
+        logger.info('[aggregatorSearchGinifabStrict] local upload fail => try publicImageUrl approach...');
         ok = await tryClickSpecifyImageUrl(page, publicImageUrl);
       }
     } else if(publicImageUrl){
@@ -147,7 +148,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
     }
 
     if(!ok){
-      console.warn('[aggregatorSearchGinifabStrict] both local & URL fail => aggregator stop');
+      logger.warn('[aggregatorSearchGinifabStrict] both local & URL fail => aggregator stop');
       await page.close().catch(()=>{});
       await browser.close().catch(()=>{});
       return results; // 空
@@ -162,7 +163,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
     for(const eng of engines){
       try {
-        console.log(`[aggregatorSearchGinifabStrict] click => ${eng.key}`);
+        logger.info(`[aggregatorSearchGinifabStrict] click => ${eng.key}`);
         const newTab = new Promise(resolve => {
           browser.once('targetcreated', async t => resolve(await t.page()));
         });
@@ -187,7 +188,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
         // 若是 Baidu => 二次上傳
         if(eng.key==='baidu'){
-          console.log('[aggregatorSearchGinifabStrict] Baidu second step => tryCloseAd or upload...');
+          logger.info('[aggregatorSearchGinifabStrict] Baidu second step => tryCloseAd or upload...');
           await tryCloseAd(popup, 2);
           // 如果 Baidu 有同樣 #input[type=file] => ...
           // 參考您 fallbackDirectEngines 的 logic
@@ -205,12 +206,12 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
 
         await popup.close();
       } catch(eSub){
-        console.error(`[aggregatorSearchGinifabStrict][${eng.key}] fail =>`, eSub);
+        logger.error(`[aggregatorSearchGinifabStrict][${eng.key}] fail =>`, eSub);
       }
     }
 
   } catch(e){
-    console.error('[aggregatorSearchGinifabStrict] error =>', e);
+    logger.error('[aggregatorSearchGinifabStrict] error =>', e);
   } finally {
     if(page) await page.close().catch(()=>{});
     if(browser) await browser.close().catch(()=>{});

@@ -4,9 +4,10 @@
  * - 所有上鏈操作均透過合約的 storeData(string) 方法
  */
 require('dotenv').config();
-const { Web3 } = require('web3');
+const Web3 = require('web3');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 // --- [核心設定] ---
 const RPC_URL = process.env.BLOCKCHAIN_RPC_URL;
@@ -49,10 +50,10 @@ try {
   contract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
   
   isInitialized = true;
-  console.log(`[Service] Blockchain service initialized successfully. Contract: ${CONTRACT_ADDRESS}, Account: ${account.address}`);
+  logger.info(`[Service] Blockchain service initialized successfully. Contract: ${CONTRACT_ADDRESS}, Account: ${account.address}`);
 
 } catch (err) {
-  console.error('[Service] FATAL: Blockchain service initialization failed:', err.message);
+  logger.error('[Service] FATAL: Blockchain service initialization failed:', err.message);
 }
 
 /**
@@ -62,7 +63,7 @@ try {
  */
 async function storeUserOnChain(userData) {
   if (!isInitialized) {
-    console.error('Blockchain service is not available. Skipping storeUserOnChain.');
+    logger.error('Blockchain service is not available. Skipping storeUserOnChain.');
     return;
   }
 
@@ -75,7 +76,7 @@ async function storeUserOnChain(userData) {
     };
     const jsonString = JSON.stringify(dataToStore);
 
-    console.log(`[Chain] Storing user data for: ${userData.username}`);
+    logger.info(`[Chain] Storing user data for: ${userData.username}`);
 
     const gas = await contract.methods.storeData(jsonString).estimateGas({ from: account.address });
     const tx = await contract.methods.storeData(jsonString).send({
@@ -83,10 +84,10 @@ async function storeUserOnChain(userData) {
         gas: gas.toString()
     });
 
-    console.log(`[Chain] User data stored successfully. Transaction hash: ${tx.transactionHash}`);
+    logger.info(`[Chain] User data stored successfully. Transaction hash: ${tx.transactionHash}`);
     return tx;
   } catch (error) {
-    console.error(`[Chain] Error storing user data for ${userData.username}:`, error.message);
+    logger.error(`[Chain] Error storing user data for ${userData.username}:`, error.message);
     // 即使上鏈失敗也只記錄錯誤，不讓整個 API 請求失敗
   }
 }
@@ -99,7 +100,7 @@ async function storeUserOnChain(userData) {
  */
 async function storeRecord(fingerprint, ipfsHash) {
     if (!isInitialized) {
-        console.error('Blockchain service is not available. Skipping storeRecord.');
+        logger.error('Blockchain service is not available. Skipping storeRecord.');
         return;
     }
 
@@ -115,15 +116,15 @@ async function storeRecord(fingerprint, ipfsHash) {
         };
         const jsonString = JSON.stringify(dataToStore);
 
-        console.log(`[Chain] Storing file record for fingerprint: ${fingerprint}`);
+        logger.info(`[Chain] Storing file record for fingerprint: ${fingerprint}`);
 
         const gas = await contract.methods.storeData(jsonString).estimateGas({ from: account.address });
         const receipt = await contract.methods.storeData(jsonString).send({ from: account.address, gas: gas.toString() });
 
-        console.log(`[Chain] File record stored successfully. Tx Hash: ${receipt.transactionHash}`);
+        logger.info(`[Chain] File record stored successfully. Tx Hash: ${receipt.transactionHash}`);
         return receipt;
     } catch (err) {
-        console.error(`[Chain] Error storing file record for fingerprint ${fingerprint}:`, err.message);
+        logger.error(`[Chain] Error storing file record for fingerprint ${fingerprint}:`, err.message);
         throw err;
     }
 }
