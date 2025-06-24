@@ -55,7 +55,7 @@ export default function Upload() {
 
         } catch (err) {
             console.error(err);
-            setMsg('上傳錯誤：' + err.message);
+            setMsg(`上傳錯誤：${err.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -67,16 +67,17 @@ export default function Upload() {
             <p>請上傳您的圖片或短影音，系統將為您生成數位指紋與原創證明書。</p>
             
             <div style={{ marginBottom: '1rem' }}>
-                <label style={{ marginRight: '8px' }}>作品標題: </label>
+                <label style={{ display: 'block', marginBottom: '5px' }}>作品標題: </label>
                 <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    style={{ padding: '6px', width: '100%', boxSizing: 'border-box' }}
+                    style={{ padding: '8px', width: '100%', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc' }}
                     placeholder="例如：2025 台北夜景"
                 />
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
+                 <label style={{ display: 'block', marginBottom: '5px' }}>選擇檔案: </label>
                 <input
                     type="file"
                     onChange={(e) => setFile(e.target.files[0])}
@@ -88,7 +89,19 @@ export default function Upload() {
                 {isLoading ? '處理中...' : '上傳並生成證明'}
             </button>
 
-            {msg && <p style={{ marginTop: '1rem', color: msg.includes('錯誤') ? '#ff4d4d' : '#23d160' }}>{msg}</p>}
+            {msg && (
+                <p
+                    style={{
+                        marginTop: '1rem',
+                        color: msg.includes('錯誤') ? '#ff4d4d' : '#23d160',
+                        backgroundColor: '#333',
+                        padding: '10px',
+                        borderRadius: '4px',
+                    }}
+                >
+                    {msg}
+                </p>
+            )}
         </div>
     );
 }
