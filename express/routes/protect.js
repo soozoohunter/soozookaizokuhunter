@@ -743,8 +743,11 @@ router.get('/scan/:fileId', async (req, res) => {
             });
         }
         // ★★★★★ 【核心修正】 ★★★★★
-        // 增加對 fileRec.mimetype 的存在性檢查，防止 'startsWith' of undefined 錯誤
-        const isVideo = fileRec && fileRec.mimetype && fileRec.mimetype.startsWith('video/');
+        // 增加對 fileRec.mimetype 的存在性檢查，並以副檔名作為後備判斷影片格式
+        const videoExtensions = ['.mov', '.mp4', '.avi', '.mkv'];
+        const fileExtension = path.extname(localPath).toLowerCase();
+        const isVideo = (fileRec && fileRec.mimetype && fileRec.mimetype.startsWith('video/')) || videoExtensions.includes(fileExtension);
+        console.log(`[Scan Route Debug] File: ${path.basename(localPath)}, MimeType: ${fileRec.mimetype}, IsVideo: ${isVideo}`);
         let allLinks = [];
         let matchedImages = [];
         
@@ -808,7 +811,8 @@ router.get('/scan/:fileId', async (req, res) => {
             try {
                 const fileBuffer = fs.readFileSync(localPath);
                 const cleanFilename = Buffer.from(fileRec.filename || '', 'latin1').toString('utf8');
-                const keyword = cleanFilename.replace(/\.[^/.]+$/, "") || fileRec.fingerprint;
+                // 優先使用作品標題作為關鍵字，若無則使用檔名去除副檔名
+                const keyword = fileRec.title || cleanFilename.replace(/\.[^/.]+$/, "");
                 console.log(`[Scan Route] Starting infringementScan for fileId: ${fileId} with keyword: "${keyword}"`);
 
                 const report = await infringementScan({ buffer: fileBuffer, keyword: keyword });
