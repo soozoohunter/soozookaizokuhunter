@@ -2,6 +2,7 @@
  * controllers/trademarkController.js
  ********************************************************************/
 const trademarkService = require('../services/trademarkService');
+const logger = require('../utils/logger');
 
 const trademarkController = {
   async search(req, res) {
@@ -13,7 +14,7 @@ const trademarkController = {
       const results = await trademarkService.searchTrademark(q);
       return res.json({ query: q, results });
     } catch (err) {
-      console.error('[trademarkController.search] error:', err);
+      logger.error('[trademarkController.search] error:', err);
       return res.status(500).json({ error: '無法查詢商標' });
     }
   }

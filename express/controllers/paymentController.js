@@ -4,6 +4,7 @@
  *  - 保留您目前的邏輯 & DB 操作
  ********************************************************************/
 const { User } = require('../models');
+const logger = require('../utils/logger');
 
 const paymentController = {
   // 1) GET /api/pricing
@@ -28,7 +29,7 @@ const paymentController = {
       await user.save();
       return res.json({ message: `已將方案升級為：${plan}` });
     } catch (err) {
-      console.error('[purchasePlan error]', err);
+      logger.error('[purchasePlan error]', err);
       return res.status(500).json({ error: err.message });
     }
   },
@@ -57,7 +58,7 @@ const paymentController = {
       await User.update({ address: contact }, { where: { id: userId } });
       return res.json({ message: '付款資訊已提交(已更新使用者資訊)' });
     } catch (err) {
-      console.error('[notify error]', err);
+      logger.error('[notify error]', err);
       return res.status(500).json({ error: '付款通知失敗' });
     }
   },
@@ -68,14 +69,14 @@ const paymentController = {
     try {
       const userId = req.user.userId;
       const { lastFive, amount, planWanted } = req.body;
-      console.log(`[submitPayment] userId=${userId}, last5=${lastFive}, amount=${amount}, plan=${planWanted}`);
+      logger.info(`[submitPayment] userId=${userId}, last5=${lastFive}, amount=${amount}, plan=${planWanted}`);
 
       // 假設可存到 Payment table or log
       // ...
 
       return res.json({ message: '已收到匯款資訊，等待管理員確認' });
     } catch (err) {
-      console.error('[submitPayment error]', err);
+      logger.error('[submitPayment error]', err);
       return res.status(500).json({ error: '提交匯款資訊失敗' });
     }
   }

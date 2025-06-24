@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { Op } = require('sequelize'); // 引入 Op 以便使用 OR 查詢
 const blockchainService = require('../services/blockchainService');
+const logger = require('../utils/logger');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 
@@ -105,7 +106,7 @@ async function register(req, res) {
         role: newUser.role
       });
     } catch (chainErr) {
-      console.error('Blockchain sync error:', chainErr);
+      logger.error('Blockchain sync error:', chainErr);
       // 失敗時僅記錄，不影響主要註冊流程
     }
 
@@ -114,7 +115,7 @@ async function register(req, res) {
       message: '註冊成功 (Registration successful)'
     });
   } catch (err) {
-    console.error('Register error:', err);
+    logger.error('Register error:', err);
     // 其他未預期錯誤
     return res.status(500).json({
       message: '伺服器發生錯誤，無法完成註冊 (Server error: Unable to complete registration)'
@@ -170,7 +171,7 @@ async function login(req, res) {
       role: user.role
     });
   } catch (err) {
-    console.error('[Login Error]', err);
+    logger.error('[Login Error]', err);
     return res.status(500).json({
       message: '登入失敗，伺服器發生錯誤 (Login failed due to server error)'
     });

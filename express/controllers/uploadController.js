@@ -5,6 +5,7 @@ const { File, User } = require('../models');
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
 const fingerprintService = require('../services/fingerprintService');
+const logger = require('../utils/logger');
 
 const uploadController = {
   async uploadFile(req, res) {
@@ -32,7 +33,7 @@ const uploadController = {
       try {
         ipfsHash = await ipfsService.saveFile(fileBuffer);
       } catch (e) {
-        console.error('[IPFS] 上傳失敗:', e.message);
+        logger.error('[IPFS] 上傳失敗:', e.message);
       }
 
       // 5) (可選) 上鏈
@@ -41,7 +42,7 @@ const uploadController = {
         const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
         txHash = receipt.transactionHash;
       } catch (e) {
-        console.error('[區塊鏈] storeRecord 失敗:', e.message);
+        logger.error('[區塊鏈] storeRecord 失敗:', e.message);
       }
 
       // 6) 建立 File 紀錄
@@ -73,7 +74,7 @@ const uploadController = {
         txHash,
       });
     } catch (err) {
-      console.error('[uploadFile error]', err);
+      logger.error('[uploadFile error]', err);
       return res.status(500).json({ error: err.message });
     }
   },

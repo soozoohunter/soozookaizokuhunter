@@ -3,6 +3,7 @@
  * 若您習慣將 membership 邏輯提取到 controller
  */
 const { User } = require('../models');
+const logger = require('../utils/logger');
 
 exports.getStatus = async (req, res) => {
   try {
@@ -19,7 +20,7 @@ exports.getStatus = async (req, res) => {
       // ...
     });
   } catch (err) {
-    console.error('Error fetching membership status:', err);
+    logger.error('Error fetching membership status:', err);
     return res.status(500).json({ error:'Server error retrieving membership' });
   }
 };
@@ -47,7 +48,7 @@ exports.upgradePlan = async (req, res) => {
       plan: user.plan
     });
   } catch (err) {
-    console.error('[upgradePlan]', err);
+    logger.error('[upgradePlan]', err);
     return res.status(500).json({ error:'Server error upgrading plan' });
   }
 };
