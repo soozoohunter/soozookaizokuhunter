@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>侵權報告與操作</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { cursor: pointer; padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc; }
+        button:disabled { cursor: not-allowed; background-color: #eee; }
+    </style>
+</head>
+<body>
+
+    <h1>侵權報告</h1>
+    
+    <!-- 假設這是由您的後端動態生成的表格 -->
+    <table>
+        <thead>
+            <tr>
+                <th>侵權網址</th>
+                <th>狀態</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 範例項目 1 -->
+            <tr>
+                <td><a href="http://bad-site.com/stolen-photo.jpg" target="_blank">http://bad-site.com/stolen-photo.jpg</a></td>
+                <td id="status-123-httpbadsitecomstolenphotojpg">未處理</td>
+                <td>
+                    <button 
+                        class="dmca-takedown-button"
+                        data-client-user-id="1"
+                        data-original-file-id="123"
+                        data-infringing-url="http://bad-site.com/stolen-photo.jpg"
+                    >
+                        發送 DMCA 通知
+                    </button>
+                </td>
+            </tr>
+            <!-- 範例項目 2 -->
+            <tr>
+                <td><a href="http://another-pirate.net/my-video" target="_blank">http://another-pirate.net/my-video</a></td>
+                <td id="status-456-httpanotherpiratenetmyvideo">未處理</td>
+                <td>
+                    <button 
+                        class="dmca-takedown-button"
+                        data-client-user-id="1"
+                        data-original-file-id="456"
+                        data-infringing-url="http://another-pirate.net/my-video"
+                    >
+                        發送 DMCA 通知
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- 在 body 結束前引入您的 JS 檔案 -->
+    <script src="/public/js/dmca_handler.js"></script>
+</body>
+</html>

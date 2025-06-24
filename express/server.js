@@ -43,6 +43,12 @@ app.use(
   express.static(path.resolve(__dirname, '../uploads'))
 );
 
+// 提供前端靜態資源 (如 dmca_handler.js)
+app.use(
+  '/public',
+  express.static(path.join(__dirname, 'public'))
+);
+
 /*───────────────────────────────────
  | 3. 健康檢查
  *───────────────────────────────────*/
