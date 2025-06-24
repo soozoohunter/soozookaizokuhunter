@@ -3,9 +3,10 @@
  * 應用程式的集中式 API 請求模組
  *
  * 功能:
- * 1. 從環境變數中讀取後端 API 的基礎 URL。
+ * 1. 從環境變數中讀取後端 API 的基礎 URL，確保發出完整 URL。
  * 2. 自動將 localStorage 中的 token 加入到請求標頭 (headers) 中。
- * 3. 處理 FormData 和 JSON body。
+ * 3. 處理 FormData 和 JSON body 的 Content-Type。
+ * 4. 統一的錯誤處理。
  */
 
 /**
