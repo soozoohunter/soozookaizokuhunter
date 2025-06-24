@@ -111,7 +111,116 @@ async function createApiDIYCase(caseDetails) {
     }
 }
 
-// ... (您現有的 /step1, /scan 等路由保持原樣) ...
+// ===================================================================
+//  Step1: Upload file and create user/file records
+// ===================================================================
+const upload = multer({ dest: path.join(UPLOAD_BASE_DIR, 'tmp') });
+
+router.post('/step1', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
+
+        const {
+            realName, birthDate, phone, address, email,
+            title, keywords
+        } = req.body;
+
+        if (!realName || !phone || !email || !title) {
+            return res.status(400).json({ error: 'MISSING_FIELDS' });
+        }
+
+        // 1) find or create user
+        let user = await User.findOne({ where: { email } });
+        if (!user) {
+            const hashed = await bcrypt.hash(phone || 'pass', 10);
+            user = await User.create({
+                email,
+                password: hashed,
+                realName,
+                birthDate,
+                phone,
+                address
+            });
+        }
+
+        // 2) move uploaded file to uploads dir with deterministic name
+        const ext = path.extname(req.file.originalname);
+        const targetName = `imageForSearch_${Date.now()}${ext}`;
+        const targetPath = path.join(UPLOAD_BASE_DIR, targetName);
+        fs.renameSync(req.file.path, targetPath);
+
+        const buffer = fs.readFileSync(targetPath);
+        const fingerprint = fingerprintService.sha256(buffer);
+
+        let ipfsHash = null;
+        try {
+            ipfsHash = await ipfsService.saveFile(buffer);
+        } catch (e) {
+            console.error('[step1 ipfs]', e.message);
+        }
+
+        let txHash = null;
+        try {
+            const receipt = await chain.storeRecord(fingerprint, ipfsHash || '');
+            txHash = receipt.transactionHash;
+        } catch (e) {
+            console.error('[step1 chain]', e.message);
+        }
+
+        const fileRecord = await File.create({
+            user_id: user.id,
+            filename: req.file.originalname,
+            fingerprint,
+            ipfs_hash: ipfsHash,
+            tx_hash: txHash,
+            status: 'uploaded'
+        });
+
+        let publicImageUrl = null;
+        try {
+            publicImageUrl = await convertAndUpload(targetPath, ext, fileRecord.id);
+        } catch (e) {
+            console.error('[step1 convert]', e.message);
+        }
+
+        // index to vector service (best effort)
+        try {
+            await indexImageVector(targetPath, fileRecord.id);
+        } catch (e) {
+            console.error('[step1 index]', e.message);
+        }
+
+        return res.status(201).json({
+            fileId: fileRecord.id,
+            fingerprint,
+            ipfsHash,
+            txHash,
+            publicImageUrl
+        });
+    } catch (err) {
+        console.error('[POST /step1]', err);
+        return res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+// ===================================================================
+//  Step2: further processing after upload
+// ===================================================================
+router.post('/step2', async (req, res) => {
+    try {
+        const { fileId } = req.body || {};
+        if (!fileId) return res.status(400).json({ error: 'MISSING_FILE_ID' });
+
+        const file = await File.findByPk(fileId);
+        if (!file) return res.status(404).json({ error: 'FILE_NOT_FOUND' });
+
+        return res.json({ message: 'Step2 處理完成', fileId: file.id });
+    } catch (err) {
+        console.error('[POST /step2]', err);
+        return res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
 
 
 // ===================================================================
