@@ -93,7 +93,6 @@ services:
     image: suzookaizokuhunter-frontend
     depends_on:
       - suzoo_express
-      - suzoo_fastapi
     ports:
       - "80:80"
       - "443:443"
@@ -103,7 +102,7 @@ services:
       - ./data/certbot/www:/var/www/certbot
     networks:
       - suzoo_net
-    restart: unless-stopped
+    restart: always
 
   suzoo_fastapi:
     container_name: suzoo_fastapi
