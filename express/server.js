@@ -6,6 +6,7 @@ const createAdmin   = require('./createDefaultAdmin');
 const fs            = require('fs');
 const path          = require('path');
 const puppeteer     = require('puppeteer');
+const logger        = require('./utils/logger');
 
 const app = express();
 app.use(cors());
@@ -78,19 +79,19 @@ const RETRY_DELAY = parseInt(process.env.DB_CONNECT_RETRY_DELAY || '5000');
 async function connectWithRetry(attempt = 1) {
   try {
     await sequelize.authenticate();
-    console.log('[Express] Sequelize connected.');
+    logger.info('[Express] Sequelize connected.');
 
     await sequelize.sync({ alter: true });
-    console.log('[Express] Sequelize synced.');
+    logger.info('[Express] Sequelize synced.');
 
     await createAdmin();
   } catch (err) {
-    console.error(`[Express] Sequelize connect error (attempt ${attempt}/${MAX_RETRIES}):`, err);
+    logger.error(`[Express] Sequelize connect error (attempt ${attempt}/${MAX_RETRIES}):`, err);
     if (attempt < MAX_RETRIES) {
-      console.log(`[Express] Retrying DB connection in ${RETRY_DELAY / 1000}s...`);
+      logger.info(`[Express] Retrying DB connection in ${RETRY_DELAY / 1000}s...`);
       setTimeout(() => connectWithRetry(attempt + 1), RETRY_DELAY);
     } else {
-      console.error('[Express] DB connection failed after maximum retries, exiting.');
+      logger.error('[Express] DB connection failed after maximum retries, exiting.');
       process.exit(1);
     }
   }
@@ -124,7 +125,7 @@ async function fallbackDirectEngines(imagePath) {
         const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('bing.com')));
       } catch (e) {
-        console.error('[fallback Bing error]', e);
+        logger.error('[fallback Bing error]', e);
       } finally {
         await page.close();
       }
@@ -142,7 +143,7 @@ async function fallbackDirectEngines(imagePath) {
         const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('tineye.com')));
       } catch (e) {
-        console.error('[fallback TinEye error]', e);
+        logger.error('[fallback TinEye error]', e);
       } finally {
         await page.close();
       }
@@ -159,14 +160,14 @@ async function fallbackDirectEngines(imagePath) {
         const links = await page.$$eval('a', as => as.map(a => a.href));
         finalLinks.push(...links.filter(l => l && !l.includes('baidu.com')));
       } catch (e) {
-        console.error('[fallback Baidu error]', e);
+        logger.error('[fallback Baidu error]', e);
       } finally {
         await page.close();
       }
     }
 
   } catch (errAll) {
-    console.error('[fallbackDirectEngines error]', errAll);
+    logger.error('[fallbackDirectEngines error]', errAll);
   } finally {
     if (browser) await browser.close();
   }
@@ -183,7 +184,7 @@ app.get('/debug/gini', async (req, res) => {
   try {
     browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox','--disable-setuid-sandbox'] });
     const page = await browser.newPage();
-    console.log('[start] ginifab aggregator...');
+    logger.info('[start] ginifab aggregator...');
     await page.goto('https://www.ginifab.com/feeds/reverse_image_search/', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
 
@@ -219,13 +220,13 @@ app.get('/debug/gini', async (req, res) => {
     await browser.close();
 
   } catch (eAg) {
-    console.error('[Ginifab aggregator fail => fallback]', eAg);
+    logger.error('[Ginifab aggregator fail => fallback]', eAg);
     if (browser) await browser.close();
   }
 
   // fallback direct
   const finalLinks = aggregatorOk ? aggregatorLinks : await fallbackDirectEngines(imagePath);
-  console.log('[Ginifab aggregator done] aggregatorOk=', aggregatorOk, ' count=', finalLinks.length);
+  logger.info('[Ginifab aggregator done] aggregatorOk=', aggregatorOk, ' count=', finalLinks.length);
 
   return res.json({ aggregatorOk, foundLinks: finalLinks.slice(0, 20), totalCount: finalLinks.length });
 });
@@ -235,5 +236,5 @@ app.get('/debug/gini', async (req, res) => {
  *───────────────────────────────────*/
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Express] Running on port ${PORT}`);
+  logger.info(`[Express] Running on port ${PORT}`);
 });
