@@ -21,38 +21,37 @@ export default function Upload() {
     }
 
     const doUpload = async () => {
+        const backendRoute = '/api/protect/step1';
+
         if (!file) {
-            alert('請選擇檔案');
+            alert('請選擇一個檔案');
             return;
         }
 
         setIsLoading(true);
-        setMsg('上傳中...');
+        setMsg('上傳中，正在為您的作品生成數位指紋與證明書...');
         
         try {
             const formData = new FormData();
             formData.append('file', file);
             
-            // 注意：這裡假設後端路由是 /api/protect/step1
-            // 如果您的上傳路由不同，請修改此處的路徑
-            // formData.append('title', title); // 如果您的 step1 不需要 title，可以移除此行
-            // ... 將您 step1 需要的所有表單欄位加到這裡 ...
+            // 將所有 step1 需要的表單欄位一起打包
             formData.append('realName', '測試者');
             formData.append('birthDate', '2000-01-01');
             formData.append('phone', '0912345678');
             formData.append('address', '測試地址');
             formData.append('email', 'test@example.com');
-            formData.append('title', title || '我的作品');
+            formData.append('title', title || '我的原創作品');
             formData.append('agreePolicy', 'true');
 
             // 【核心修正】: 使用 apiRequest 函式來發送請求
-            // 它會自動處理 URL 和 token
-            const data = await apiRequest('/api/protect/step1', {
+            // 它會自動處理 URL 和 token，確保發出的請求是合法的
+            const data = await apiRequest(backendRoute, {
                 method: 'POST',
                 body: formData,
             });
-            
-            setMsg('上傳成功！指紋=' + (data.fingerprint || '(無)') + ' | PDF: ' + data.pdfUrl);
+
+            setMsg(`上傳成功！檔案 ID: ${data.fileId} | 指紋: ${data.fingerprint || '(無)'} | PDF 證明書: ${data.pdfUrl}`);
 
         } catch (err) {
             console.error(err);
