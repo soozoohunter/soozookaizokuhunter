@@ -97,7 +97,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/suzoo.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/production.conf:/etc/nginx/conf.d/default.conf
     networks:
       - suzoo_net
     restart: always
