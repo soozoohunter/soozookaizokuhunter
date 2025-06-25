@@ -1,10 +1,12 @@
-# docker-compose.yml (已移除過時的 version 標籤)
+# docker-compose.yml (優化修正版)
 
 services:
   # Milvus 向量資料庫及其依賴項
+  # [工程建議] 以下 etcd 和 minio 的設定使用了 Milvus 映像檔，這在 standalone 模式下雖可運作，但非常規。
+  # Milvus standalone 模式會自行管理這些依賴。未來若需擴展，建議改用官方獨立的 etcd 和 minio 映像檔。
   etcd:
     container_name: suzoo_etcd
-    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    image: milvusdb/milvus:v2.4.4
     command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     volumes:
       - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd"
@@ -13,7 +15,7 @@ services:
 
   minio:
     container_name: suzoo_minio
-    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    image: milvusdb/milvus:v2.4.4
     command: minio server /minio_data
     environment:
       MINIO_ACCESS_KEY: minioadmin
@@ -25,7 +27,7 @@ services:
 
   milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    image: milvusdb/milvus:v2.4.4
     command: milvus run standalone
     environment:
       ETCD_ENDPOINTS: etcd:2379
@@ -44,7 +46,7 @@ services:
   # 基礎架構服務
   suzoo_postgres:
     container_name: suzoo_postgres
-    image: postgres:15-alpine # 使用官方 postgres 映像檔
+    image: postgres:15-alpine
     ports:
       - "5432:5432"
     environment:
@@ -59,7 +61,7 @@ services:
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
-    image: rabbitmq:3.13-management # 使用官方 rabbitmq 映像檔
+    image: rabbitmq:3.13-management
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -68,28 +70,35 @@ services:
       RABBITMQ_DEFAULT_PASS: 123456
     networks:
       - suzoo_net
+    restart: always
 
   suzoo_redis:
     container_name: suzoo_redis
-    image: redis:7-alpine # 使用官方 redis 映像檔
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     networks:
       - suzoo_net
+    restart: always
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
-    image: ipfs/kubo:latest # 使用官方 IPFS/Kubo 映像檔
+    image: ipfs/kubo:latest
     ports:
       - "4001:4001" # ipfs swarm
       - "5001:5001" # ipfs api
       - "8080:8080" # ipfs gateway
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - suzoo_net
 
   suzoo_ganache:
     container_name: suzoo_ganache
-    image: trufflesuite/ganache:latest # 使用官方 Ganache 映像檔
+    image: trufflesuite/ganache:latest
     ports:
       - "8545:8545"
     networks:
@@ -100,15 +109,23 @@ services:
     container_name: suzoo_express
     build:
       context: .
-      dockerfile: Dockerfile # 假設您的 Dockerfile 名稱為 Dockerfile
+      # [工程建議] 為了更清晰的結構，建議將 Dockerfile 移至 express 目錄內
+      # 若移動，此處應改為 context: ./express
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:
       - .env
     volumes:
-      - ./express:/app # 將您的 express 目錄掛載到容器中，方便開發
+      # 將您的 express 目錄掛載到容器中，方便開發時即時同步程式碼
+      - ./express:/app
+      # [核心修正] 使用匿名掛載 (Anonymous Volume) 來保護容器內的 node_modules 不被主機的空目錄覆蓋
+      # 這將保留 Dockerfile 中 npm install 的結果，同時允許其他程式碼檔案的同步
+      - /app/node_modules
+      # 掛載上傳資料夾
       - ./uploads:/uploads
-      - /etc/letsencrypt:/etc/letsencrypt:ro # 掛載 SSL 憑證 (唯讀)
+      # 掛載 SSL 憑證 (唯讀)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - suzoo_postgres
       - suzoo_ipfs
@@ -125,3 +142,4 @@ networks:
 
 volumes:
   suzoo_postgres_data:
+    # 此處保留為空，使用 Docker 預設驅動
