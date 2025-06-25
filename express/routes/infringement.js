@@ -21,7 +21,7 @@ const upload = require('../middleware/upload');
 //
 const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
 
-// const { sendDmcaNotice } = require('../services/dmcaService');
+const { sendDmcaNotice } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
@@ -104,9 +104,11 @@ router.post('/dmca', authMiddleware, async (req, res) => {
     if (!Array.isArray(targetUrls) || !targetUrls.length) {
       return res.status(400).json({ error: '請提供 targetUrls (Array)' });
     }
-    // const result = await sendDmcaNotice(targetUrls);
-    const result = { success: true, detail: 'Mock DMCA notice sent' };
-    return res.json(result);
+    const result = await sendDmcaNotice(targetUrls);
+    if (result.success) {
+      return res.json(result);
+    }
+    return res.status(502).json({ error: result.error || 'DMCA request failed' });
   } catch (e) {
     console.error('[DMCA Error]', e);
     return res.status(500).json({ error: e.message });
