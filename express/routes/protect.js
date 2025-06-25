@@ -3,8 +3,7 @@
  *
  * 【核心修正】:
  * 1.  修正了 `require` 敘述句的模組路徑。
- * 2.  將 `ipfsService` 和 `milvus` 的引用路徑從 `../utils/` 變更為 `../services/`。
- * 3.  保持 `imageProcessor`, `chain`, `logger` 的路徑在 `../utils/`。
+* 2.  將 `ipfsService`、`milvus`、`imageProcessor` 的引用路徑統一指向 `../services/`。
  */
 const express = require('express');
 const multer = require('multer');
@@ -14,7 +13,7 @@ const path = require('path');
 const { File, User } = require('../models');
 const logger = require('../utils/logger');
 const { storeRecord } = require('../utils/chain');
-const { convertAndUpload, createPublicImageLink } = require('../utils/imageProcessor');
+const { convertAndUpload, createPublicImageLink } = require('../services/imageProcessor');
 const ipfsService = require('../services/ipfsService');
 const { indexImage, findSimilarImages } = require('../services/milvus');
 
