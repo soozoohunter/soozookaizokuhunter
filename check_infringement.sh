@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # ─── 1. 登录取得 JWT ─────────────────────────────────────
-# 如果你改过 /auth/login 的账号/密码，请在这里替换
-LOGIN_EMAIL="jeffqqm@gmail.com"
-LOGIN_PASS="Zack967988"
+# 如果你改過 /auth/login 的帳號/密碼，請在這裡設定
+LOGIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
+LOGIN_PASS="${ADMIN_PASS:-ChangeMe123!}"
 
 LOGIN_RES=$(curl -s -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \

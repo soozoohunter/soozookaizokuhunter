@@ -10,9 +10,14 @@ const { User } = require('./models');
 
 module.exports = async function createDefaultAdmin() {
   try {
-    const defaultEmail = 'jeffqqm@gmail.com';
-    const defaultPhone = '0900296168';
-    const defaultPass = 'Zack967988';
+    const defaultEmail = process.env.ADMIN_EMAIL;
+    const defaultPhone = process.env.ADMIN_PHONE;
+    const defaultPass = process.env.ADMIN_PASS;
+
+    if (!defaultEmail || !defaultPhone || !defaultPass) {
+      console.error('[InitAdmin] ADMIN_* environment variables are required');
+      return;
+    }
 
     // 查找相同 email or phone 的使用者
     const existing = await User.findOne({

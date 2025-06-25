@@ -48,6 +48,10 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PHONE=${ADMIN_PHONE}
+      - ADMIN_PASS=${ADMIN_PASS}
     volumes:
       - ./express:/app
       - /app/node_modules
