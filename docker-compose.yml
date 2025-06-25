@@ -90,7 +90,7 @@ services:
     logging: *default-logging
 
   milvus:
-    image: milvusdb/milvus:v2.4.4-cpu
+    image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.4.4-20240531-8e7f36d9-amd64}
     container_name: suzoo_milvus
     restart: always
     networks:
