@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const flatted = require('flatted'); // Added for safe JSON serialization
 const { File } = require('../models');
 const logger = require('../utils/logger');
 const { storeRecord } = require('../utils/chain');
@@ -125,10 +126,22 @@ router.post('/step2', async (req, res) => {
         await file.save();
 
         logger.info(`[Step 2] Scan complete for fileId: ${fileId}.`);
-        res.status(200).json({ message: 'Scan completed.', results: scanResults });
+
+        // Use flatted to safely serialize complex objects
+        const safeJsonString = flatted.stringify({
+            message: 'Scan completed.',
+            results: scanResults,
+        });
+        res.set('Content-Type', 'application/json');
+        res.status(200).send(safeJsonString);
     } catch (error) {
         logger.error(`[Step 2] Scan process failed for fileId ${fileId}:`, error);
-        res.status(500).json({ message: 'Internal Server Error during scan process.', error: error.message });
+        const safeErrorString = flatted.stringify({
+            message: 'Internal Server Error during scan process.',
+            error: error.message,
+        });
+        res.set('Content-Type', 'application/json');
+        res.status(500).send(safeErrorString);
     }
 });
 
