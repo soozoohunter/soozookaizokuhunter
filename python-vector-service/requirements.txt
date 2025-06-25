@@ -1,12 +1,8 @@
-# requirements.txt
-
 fastapi>=0.104.0
 pydantic>=2.0
 uvicorn[standard]
 python-multipart
-# --- 以下是您可能已經有的其他套件 ---
 pymilvus
-torch
-transformers
+sentence-transformers
+numpy
 Pillow
-milvus-lite
