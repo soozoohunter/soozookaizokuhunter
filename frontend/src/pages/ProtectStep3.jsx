@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
+import flatted from 'flatted'; // Import flatted to parse the response
 
+/* (此處的 styled-components keyframes 與樣式維持原樣，故省略以節省篇幅) */
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -14,6 +16,10 @@ const neonGlow = keyframes`
   50% {
     box-shadow: 0 0 25px #ff6f00;
   }
+`;
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 `;
 
 const PageWrapper = styled.div`
@@ -35,6 +41,7 @@ const Container = styled.div`
   border: 2px solid #ff6f00;
   padding: 2rem;
   animation: ${neonGlow} 2s ease-in-out infinite alternate;
+  text-align: center;
 `;
 
 const Title = styled.h2`
@@ -50,143 +57,183 @@ const InfoBlock = styled.div`
   border-radius: 6px;
   margin-bottom: 1rem;
   word-break: break-all;
+  text-align: left;
 `;
 
-const ErrorMsg = styled.p`
-  color: red;
+const ErrorMsg = styled.div`
+  background: #ff4444;
+  color: #fff;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+  text-align: center;
 `;
 
 const ButtonRow = styled.div`
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
 `;
 
 const NavButton = styled.button`
-  background: #444;
+  background: #f97316;
   color: #fff;
-  border: 1px solid #666;
+  border: 1px solid #ffaa00;
   border-radius: 6px;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.5rem;
   cursor: pointer;
-  &:hover {
-    background: #666;
+  font-size: 1rem;
+  font-weight: bold;
+  &:hover:not(:disabled) {
+    background: #ea580c;
     box-shadow: 0 0 8px #ff6f00;
   }
+  &:disabled {
+    background: #555;
+    cursor: not-allowed;
+    border-color: #666;
+  }
+`;
+
+const Spinner = styled.div`
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 4px solid #fff;
+  border-top: 4px solid #f97316;
+  border-radius: 50%;
+  margin: 1rem auto;
+  animation: ${spin} 1s linear infinite;
 `;
 
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const [scanResult, setScanResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [step1Data, setStep1Data] = useState(null);
 
   useEffect(() => {
-    const stored2 = localStorage.getItem('protectStep2');
-    if (!stored2) {
+    const storedData = localStorage.getItem('protectStep1');
+    if (!storedData) {
       navigate('/protect/step1');
       return;
     }
-    const data2 = JSON.parse(stored2);
-    doScan(data2.fileId);
-    // eslint-disable-next-line
-  }, []);
+    const parsedData = JSON.parse(storedData);
+    setStep1Data(parsedData);
+    // 進入頁面後自動開始掃描
+    doScan(parsedData.fileId);
+  }, [navigate]);
 
   async function doScan(fileId) {
     try {
       setLoading(true);
       setError('');
 
-      const resp = await fetch(`/api/protect/scan/${fileId}`);
+      // 正確呼叫後端掃描 API
+      const response = await fetch('/api/protect/step2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId }),
+      });
+      
+      // 因為後端使用 flatted，前端需要先取得 text 再用 flatted 解析
+      const responseText = await response.text();
+      const data = flatted.parse(responseText);
 
-      let data = {};
-      try {
-        data = await resp.json();
-      } catch (e) {
-        throw new Error('伺服器回傳格式錯誤，無法解析 JSON');
+      if (!response.ok) {
+        throw new Error(data.error || `Scan failed with status: ${response.status}`);
       }
 
-      if (!resp.ok) {
-        switch(resp.status){
-          case 400:
-            throw new Error(data.error || '搜尋參數有誤 (400)');
-          case 404:
-            throw new Error(data.error || '找不到檔案 (404)');
-          case 409:
-            throw new Error(data.error || '本系統已存在相同著作 (409)');
-          case 413:
-            throw new Error(data.error || '檔案過大 (413)');
-          case 500:
-            throw new Error(data.error || '伺服器錯誤 (500)');
-          default:
-            throw new Error(data.error || `掃描失敗，狀態碼 ${resp.status}`);
-        }
-      }
-
-      setScanResult(data);
+      setScanResult(data.results);
+      // 將掃描結果存入 localStorage，以便 Step 4 使用
+      localStorage.setItem('protectStep3', JSON.stringify({ scanResults: data.results }));
 
     } catch (err) {
-      console.error('[Step3 scan error]', err);
-      setError(err.message || '掃描時發生未知錯誤');
+      console.error('[Step3 Scan Error]', err);
+      setError(err.message || 'An unknown error occurred during the scan.');
     } finally {
       setLoading(false);
     }
   }
 
   const handleGoBack = () => {
-    navigate(-1);
+    navigate('/protect/step2');
   };
 
   const handleGoStep4 = () => {
     if (scanResult) {
-      const data2 = JSON.parse(localStorage.getItem('protectStep2') || '{}');
-      const passState = {
-        ...data2,
-        suspiciousLinks: Array.isArray(scanResult.suspiciousLinks) ? scanResult.suspiciousLinks : [],
-        scanReportUrl: scanResult.scanReportUrl || ''
-      };
-      navigate('/protect/step4-infringement', { state: passState });
+      // 使用 navigate state 將複雜資料傳遞到下一頁
+      navigate('/protect/step4-infringement', { 
+        state: { ...step1Data, scanResults: scanResult } 
+      });
     }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <>
+          <Spinner />
+          <p>AI 侵權偵測進行中...</p>
+          <p>正在掃描 Google, TinEye 及各大圖庫平台，請稍候...</p>
+        </>
+      );
+    }
+
+    if (error) {
+      return <ErrorMsg><strong>掃描失敗：</strong>{error}</ErrorMsg>;
+    }
+
+    if (scanResult) {
+      const allLinks = [
+          ...(scanResult.google || []),
+          ...(scanResult.tineye || []),
+          ...(scanResult.yandex || []),
+          // ... 其他平台的結果
+      ];
+
+      return (
+        <InfoBlock>
+          <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
+          {allLinks.length > 0 ? (
+            <>
+              <p>發現 {allLinks.length} 個潛在的侵權或相似圖片連結：</p>
+              <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
+                {allLinks.map((item, idx) => (
+                  <li key={idx} style={{ margin: '0.5rem 0' }}>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50' }}>
+                      {item.source}: {item.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>恭喜！初步掃描未在各大平台發現相似的公開圖片。</p>
+          )}
+        </InfoBlock>
+      );
+    }
+
+    return null;
   };
 
   return (
     <PageWrapper>
       <Container>
-        <Title>Step 3: 侵權偵測 (Scan)</Title>
-        {loading && <p>偵測中，請稍後...</p>}
-        {error && <ErrorMsg>{error}</ErrorMsg>}
-
-        {scanResult && (
-          <InfoBlock>
-            <p>偵測完成！</p>
-            <p><strong>Suspicious Links:</strong></p>
-            {Array.isArray(scanResult.suspiciousLinks) && scanResult.suspiciousLinks.length > 0 ? (
-              <ul>
-                {scanResult.suspiciousLinks.map((link, idx) => (
-                  <li key={idx}>
-                    <a
-                      href={link}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: '#4caf50' }}
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>沒有發現可疑連結</p>
-            )}
-          </InfoBlock>
-        )}
-
+        <Title>Step 3: AI Infringement Scan</Title>
+        {renderContent()}
         <ButtonRow>
-          <NavButton onClick={handleGoBack}>← 返回上一頁</NavButton>
-          {scanResult && (
-            <NavButton onClick={handleGoStep4}>查看最終結果 (Step4)</NavButton>
-          )}
+          <NavButton onClick={handleGoBack} disabled={loading}>
+            ← 返回上一步
+          </NavButton>
+          <NavButton onClick={handleGoStep4} disabled={loading || error || !scanResult}>
+            查看報告與申訴 (Step 4) →
+          </NavButton>
         </ButtonRow>
       </Container>
     </PageWrapper>
