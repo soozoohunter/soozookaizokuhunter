@@ -2,9 +2,9 @@
 const Web3 = require('web3'); 
 // or ethers, or any library you prefer
 
-// 假設您有 ganache URL
-const GANACHE_URL = process.env.GANACHE_URL || 'http://ganache:8545';
-const web3 = new Web3(new Web3.providers.HttpProvider(GANACHE_URL));
+// 假設您有區塊鏈 RPC URL
+const BLOCKCHAIN_RPC_URL = process.env.BLOCKCHAIN_RPC_URL || 'http://ganache:8545';
+const web3 = new Web3(new Web3.providers.HttpProvider(BLOCKCHAIN_RPC_URL));
 
 // TODO: 如果需要合約位址 / 私鑰 / abi
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
