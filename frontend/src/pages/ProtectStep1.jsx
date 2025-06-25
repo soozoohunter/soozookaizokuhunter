@@ -262,7 +262,17 @@ export default function ProtectStep1() {
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.message || data.error || `Error ${resp.status}`);
 
-      localStorage.setItem('protectStep1', JSON.stringify(data));
+      const file = data.file || {};
+      const step1Data = {
+        fileId: file.id,
+        fingerprint: file.fingerprint,
+        ipfsHash: file.ipfs_hash,
+        txHash: file.tx_hash,
+        pdfUrl: data.pdfUrl || file.pdfUrl || '',
+        publicImageUrl: data.publicImageUrl || file.publicImageUrl || ''
+      };
+
+      localStorage.setItem('protectStep1', JSON.stringify(step1Data));
       navigate('/protect/step2');
     } catch (err) {
       setError(err.message || '上傳失敗，請稍後再試');
