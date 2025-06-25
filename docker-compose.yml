@@ -70,6 +70,9 @@ services:
       FACEBOOK_HOST: ${FACEBOOK_HOST}
       INSTAGRAM_HOST: ${INSTAGRAM_HOST}
       YOUTUBE_HOST: ${YOUTUBE_HOST}
+      DMCA_API_EMAIL: ${DMCA_API_EMAIL}
+      DMCA_API_PASSWORD: ${DMCA_API_PASSWORD}
+      PUBLIC_HOST: ${PUBLIC_HOST}
       PUPPETEER_HEADLESS: "new"
     depends_on:
       suzoo_postgres:

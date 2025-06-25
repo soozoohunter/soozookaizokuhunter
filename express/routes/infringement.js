@@ -21,7 +21,7 @@ const upload = require('../middleware/upload');
 //
 const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
 
-const { sendDmcaNotice } = require('../services/dmcaService');
+const { sendTakedownRequest } = require('../services/dmcaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
 const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
@@ -100,15 +100,15 @@ router.post('/scan', upload.single('file'), authMiddleware, ensureVisionCredenti
 // POST /infringement/dmca
 router.post('/dmca', authMiddleware, async (req, res) => {
   try {
-    const { targetUrls } = req.body;
-    if (!Array.isArray(targetUrls) || !targetUrls.length) {
-      return res.status(400).json({ error: '請提供 targetUrls (Array)' });
+    const { infringingUrl, originalUrl, description } = req.body;
+    if (!infringingUrl || !originalUrl) {
+      return res.status(400).json({ error: 'infringingUrl and originalUrl are required' });
     }
-    const result = await sendDmcaNotice(targetUrls);
+    const result = await sendTakedownRequest({ infringingUrl, originalUrl, description });
     if (result.success) {
       return res.json(result);
     }
-    return res.status(502).json({ error: result.error || 'DMCA request failed' });
+    return res.status(502).json({ error: result.message || 'DMCA request failed' });
   } catch (e) {
     console.error('[DMCA Error]', e);
     return res.status(500).json({ error: e.message });
@@ -149,12 +149,15 @@ router.post('/infringement/lawsuit', authMiddleware, async (req, res) => {
 
 // POST /dmca/report => alias of /infringement/dmca
 router.post('/dmca/report', authMiddleware, async (req, res) => {
-  const { targetUrls } = req.body;
-  if (!Array.isArray(targetUrls) || !targetUrls.length) {
-    return res.status(400).json({ error: '請提供 targetUrls (Array)' });
+  const { infringingUrl, originalUrl, description } = req.body;
+  if (!infringingUrl || !originalUrl) {
+    return res.status(400).json({ error: 'infringingUrl and originalUrl are required' });
   }
-  const result = { success: true, detail: 'Mock DMCA notice sent' };
-  return res.json(result);
+  const result = await sendTakedownRequest({ infringingUrl, originalUrl, description });
+  if (result.success) {
+    return res.json(result);
+  }
+  return res.status(502).json({ error: result.message || 'DMCA request failed' });
 });
 
 module.exports = router;
