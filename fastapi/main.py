@@ -38,7 +38,7 @@ CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 # 需改成 /dns4/ + /tcp/ + /http
 IPFS_API_URL = "/dns4/suzoo_ipfs/tcp/5001/http"
 
-GANACHE_URL = os.getenv("GANACHE_URL", "http://suzoo_ganache:8545")
+BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://suzoo_ganache:8545")
 GANACHE_PRIV_KEY = os.getenv("GANACHE_PRIVATE_KEY", "")
 CONTRACT_ADDR = os.getenv("CONTRACT_ADDRESS", "")
 
@@ -65,13 +65,13 @@ cloudinary.config(
 )
 
 # === Web3 (Ganache)
-w3 = Web3(Web3.HTTPProvider(GANACHE_URL))
+w3 = Web3(Web3.HTTPProvider(BLOCKCHAIN_RPC_URL))
 
 # 改用 w3.isConnected() 以相容舊版 Web3
 if w3.isConnected():
-    print("[FastAPI] Ganache connected at", GANACHE_URL)
+    print("[FastAPI] Ganache connected at", BLOCKCHAIN_RPC_URL)
 else:
-    print("[FastAPI] Ganache not connected:", GANACHE_URL)
+    print("[FastAPI] Ganache not connected:", BLOCKCHAIN_RPC_URL)
 
 # 預設合約 ABI
 contract = None
