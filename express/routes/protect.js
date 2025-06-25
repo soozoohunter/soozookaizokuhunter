@@ -12,6 +12,8 @@ const scanner = require('../services/scanner.service');
 
 const router = express.Router();
 
+// Multer is configured for temporary storage. We'll accept any field name to
+// ensure compatibility with various client implementations.
 const upload = multer({ dest: path.join(__dirname, '../../../uploads/temp') });
 
 const getFileFingerprint = (filePath) => {
@@ -24,13 +26,16 @@ const getFileFingerprint = (filePath) => {
     });
 };
 
-router.post('/step1', upload.single('image'), async (req, res) => {
-    if (!req.file) {
+// Accept any file field and process the first uploaded file
+router.post('/step1', upload.any(), async (req, res) => {
+    if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: 'No image file provided.' });
     }
 
-    const userId = req.user ? req.user.id : 1;
-    const tempPath = req.file.path;
+    const imageFile = req.files[0];
+    const userId = req.user ? req.user.id : 1; // Placeholder for auth
+    const tempPath = imageFile.path;
+    const originalFilename = imageFile.originalname;
 
     try {
         const fingerprint = await getFileFingerprint(tempPath);
@@ -55,7 +60,7 @@ router.post('/step1', upload.single('image'), async (req, res) => {
 
         const newFile = await File.create({
             user_id: userId,
-            filename: req.file.originalname,
+            filename: originalFilename,
             fingerprint: fingerprint,
             ipfs_hash: ipfsResult.cid.toString(),
             tx_hash: txResult.transactionHash,
@@ -71,6 +76,10 @@ router.post('/step1', upload.single('image'), async (req, res) => {
         });
     } catch (error) {
         logger.error('[Step 1] An error occurred:', error);
+        // Differentiate Multer errors from other failures for clearer feedback
+        if (error instanceof multer.MulterError) {
+            return res.status(400).json({ message: 'File upload error', error: error.message });
+        }
         res.status(500).json({ message: 'Internal Server Error', error: error.message });
     } finally {
         fs.unlink(tempPath, (err) => {
