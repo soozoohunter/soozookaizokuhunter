@@ -1,12 +1,8 @@
-# docker-compose.yml (最終修復與優化版 by Gemini)
-# 版本: 2.0
+# docker-compose.yml (最終修正版 by Gemini)
+# 版本: 2.1
 # 日期: 2025-06-25
 # 描述:
-# 1. [核心修正] 修正 suzoo_express 的 build.context，使其指向 ./express 目錄，解決所有 MODULE_NOT_FOUND 問題。
-# 2. [工程優化] 簡化 Milvus 及其依賴的設定。使用官方推薦的 milvus standalone 映像檔，無需手動設定 etcd 和 minio 映像。
-# 3. [標準化] 統一網路命名為 `suzoo-network`。
-# 4. [標準化] 為所有服務添加 healthcheck 和 logging，增強系統穩定性和可觀測性。
-# 5. [安全性] 移除不推薦的 volumes 變數 ${DOCKER_VOLUME_DIRECTORY}，改用 Docker 管理的命名 volume。
+# 1. [核心修正] 修正 Milvus 映像檔標籤，移除 "-standalone"，使用官方的基礎映像標籤 `v2.4.4`。
 
 
 networks:
@@ -20,7 +16,6 @@ services:
   suzoo_express:
     container_name: suzoo_express
     build:
-      # [核心修正] 將 build context 指向 express 子目錄，這是解決問題的關鍵。
       context: ./express
       dockerfile: Dockerfile
     ports:
@@ -28,13 +23,9 @@ services:
     env_file:
       - .env
     volumes:
-      # 掛載程式碼，實現熱加載
       - ./express:/app
-      # 使用匿名 volume 來保護 node_modules，防止被主機端覆蓋
       - /app/node_modules
-      # 掛載主機的上傳目錄
       - ./uploads:/app/uploads
-      # 掛載 SSL 憑證 (唯讀)
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       suzoo_postgres:
@@ -42,7 +33,7 @@ services:
       suzoo_ipfs:
         condition: service_healthy
       milvus:
-        condition: service_started # Milvus 的 healthcheck 較複雜，此處用 started
+        condition: service_started
       suzoo_ganache:
         condition: service_started
     networks:
@@ -59,8 +50,9 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    # [工程優化] 使用官方推薦的 standalone 映像，它內建了 etcd 和 minio，無需分開部署。
-    image: milvusdb/milvus:v2.4.4-standalone
+    # [核心修正] 修正 Milvus 映像檔標籤，移除 "-standalone"。使用 `v2.4.4` 基礎映像，由 command 指令決定運行模式。
+    image: milvusdb/milvus:v2.4.4
+    command: ["milvus", "run", "standalone"] # 優化為官方建議的陣列格式
     ports:
       - "19530:19530"
       - "9091:9091"
@@ -80,7 +72,7 @@ services:
     ports:
       - "5432:5432"
     env_file:
-      - .env # 從 .env 檔案讀取 POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -100,7 +92,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     env_file:
-      - .env # 從 .env 檔案讀取 RABBITMQ_DEFAULT_USER, RABBITMQ_DEFAULT_PASS
+      - .env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -134,8 +126,8 @@ services:
     container_name: suzoo_ipfs
     image: ipfs/kubo:latest
     ports:
-      - "5001:5001" # API
-      - "8080:8080" # Gateway
+      - "5001:5001"
+      - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
     networks:
