@@ -63,13 +63,23 @@ async function youtubeSearch(keyword) {
 }
 
 async function instagramSearch(keyword) {
-    logger.warn(`[RapidAPI][Instagram] Skipped search for keyword "${keyword}".`);
-    return { success: true, links: [], error: null };
+    if (!INSTAGRAM_HOST || !RAPIDAPI_KEY) return { success: false, links: [], error: 'Instagram API not configured.' };
+    const url = `https://${INSTAGRAM_HOST}/search`;
+    return makeRequest('Instagram', url, {
+        params: { query: keyword, count: '5' },
+        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': INSTAGRAM_HOST },
+        timeout: 15000,
+    });
 }
 
 async function facebookSearch(keyword) {
-    logger.warn(`[RapidAPI][Facebook] Skipped search for keyword "${keyword}".`);
-    return { success: true, links: [], error: null };
+    if (!FACEBOOK_HOST || !RAPIDAPI_KEY) return { success: false, links: [], error: 'Facebook API not configured.' };
+    const url = `https://${FACEBOOK_HOST}/search`;
+    return makeRequest('Facebook', url, {
+        params: { query: keyword, limit: '5' },
+        headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': FACEBOOK_HOST },
+        timeout: 15000,
+    });
 }
 
 module.exports = {

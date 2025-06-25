@@ -13,7 +13,7 @@ if (isDmcaEnabled) {
   logger.warn('[DMCA Service] Service is DISABLED due to missing DMCA_API_EMAIL or DMCA_API_PASSWORD environment variables.');
 }
 
-const DMCA_API_ENDPOINT = 'https://www.dmca.com/rest/takedowns/send';
+const DMCA_API_ENDPOINT = process.env.DMCA_API_URL || 'https://www.dmca.com/rest/takedowns/send';
 
 /**
  * Sends a takedown notice to DMCA.com API.
