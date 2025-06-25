@@ -1,205 +1,127 @@
-networks:
-  suzook-network:
-    driver: bridge
+# docker-compose.yml (已移除過時的 version 標籤)
 
 services:
-  suzoo_express:
-    build:
-      context: ./suzoo-express
-      dockerfile: Dockerfile
-    container_name: suzoo_express
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgres://${DB_USER:-admin}:${DB_PASSWORD:-zack967988}@suzoo_postgres:5432/${DB_NAME:-suzookaidb}
-      - RABBITMQ_URL=amqp://admin:zack967988@suzoo_rabbitmq:5672
-      - REDIS_URL=redis://suzoo_redis:6379
-      - IPFS_URL=http://suzoo_ipfs:5001
-      - GANACHE_URL=http://suzoo_ganache:8545
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
-    volumes:
-      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
-    depends_on:
-      - suzoo_postgres
-      - suzoo_rabbitmq
-      - suzoo_redis
-      - suzoo_ipfs
-      - suzoo_ganache
-    networks:
-      - suzook-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  suzoo_postgres:
-    image: postgres:15-alpine
-    container_name: suzoo_postgres
-    restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER:-admin}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-zack967988}
-      - POSTGRES_DB=${DB_NAME:-suzookaidb}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - suzook-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-suzookaidb}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging: &default-logging
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
+  # Milvus 向量資料庫及其依賴項
   etcd:
-    image: quay.io/coreos/etcd:v3.5.0
     container_name: suzoo_etcd
-    networks:
-      - suzook-network
-    environment:
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_DATA_DIR=/etcd-data
-    command: etcd
+    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
     volumes:
-      - etcd_data:/etcd-data
-    logging: *default-logging
+      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd"
+    networks:
+      - suzoo_net
 
   minio:
-    image: minio/minio:latest
     container_name: suzoo_minio
-    networks:
-      - suzook-network
+    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    command: minio server /minio_data
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
     volumes:
-      - minio_data:/data
-    logging: *default-logging
+      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data"
+    networks:
+      - suzoo_net
 
   milvus:
-    image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.4.4-20240531-8e7f36d9-amd64}
     container_name: suzoo_milvus
-    restart: always
-    networks:
-      - suzook-network
-    ports:
-      - "19530:19530"
-      - "9091:9091"
-    depends_on:
-      etcd:
-        condition: service_started
-      minio:
-        condition: service_started
+    image: milvusdb/milvus:v2.4.4 # 【修正】使用正確的映像檔名稱
+    command: milvus run standalone
     environment:
-      - ETCD_ENDPOINTS=etcd:2379
-      - MINIO_ADDRESS=minio:9000
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
     volumes:
-      - milvus_data:/var/lib/milvus/data
-    logging: *default-logging
-
-  suzoo_python_vector:
-    build:
-      context: ./suzoo-python-vector
-    container_name: suzoo_python_vector
-    restart: always
+      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus"
     ports:
-      - "8002:8000"
-    environment:
-      - MILVUS_HOST=suzoo_milvus
-      - MILVUS_PORT=19530
+      - "19530:19530" # Milvus
+      - "9091:9091"   # Milvus Proxy
     depends_on:
-      milvus:
-        condition: service_started
+      - etcd
+      - minio
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
 
-  suzoo_redis:
-    image: redis:latest
-    container_name: suzoo_redis
-    restart: always
+  # 基礎架構服務
+  suzoo_postgres:
+    container_name: suzoo_postgres
+    image: postgres:15-alpine # 使用官方 postgres 映像檔
     ports:
-      - "6379:6379"
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - redis_data:/data
+      - suzoo_postgres_data:/var/lib/postgresql/data
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
+    restart: always
 
   suzoo_rabbitmq:
-    image: rabbitmq:3-management
     container_name: suzoo_rabbitmq
-    restart: always
+    image: rabbitmq:3.13-management # 使用官方 rabbitmq 映像檔
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=admin
-      - RABBITMQ_DEFAULT_PASS=zack967988
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: 123456
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
+
+  suzoo_redis:
+    container_name: suzoo_redis
+    image: redis:7-alpine # 使用官方 redis 映像檔
+    ports:
+      - "6379:6379"
+    networks:
+      - suzoo_net
 
   suzoo_ipfs:
-    image: ipfs/kubo:latest
     container_name: suzoo_ipfs
-    restart: always
+    image: ipfs/kubo:latest # 使用官方 IPFS/Kubo 映像檔
     ports:
-      - "8080:8080"
-      - "5001:5001"
-    volumes:
-      - ipfs_data:/data/ipfs
+      - "4001:4001" # ipfs swarm
+      - "5001:5001" # ipfs api
+      - "8080:8080" # ipfs gateway
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
 
   suzoo_ganache:
-    image: trufflesuite/ganache-cli:latest
     container_name: suzoo_ganache
-    restart: always
+    image: trufflesuite/ganache:latest # 使用官方 Ganache 映像檔
     ports:
       - "8545:8545"
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
 
-  suzoo_crawler_runner:
+  # 您的應用程式
+  suzoo_express:
+    container_name: suzoo_express
     build:
-      context: ./suzoo-crawler-runner
-    container_name: suzoo_crawler_runner
-    restart: always
-    environment:
-      - DATABASE_URL=postgres://${DB_USER:-admin}:${DB_PASSWORD:-zack967988}@suzoo_postgres:5432/${DB_NAME:-suzookaidb}
-      - RABBITMQ_URL=amqp://admin:zack967988@suzoo_rabbitmq:5672
-      - PYTHON_VECTOR_SERVICE_URL=http://suzoo_python_vector:8000
+      context: .
+      dockerfile: Dockerfile # 假設您的 Dockerfile 名稱為 Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./express:/app # 將您的 express 目錄掛載到容器中，方便開發
+      - ./uploads:/uploads
+      - /etc/letsencrypt:/etc/letsencrypt:ro # 掛載 SSL 憑證 (唯讀)
     depends_on:
       - suzoo_postgres
-      - suzoo_rabbitmq
-      - suzoo_python_vector
+      - suzoo_ipfs
+      - suzoo_ganache
+      - milvus
     networks:
-      - suzook-network
-    logging: *default-logging
+      - suzoo_net
+    restart: always
+
+# 定義網路和資料卷
+networks:
+  suzoo_net:
+    driver: bridge
 
 volumes:
-  postgres_data:
-  redis_data:
-  rabbitmq_data:
-  ipfs_data:
-  etcd_data:
-  minio_data:
-  milvus_data:
+  suzoo_postgres_data:
