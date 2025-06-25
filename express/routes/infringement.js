@@ -11,7 +11,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
-const visionService = require('../services/visionService');
+const scanner = require('../services/scanner.service');
 const upload = require('../middleware/upload');
 
 //
@@ -88,7 +88,7 @@ router.post('/scan', upload.single('file'), authMiddleware, ensureVisionCredenti
     console.log(`[scan] user=${req.user?.id || 'anon'} file=${originalname} size=${size}`);
     const start = Date.now();
     const buffer = req.file.buffer;
-    const report = await visionService.infringementScan({ buffer });
+    const report = await scanner.performFullScan({ buffer, keyword: originalname });
     console.log(`[scan] completed in ${Date.now() - start}ms tinEyeLinks=${report.tineye.links.length} visionLinks=${report.vision.links.length}`);
     return res.json(report);
   } catch (e) {

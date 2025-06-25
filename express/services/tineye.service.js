@@ -1,0 +1,49 @@
+require('dotenv').config();
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+const logger = require('../utils/logger');
+
+const TINEYE_API_URL = process.env.TINEYE_API_URL || 'https://api.tineye.com/rest/search/';
+const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
+
+function extractLinks(apiResponse) {
+    if (!apiResponse || !apiResponse.results || !Array.isArray(apiResponse.results.matches)) {
+        return [];
+    }
+    const urls = apiResponse.results.matches
+        .flatMap(match => match.backlinks ? match.backlinks.map(link => link.url) : [])
+        .filter(Boolean);
+    return [...new Set(urls)];
+}
+
+async function searchByFile(filePath) {
+    if (!TINEYE_API_KEY) {
+        logger.error('[TinEye Service] TINEYE_API_KEY is not set.');
+        return { success: false, links: [], error: 'TINEYE_API_KEY is not set.' };
+    }
+
+    const form = new FormData();
+    form.append('image', fs.createReadStream(filePath));
+
+    try {
+        const response = await axios.post(TINEYE_API_URL, form, {
+            headers: {
+                ...form.getHeaders(),
+                'X-API-Key': TINEYE_API_KEY,
+            },
+            timeout: 20000,
+        });
+        const links = extractLinks(response.data);
+        logger.info(`[TinEye Service] Search by file successful, found ${links.length} links.`);
+        return { success: true, links, error: null };
+    } catch (err) {
+        const errorMsg = err.response ? JSON.stringify(err.response.data) : err.message;
+        logger.error(`[TinEye Service] Search by file failed: ${errorMsg}`);
+        return { success: false, links: [], error: err.message };
+    }
+}
+
+module.exports = {
+    searchByFile,
+};
