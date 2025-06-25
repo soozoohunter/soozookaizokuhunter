@@ -22,11 +22,18 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Install Express application dependencies
+COPY express/package*.json ./express/
+RUN npm install --prefix ./express
+
 # 4. 複製所有程式碼
 COPY . ./
 
 # 5. 預先建立可能需要的資料夾 (例如：/app/debugShots)
 RUN mkdir -p /app/debugShots
+
+# Set working directory to the Express app
+WORKDIR /app/express
 
 # 6. 開放埠 (Docker Container 對外服務使用的port)
 EXPOSE 3000
