@@ -2,9 +2,10 @@
 require('dotenv').config();
 const { create } = require('ipfs-http-client');
 const logger = require('../utils/logger');
+const { concat: uint8ArrayConcat } = require('uint8arrays/concat');
 
-// 預設連線: 'http://127.0.0.1:5001' or 'http://suzoo_ipfs:5001'
-const IPFS_API_URL = process.env.IPFS_API_URL || 'http://127.0.0.1:5001';
+// 預設連線: 'http://suzoo_ipfs:5001'
+const IPFS_API_URL = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
 
 let client = null;
 try {
@@ -29,4 +30,24 @@ async function saveFile(buffer) {
   return cidStr;
 }
 
-module.exports = { saveFile };
+// Retrieve a file buffer from IPFS by CID
+async function getFile(cid) {
+  if (!client) {
+    throw new Error('IPFS client not initialized (create() failed)');
+  }
+  try {
+    logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
+    const chunks = [];
+    for await (const chunk of client.cat(cid)) {
+      chunks.push(chunk);
+    }
+    const buffer = uint8ArrayConcat(chunks);
+    logger.info(`[ipfsService.getFile] Successfully fetched ${buffer.length} bytes for CID: ${cid}`);
+    return buffer;
+  } catch (err) {
+    logger.error(`[ipfsService.getFile] Failed to get file for CID ${cid}:`, err.message);
+    return null;
+  }
+}
+
+module.exports = { saveFile, getFile };
