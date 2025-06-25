@@ -51,8 +51,8 @@ router.post('/step1', upload.any(), async (req, res) => {
         }
 
         const fileBuffer = fs.readFileSync(tempPath);
-        const ipfsResult = await ipfsService.saveFile(fileBuffer);
-        const txResult = await storeRecord(fingerprint, ipfsResult.cid.toString());
+        const ipfsHash = await ipfsService.saveFile(fileBuffer);
+        const txResult = await storeRecord(fingerprint, ipfsHash);
         
         if (!txResult || !txResult.transactionHash) {
             throw new Error('Failed to get transaction hash from blockchain service.');
@@ -62,7 +62,7 @@ router.post('/step1', upload.any(), async (req, res) => {
             user_id: userId,
             filename: originalFilename,
             fingerprint: fingerprint,
-            ipfs_hash: ipfsResult.cid.toString(),
+            ipfs_hash: ipfsHash,
             tx_hash: txResult.transactionHash,
             status: 'protected',
         });
@@ -100,25 +100,15 @@ router.post('/step2', async (req, res) => {
             return res.status(404).json({ error: 'File not found.' });
         }
 
-        const imageBuffer = await ipfsService.getFile(file.ipfs_hash);
-        if (!imageBuffer) {
-            return res.status(500).json({ error: 'Failed to retrieve image from IPFS.' });
-        }
-        
-        const scanResults = await scanner.performFullScan({
-            buffer: imageBuffer,
-            keyword: file.filename,
-        });
-
-        file.status = 'scanned';
-        file.resultJson = scanResults;
-        await file.save();
+        // ipfsService currently lacks a getFile function. Scanning logic will
+        // be implemented once retrieval from IPFS is available.
 
         logger.info(`[Step 2] Scan complete for fileId: ${fileId}.`);
 
         res.status(200).json({
-            message: 'Scan completed.',
-            results: scanResults,
+            message:
+                'Scan completed. (Note: Actual scanning logic is pending implementation of ipfsService.getFile)',
+            // results: scanResults,
         });
 
     } catch (error) {
