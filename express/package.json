@@ -1,4 +1,5 @@
-{  "name": "suzoo-express",
+{
+  "name": "suzoo-express",
   "version": "1.0.0",
   "description": "Soozoo Express server",
   "main": "server.js",
@@ -19,6 +20,7 @@
     "ethers": "^6.6.0",
     "express": "^4.18.2",
     "ffmpeg-static": "^4.4.0",
+    "flatted": "^3.3.3",
     "fluent-ffmpeg": "^2.1.2",
     "form-data": "^4.0.0",
     "ipfs-http-client": "56.0.3",
