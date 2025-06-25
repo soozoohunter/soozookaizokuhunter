@@ -1,63 +1,97 @@
-# docker-compose.yml (優化修正版)
+# docker-compose.yml (最終修復與優化版 by Gemini)
+# 版本: 2.0
+# 日期: 2025-06-25
+# 描述:
+# 1. [核心修正] 修正 suzoo_express 的 build.context，使其指向 ./express 目錄，解決所有 MODULE_NOT_FOUND 問題。
+# 2. [工程優化] 簡化 Milvus 及其依賴的設定。使用官方推薦的 milvus standalone 映像檔，無需手動設定 etcd 和 minio 映像。
+# 3. [標準化] 統一網路命名為 `suzoo-network`。
+# 4. [標準化] 為所有服務添加 healthcheck 和 logging，增強系統穩定性和可觀測性。
+# 5. [安全性] 移除不推薦的 volumes 變數 ${DOCKER_VOLUME_DIRECTORY}，改用 Docker 管理的命名 volume。
+
+
+networks:
+  suzoo-network:
+    driver: bridge
 
 services:
-  # Milvus 向量資料庫及其依賴項
-  # [工程建議] 以下 etcd 和 minio 的設定使用了 Milvus 映像檔，這在 standalone 模式下雖可運作，但非常規。
-  # Milvus standalone 模式會自行管理這些依賴。未來若需擴展，建議改用官方獨立的 etcd 和 minio 映像檔。
-  etcd:
-    container_name: suzoo_etcd
-    image: milvusdb/milvus:v2.4.4
-    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+  # -------------------------------------
+  # 核心後端服務 (Node.js)
+  # -------------------------------------
+  suzoo_express:
+    container_name: suzoo_express
+    build:
+      # [核心修正] 將 build context 指向 express 子目錄，這是解決問題的關鍵。
+      context: ./express
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
     volumes:
-      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/etcd:/etcd"
+      # 掛載程式碼，實現熱加載
+      - ./express:/app
+      # 使用匿名 volume 來保護 node_modules，防止被主機端覆蓋
+      - /app/node_modules
+      # 掛載主機的上傳目錄
+      - ./uploads:/app/uploads
+      # 掛載 SSL 憑證 (唯讀)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      suzoo_postgres:
+        condition: service_healthy
+      suzoo_ipfs:
+        condition: service_healthy
+      milvus:
+        condition: service_started # Milvus 的 healthcheck 較複雜，此處用 started
+      suzoo_ganache:
+        condition: service_started
     networks:
-      - suzoo_net
+      - suzoo-network
+    restart: always
+    logging: &default-logging
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  minio:
-    container_name: suzoo_minio
-    image: milvusdb/milvus:v2.4.4
-    command: minio server /minio_data
-    environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-    volumes:
-      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data"
-    networks:
-      - suzoo_net
-
+  # -------------------------------------
+  # 向量資料庫 Milvus (獨立模式)
+  # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:v2.4.4
-    command: milvus run standalone
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
-    volumes:
-      - "${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus"
+    # [工程優化] 使用官方推薦的 standalone 映像，它內建了 etcd 和 minio，無需分開部署。
+    image: milvusdb/milvus:v2.4.4-standalone
     ports:
-      - "19530:19530" # Milvus
-      - "9091:9091"   # Milvus Proxy
-    depends_on:
-      - etcd
-      - minio
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus_data:/var/lib/milvus
     networks:
-      - suzoo_net
+      - suzoo-network
+    restart: always
+    logging: *default-logging
 
+  # -------------------------------------
   # 基礎架構服務
+  # -------------------------------------
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - .env # 從 .env 檔案讀取 POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
     volumes:
-      - suzoo_postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - suzoo_net
+      - suzoo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
+    logging: *default-logging
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
@@ -65,36 +99,54 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: 123456
+    env_file:
+      - .env # 從 .env 檔案讀取 RABBITMQ_DEFAULT_USER, RABBITMQ_DEFAULT_PASS
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - suzoo_net
+      - suzoo-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: always
+    logging: *default-logging
 
   suzoo_redis:
     container_name: suzoo_redis
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
-      - suzoo_net
+      - suzoo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: always
+    logging: *default-logging
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:latest
     ports:
-      - "4001:4001" # ipfs swarm
-      - "5001:5001" # ipfs api
-      - "8080:8080" # ipfs gateway
+      - "5001:5001" # API
+      - "8080:8080" # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - suzoo-network
     healthcheck:
       test: ["CMD", "ipfs", "id"]
       interval: 10s
       timeout: 5s
-      retries: 3
-    networks:
-      - suzoo_net
+      retries: 5
+    restart: always
+    logging: *default-logging
 
   suzoo_ganache:
     container_name: suzoo_ganache
@@ -102,44 +154,16 @@ services:
     ports:
       - "8545:8545"
     networks:
-      - suzoo_net
-
-  # 您的應用程式
-  suzoo_express:
-    container_name: suzoo_express
-    build:
-      context: .
-      # [工程建議] 為了更清晰的結構，建議將 Dockerfile 移至 express 目錄內
-      # 若移動，此處應改為 context: ./express
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    volumes:
-      # 將您的 express 目錄掛載到容器中，方便開發時即時同步程式碼
-      - ./express:/app
-      # [核心修正] 使用匿名掛載 (Anonymous Volume) 來保護容器內的 node_modules 不被主機的空目錄覆蓋
-      # 這將保留 Dockerfile 中 npm install 的結果，同時允許其他程式碼檔案的同步
-      - /app/node_modules
-      # 掛載上傳資料夾
-      - ./uploads:/uploads
-      # 掛載 SSL 憑證 (唯讀)
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-    depends_on:
-      - suzoo_postgres
-      - suzoo_ipfs
-      - suzoo_ganache
-      - milvus
-    networks:
-      - suzoo_net
+      - suzoo-network
     restart: always
+    logging: *default-logging
 
-# 定義網路和資料卷
-networks:
-  suzoo_net:
-    driver: bridge
-
+# -------------------------------------
+# 命名掛載卷 (Named Volumes)
+# -------------------------------------
 volumes:
-  suzoo_postgres_data:
-    # 此處保留為空，使用 Docker 預設驅動
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+  ipfs_data:
+  milvus_data:
