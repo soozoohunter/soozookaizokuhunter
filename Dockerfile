@@ -8,8 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxi6 libxtst6 libnss3 libglib2.0-0 libxrandr2 libatk1.0-0 \
     libdrm2 libgbm1 libpangocairo-1.0-0 libasound2 \
     iputils-ping dnsutils curl vim bash \
-    python3 python3-pip \
-  && pip3 install opencv-python \
+    python3 python3-pip python3-opencv \
   && rm -rf /var/lib/apt/lists/*
 
 # Puppeteer 設定：略過內建下載，改使用系統中安裝好的 Chromium
