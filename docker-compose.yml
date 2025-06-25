@@ -1,15 +1,41 @@
-# docker-compose.yml (最終修正版 by Gemini)
-# 版本: 2.1
+# docker-compose.yml (包含 frontend 的完整最終版 by Gemini)
+# 版本: 3.0
 # 日期: 2025-06-25
 # 描述:
-# 1. [核心修正] 修正 Milvus 映像檔標籤，移除 "-standalone"，使用官方的基礎映像標籤 `v2.4.4`。
-
+# 1. [核心修正] 新增 suzoo_frontend 服務的完整定義，使其能被啟動並監聽 80/443 端口。
+# 2. 修正 Milvus 映像檔標籤。
+# 3. 修正 suzoo_express 的 build context。
 
 networks:
   suzoo-network:
     driver: bridge
 
 services:
+  # -------------------------------------
+  # 前端網頁伺服器 (Nginx)
+  # -------------------------------------
+  suzoo_frontend:
+    container_name: suzoo_frontend
+    build:
+      context: ./frontend # 指向 frontend 目錄
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"   # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      # 將 SSL 憑證以唯讀模式掛載給 Nginx 使用
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - suzoo-network
+    depends_on:
+      - suzoo_express
+    restart: always
+    logging: &default-logging
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # -------------------------------------
   # 核心後端服務 (Node.js)
   # -------------------------------------
@@ -39,20 +65,15 @@ services:
     networks:
       - suzoo-network
     restart: always
-    logging: &default-logging
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
 
   # -------------------------------------
   # 向量資料庫 Milvus (獨立模式)
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    # [核心修正] 修正 Milvus 映像檔標籤，移除 "-standalone"。使用 `v2.4.4` 基礎映像，由 command 指令決定運行模式。
     image: milvusdb/milvus:v2.4.4
-    command: ["milvus", "run", "standalone"] # 優化為官方建議的陣列格式
+    command: ["milvus", "run", "standalone"]
     ports:
       - "19530:19530"
       - "9091:9091"
