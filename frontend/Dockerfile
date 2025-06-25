@@ -27,7 +27,7 @@ FROM nginx:alpine
 COPY --from=builder /app/build /usr/share/nginx/html
 
 # 若要自訂 nginx conf（建議），請取消下一行註解並提供檔案
-# COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY suzoo.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
