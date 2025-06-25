@@ -11,3 +11,5 @@ opencv-python
 open_clip_torch
 torchvision==0.14.1+cpu --find-links https://download.pytorch.org/whl/cpu/torch_stable.html
 pytube
+sqlalchemy
+psycopg2-binary

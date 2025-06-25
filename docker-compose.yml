@@ -1,254 +1,207 @@
-# docker-compose.yml
+version: '3.8'
+
+networks:
+  suzook-network:
+    driver: bridge
 
 services:
-  suzoo_postgres:
-    container_name: suzoo_postgres
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+  suzoo_express:
+    build:
+      context: ./suzoo-express
+      dockerfile: Dockerfile
+    container_name: suzoo_express
+    restart: always
     ports:
-      - "5432:5432"
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-admin}:${DB_PASSWORD:-zack967988}@suzoo_postgres:5432/${DB_NAME:-suzookaidb}
+      - RABBITMQ_URL=amqp://admin:zack967988@suzoo_rabbitmq:5672
+      - REDIS_URL=redis://suzoo_redis:6379
+      - IPFS_URL=http://suzoo_ipfs:5001
+      - GANACHE_URL=http://suzoo_ganache:8545
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-credentials.json
+    volumes:
+      - ./gcp-credentials.json:/app/gcp-credentials.json:ro
+    depends_on:
+      - suzoo_postgres
+      - suzoo_rabbitmq
+      - suzoo_redis
+      - suzoo_ipfs
+      - suzoo_ganache
+    networks:
+      - suzook-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  suzoo_postgres:
+    image: postgres:15-alpine
+    container_name: suzoo_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-zack967988}
+      - POSTGRES_DB=${DB_NAME:-suzookaidb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - suzook-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-suzookaidb}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+    logging: &default-logging
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    container_name: suzoo_etcd
     networks:
-      - suzoo_net
-    restart: unless-stopped
+      - suzook-network
+    environment:
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_DATA_DIR=/etcd-data
+    command: etcd
+    volumes:
+      - etcd_data:/etcd-data
+    logging: *default-logging
+
+  minio:
+    image: minio/minio:latest
+    container_name: suzoo_minio
+    networks:
+      - suzook-network
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    logging: *default-logging
+
+  milvus:
+    image: milvusdb/milvus:v2.4.4-cpu
+    container_name: suzoo_milvus
+    restart: always
+    networks:
+      - suzook-network
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    depends_on:
+      etcd:
+        condition: service_started
+      minio:
+        condition: service_started
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus/data
+    logging: *default-logging
+
+  suzoo_python_vector:
+    build:
+      context: ./suzoo-python-vector
+    container_name: suzoo_python_vector
+    restart: always
+    ports:
+      - "8002:8000"
+    environment:
+      - MILVUS_HOST=suzoo_milvus
+      - MILVUS_PORT=19530
+    depends_on:
+      milvus:
+        condition: service_started
+    networks:
+      - suzook-network
+    logging: *default-logging
 
   suzoo_redis:
+    image: redis:latest
     container_name: suzoo_redis
-    image: redis:7-alpine
+    restart: always
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_express:
-    container_name: suzoo_express
-    build:
-      context: ./express
-      dockerfile: Dockerfile
-    volumes:
-      - uploads_data:/app/uploads
-      - ./credentials:/app/credentials:ro
-      - ./express/fonts:/app/express/fonts:ro
-      - ./express/debugShots:/app/debugShots
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      IPFS_API_URL: ${IPFS_API_URL}
-      BLOCKCHAIN_RPC_URL: ${BLOCKCHAIN_RPC_URL}
-      BLOCKCHAIN_PRIVATE_KEY: ${BLOCKCHAIN_PRIVATE_KEY}
-      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS}
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      FASTAPI_URL: ${FASTAPI_URL}
-      MILVUS_HOST: "localhost"
-      MILVUS_PORT: "19530"
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASS: ${EMAIL_PASS}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_SECURE: ${SMTP_SECURE}
-      EMAIL_FROM: ${EMAIL_FROM}
-      PYTHON_VECTOR_URL: http://suzoo_python_vector:8000
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-      TINEYE_API_KEY: ${TINEYE_API_KEY}
-      RAPIDAPI_KEY: ${RAPIDAPI_KEY}
-      TIKTOK_HOST: ${TIKTOK_HOST}
-      FACEBOOK_HOST: ${FACEBOOK_HOST}
-      INSTAGRAM_HOST: ${INSTAGRAM_HOST}
-      YOUTUBE_HOST: ${YOUTUBE_HOST}
-      DMCA_API_EMAIL: ${DMCA_API_EMAIL}
-      DMCA_API_PASSWORD: ${DMCA_API_PASSWORD}
-      PUBLIC_HOST: ${PUBLIC_HOST}
-      PUPPETEER_HEADLESS: "new"
-    depends_on:
-      suzoo_postgres:
-        condition: service_healthy
-      suzoo_ipfs:
-        # --- 關鍵修正 ---
-        # 將依賴條件從 service_healthy 改為 service_started
-        # 這樣 suzoo_express 就不會被 IPFS 的緩慢啟動卡住
-        condition: service_started
-      suzoo_ganache:
-        condition: service_started
-    ports:
-      - "3000:3000"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_frontend:
-    container_name: suzoo_frontend
-    build:
-      context: ./frontend
-      args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-https://api.suzookaizokuhunter.com}
-    image: suzookaizokuhunter-frontend
-    depends_on:
-      - suzoo_express
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./frontend/suzoo.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-    networks:
-      - suzoo_net
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f --insecure https://localhost/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: always
-
-  suzoo_fastapi:
-    container_name: suzoo_fastapi
-    build:
-      context: ./fastapi
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    depends_on:
-      - suzoo_postgres
-    ports:
-      - "8000:8000"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_ganache:
-    container_name: suzoo_ganache
-    image: trufflesuite/ganache-cli:latest
-    command: >
-      --noVMErrorsOnRPCResponse
-      --account="0xc3ded7eaec361d5b94a495e390be497a7fd54173e6ca6f77df071b22cb7bd4d1,10000000000000000000"
-    ports:
-      - "8545:8545"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_ipfs:
-    container_name: suzoo_ipfs
-    # --- 關鍵修正 ---
-    # 鎖定到一個已知的穩定版本，避免 latest 帶來的不確定性
-    image: ipfs/go-ipfs:v0.25.0
-    environment:
-      - IPFS_PROFILE=server
-    ports:
-      - "8080:8080"
-      - "5001:5001"
-    # --- 關鍵修正 ---
-    # 暫時移除健康檢查，讓容器有機會啟動並觀察其日誌
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://127.0.0.1:5001/api/v0/version || exit 1"]
-    #   interval: 30s
-    #   timeout: 15s
-    #   retries: 10
-    #   start_period: 90s
-    networks:
-      - suzoo_net
-    restart: unless-stopped
+      - suzook-network
+    logging: *default-logging
 
   suzoo_rabbitmq:
+    image: rabbitmq:3-management
     container_name: suzoo_rabbitmq
-    image: rabbitmq:3.11-management
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
+    restart: always
     ports:
       - "5672:5672"
       - "15672:15672"
-    healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  suzoo_python_vector:
-    container_name: suzoo_python_vector
-    build:
-      context: ./python-vector-service
-      dockerfile: Dockerfile
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=zack967988
     volumes:
-      - milvus_lite_data:/app/milvus_data
-    ports:
-      - "8001:8000"
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - suzoo_net
-    restart: unless-stopped
+      - suzook-network
+    logging: *default-logging
+
+  suzoo_ipfs:
+    image: ipfs/kubo:latest
+    container_name: suzoo_ipfs
+    restart: always
+    ports:
+      - "8080:8080"
+      - "5001:5001"
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - suzook-network
+    logging: *default-logging
+
+  suzoo_ganache:
+    image: trufflesuite/ganache-cli:latest
+    container_name: suzoo_ganache
+    restart: always
+    ports:
+      - "8545:8545"
+    networks:
+      - suzook-network
+    logging: *default-logging
 
   suzoo_crawler_runner:
+    build:
+      context: ./suzoo-crawler-runner
     container_name: suzoo_crawler_runner
-    build:
-      context: ./python_crawlers
-      dockerfile: Dockerfile
-    depends_on:
-      - suzoo_rabbitmq
-    ports:
-      - "8002:8000"
-    networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  api_service:
-    container_name: api_service
-    build:
-      context: ./api_service
-    ports:
-      - "3002:3000"
-    volumes:
-      - ./api_service/uploads:/app/uploads
-      - ./media_output:/app/../media_output
+    restart: always
     environment:
-      AI_SERVICE_URL: "http://ai_service:5000"
+      - DATABASE_URL=postgres://${DB_USER:-admin}:${DB_PASSWORD:-zack967988}@suzoo_postgres:5432/${DB_NAME:-suzookaidb}
+      - RABBITMQ_URL=amqp://admin:zack967988@suzoo_rabbitmq:5672
+      - PYTHON_VECTOR_SERVICE_URL=http://suzoo_python_vector:8000
     depends_on:
-      - ai_service
+      - suzoo_postgres
+      - suzoo_rabbitmq
+      - suzoo_python_vector
     networks:
-      - suzoo_net
-    restart: unless-stopped
-
-  ai_service:
-    container_name: ai_service
-    build:
-      context: ./ai_service
-    volumes:
-      - ./api_service/uploads:/app/uploads
-    networks:
-      - suzoo_net
-    # --- 修正 ---
-    # 將重啟策略加回來
-    restart: unless-stopped
+      - suzook-network
+    logging: *default-logging
 
 volumes:
   postgres_data:
   redis_data:
-  uploads_data:
-  milvus_lite_data:
-
-networks:
-  suzoo_net:
-    driver: bridge
+  rabbitmq_data:
+  ipfs_data:
+  etcd_data:
+  minio_data:
+  milvus_data:
