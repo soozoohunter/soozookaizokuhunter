@@ -1,5 +1,6 @@
 import os
-import sqlite3
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 import sys
 import requests
 from celery import Celery
@@ -11,7 +12,12 @@ RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "rpc://")
 app = Celery("tasks", broker=BROKER_URL, backend=RESULT_BACKEND)
 
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-DB_PATH  = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "sqlite_db", "sources.db"))
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 API_BASE = os.environ.get("API_BASE", "http://suzoo_python_vector:8000")
 
 @app.task(name="tasks.crawl_url")
@@ -79,16 +85,10 @@ def fallback_crawl_images(page_url):
     return images
 
 def mark_url_processed(row_id):
-    """
-    將該 URL status=1
-    """
+    """將該 URL status=1"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        c.execute("UPDATE pending_urls SET status=1 WHERE id=?", (row_id,))
-        conn.commit()
-        c.close()
-        conn.close()
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE pending_urls SET status=1 WHERE id=:id"), {"id": row_id})
         print(f"[Celery] record_id={row_id} => status=1")
     except Exception as e:
         print(f"[Celery] mark_url_processed error => {row_id}, {e}")

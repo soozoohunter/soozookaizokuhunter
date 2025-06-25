@@ -1,33 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
-import sqlite3
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 import sys
 import requests
 import time
 from bs4 import BeautifulSoup
 
 BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "sqlite_db", "sources.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 API_BASE = os.environ.get("API_BASE", "http://suzoo_python_vector:8000")
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "15"))  # 每隔幾秒檢查一次
 
 def fetch_pending_urls():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id, url FROM pending_urls WHERE status=0 ORDER BY id ASC")
-    rows = c.fetchall()
-    c.close()
-    conn.close()
-    return rows
+    with engine.begin() as conn:
+        result = conn.execute(text("SELECT id, url FROM pending_urls WHERE status=0 ORDER BY id ASC"))
+        return result.fetchall()
 
 def mark_url_processed(row_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE pending_urls SET status=1 WHERE id=?", (row_id,))
-    conn.commit()
-    c.close()
-    conn.close()
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE pending_urls SET status=1 WHERE id=:id"), {"id": row_id})
 
 def crawl_and_insert_images(the_url):
     print(f"[crawl_and_insert_images] => {the_url}")
