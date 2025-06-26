@@ -1,10 +1,10 @@
-# docker-compose.yml (包含 frontend 的完整最終版 by Gemini)
-# 版本: 3.0
-# 日期: 2025-06-25
+# docker-compose.yml (Final Version with Healthchecks)
+# 版本: 3.1
+# 日期: 2025-06-26
 # 描述:
-# 1. [核心修正] 新增 suzoo_frontend 服務的完整定義，使其能被啟動並監聽 80/443 端口。
-# 2. 修正 Milvus 映像檔標籤。
-# 3. 修正 suzoo_express 的 build context。
+# 1. [核心修正] 為 suzoo_ganache 新增 healthcheck，確保其 RPC 服務準備就緒。
+# 2. [核心修正] 修改 suzoo_express 的 depends_on，使其等待 suzoo_ganache 服務健康後再啟動。
+# 3. 這將解決因服務啟動順序不一致導致的連線錯誤。
 
 networks:
   suzoo-network:
@@ -66,7 +66,8 @@ services:
       milvus:
         condition: service_started
       suzoo_ganache:
-        condition: service_started
+        # 【關鍵修正】等待 suzoo_ganache 健康檢查通過後再啟動
+        condition: service_healthy
     networks:
       - suzoo-network
     restart: always
@@ -194,13 +195,19 @@ services:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
     command: >
-      sh -c "ganache-cli --host 0.0.0.0 --port 8545 --account=${BLOCKCHAIN_PRIVATE_KEY},100000000000000000000 --defaultBalanceEther 100"
-    env_file:
-      - .env
+      ganache --host 0.0.0.0 --wallet.accountKeysPath /ganache/accounts.json
+    volumes:
+      - ./ganache-config:/ganache
     ports:
       - "8545:8545"
     networks:
       - suzoo-network
+    # 【關鍵修正】新增健康檢查，確認 RPC 服務是否已啟動並監聽
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 10 # 增加重試次數，給 Ganache 足夠的啟動時間
     restart: always
     logging: *default-logging
 
