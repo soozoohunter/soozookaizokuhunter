@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import flatted from 'flatted'; // Import flatted to parse the response
+import { parse as flattedParse } from 'flatted'; // Use named import for flatted
 
 /* (此處的 styled-components keyframes 與樣式維持原樣，故省略以節省篇幅) */
 const gradientFlow = keyframes`
@@ -140,9 +140,9 @@ export default function ProtectStep3() {
         body: JSON.stringify({ fileId }),
       });
       
-      // 因為後端使用 flatted，前端需要先取得 text 再用 flatted 解析
+      // 後端使用 flatted，需先取得文字再以 flatted 解析
       const responseText = await response.text();
-      const data = flatted.parse(responseText);
+      const data = flattedParse(responseText);
 
       if (!response.ok) {
         throw new Error(data.error || `Scan failed with status: ${response.status}`);
