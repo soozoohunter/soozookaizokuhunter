@@ -41,7 +41,8 @@ async function getFile(cid) {
     for await (const chunk of client.cat(cid)) {
       chunks.push(chunk);
     }
-    const buffer = uint8ArrayConcat(chunks);
+    const uint8Buffer = uint8ArrayConcat(chunks);
+    const buffer = Buffer.from(uint8Buffer);
     logger.info(`[ipfsService.getFile] Successfully fetched ${buffer.length} bytes for CID: ${cid}`);
     return buffer;
   } catch (err) {
