@@ -25,7 +25,8 @@ async function initializeBlockchainService(retries = 5, delay = 5000) {
             web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
             if (await web3.eth.net.isListening()) {
-                account = web.eth.accounts.privateKeyToAccount(privateKey);
+                // 【關鍵修正】將 'web' 修正為 'web3'
+                account = web3.eth.accounts.privateKeyToAccount(privateKey);
                 web3.eth.accounts.wallet.add(account);
                 web3.eth.defaultAccount = account.address;
 
@@ -61,17 +62,15 @@ async function storeRecord(fingerprint, ipfsHash) {
         const fromAddress = account.address;
         logger.info(`[Chain] Sending transaction from address: ${fromAddress}`);
 
-        // 【關鍵修正】恢復手動估算 Gas 的步驟
         logger.info(`[Chain] Estimating gas for storeRecord...`);
         const estimatedGas = await contract.methods.storeRecord(fingerprint, ipfsHash).estimateGas({
             from: fromAddress,
         });
         logger.info(`[Chain] Gas estimated successfully: ${estimatedGas}`);
 
-        // 發送交易，並明確提供估算好的 gas
         const receipt = await contract.methods.storeRecord(fingerprint, ipfsHash).send({
             from: fromAddress,
-            gas: estimatedGas, // 使用我們估算出的 Gas 上限
+            gas: estimatedGas,
         });
 
         logger.info(`[Chain] Transaction successful! TxHash: ${receipt.transactionHash}`);
