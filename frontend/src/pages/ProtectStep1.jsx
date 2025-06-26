@@ -1,39 +1,26 @@
-// frontend/src/pages/ProtectStep1.jsx
+// frontend/src/pages/ProtectStep1.jsx (v2.0 - 穩健性修正版)
+// 描述:
+// 1. [核心修正] 在 handleSubmit 函式中，對 fetch 的回傳值進行嚴格的防禦性檢查，防止因後端回傳格式不符預期而導致的前端崩潰。
+// 2. 修正表單中 agreePolicy checkbox 的值未能正確傳遞的 bug。
+// 3. 改善 handleClearFile 函式，使其能真正清空檔案選擇器。
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-/* === 動畫定義 === */
-/* 背景漸層流動 */
+/* === 動畫與樣式定義 (維持原樣) === */
 const gradientFlow = keyframes`
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 `;
-
-/* 霓虹光暈 (加強) */
 const neonGlow = keyframes`
-  0%, 100% {
-    box-shadow: 0 0 8px #ff6f00;
-  }
-  50% {
-    box-shadow: 0 0 25px #ff6f00;
-  }
+  0%, 100% { box-shadow: 0 0 8px #ff6f00; }
+  50% { box-shadow: 0 0 25px #ff6f00; }
 `;
-
-/* 旋轉 loader */
 const spin = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 `;
-
-/* === 主要容器、背景 === */
 const PageWrapper = styled.div`
   min-height: 100vh;
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
@@ -44,8 +31,6 @@ const PageWrapper = styled.div`
   justify-content: center;
   color: #fff;
 `;
-
-/* 表單容器 */
 const FormContainer = styled.div`
   background-color: rgba(20, 20, 20, 0.8);
   width: 95%;
@@ -55,8 +40,6 @@ const FormContainer = styled.div`
   border: 1px solid #444;
   animation: ${neonGlow} 2s ease-in-out infinite alternate;
 `;
-
-/* 標題 */
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.2rem;
@@ -64,8 +47,6 @@ const Title = styled.h2`
   font-weight: 700;
   letter-spacing: 1px;
 `;
-
-/* 文字描述(置中) */
 const Description = styled.p`
   text-align: center;
   font-size: 0.95rem;
@@ -73,8 +54,6 @@ const Description = styled.p`
   margin-bottom: 1.5rem;
   line-height: 1.6;
 `;
-
-/* 錯誤訊息 */
 const ErrorMsg = styled.div`
   background: #ff4444;
   color: #fff;
@@ -84,31 +63,23 @@ const ErrorMsg = styled.div`
   text-align: center;
   font-size: 0.9rem;
 `;
-
-/* 使用 Grid 排列表單 */
 const StyledForm = styled.form`
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 1rem;
   row-gap: 1rem;
 `;
-
-/* label整行 */
 const FullLabel = styled.label`
   grid-column: 1 / 3;
   font-size: 0.9rem;
   color: #ffa500;
   margin-bottom: 0.25rem;
 `;
-
-/* label半行 */
 const HalfLabel = styled.label`
   font-size: 0.9rem;
   color: #ffa500;
   margin-bottom: 0.25rem;
 `;
-
-/* input */
 const StyledInput = styled.input`
   background: #2c2c2c;
   border: 1px solid #444;
@@ -118,23 +89,17 @@ const StyledInput = styled.input`
   font-size: 0.9rem;
   width: 100%;
 `;
-
-/* show file name & remove button row */
 const FileRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 `;
-
-/* 檔案名顯示 */
 const FileName = styled.span`
   font-size: 0.85rem;
   color: #aaa;
   word-break: break-all;
 `;
-
-/* 移除檔案按鈕 */
 const ClearButton = styled.button`
   background: #444;
   color: #fff;
@@ -147,13 +112,9 @@ const ClearButton = styled.button`
     background: #666;
   }
 `;
-
-/* 單列 */
 const FullRow = styled.div`
   grid-column: 1 / 3;
 `;
-
-/* CheckBox Row */
 const CheckboxRow = styled.div`
   grid-column: 1 / 3;
   display: flex;
@@ -161,8 +122,6 @@ const CheckboxRow = styled.div`
   color: #ffa500;
   margin-top: 0.5rem;
 `;
-
-/* 按鈕 + 螢光 Hover */
 const SubmitButton = styled.button`
   grid-column: 1 / 3;
   background-color: #f97316;
@@ -177,14 +136,17 @@ const SubmitButton = styled.button`
   position: relative;
   overflow: hidden;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: #ea580c;
     border-color: #ffaa00;
     box-shadow: 0 0 8px #ff9900;
   }
-`;
 
-/* Loading Spinner */
+  &:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+`;
 const Spinner = styled.div`
   display: inline-block;
   width: 20px;
@@ -194,15 +156,16 @@ const Spinner = styled.div`
   border-radius: 50%;
   margin-right: 0.5rem;
   animation: ${spin} 0.8s linear infinite;
+  vertical-align: middle;
 `;
+
 
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
-  // 上傳檔案 & 基本資訊
   const [file, setFile] = useState(null);
   const [realName, setRealName] = useState('');
-  const [birthDate, setBirthDate] = useState('');    // 改成 yyyy-MM-dd
+  const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
@@ -211,26 +174,26 @@ export default function ProtectStep1() {
   const [agreePolicy, setAgreePolicy] = useState(false);
   const [enableProtection, setEnableProtection] = useState(false);
 
-  // 狀態管理
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 檔案變更
   const handleFileChange = e => {
     setFile(e.target.files?.[0] || null);
   };
 
-  // 移除檔案
   const handleClearFile = () => {
     setFile(null);
+    // 同時清空 input 的值，這樣使用者才能重新選擇同一個檔案
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.value = '';
+    }
   };
 
-  // 提交事件
   const handleSubmit = async e => {
-    e.preventDefault();     // 取消原生 HTML5 驗證
+    e.preventDefault();
     setError('');
 
-    // 前端檢查
     if (!file) return setError('請先上傳檔案');
     if (!realName.trim()) return setError('姓名必填');
     if (!birthDate.trim()) return setError('生日必填');
@@ -241,8 +204,8 @@ export default function ProtectStep1() {
     if (!keywords.trim()) return setError('關鍵字必填');
     if (!agreePolicy) return setError('請同意隱私權政策與使用條款');
 
+    setLoading(true);
     try {
-      setLoading(true);
       const formData = new FormData();
       formData.append('file', file);
       formData.append('realName', realName);
@@ -252,30 +215,44 @@ export default function ProtectStep1() {
       formData.append('email', email);
       formData.append('title', title);
       formData.append('keywords', keywords);
-      formData.append('agreePolicy', 'true');
-      formData.append('enableProtection', enableProtection ? 'true' : 'false');
+      // [修正] 確保傳遞正確的布林值字串
+      formData.append('agreePolicy', String(agreePolicy));
+      formData.append('enableProtection', String(enableProtection));
 
       const resp = await fetch('/api/protect/step1', {
         method: 'POST',
-        body: formData
+        body: formData,
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.message || data.error || `Error ${resp.status}`);
 
-      const file = data.file || {};
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(data.message || data.error || `上傳失敗，狀態碼: ${resp.status}`);
+      }
+      
+      // [核心修正] 進行防禦性檢查，確保後端回傳資料結構符合預期
+      if (!data || !data.file || !data.file.id) {
+        console.error('Server response OK, but data format is unexpected:', data);
+        throw new Error('從伺服器收到的回應格式不正確，無法繼續。');
+      }
+
+      const receivedFile = data.file;
       const step1Data = {
-        fileId: file.id,
-        fingerprint: file.fingerprint,
-        ipfsHash: file.ipfs_hash,
-        txHash: file.tx_hash,
-        pdfUrl: data.pdfUrl || file.pdfUrl || '',
-        publicImageUrl: data.publicImageUrl || file.publicImageUrl || ''
+        fileId: receivedFile.id,
+        fingerprint: receivedFile.fingerprint,
+        ipfsHash: receivedFile.ipfs_hash,
+        txHash: receivedFile.tx_hash,
+        pdfUrl: data.pdfUrl || receivedFile.pdfUrl || '',
+        publicImageUrl: data.publicImageUrl || receivedFile.publicImageUrl || ''
       };
 
       localStorage.setItem('protectStep1', JSON.stringify(step1Data));
       navigate('/protect/step2');
+
     } catch (err) {
-      setError(err.message || '上傳失敗，請稍後再試');
+      // 確保 err 是一個有 message 屬性的物件
+      const errorMessage = (err instanceof Error) ? err.message : String(err);
+      setError(errorMessage || '上傳失敗，請檢查網路連線或稍後再試');
     } finally {
       setLoading(false);
     }
@@ -292,7 +269,6 @@ export default function ProtectStep1() {
 
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
-        {/* noValidate 取消瀏覽器預設 pattern 驗證 */}
         <StyledForm onSubmit={handleSubmit} noValidate>
           <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
           <FullRow>
@@ -320,7 +296,6 @@ export default function ProtectStep1() {
             value={realName}
             onChange={e => setRealName(e.target.value)}
           />
-          {/* 改用 date */}
           <StyledInput
             type="date"
             value={birthDate}
@@ -329,7 +304,6 @@ export default function ProtectStep1() {
 
           <HalfLabel>手機 (Phone)</HalfLabel>
           <HalfLabel>地址 (Address)</HalfLabel>
-          {/* 改用 tel，並移除破折號 */}
           <StyledInput
             type="tel"
             placeholder="0900296168"
@@ -368,7 +342,6 @@ export default function ProtectStep1() {
             onChange={e => setKeywords(e.target.value)}
           />
 
-          {/* 服務條款細則 */}
           <FullRow>
             <details
               style={{
@@ -396,26 +369,28 @@ export default function ProtectStep1() {
           <CheckboxRow>
             <input
               type="checkbox"
+              id="agreePolicy"
               checked={agreePolicy}
-              onChange={() => setAgreePolicy(!agreePolicy)}
+              onChange={e => setAgreePolicy(e.target.checked)}
               style={{ marginRight: '0.5rem' }}
             />
-            <span>我已閱讀並同意隱私權政策與使用條款</span>
+            <label htmlFor="agreePolicy">我已閱讀並同意隱私權政策與使用條款</label>
           </CheckboxRow>
 
           <CheckboxRow>
             <input
               type="checkbox"
+              id="enableProtection"
               checked={enableProtection}
-              onChange={() => setEnableProtection(!enableProtection)}
+              onChange={e => setEnableProtection(e.target.checked)}
               style={{ marginRight: '0.5rem' }}
             />
-            <span>啟用防側錄 (對抗擾動 + 高頻閃爍)</span>
+            <label htmlFor="enableProtection">啟用防側錄 (對抗擾動 + 高頻閃爍)</label>
           </CheckboxRow>
 
           <SubmitButton type="submit" disabled={loading}>
             {loading && <Spinner />}
-            {loading ? 'Uploading...' : '下一步 / Next'}
+            {loading ? '上傳與存證中...' : '下一步 / Next'}
           </SubmitButton>
         </StyledForm>
       </FormContainer>
