@@ -193,10 +193,6 @@ services:
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
-    command: >
-      sh -c "ganache-cli --host 0.0.0.0 --port 8545 --account=${BLOCKCHAIN_PRIVATE_KEY},100000000000000000000 --defaultBalanceEther 100"
-    env_file:
-      - .env
     ports:
       - "8545:8545"
     networks:
