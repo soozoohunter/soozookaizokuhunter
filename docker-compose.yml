@@ -1,9 +1,10 @@
 # docker-compose.yml (Final Corrected Version)
-# 版本: 3.3
+# 版本: 3.4
 # 日期: 2025-06-26
 # 描述:
-# 1. [核心修正] 修正 suzoo_ganache 的 command 語法，移除錯誤的 'sh -c' 包裝，改用 YAML 列表格式直接傳遞參數。
-# 2. 這將徹底解決 Ganache 容器本身啟動失敗的問題。
+# 1. [核心修正] 將 suzoo_ganache 的 healthcheck 指令從 nc 改為更可靠的 Node.js 腳本，
+#    該腳本會發送一個 HTTP POST 請求來確認 RPC 服務是否真正就緒。
+# 2. 這將徹底解決因健康檢查指令不存在或不可靠而導致的 Ganache 啟動失敗問題。
 
 networks:
   suzoo-network:
@@ -187,22 +188,33 @@ services:
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
-    # 【關鍵修正】改用 YAML 列表格式，直接將參數傳遞給容器的入口點。
-    # 這可以避免 'sh -c' 的解析錯誤，並正確地將私鑰作為參數。
     command:
       - "--host"
       - "0.0.0.0"
       - "--wallet.accounts"
       - "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"
     env_file:
-      - .env # 確保 BLOCKCHAIN_PRIVATE_KEY 能被讀取
+      - .env
     ports:
       - "8545:8545"
     networks:
       - suzoo-network
+    # 【關鍵修正】改用更可靠的 Node.js 腳本進行健康檢查
     healthcheck:
-      # 使用 nc (netcat) 檢查端口是否開放，它比 curl 更輕量、更可靠。
-      test: ["CMD-SHELL", "nc -z localhost 8545"]
+      test: >
+        node -e "const http = require('http');
+        const options = {
+          host: 'localhost',
+          port: 8545,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        };
+        const req = http.request(options, (res) => {
+          process.exit(res.statusCode === 200 ? 0 : 1);
+        });
+        req.on('error', () => process.exit(1));
+        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
+        req.end();"
       interval: 10s
       timeout: 5s
       retries: 10
