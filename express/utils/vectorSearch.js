@@ -2,8 +2,6 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
 const logger = require('./logger');
 
 const VECTOR_SERVICE_URL = process.env.VECTOR_SERVICE_URL;
@@ -49,7 +47,6 @@ async function indexImageVector(imageBuffer, fileId) {
  */
 async function searchImageByVector(input, options = {}) {
     const { topK = 10 } = options;
-    let tempPath = null;
     let imageStream;
 
     try {
