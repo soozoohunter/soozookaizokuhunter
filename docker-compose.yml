@@ -1,10 +1,10 @@
-# docker-compose.yml (Final Version with Healthchecks)
-# 版本: 3.1
+# docker-compose.yml (Final Corrected Version)
+# 版本: 3.2
 # 日期: 2025-06-26
 # 描述:
-# 1. [核心修正] 為 suzoo_ganache 新增 healthcheck，確保其 RPC 服務準備就緒。
-# 2. [核心修正] 修改 suzoo_express 的 depends_on，使其等待 suzoo_ganache 服務健康後再啟動。
-# 3. 這將解決因服務啟動順序不一致導致的連線錯誤。
+# 1. [核心修正] 簡化 suzoo_ganache 的啟動命令，改回直接使用 .env 中的私鑰，移除檔案掛載的複雜性。
+# 2. [核心修正] 將 suzoo_ganache 的 healthcheck 指令從 curl 改為更可靠的 nc (netcat)。
+# 3. 這將徹底解決因 Ganache 啟動失敗和時序問題導致的連鎖錯誤。
 
 networks:
   suzoo-network:
@@ -17,13 +17,12 @@ services:
   suzoo_frontend:
     container_name: suzoo_frontend
     build:
-      context: ./frontend # 指向 frontend 目錄
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"   # HTTP
-      - "443:443" # HTTPS
+      - "80:80"
+      - "443:443"
     volumes:
-      # 將 SSL 憑證以唯讀模式掛載給 Nginx 使用
       - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       - suzoo-network
@@ -49,10 +48,6 @@ services:
       - "3000:3000"
     env_file:
       - .env
-    environment:
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - ADMIN_PHONE=${ADMIN_PHONE}
-      - ADMIN_PASS=${ADMIN_PASS}
     volumes:
       - ./express:/app
       - /app/node_modules
@@ -66,7 +61,6 @@ services:
       milvus:
         condition: service_started
       suzoo_ganache:
-        # 【關鍵修正】等待 suzoo_ganache 健康檢查通過後再啟動
         condition: service_healthy
     networks:
       - suzoo-network
@@ -194,20 +188,22 @@ services:
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
+    # 【關鍵修正】恢復使用環境變數直接啟動 Ganache，移除檔案掛載的複雜性。
+    # 這確保了 Ganache 能穩定啟動，並使用 .env 中定義的錢包。
     command: >
-      ganache --host 0.0.0.0 --wallet.accountKeysPath /ganache/accounts.json
-    volumes:
-      - ./ganache-config:/ganache
+      sh -c 'ganache --host 0.0.0.0 --wallet.accounts "$${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"'
+    env_file:
+      - .env # 確保 BLOCKCHAIN_PRIVATE_KEY 能被讀取
     ports:
       - "8545:8545"
     networks:
       - suzoo-network
-    # 【關鍵修正】新增健康檢查，確認 RPC 服務是否已啟動並監聽
+    # 【關鍵修正】使用 nc (netcat) 檢查端口是否開放，它比 curl 更輕量、更可靠。
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8545"]
+      test: ["CMD-SHELL", "nc -z localhost 8545"]
       interval: 10s
       timeout: 5s
-      retries: 10 # 增加重試次數，給 Ganache 足夠的啟動時間
+      retries: 10
     restart: always
     logging: *default-logging
 
