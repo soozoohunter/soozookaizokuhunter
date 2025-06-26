@@ -1,102 +1,109 @@
-/**
- * express/utils/chain.js (最終健壯性修正版)
- *
- * 【核心修正】:
- * 1.  除了原有的 storeRecord 外，額外導出 `initChainService` 和 `isChainInitialized`。
- * 2.  移除了檔案底部的自動執行，將初始化的控制權完全交還給 server.js。
- * 3.  在初始化完全失敗時，會向上拋出錯誤，以中斷伺服器啟動流程，防止帶病運行。
- */
-const Web3 = require('web3');
+// express/utils/chain.js (Final Robust Version)
+const { Web3 } = require('web3');
+const { getABI } = require('./contract'); // 假設 contract helper 存在
+const logger = require('./logger');
 
-const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || 'http://suzoo_ganache:8545';
-const PRIVATE_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '';
+// --- 區塊鏈設定 ---
+const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
+const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
+const contractAddress = process.env.CONTRACT_ADDRESS;
 
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 5000;
-
-const contractAbi = [
-    {
-        "inputs": [
-            { "internalType": "string", "name": "_fingerprint", "type": "string" },
-            { "internalType": "string", "name": "_ipfsHash", "type": "string" }
-        ],
-        "name": "storeRecord",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-];
-
+// --- 全域變數 ---
 let web3;
 let contract;
 let account;
 let isInitialized = false;
 
-async function initChainService() {
-    if (isInitialized) return;
-
-    if (!CONTRACT_ADDRESS || !PRIVATE_KEY || !RPC_URL) {
-        console.warn('[chain.js] 區塊鏈環境變數未完全設定，服務將被停用。');
-        isInitialized = false;
+/**
+ * 初始化區塊鏈服務。
+ * 包含重試機制，並在最終失敗時拋出致命錯誤以中斷伺服器啟動。
+ * @param {number} retries - 最大重試次數。
+ * @param {number} delay - 每次重試之間的延遲（毫秒）。
+ */
+async function initializeBlockchainService(retries = 5, delay = 5000) {
+    if (isInitialized) {
+        logger.info('[Chain] Blockchain service already initialized.');
         return;
     }
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    if (!privateKey || !contractAddress || !rpcUrl) {
+        logger.error('[Chain] Blockchain environment variables (RPC_URL, PRIVATE_KEY, CONTRACT_ADDRESS) are not fully configured.');
+        isInitialized = false;
+        // 拋出致命錯誤，讓 startServer 捕捉並中斷啟動
+        throw new Error("Blockchain service cannot be initialized due to missing configuration.");
+    }
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            console.log(`[chain.js] 第 ${attempt}/${MAX_RETRIES} 次嘗試連接區塊鏈節點於 ${RPC_URL}...`);
+            logger.info(`[Chain] Attempt ${attempt}/${retries} to connect to blockchain node at ${rpcUrl}...`);
+            web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
             
-            web3 = new Web3(RPC_URL);
-            
-            await web3.eth.getChainId(); // 作為健康檢查
-            
-            contract = new web3.eth.Contract(contractAbi, CONTRACT_ADDRESS);
-            account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY);
-            web3.eth.accounts.wallet.add(account);
-
-            console.log(`[chain.js] 區塊鏈服務成功初始化。錢包地址: ${account.address}`);
-            isInitialized = true;
-            return;
-
-        } catch (err) {
-            console.error(`[chain.js] 初始化嘗試第 ${attempt} 次失敗:`, err.message);
-            if (attempt === MAX_RETRIES) {
-                console.error('[chain.js] 致命錯誤：所有初始化區塊鏈服務的嘗試均告失敗。');
-                // 【關鍵】向上拋出錯誤，讓主啟動流程知道失敗
-                throw new Error("Blockchain service could not be initialized.");
+            // 進行健康檢查，確認節點是否在監聽
+            if (await web3.eth.net.isListening()) {
+                account = web3.eth.accounts.privateKeyToAccount(privateKey);
+                web3.eth.accounts.wallet.add(account);
+                web3.eth.defaultAccount = account.address;
+                
+                const abi = getABI('Copyright'); // 從 helper 獲取 ABI
+                contract = new web3.eth.Contract(abi, contractAddress);
+                
+                isInitialized = true;
+                logger.info(`[Chain] Blockchain service initialized successfully. Wallet address: ${account.address}`);
+                return; // 初始化成功，退出循環
             }
-            await new Promise(res => setTimeout(res, RETRY_DELAY));
+        } catch (error) {
+            logger.error(`[Chain] Connection attempt ${attempt} failed: ${error.message}`);
+            if (attempt === retries) {
+                logger.error('[Chain] All attempts to connect to the blockchain node have failed. Service unavailable.');
+                isInitialized = false;
+                throw new Error("Could not initialize blockchain service after maximum retries.");
+            }
+            // 等待後重試
+            await new Promise(res => setTimeout(res, delay));
         }
     }
 }
 
-async function storeRecord(fingerprint, ipfsHash = '') {
+/**
+ * 將紀錄（指紋和 IPFS Hash）儲存到區塊鏈上。
+ * @param {string} fingerprint - 檔案的唯一 SHA256 指紋。
+ * @param {string} ipfsHash - 檔案在 IPFS 上的 CID。
+ * @returns {Promise<object>} - 返回以太坊交易收據 (receipt)。
+ */
+async function storeRecord(fingerprint, ipfsHash) {
     if (!isInitialized) {
-        console.warn('[chain.js] 區塊鏈服務未初始化，返回模擬的交易 Hash。');
-        return { transactionHash: '0xCHAIN_SERVICE_DISABLED_OR_FAILED_TO_INIT' };
+        logger.error('[Chain] Cannot store record because blockchain service is not initialized.');
+        throw new Error('Blockchain service is not ready. Cannot perform on-chain storage.');
     }
 
     try {
-        console.log(`[chain.js] 準備將紀錄上鏈: fingerprint=${fingerprint.slice(0,10)}...`);
-        const data = contract.methods.storeRecord(fingerprint, ipfsHash).encodeABI();
+        logger.info(`[Chain] Preparing to store record on-chain: fingerprint=${fingerprint.substring(0, 12)}...`);
+        
+        // 估算 Gas
+        const gas = await contract.methods.storeRecord(fingerprint, ipfsHash).estimateGas({ from: account.address });
         const gasPrice = await web3.eth.getGasPrice();
-        const gasEstimate = await contract.methods.storeRecord(fingerprint, ipfsHash).estimateGas({ from: account.address });
 
-        const tx = { from: account.address, to: CONTRACT_ADDRESS, data, gas: gasEstimate, gasPrice };
+        logger.info(`[Chain] Sending transaction... (Gas estimate: ${gas}, Gas price: ${web3.utils.fromWei(gasPrice, 'gwei')} Gwei)`);
 
-        console.log('[chain.js] 正在發送交易...');
-        const receipt = await web3.eth.sendTransaction(tx);
-        console.log('[chain.js] 交易成功，交易 Hash:', receipt.transactionHash);
-        return { transactionHash: receipt.transactionHash };
+        // 發送交易
+        const receipt = await contract.methods.storeRecord(fingerprint, ipfsHash).send({
+            from: account.address,
+            gas: gas, // 使用估算的 gas
+            gasPrice: gasPrice
+        });
+        
+        logger.info(`[Chain] Transaction successful! TxHash: ${receipt.transactionHash}`);
+        return receipt;
 
-    } catch (err) {
-        console.error('[chain.js] 將紀錄儲存至鏈上時發生錯誤:', err.message);
-        return null;
+    } catch (error) {
+        logger.error(`[Chain] Blockchain transaction failed: ${error.message}`);
+        // 向上拋出錯誤，讓調用者（如 protect.js）可以捕捉並處理
+        throw new Error(`Blockchain transaction failed: ${error.message}`);
     }
 }
 
-module.exports = { 
-    initChainService,
+module.exports = {
+    initializeBlockchainService,
     storeRecord,
-    isChainInitialized: () => isInitialized 
+    isReady: () => isInitialized,
 };

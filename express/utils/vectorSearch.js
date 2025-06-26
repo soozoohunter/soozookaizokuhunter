@@ -1,79 +1,101 @@
-/**
- * express/utils/vectorSearch.js (最終統一API修正版)
- *
- * 【核心修正】:
- * 1. 根據修正後的 Python API，將 `indexImageVector` 和 `searchImageByVector` 都改為使用 `form-data` (multipart/form-data) 格式傳送圖片檔案。
- * 2. 這確保了 Node.js 客戶端與 Python 伺服器之間的通訊協定完全一致且健壯。
- */
-const fs = require('fs');
+// express/utils/vectorSearch.js (Final Unified API Version)
 const axios = require('axios');
 const FormData = require('form-data');
+const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const logger = require('./logger');
 
-const PYTHON_VECTOR_SERVICE_URL = process.env.PYTHON_VECTOR_SERVICE_URL || 'http://suzoo_python_vector:8000';
-const INDEX_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/image-insert`;
-const SEARCH_ENDPOINT = `${PYTHON_VECTOR_SERVICE_URL}/api/v1/image-search`;
+// --- Python 向量服務端點 ---
+const VECTOR_SERVICE_URL = process.env.VECTOR_SERVICE_URL;
+const INDEX_ENDPOINT = `${VECTOR_SERVICE_URL}/index-image`;
+const SEARCH_ENDPOINT = `${VECTOR_SERVICE_URL}/search-image`;
 
 /**
- * 【API 修正】: 發送本地圖片檔案和 ID 到 Python 服務進行索引
+ * 發送圖片到 Python 服務進行向量化並索引。
  * @param {string} localImagePath - 圖片在本地的檔案路徑。
- * @param {string} fileId - 檔案在資料庫中的 ID。
- * @returns {Promise<object|null>}
+ * @param {string} fileId - 檔案在資料庫中的 ID，用於建立關聯。
+ * @returns {Promise<object|null>} - 成功時返回 API 回應，失敗時返回 null。
  */
 async function indexImageVector(localImagePath, fileId) {
     if (!fs.existsSync(localImagePath)) {
-        console.warn(`[indexImageVector] File not found, skipping indexing for: ${localImagePath}`);
+        logger.error(`[VectorSearch] Indexing failed: File not found at ${localImagePath}`);
         return null;
     }
-    try {
-        console.log(`[indexImageVector] Indexing image via file upload: ${localImagePath} with ID: ${fileId}`);
-        const form = new FormData();
-        form.append('image', fs.createReadStream(localImagePath), { filename: path.basename(localImagePath) });
-        form.append('id', fileId.toString());
+    
+    logger.info(`[VectorSearch] Indexing image: ${localImagePath} with ID: ${fileId}`);
+    const form = new FormData();
+    // 確保 form-data 的 key 與 Python FastAPI 端點的參數名一致 ('image', 'id')
+    form.append('image', fs.createReadStream(localImagePath));
+    form.append('id', fileId.toString());
 
-        const res = await axios.post(INDEX_ENDPOINT, form, {
+    try {
+        const response = await axios.post(INDEX_ENDPOINT, form, {
             headers: form.getHeaders(),
-            timeout: 60000 // 增加超時時間以應對模型處理
+            timeout: 60000 // 60秒超時，以應對大檔案和模型處理
         });
-        console.log(`[indexImageVector] Successfully indexed ID ${fileId}. Response:`, res.data);
-        return res.data;
+        logger.info(`[VectorSearch] Successfully indexed ID ${fileId}. Response: ${JSON.stringify(response.data)}`);
+        return response.data;
     } catch (e) {
         const errorMsg = e.response ? JSON.stringify(e.response.data) : e.message;
-        console.error(`[indexImageVector] Error indexing image ID ${fileId}:`, errorMsg);
+        logger.error(`[VectorSearch] Error indexing image ID ${fileId}:`, errorMsg);
         return null;
     }
 }
 
 /**
- * 【API 修正】: 上傳本地圖片到 Python 服務以搜尋相似圖片
- * @param {string} localImagePath - 圖片在本地的檔案路徑。
+ * 上傳圖片到 Python 服務以搜尋相似的圖片。
+ * @param {Buffer|string} input - 圖片的 Buffer 或本地檔案路徑。
  * @param {object} options - 包含 topK 等選項的物件。
- * @returns {Promise<object|null>}
+ * @returns {Promise<Array>} - 成功時返回相似結果的陣列，失敗時返回空陣列。
  */
-async function searchImageByVector(localImagePath, options = {}) {
-    if (!fs.existsSync(localImagePath)) {
-        console.warn(`[searchImageByVector] File not found, cannot perform search for: ${localImagePath}`);
-        return null;
-    }
-    const { topK = 5 } = options;
+async function searchImageByVector(input, options = {}) {
+    const { topK = 10 } = options;
+    let tempPath = null;
+    let imageStream;
+
     try {
-        console.log(`[searchImageByVector] Searching for similar images via file upload: ${localImagePath}`);
+        // --- 統一輸入來源為 Stream ---
+        if (Buffer.isBuffer(input)) {
+            // 如果輸入是 Buffer，創建臨時檔案以便生成讀取流
+            tempPath = path.join(os.tmpdir(), `vector_search_tmp_${Date.now()}.jpg`);
+            await fs.promises.writeFile(tempPath, input);
+            imageStream = fs.createReadStream(tempPath);
+            logger.info(`[VectorSearch] Searching for similar images via buffer (temp file: ${tempPath})`);
+        } else if (typeof input === 'string' && fs.existsSync(input)) {
+            // 如果輸入是有效的檔案路徑
+            imageStream = fs.createReadStream(input);
+            logger.info(`[VectorSearch] Searching for similar images via file path: ${input}`);
+        } else {
+            logger.warn('[VectorSearch] Invalid input for search. Must be a Buffer or a valid file path.');
+            return []; // 返回空陣列
+        }
         
         const form = new FormData();
-        form.append('image', fs.createReadStream(localImagePath), { filename: path.basename(localImagePath) });
+        // 確保 key 與 Python FastAPI 端點參數名一致 ('image', 'top_k')
+        form.append('image', imageStream);
         form.append('top_k', topK.toString());
 
-        const res = await axios.post(SEARCH_ENDPOINT, form, {
+        const response = await axios.post(SEARCH_ENDPOINT, form, {
             headers: form.getHeaders(),
-            timeout: 60000 // 增加超時時間
+            timeout: 60000 // 60秒超時
         });
 
-        console.log('[searchImageByVector] Search successful. Response:', res.data);
-        return res.data;
+        const results = response.data?.results || [];
+        logger.info(`[VectorSearch] Search successful. Found ${results.length} matches.`);
+        return results; // 直接回傳結果陣列
+
     } catch (e) {
         const errorMsg = e.response ? JSON.stringify(e.response.data) : e.message;
-        console.error(`[searchImageByVector] Error searching image:`, errorMsg);
-        return null;
+        logger.error(`[VectorSearch] Error searching for similar images:`, errorMsg);
+        return []; // 發生錯誤時返回空陣列
+    } finally {
+        // --- 清理臨時檔案 ---
+        if (tempPath) {
+            fs.unlink(tempPath, (err) => {
+                if (err) logger.warn(`[VectorSearch] Failed to delete temp file: ${tempPath}`, err);
+            });
+        }
     }
 }
 
