@@ -3,6 +3,8 @@ const logger = require('../utils/logger');
 
 const TIKTOK_HOST = process.env.TIKTOK_HOST;
 const YOUTUBE_HOST = process.env.YOUTUBE_HOST;
+const INSTAGRAM_HOST = process.env.INSTAGRAM_HOST;
+const FACEBOOK_HOST = process.env.FACEBOOK_HOST;
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
 function extractLinks(data, platform) {
