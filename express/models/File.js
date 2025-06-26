@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users', // 表格名稱
+        model: 'users', // 表格名稱
         key: 'id'
       }
     },
