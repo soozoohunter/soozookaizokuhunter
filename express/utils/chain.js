@@ -33,6 +33,23 @@ async function initializeBlockchainService(retries = 5, delay = 5000) {
                 if (!abi) throw new Error("Failed to get ABI for 'Copyright' contract.");
                 
                 contract = new web3.eth.Contract(abi, contractAddress);
+
+                // Ensure the account has sufficient balance on the dev chain
+                const minBalance = web3.utils.toWei('1', 'ether');
+                const currentBalance = await web3.eth.getBalance(account.address);
+                if (web3.utils.toBN(currentBalance).lt(web3.utils.toBN(minBalance))) {
+                    const [funder] = await web3.eth.getAccounts();
+                    if (funder && funder.toLowerCase() !== account.address.toLowerCase()) {
+                        logger.info(`[Chain] Funding wallet ${account.address} from ${funder}...`);
+                        await web3.eth.sendTransaction({
+                            from: funder,
+                            to: account.address,
+                            value: minBalance,
+                        });
+                        logger.info('[Chain] Wallet funded successfully.');
+                    }
+                }
+
                 isInitialized = true;
                 logger.info(`[Chain] Blockchain service initialized successfully. Wallet address: ${account.address}`);
                 return;
