@@ -29,6 +29,7 @@ services:
       - suzoo-network
     depends_on:
       - suzoo_express
+      - suzoo_fastapi
     restart: always
     logging: &default-logging
       driver: "json-file"
@@ -68,6 +69,30 @@ services:
         condition: service_started
     networks:
       - suzoo-network
+    restart: always
+    logging: *default-logging
+
+  # -------------------------------------
+  # AI/ML 後端服務 (Python/FastAPI)
+  # -------------------------------------
+  suzoo_fastapi:
+    container_name: suzoo_fastapi
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./fastapi:/app
+    networks:
+      - suzoo-network
+    depends_on:
+      - suzoo_postgres
+      - milvus
+      - suzoo_ipfs
+      - suzoo_ganache
     restart: always
     logging: *default-logging
 
