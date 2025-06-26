@@ -27,7 +27,7 @@ JWT_REFRESH_SECRET=your_super_secret_for_refresh_token
 ## 使用 Docker Compose 啟動整套系統
 
 ```bash
-docker-compose up --build
+docker compose up -d --build
 ```
 
 在服務啟動後，Docker Compose 會根據 healthcheck 等待核心服務就緒。
@@ -91,8 +91,7 @@ Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳�
 更新 Express API 程式碼（例如新增 `/api/protect/step2`）後，需要重新建置 Docker 容器才能套用變更，請執行：
 
 ```bash
-docker compose build suzoo_express
-docker compose up -d suzoo_express
+docker compose up -d suzoo_express --build
 ```
 
 ## Monorepo Workflow
