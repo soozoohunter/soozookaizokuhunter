@@ -1,12 +1,13 @@
 /********************************************************************
  * express/createDefaultAdmin.js
- * 
- * 伺服器啟動時，若無符合 phone/email 的使用者，則新建 admin。
+ * * 伺服器啟動時，若無符合 phone/email 的使用者，則新建 admin。
  * 若找到了但不是 admin，則強制更新為 admin + 重設預設密碼。
+ * (已整合 Winston Logger)
  ********************************************************************/
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { User } = require('./models');
+const logger = require('./utils/logger'); // 使用新的 Winston logger
 
 module.exports = async function createDefaultAdmin() {
   try {
@@ -15,7 +16,7 @@ module.exports = async function createDefaultAdmin() {
     const defaultPass = process.env.ADMIN_PASS;
 
     if (!defaultEmail || !defaultPhone || !defaultPass) {
-      console.error('[InitAdmin] ADMIN_* environment variables are required');
+      logger.warn('[AdminSetup] ADMIN_EMAIL, ADMIN_PHONE, or ADMIN_PASS environment variables are required. Skipping setup.');
       return;
     }
 
@@ -30,28 +31,40 @@ module.exports = async function createDefaultAdmin() {
     });
 
     if (existing) {
-      console.log('[InitAdmin] Found user =>', existing.email, existing.phone);
+      logger.info(`[AdminSetup] Found an existing user with email: ${existing.email} / phone: ${existing.phone}`);
 
-      // 不是 admin 就升級為 admin，並重置密碼
+      let needsSave = false;
+      // 不是 admin 就升級為 admin
       if (existing.role !== 'admin') {
         existing.role = 'admin';
-        console.log('[InitAdmin] Updating role => admin');
+        needsSave = true;
+        logger.info(`[AdminSetup] Updating user role to 'admin'.`);
       }
+      
       // 重置密碼
       const hashed = await bcrypt.hash(defaultPass, 10);
       existing.password = hashed;
+      needsSave = true;
+      logger.info(`[AdminSetup] Resetting password for admin user.`);
 
       // 若沒有 serialNumber，就補一下
       if (!existing.serialNumber) {
         existing.serialNumber = 'SNADMIN001';
+        needsSave = true;
+        logger.info(`[AdminSetup] Adding default serial number 'SNADMIN001'.`);
       }
-      await existing.save();
 
-      console.log(`[InitAdmin] Updated admin => email=${existing.email}, pass=${defaultPass}`);
+      if (needsSave) {
+        await existing.save();
+        logger.info(`[AdminSetup] Admin user ${existing.email} has been updated successfully.`);
+      } else {
+        logger.info(`[AdminSetup] Admin user ${existing.email} is already up to date.`);
+      }
       return;
     }
 
     // 若不存在 => 新建 admin
+    logger.info(`[AdminSetup] No existing admin found. Creating a new admin user with email: ${defaultEmail}`);
     const hashed = await bcrypt.hash(defaultPass, 10);
     await User.create({
       serialNumber: 'SNADMIN001',
@@ -59,11 +72,13 @@ module.exports = async function createDefaultAdmin() {
       phone: defaultPhone,
       password: hashed,
       role: 'admin',
-      realName: 'System Admin',
-      username: 'zacyao1005' // 看您需求，也可用預設 username
+      name: 'System Admin', // 使用 'name' 欄位
+      realName: 'System Admin', // 保留您原有的 realName
+      username: 'admin_user' // 提供一個預設 username
     });
-    console.log(`[InitAdmin] Created admin => email=${defaultEmail}, pass=${defaultPass}`);
+    logger.info(`[AdminSetup] New admin user created successfully with email: ${defaultEmail}`);
+
   } catch (err) {
-    console.error('[InitAdmin] error:', err);
+    logger.error('[AdminSetup] An error occurred during the admin setup process:', err);
   }
 };
