@@ -1,5 +1,9 @@
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const logger = require('../utils/logger');
+const tinEyeService = require('./tineye.service');
+const fs = require('fs/promises');
+const path = require('path');
+const os = require('os');
 
 const visionClient = new ImageAnnotatorClient();
 const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
@@ -30,6 +34,32 @@ async function searchByBuffer(buffer) {
     }
 }
 
+async function infringementScan(buffer) {
+    if (!buffer) {
+        throw new Error('Image buffer is required for infringement scan');
+    }
+
+    const tmpDir = path.join(os.tmpdir(), 'vision-infr');
+    await fs.mkdir(tmpDir, { recursive: true });
+    const tmpPath = path.join(tmpDir, `img_${Date.now()}.jpg`);
+
+    await fs.writeFile(tmpPath, buffer);
+
+    let tineyeResult;
+    try {
+        tineyeResult = await tinEyeService.searchByFile(tmpPath);
+    } finally {
+        await fs.unlink(tmpPath).catch(err =>
+            logger.warn(`[Vision Service] Failed to delete temp file ${tmpPath}: ${err.message}`)
+        );
+    }
+
+    const visionResult = await searchByBuffer(buffer);
+
+    return { tineye: tineyeResult, vision: visionResult };
+}
+
 module.exports = {
     searchByBuffer,
+    infringementScan,
 };

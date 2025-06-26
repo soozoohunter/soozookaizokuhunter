@@ -1,6 +1,5 @@
 // express/services/scanner.service.js (Robust Version)
 const logger = require('../utils/logger');
-const tinEyeService = require('./tineye.service');
 const visionService = require('./vision.service');
 const rapidApiService = require('./rapidApi.service');
 
@@ -28,7 +27,6 @@ async function performFullScan(options) {
 
     const scanPromises = [
         visionService.infringementScan(buffer),
-        tinEyeService.searchByBuffer(buffer),
         keyword ? rapidApiService.tiktokSearch(keyword) : Promise.resolve({ success: true, links: [] }),
         keyword ? rapidApiService.youtubeSearch(keyword) : Promise.resolve({ success: true, links: [] }),
         keyword ? rapidApiService.instagramSearch(keyword) : Promise.resolve({ success: true, links: [] }),
@@ -38,8 +36,7 @@ async function performFullScan(options) {
     const results = await Promise.allSettled(scanPromises);
     
     const [
-        visionResult,
-        tinEyeResult,
+        vtResult,
         tiktokResult,
         youtubeResult,
         instagramResult,
@@ -52,6 +49,9 @@ async function performFullScan(options) {
             return { success: false, links: [], matches: [], error: res.reason?.message || '未知錯誤' };
         }
     });
+
+    const visionResult = vtResult.vision || { success: false, links: [] };
+    const tinEyeResult = vtResult.tineye || { success: false, links: [] };
 
     const aggregatedResults = {
         imageSearch: {

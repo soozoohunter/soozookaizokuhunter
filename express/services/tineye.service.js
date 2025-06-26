@@ -2,6 +2,9 @@ require('dotenv').config();
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
+const fsPromises = require('fs/promises');
+const path = require('path');
+const os = require('os');
 const logger = require('../utils/logger');
 
 const TINEYE_API_URL = process.env.TINEYE_API_URL || 'https://api.tineye.com/rest/search/';
@@ -44,6 +47,21 @@ async function searchByFile(filePath) {
     }
 }
 
+async function searchByBuffer(buffer) {
+    const tmpDir = path.join(os.tmpdir(), 'tineye-buffer');
+    await fsPromises.mkdir(tmpDir, { recursive: true });
+    const tmpPath = path.join(tmpDir, `img_${Date.now()}.jpg`);
+    await fsPromises.writeFile(tmpPath, buffer);
+    try {
+        return await searchByFile(tmpPath);
+    } finally {
+        await fsPromises.unlink(tmpPath).catch(err =>
+            logger.warn(`[TinEye Service] Failed to delete temp file ${tmpPath}: ${err.message}`)
+        );
+    }
+}
+
 module.exports = {
     searchByFile,
+    searchByBuffer,
 };
