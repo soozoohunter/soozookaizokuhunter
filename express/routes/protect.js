@@ -132,6 +132,55 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 });
 
 /**
+ * 路由: Step2 - 觸發掃描 (POST /step2)
+ */
+router.post('/step2', async (req, res) => {
+    const { fileId } = req.body || {};
+    if (!fileId) {
+        return res.status(400).json({ error: 'fileId is required' });
+    }
+
+    try {
+        const file = await File.findByPk(fileId);
+        if (!file) {
+            return res.status(404).json({ error: '找不到指定的檔案紀錄。' });
+        }
+
+        const imageBuffer = await ipfsService.getFile(file.ipfs_hash);
+        if (!imageBuffer) {
+            return res.status(500).json({ error: '從 IPFS 讀取圖片失敗。' });
+        }
+
+        const scanResults = await scannerService.performFullScan({
+            buffer: imageBuffer,
+            keyword: file.keywords || file.title || file.filename
+        });
+
+        const vectorMatches = await searchImageByVector(imageBuffer);
+        const finalResults = { ...scanResults, internalMatches: vectorMatches };
+
+        file.status = 'scanned';
+        file.resultJson = finalResults;
+        await file.save();
+
+        const reportFileName = `report_${fileId}_${Date.now()}.pdf`;
+        const reportPath = path.join(REPORTS_DIR, reportFileName);
+        const reportUrl = `${process.env.PUBLIC_HOST}/uploads/reports/${reportFileName}`;
+
+        process.nextTick(() => {
+            generateScanPDFWithMatches(file.id, reportPath, finalResults)
+               .then(() => file.update({ report_url: reportUrl }))
+               .catch(err => logger.error(`[Step2] Failed to generate or save report for File ID: ${fileId}`, err));
+        });
+
+        res.status(200).json({ message: 'Step2 處理完成', fileId, reportUrl, results: finalResults });
+    } catch (error) {
+        logger.error(`[Step2] A critical error occurred while scanning file ID ${fileId}:`, error);
+        res.status(500).json({ message: '掃描時發生內部伺服器錯誤', error: error.message });
+    }
+});
+
+/**
  * 路由: 掃描指定檔案 (GET /scan/:fileId)
  */
 router.get('/scan/:fileId', async (req, res) => {
