@@ -167,8 +167,22 @@ router.post('/step2', async (req, res) => {
         const reportPath = path.join(REPORTS_DIR, reportFileName);
         const reportUrl = `${process.env.PUBLIC_HOST}/uploads/reports/${reportFileName}`;
 
+        const suspiciousLinks = [
+            ...(finalResults.imageSearch?.googleVision?.links || []),
+            ...((finalResults.imageSearch?.tineye?.matches || []).map(m => m.url))
+        ];
+
         process.nextTick(() => {
-            generateScanPDFWithMatches(file.id, reportPath, finalResults)
+            generateScanPDFWithMatches({
+                file: {
+                    id: file.id,
+                    filename: file.filename,
+                    fingerprint: file.fingerprint,
+                    status: file.status,
+                },
+                suspiciousLinks,
+                matchedImages: vectorMatches,
+            }, reportPath)
                .then(() => file.update({ report_url: reportUrl }))
                .catch(err => logger.error(`[Step2] Failed to generate or save report for File ID: ${fileId}`, err));
         });
@@ -221,8 +235,22 @@ router.get('/scan/:fileId', async (req, res) => {
         const reportPath = path.join(REPORTS_DIR, reportFileName);
         const reportUrl = `${process.env.PUBLIC_HOST}/uploads/reports/${reportFileName}`;
 
+        const suspiciousLinks = [
+            ...(finalResults.imageSearch?.googleVision?.links || []),
+            ...((finalResults.imageSearch?.tineye?.matches || []).map(m => m.url))
+        ];
+
         process.nextTick(() => {
-            generateScanPDFWithMatches(file.id, reportPath, finalResults)
+            generateScanPDFWithMatches({
+                file: {
+                    id: file.id,
+                    filename: file.filename,
+                    fingerprint: file.fingerprint,
+                    status: file.status,
+                },
+                suspiciousLinks,
+                matchedImages: vectorMatches,
+            }, reportPath)
                .then(() => file.update({ report_url: reportUrl }))
                .then(() => logger.info(`[Scan Route] Report generated and URL updated for File ID: ${fileId}`))
                .catch(err => logger.error(`[Scan Route] Failed to generate or save report for File ID: ${fileId}`, err));

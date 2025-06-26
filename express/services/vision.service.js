@@ -39,20 +39,8 @@ async function infringementScan(buffer) {
         throw new Error('Image buffer is required for infringement scan');
     }
 
-    const tmpDir = path.join(os.tmpdir(), 'vision-infr');
-    await fs.mkdir(tmpDir, { recursive: true });
-    const tmpPath = path.join(tmpDir, `img_${Date.now()}.jpg`);
-
-    await fs.writeFile(tmpPath, buffer);
-
-    let tineyeResult;
-    try {
-        tineyeResult = await tinEyeService.searchByFile(tmpPath);
-    } finally {
-        await fs.unlink(tmpPath).catch(err =>
-            logger.warn(`[Vision Service] Failed to delete temp file ${tmpPath}: ${err.message}`)
-        );
-    }
+    // Directly send the buffer to TinEye instead of writing a temp file
+    const tineyeResult = await tinEyeService.searchByBuffer(buffer);
 
     const visionResult = await searchByBuffer(buffer);
 
