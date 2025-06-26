@@ -1,4 +1,4 @@
-// express/utils/chain.js (Final Simplified Version)
+// express/utils/chain.js (Final Corrected Version)
 const Web3 = require('web3');
 const { getABI } = require('./contract');
 const logger = require('./logger');
@@ -25,7 +25,7 @@ async function initializeBlockchainService(retries = 5, delay = 5000) {
             web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
 
             if (await web3.eth.net.isListening()) {
-                account = web3.eth.accounts.privateKeyToAccount(privateKey);
+                account = web.eth.accounts.privateKeyToAccount(privateKey);
                 web3.eth.accounts.wallet.add(account);
                 web3.eth.defaultAccount = account.address;
 
@@ -61,11 +61,17 @@ async function storeRecord(fingerprint, ipfsHash) {
         const fromAddress = account.address;
         logger.info(`[Chain] Sending transaction from address: ${fromAddress}`);
 
-        // 【關鍵修正】簡化交易發送邏輯
-        // 不再手動估算 Gas 和 Gas Price，讓 web3.js 和 Ganache 自動處理。
-        // Ganache 作為測試節點，通常能很好地處理這種自動設定。
+        // 【關鍵修正】恢復手動估算 Gas 的步驟
+        logger.info(`[Chain] Estimating gas for storeRecord...`);
+        const estimatedGas = await contract.methods.storeRecord(fingerprint, ipfsHash).estimateGas({
+            from: fromAddress,
+        });
+        logger.info(`[Chain] Gas estimated successfully: ${estimatedGas}`);
+
+        // 發送交易，並明確提供估算好的 gas
         const receipt = await contract.methods.storeRecord(fingerprint, ipfsHash).send({
             from: fromAddress,
+            gas: estimatedGas, // 使用我們估算出的 Gas 上限
         });
 
         logger.info(`[Chain] Transaction successful! TxHash: ${receipt.transactionHash}`);
