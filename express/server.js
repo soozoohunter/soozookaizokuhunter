@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
+// 【關鍵修正】從 models 中同時解構出 sequelize 和 connectToDatabase
 const { sequelize, connectToDatabase } = require('./models');
 const { initializeBlockchainService } = require('./utils/chain');
 const createAdmin = require('./createDefaultAdmin');
@@ -30,8 +31,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // --- 設定靜態檔案目錄 ---
-// 使 'uploads' 目錄下的檔案可以透過 URL 公開訪問
-// 例如: https://yourdomain.com/uploads/reports/report_123.pdf
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${path.join(__dirname, '../uploads')}'`);
 
@@ -53,37 +52,36 @@ app.get('/health', (req, res) => {
 // --- 伺服器啟動流程 ---
 const PORT = process.env.EXPRESS_PORT || 3000;
 
-/**
- * 統一的、異步的伺服器啟動函式
- * 確保所有關鍵服務都初始化成功後，再啟動 Express 伺服器監聽請求。
- */
 async function startServer() {
     try {
         // 步驟 1: 連線到 PostgreSQL 資料庫
-        logger.info('[Startup] Initializing Database connection...');
-        await connectToDatabase(); // 此函式應在 models/index.js 中定義
-        logger.info('[Startup] Database connection successful.');
+        logger.info('[Startup] Step 1: Initializing Database connection...');
+        await connectToDatabase();
+        logger.info('[Startup] Step 1: Database connection successful.');
         
-        // (可選) 同步資料庫模型，並建立預設管理員帳號
-        if (process.env.NODE_ENV !== 'production') {
-            await sequelize.sync({ alter: true }); // 開發時使用 alter: true
-            logger.info('[Startup] Database synchronized.');
-            await createAdmin();
-        }
+        // 【關鍵修正】步驟 2: 同步資料庫模型 (建立或更新資料表)
+        logger.info('[Startup] Step 2: Synchronizing database models...');
+        // { alter: true } 會安全地更新資料表以匹配模型，如果表不存在則會建立。
+        await sequelize.sync({ alter: true });
+        logger.info('[Startup] Step 2: Database models synchronized successfully.');
 
-        // 步驟 2: 初始化區塊鏈服務 (包含重試機制)
-        logger.info('[Startup] Initializing Blockchain service...');
+        // 步驟 3: 建立預設管理員帳號
+        logger.info('[Startup] Step 3: Setting up default admin user...');
+        await createAdmin();
+        logger.info('[Startup] Step 3: Default admin user setup complete.');
+
+        // 步驟 4: 初始化區塊鏈服務
+        logger.info('[Startup] Step 4: Initializing Blockchain service...');
         await initializeBlockchainService();
-        logger.info('[Startup] Blockchain service initialization successful.');
+        logger.info('[Startup] Step 4: Blockchain service initialization successful.');
 
-        // 步驟 3: 所有服務就緒，啟動 Express 監聽
+        // 步驟 5: 所有服務就緒，啟動 Express 監聽
         app.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
         });
 
     } catch (error) {
-        // 如果任何關鍵步驟失敗，記錄致命錯誤並終止程序
-        logger.error(`[Startup] FAILED to start server: ${error.message}`);
+        logger.error(`[Startup] FAILED to start server:`, { message: error.message, stack: error.stack });
         process.exit(1);
     }
 }
