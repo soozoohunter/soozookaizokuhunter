@@ -1,10 +1,10 @@
 # docker-compose.yml (Final Corrected Version)
-# 版本: 3.4
+# 版本: 3.5
 # 日期: 2025-06-26
 # 描述:
-# 1. [核心修正] 將 suzoo_ganache 的 healthcheck 指令從 nc 改為更可靠的 Node.js 腳本，
-#    該腳本會發送一個 HTTP POST 請求來確認 RPC 服務是否真正就緒。
-# 2. 這將徹底解決因健康檢查指令不存在或不可靠而導致的 Ganache 啟動失敗問題。
+# 1. [核心修正] 為 suzoo_frontend 新增 healthcheck，使其能正確應對 HTTP 到 HTTPS 的重新導向，
+#    並準確地判斷 Nginx 服務的健康狀態。
+# 2. 這將解決前端服務顯示為 'unhealthy' 的問題。
 
 networks:
   suzoo-network:
@@ -29,6 +29,12 @@ services:
     depends_on:
       - suzoo_express
       - suzoo_fastapi
+    # 【關鍵修正】新增健康檢查，以正確的方式確認 Nginx 服務是否就緒。
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --insecure https://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     restart: always
     logging: &default-logging
       driver: "json-file"
@@ -199,7 +205,6 @@ services:
       - "8545:8545"
     networks:
       - suzoo-network
-    # 【關鍵修正】改用更可靠的 Node.js 腳本進行健康檢查
     healthcheck:
       test: >
         node -e "const http = require('http');
