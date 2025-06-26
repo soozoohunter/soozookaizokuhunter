@@ -19,8 +19,10 @@ async function searchByBuffer(buffer) {
         const [result] = await visionClient.webDetection({ image: { content: buffer } });
         const webDetection = result.webDetection;
         let urls = [];
-        if (webDetection && webDetection.pagesWithMatchingImages) {
+        if (Array.isArray(webDetection?.pagesWithMatchingImages)) {
             urls = webDetection.pagesWithMatchingImages.map(page => page.url).filter(Boolean);
+        } else if (webDetection && webDetection.pagesWithMatchingImages) {
+            logger.warn('[Vision Service] pagesWithMatchingImages is not array:', webDetection.pagesWithMatchingImages);
         }
         const uniqueUrls = [...new Set(urls)].slice(0, VISION_MAX_RESULTS);
         logger.info(`[Vision Service] Search by buffer successful, found ${uniqueUrls.length} links.`);

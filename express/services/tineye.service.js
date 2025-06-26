@@ -29,7 +29,13 @@ async function searchByBuffer(buffer) {
             },
         });
 
-        const results = response.data.results.matches.map(match => ({
+        const matches = Array.isArray(response.data?.results?.matches)
+            ? response.data.results.matches
+            : [];
+        if (!Array.isArray(response.data?.results?.matches)) {
+            logger.warn('[TinEye Service] matches is not array:', response.data?.results?.matches);
+        }
+        const results = matches.map(match => ({
             url: match.image_url,
             type: 'Match',
             source: 'TinEye',
