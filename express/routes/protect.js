@@ -119,24 +119,23 @@ router.get('/view/:fileId', async (req, res) => {
     }
 });
 
-router.post('/step2', async (req, res) => {
-    const { fileId } = req.body;
+async function handleScan(fileId, res) {
     if (!fileId) {
-        logger.warn('[Step 2] "fileId" is required but not provided.');
+        logger.warn('[Scan] "fileId" is required but not provided.');
         return res.status(400).json({ error: 'fileId is required.' });
     }
 
     try {
         const file = await File.findByPk(fileId);
         if (!file) {
-            logger.warn(`[Step 2] File not found for fileId: ${fileId}`);
+            logger.warn(`[Scan] File not found for fileId: ${fileId}`);
             return res.status(404).json({ error: 'File not found.' });
         }
 
-        logger.info(`[Step 2] Starting full scan for fileId: ${fileId}`);
+        logger.info(`[Scan] Starting full scan for fileId: ${fileId}`);
         const imageBuffer = await ipfsService.getFile(file.ipfs_hash);
         if (!imageBuffer) {
-            logger.error(`[Step 2] Failed to retrieve image from IPFS for fileId: ${fileId} with hash: ${file.ipfs_hash}`);
+            logger.error(`[Scan] Failed to retrieve image from IPFS for fileId: ${fileId} with hash: ${file.ipfs_hash}`);
             return res.status(500).json({ error: 'Failed to retrieve image from IPFS.' });
         }
 
@@ -146,9 +145,8 @@ router.post('/step2', async (req, res) => {
         file.resultJson = scanResults;
         await file.save();
 
-        logger.info(`[Step 2] Scan complete for fileId: ${fileId}.`);
+        logger.info(`[Scan] Scan complete for fileId: ${fileId}.`);
 
-        // Use flatted to safely serialize complex objects that might have circular references
         const safeJsonString = flatted.stringify({
             message: 'Scan completed successfully.',
             results: scanResults,
@@ -157,8 +155,7 @@ router.post('/step2', async (req, res) => {
         res.status(200).send(safeJsonString);
 
     } catch (error) {
-        logger.error(`[Step 2] Scan process failed for fileId ${fileId}:`, { message: error.message, stack: error.stack });
-        // Ensure error is serialized safely
+        logger.error(`[Scan] Scan process failed for fileId ${fileId}:`, { message: error.message, stack: error.stack });
         const safeErrorString = flatted.stringify({
             message: 'An internal error occurred during the scan process.',
             error: error.message,
@@ -166,6 +163,14 @@ router.post('/step2', async (req, res) => {
         res.set('Content-Type', 'application/json');
         res.status(500).send(safeErrorString);
     }
+}
+
+router.post('/step2', async (req, res) => {
+    await handleScan(req.body.fileId, res);
+});
+
+router.get('/scan/:fileId', async (req, res) => {
+    await handleScan(req.params.fileId, res);
 });
 
 module.exports = router;

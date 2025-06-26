@@ -82,6 +82,11 @@ TINEYE_API_KEY=your_tineye_api_key
 }
 ```
 
+### GET `/api/protect/scan/:fileId`
+
+* 與 Step2 功能相同，提供以路由參數觸發完整掃描的方式
+
+
 ## Protect API Routes
 
 Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳後即可依據 `fileId` 呼叫 Step2。
