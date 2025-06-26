@@ -96,10 +96,11 @@ export default function ProtectStep4Infringement() {
     fingerprint,
     ipfsHash,
     txHash,
-    suspiciousLinks = [],
+    suspiciousLinks: rawLinks = [],
     // ★ 後端回傳的 PDF 連結 (可直接打開/下載)
     scanReportUrl
   } = info;
+  const suspiciousLinks = Array.isArray(rawLinks) ? rawLinks : [];
 
   /**
    * 直接下載 PDF

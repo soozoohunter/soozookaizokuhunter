@@ -165,8 +165,13 @@ export default function ProtectStep3() {
 
   const handleGoStep4 = () => {
     if (scanResult) {
-      const googleLinks = scanResult.imageSearch?.googleVision?.links || [];
-      const tineyeLinks = (scanResult.imageSearch?.tineye?.matches || []).map(m => m.url);
+      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
+        ? scanResult.imageSearch.googleVision.links
+        : [];
+      const tineyeMatches = Array.isArray(scanResult.imageSearch?.tineye?.matches)
+        ? scanResult.imageSearch.tineye.matches
+        : [];
+      const tineyeLinks = tineyeMatches.map(m => m.url);
       const suspiciousLinks = [...googleLinks, ...tineyeLinks];
       navigate('/protect/step4-infringement', {
         state: {
@@ -194,8 +199,12 @@ export default function ProtectStep3() {
     }
 
     if (scanResult) {
-      const googleLinks = (scanResult.imageSearch?.googleVision?.links || []).map(url => ({ source: 'Google Vision', url }));
-      const tineyeLinks = (scanResult.imageSearch?.tineye?.matches || []).map(m => ({ source: 'TinEye', url: m.url }));
+      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
+        ? scanResult.imageSearch.googleVision.links.map(url => ({ source: 'Google Vision', url }))
+        : [];
+      const tineyeLinks = Array.isArray(scanResult.imageSearch?.tineye?.matches)
+        ? scanResult.imageSearch.tineye.matches.map(m => ({ source: 'TinEye', url: m.url }))
+        : [];
       const allLinks = [...googleLinks, ...tineyeLinks];
 
       return (
