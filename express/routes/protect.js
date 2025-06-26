@@ -160,7 +160,7 @@ router.post('/step2', async (req, res) => {
         const finalResults = { ...scanResults, internalMatches: vectorMatches };
 
         file.status = 'scanned';
-        file.resultJson = finalResults;
+        file.resultJson = JSON.stringify(finalResults);
         await file.save();
 
         const reportFileName = `report_${fileId}_${Date.now()}.pdf`;
@@ -213,7 +213,7 @@ router.get('/scan/:fileId', async (req, res) => {
 
         const finalResults = { ...scanResults, internalMatches: vectorMatches };
         file.status = 'scanned';
-        file.resultJson = finalResults;
+        file.resultJson = JSON.stringify(finalResults);
         await file.save();
         logger.info(`[Scan Route] Scan results saved to database.`);
 

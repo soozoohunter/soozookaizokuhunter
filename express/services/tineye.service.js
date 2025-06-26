@@ -27,14 +27,14 @@ async function searchByFile(filePath) {
     }
 
     const form = new FormData();
-    form.append('image', fs.createReadStream(filePath));
+    form.append('image_upload', fs.createReadStream(filePath));
 
     try {
         const response = await axios.post(TINEYE_API_URL, form, {
             headers: {
                 ...form.getHeaders(),
-                'X-API-Key': TINEYE_API_KEY,
             },
+            params: { api_key: TINEYE_API_KEY },
             timeout: 20000,
         });
         const links = extractLinks(response.data);
