@@ -149,7 +149,6 @@ export default function ProtectStep3() {
       }
 
       setScanResult(data.results);
-      // 將掃描結果存入 localStorage，以便 Step 4 使用
       localStorage.setItem('protectStep3', JSON.stringify({ scanResults: data.results }));
 
     } catch (err) {
@@ -166,9 +165,15 @@ export default function ProtectStep3() {
 
   const handleGoStep4 = () => {
     if (scanResult) {
-      // 使用 navigate state 將複雜資料傳遞到下一頁
-      navigate('/protect/step4-infringement', { 
-        state: { ...step1Data, scanResults: scanResult } 
+      const googleLinks = scanResult.imageSearch?.googleVision?.links || [];
+      const tineyeLinks = (scanResult.imageSearch?.tineye?.matches || []).map(m => m.url);
+      const suspiciousLinks = [...googleLinks, ...tineyeLinks];
+      navigate('/protect/step4-infringement', {
+        state: {
+          ...step1Data,
+          scanResults: scanResult,
+          suspiciousLinks
+        }
       });
     }
   };
@@ -189,12 +194,9 @@ export default function ProtectStep3() {
     }
 
     if (scanResult) {
-      const allLinks = [
-          ...(scanResult.google || []),
-          ...(scanResult.tineye || []),
-          ...(scanResult.yandex || []),
-          // ... 其他平台的結果
-      ];
+      const googleLinks = (scanResult.imageSearch?.googleVision?.links || []).map(url => ({ source: 'Google Vision', url }));
+      const tineyeLinks = (scanResult.imageSearch?.tineye?.matches || []).map(m => ({ source: 'TinEye', url: m.url }));
+      const allLinks = [...googleLinks, ...tineyeLinks];
 
       return (
         <InfoBlock>

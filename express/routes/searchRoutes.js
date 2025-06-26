@@ -19,11 +19,9 @@ router.post('/search/tineye', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'file required' });
     }
 
-    const tmpPath = path.join(require('os').tmpdir(), `tineye_${Date.now()}.jpg`);
-    await fs.promises.writeFile(tmpPath, req.file.buffer);
-    const result = await tineyeService.searchByFile(tmpPath);
-    await fs.promises.unlink(tmpPath).catch(() => {});
-    return res.json({ matches: result.links || [] });
+    // TinEye service now accepts buffers directly
+    const result = await tineyeService.searchByBuffer(req.file.buffer);
+    return res.json({ matches: result.matches || [] });
   } catch (err) {
     console.error('[POST /api/search/tineye] error =>', err.message || err);
     return res.status(500).json({ error: err.message || 'TinEye search failed' });
