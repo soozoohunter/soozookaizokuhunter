@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const cheerio = require('cheerio'); // ★ 新增：用於擷取 HTML 文字摘要
+const { generateCertificatePDF: generateCertificateHTML } = require('../utils/certPdfHelper');
+const db = require('../models');
+const logger = require('../utils/logger');
 
 /**
  * 快速從 HTML 抽取純文字摘要 (預設前 500 個字)
@@ -16,6 +19,47 @@ function extractTextSummary(htmlContent, maxLength = 500) {
   const text = $('body').text().replace(/\s+/g, ' ').trim();
   // 取前 maxLength 字
   return text.slice(0, maxLength) + (text.length > maxLength ? '...' : '');
+}
+
+/**
+ * Wrapper: generate certificate PDF based on fileId.
+ * Fetches data from database and generate PDF.
+ */
+async function generateCertificatePDF({ fileId }) {
+  const { File, User } = db;
+  const file = await File.findByPk(fileId, { include: User });
+  if (!file) throw new Error(`File ID ${fileId} not found`);
+  const user = file.User || await User.findByPk(file.user_id);
+
+  const certDir = path.join('uploads', 'certificates');
+  if (!fs.existsSync(certDir)) fs.mkdirSync(certDir, { recursive: true });
+  const pdfPath = path.join(certDir, `certificate_${fileId}.pdf`);
+
+  const data = {
+    name: user?.realName || user?.username || '',
+    dob: user?.birthDate || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    email: user?.email || '',
+    title: file.title || '',
+    fileName: file.filename,
+    fingerprint: file.fingerprint,
+    ipfsHash: file.ipfs_hash,
+    txHash: file.tx_hash,
+    serial: file.id,
+    mimeType: file.mime_type,
+    issueDate: new Date().toISOString(),
+    filePath: null,
+    stampImagePath: null,
+  };
+
+  try {
+    await generateCertificateHTML(data, pdfPath);
+    return pdfPath;
+  } catch (err) {
+    logger.error('[PDF Service] Failed to generate certificate PDF', err);
+    throw err;
+  }
 }
 
 /**
@@ -259,6 +303,7 @@ async function generateScanPDFWithMatches(
 
 module.exports = {
   generateCertificate,
+  generateCertificatePDF,
   generateReport,
   generateScanPDFWithMatches
 };
