@@ -44,7 +44,7 @@ async function searchImageBing(browser, imagePath) {
             // 提取搜尋結果連結（Bing 以圖搜尋結果在縮圖點擊後才出現連結，這裡提取縮圖對應的目標頁面連結）
             // 方法：取得所有縮圖父元素的連結
             const links = await page.$$eval('a[href^="https://www.bing.com/images/search?view=detailv2"]', anchors =>
-                anchors.map(a => a.href)
+                Array.from(anchors).map(a => a.href)
             );
             result.links = links;
             

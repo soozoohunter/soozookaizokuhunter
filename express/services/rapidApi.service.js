@@ -26,7 +26,7 @@ async function makeRequest(platform, config) {
         
         const links = items.map(item => {
             if (!item) return null;
-            let url = item.link || item.url || item.play || item.post_url || item.web_link;
+            let url = item.link || item.url || item.play || item.post_url || item.web_link || item.media_url;
             if (!url && platform === 'YouTube' && item.id?.videoId) {
                 return `https://www.youtube.com/watch?v=${item.id.videoId}`;
             }
@@ -55,17 +55,16 @@ const youtubeSearch = (keyword) => makeRequest('YouTube', {
     method: 'GET', url: `https://${YOUTUBE_HOST}/search`, params: { q: keyword, maxResults: '10' }, headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': YOUTUBE_HOST }
 });
 
-// Some RapidAPI providers use '/search' rather than '/search/posts'
 const instagramSearch = (keyword) => makeRequest('Instagram', {
     method: 'GET',
-    url: `https://${INSTAGRAM_HOST}/search`,
+    url: `https://${INSTAGRAM_HOST}/v1/search_posts`,
     params: { query: keyword, count: '10' },
     headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': INSTAGRAM_HOST }
 });
 
 const facebookSearch = (keyword) => makeRequest('Facebook', {
     method: 'GET',
-    url: `https://${FACEBOOK_HOST}/search`,
+    url: `https://${FACEBOOK_HOST}/search/posts`,
     params: { q: keyword, limit: '10' },
     headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': FACEBOOK_HOST }
 });
