@@ -1,10 +1,11 @@
 # docker-compose.yml (Final Corrected Version)
-# 版本: 3.5
-# 日期: 2025-06-26
+# 版本: 3.8 (Production Ready)
+# 日期: 2025-06-27
 # 描述:
-# 1. [核心修正] 為 suzoo_frontend 新增 healthcheck，使其能正確應對 HTTP 到 HTTPS 的重新導向，
-#    並準確地判斷 Nginx 服務的健康狀態。
-# 2. 這將解決前端服務顯示為 'unhealthy' 的問題。
+# 1. 整合所有成功的修正，包含為所有關鍵服務 (Postgres, Ganache, IPFS, RabbitMQ, Redis, FastAPI, Express, Frontend) 加上 healthcheck。
+# 2. 為所有需要依賴的服務 (Express, FastAPI, Frontend) 設定正確的 depends_on 條件，確保服務啟動順序正確無誤。
+# 3. 簡化並修正 Ganache 的啟動命令，確保其穩定性。
+# 4. 這份檔案旨在提供一個穩定、可靠的部署基礎。
 
 networks:
   suzoo-network:
@@ -27,14 +28,16 @@ services:
     networks:
       - suzoo-network
     depends_on:
-      - suzoo_express
-      - suzoo_fastapi
-    # 【關鍵修正】新增健康檢查，以正確的方式確認 Nginx 服務是否就緒。
+      suzoo_express:
+        condition: service_healthy
+      suzoo_fastapi:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail --insecure https://localhost || exit 1"]
+      test: ["CMD-SHELL", "curl -f --insecure https://localhost || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     restart: always
     logging: &default-logging
       driver: "json-file"
@@ -58,19 +61,27 @@ services:
       - ./express:/app
       - /app/node_modules
       - ./uploads:/app/uploads
-      - ./credentials:/app/credentials:ro
+      - ./express/credentials:/app/credentials:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       suzoo_postgres:
         condition: service_healthy
       suzoo_ipfs:
         condition: service_healthy
-      milvus:
-        condition: service_started
       suzoo_ganache:
         condition: service_healthy
+      suzoo_fastapi:
+        condition: service_healthy
+      milvus:
+        condition: service_started
     networks:
       - suzoo-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: always
     logging: *default-logging
 
@@ -91,10 +102,20 @@ services:
     networks:
       - suzoo-network
     depends_on:
-      - suzoo_postgres
-      - milvus
-      - suzoo_ipfs
-      - suzoo_ganache
+      suzoo_postgres:
+        condition: service_healthy
+      suzoo_ipfs:
+        condition: service_healthy
+      suzoo_ganache:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/docs"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     restart: always
     logging: *default-logging
 
@@ -112,6 +133,12 @@ services:
       - milvus_data:/var/lib/milvus
     networks:
       - suzoo-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9091/api/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
     restart: always
     logging: *default-logging
 
@@ -154,6 +181,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
     restart: always
     logging: *default-logging
 
@@ -189,6 +217,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: always
     logging: *default-logging
 
@@ -209,21 +238,15 @@ services:
     healthcheck:
       test: >
         node -e "const http = require('http');
-        const options = {
-          host: 'localhost',
-          port: 8545,
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        };
-        const req = http.request(options, (res) => {
-          process.exit(res.statusCode === 200 ? 0 : 1);
-        });
+        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
+        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
         req.on('error', () => process.exit(1));
         req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
         req.end();"
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 10s
     restart: always
     logging: *default-logging
 
