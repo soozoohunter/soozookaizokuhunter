@@ -224,7 +224,7 @@ async function clickEngineAndGetLinks(ginifabPage, browser, engine) {
   }
 
   // 抓所有超連結 -> 過濾 ginifab / 自身域名
-  let hrefs = await popup.$$eval('a', as=> as.map(a=> a.href));
+  let hrefs = await popup.$$eval('a', as => Array.from(as).map(a => a.href));
   const excludes= ['ginifab','bing.com','tineye.com','baidu.com'];
   hrefs = hrefs.filter(link => 
     link && !excludes.some(ex => link.includes(ex))

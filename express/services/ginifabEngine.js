@@ -36,7 +36,7 @@ async function fallbackDirectEngines(imagePath) {
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(5000);
 
-        let links = await page.$$eval('a', as=> as.map(a=> a.href));
+        let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
         links = links.filter(x=> x && !x.includes('bing.com'));
         results.bing.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
@@ -57,7 +57,7 @@ async function fallbackDirectEngines(imagePath) {
         await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:20000 }).catch(()=>{});
         await page.waitForTimeout(3000);
 
-        let links = await page.$$eval('a', as=> as.map(a=> a.href));
+        let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
         links = links.filter(x=> x && !x.includes('tineye.com'));
         results.tineye.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
@@ -77,7 +77,7 @@ async function fallbackDirectEngines(imagePath) {
         await fileInput.uploadFile(imagePath);
         await page.waitForTimeout(5000);
 
-        let links = await page.$$eval('a', as=> as.map(a=> a.href));
+        let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
         links = links.filter(x=> x && !x.includes('baidu.com'));
         results.baidu.push(...links.slice(0, ENGINE_MAX_LINKS));
       }
@@ -261,7 +261,7 @@ async function aggregatorSearchGinifab(localFilePath, aggregatorImageUrl) {
         }
 
         // 擷取該 popup 頁面上的連結
-        let hrefs = await popup.$$eval('a', as => as.map(a=>a.href));
+        let hrefs = await popup.$$eval('a', as => Array.from(as).map(a => a.href));
         // 過濾掉 aggregator / 自家 domain
         hrefs = hrefs.filter(link=>{
           if(!link) return false;

@@ -271,7 +271,7 @@ async function aggregatorSearchGinifab(browser, localImagePath, publicImageUrl) 
         await popupPage.waitForTimeout(3000);
 
         // 擷取連結 (過濾 ginifab / bing.com / tineye.com / baidu.com 自己)
-        let hrefs = await popupPage.$$eval('a', as => as.map(a => a.href));
+        let hrefs = await popupPage.$$eval('a', as => Array.from(as).map(a => a.href));
         hrefs = hrefs.filter(h =>
           h && !h.includes('ginifab.com') &&
           !h.includes('bing.com') &&
