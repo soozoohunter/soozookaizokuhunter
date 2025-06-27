@@ -16,7 +16,8 @@ const ipfsService = require('../services/ipfsService');
 const scannerService = require('../services/scanner.service');
 const fingerprintService = require('../services/fingerprintService');
 const { indexImageVector, searchImageByVector } = require('../utils/vectorSearch');
-const { generateScanPDFWithMatches, generateCertificatePDF } = require('../services/pdfService');
+const { generateScanPDFWithMatches } = require('../services/pdfService');
+const { generateCertificatePDF } = require('../services/pdf.service.js');
 
 const router = express.Router();
 
