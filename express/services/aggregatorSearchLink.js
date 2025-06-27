@@ -195,7 +195,7 @@ async function aggregatorSearchGinifabStrict(localFilePath='', publicImageUrl=''
         }
 
         // 抓取 popup 裡不含 ginifab/bing/tineye/baidu.com 的連結
-        let hrefs = await popup.$$eval('a', as=> as.map(a=> a.href));
+        let hrefs = await popup.$$eval('a', as => Array.from(as).map(a => a.href));
         hrefs = hrefs.filter(link =>
           link && !link.includes('ginifab') &&
           !link.includes('bing.com') &&

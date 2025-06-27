@@ -44,7 +44,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
       await page.waitForTimeout(3000);
 
-      let links = await page.$$eval('a', as => as.map(a=>a.href));
+      let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
       foundLinks = links.filter(l => l && !l.includes('bing.com'));
       if(!foundLinks.length){
         await page.screenshot({ path: `uploads/bing_search_${fileId}_noresult.png` }).catch(()=>{});
@@ -69,7 +69,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       await page.waitForNavigation({ waitUntil:'domcontentloaded', timeout:15000 }).catch(()=>{});
       await page.waitForTimeout(3000);
 
-      let links = await page.$$eval('a', as => as.map(a=>a.href));
+      let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
       foundLinks = links.filter(l => l && !l.includes('tineye.com'));
       if(!foundLinks.length){
         await page.screenshot({ path:`uploads/tineye_search_${fileId}_noresult.png` }).catch(()=>{});
@@ -96,7 +96,7 @@ async function doMultiReverseImage(imagePath, fileId) {
       await fileInput.uploadFile(imagePath);
       await page.waitForTimeout(5000);
 
-      let links = await page.$$eval('a', as => as.map(a=>a.href));
+      let links = await page.$$eval('a', as => Array.from(as).map(a => a.href));
       foundLinks = links.filter(l => l && !l.includes('baidu.com'));
       if(!foundLinks.length){
         await page.screenshot({ path:`uploads/baidu_search_${fileId}_noresult.png` }).catch(()=>{});
