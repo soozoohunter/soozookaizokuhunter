@@ -168,8 +168,8 @@ def health():
     return {"status": "fastapi OK"}
 
 # Dedicated healthcheck endpoint for container probes
-@app.get("/healthz")
-def healthz():
+@app.get("/healthz", status_code=200)
+def health_check():
     return {"status": "ok"}
 
 @app.post("/api/upload")
