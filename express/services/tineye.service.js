@@ -29,17 +29,19 @@ async function searchByBuffer(buffer) {
             },
         });
 
-        const matches = Array.isArray(response.data?.results?.matches)
-            ? response.data.results.matches
+        const tinEyeResults = response.data?.results;
+        const matches = Array.isArray(tinEyeResults?.matches)
+            ? tinEyeResults.matches
             : [];
-        if (!Array.isArray(response.data?.results?.matches)) {
-            logger.warn('[TinEye Service] matches is not array:', response.data?.results?.matches);
+        if (!Array.isArray(tinEyeResults?.matches)) {
+            logger.warn('[TinEye Service] matches is not array:', tinEyeResults?.matches);
         }
+
         const results = matches.map(match => ({
-            url: match.image_url,
+            url: match?.image_url || '',
             type: 'Match',
             source: 'TinEye',
-            backlinks: Array.isArray(match.backlinks)
+            backlinks: Array.isArray(match?.backlinks)
                 ? match.backlinks.map(link => link.url)
                 : []
         }));
