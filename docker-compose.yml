@@ -58,7 +58,7 @@ services:
       - ./express:/app
       - /app/node_modules
       - ./uploads:/app/uploads
-      - ./express/credentials:/app/credentials:ro
+      - ./credentials:/app/credentials:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       suzoo_postgres:

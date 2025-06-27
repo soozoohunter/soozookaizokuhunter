@@ -1,18 +1,38 @@
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const logger = require('../utils/logger');
 const tinEyeService = require('./tineye.service');
-const fs = require('fs/promises');
+const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
-const visionClient = new ImageAnnotatorClient();
+let visionClient = null;
 const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 
-logger.info('[Service] Google Vision Client initialized.');
+function initClient() {
+    const keyFilename = path.join('/app/credentials', 'gcp-vision.json');
+    if (!fs.existsSync(keyFilename)) {
+        const msg = `[Vision Service] FATAL ERROR: Google Vision API credentials file not found at ${keyFilename}.`;
+        logger.error(msg);
+        return;
+    }
+
+    try {
+        visionClient = new ImageAnnotatorClient({ keyFilename });
+        logger.info('[Service] Google Vision Client initialized.');
+    } catch (error) {
+        logger.error('[Vision Service] Failed to initialize Google Vision Client:', error);
+    }
+}
+
+initClient();
 
 async function searchByBuffer(buffer) {
     if (!buffer) {
         return { success: false, links: [], error: 'Image buffer is required.' };
+    }
+
+    if (!visionClient) {
+        logger.error('[Vision Service] Client not initialized.');
+        return { success: false, links: [], error: 'Vision client not initialized' };
     }
 
     try {
@@ -39,6 +59,11 @@ async function searchByBuffer(buffer) {
 async function infringementScan(buffer) {
     if (!buffer) {
         throw new Error('Image buffer is required for infringement scan');
+    }
+
+    if (!visionClient) {
+        logger.error('[Vision Service] Client not initialized. Cannot perform infringement scan.');
+        return { tineye: null, vision: { success: false, links: [], error: 'Vision client not initialized' } };
     }
 
     // Directly send the buffer to TinEye instead of writing a temp file
