@@ -2,8 +2,8 @@
 # 版本: 3.9 (Production Ready)
 # 日期: 2025-06-27
 # 描述:
-# 1. [核心修正] 將 suzoo_fastapi 的 healthcheck 指令從 curl 改為更可靠的 wget。
-# 2. 這將徹底解決因健康檢查指令不存在而導致的 FastAPI 啟動失敗問題。
+# 1. [核心修正] 將 suzoo_fastapi 的 healthcheck 改為使用 Python 執行
+#    內部 HTTP 檢查，以避免 curl/wget 缺失導致的啟動失敗。
 networks:
   suzoo-network:
     driver: bridge
@@ -108,8 +108,8 @@ services:
       milvus:
         condition: service_started
     healthcheck:
-      # Use a dedicated health endpoint instead of the docs page
-      test: ["CMD", "wget", "--no-verbose", "--spider", "--fail", "http://localhost:8000/healthz"]
+      # Use a lightweight Python check since the image lacks curl/wget
+      test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 15s
       timeout: 5s
       retries: 5
