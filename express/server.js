@@ -9,6 +9,13 @@ const { sequelize, connectToDatabase } = require('./models');
 const { initializeBlockchainService } = require('./utils/chain');
 const createAdmin = require('./createDefaultAdmin');
 
+process.on('unhandledRejection', (reason) => {
+    logger.error('[UnhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+    logger.error('[UncaughtException]', err);
+});
+
 // --- 路由定義 ---
 const authRouter = require('./routes/authRoutes');
 const protectRouter = require('./routes/protect');
