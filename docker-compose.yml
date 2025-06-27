@@ -108,8 +108,8 @@ services:
       milvus:
         condition: service_started
     healthcheck:
-      # 【關鍵修正】改用 wget 進行健康檢查，它比 curl 更通用
-      test: ["CMD", "wget", "--no-verbose", "--spider", "--fail", "http://localhost:8000/docs"]
+      # Use a dedicated health endpoint instead of the docs page
+      test: ["CMD", "wget", "--no-verbose", "--spider", "--fail", "http://localhost:8000/healthz"]
       interval: 15s
       timeout: 5s
       retries: 5
