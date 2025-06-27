@@ -39,7 +39,8 @@ async function searchImageBaidu(browser, imagePath) {
             } else {
                 // 提取搜尋結果連結（過濾出百度搜尋結果中指向外部的連結）
                 const links = await page.$$eval('a[href]', anchors =>
-                    anchors.map(a => a.href).filter(href => href && !href.includes('baidu.com') && !href.startsWith('javascript'))
+                    Array.from(anchors).map(a => a.href)
+                        .filter(href => href && !href.includes('baidu.com') && !href.startsWith('javascript'))
                 );
                 // 去重與去除空值
                 result.links = Array.from(new Set(links));
