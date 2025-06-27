@@ -21,17 +21,19 @@ async function searchByBuffer(buffer) {
         return { success: false, matches: [], error: 'Invalid image buffer provided.' };
     }
 
-    logger.info('[TinEye Service] Starting search by image buffer...');
+    logger.info(`[TinEye Service] Starting search by image buffer (size: ${buffer.length} bytes)...`);
     const form = new FormData();
     form.append('image', buffer, { filename: 'upload.jpg', contentType: 'image/jpeg' });
 
+    const headers = {
+        ...form.getHeaders(),
+        'X-Api-Key': TINEYE_API_KEY,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+    };
+
     try {
         const response = await axios.post(TINEYE_API_URL, form, {
-            headers: {
-                ...form.getHeaders(),
-                'X-Api-Key': TINEYE_API_KEY,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            },
+            headers,
             timeout: 20000
         });
 
@@ -56,9 +58,9 @@ async function searchByBuffer(buffer) {
     } catch (error) {
         if (error.response) {
             logger.error(`[TinEye Service] API Error Status: ${error.response.status}`);
-            logger.error('[TinEye Service] API Error Data:', error.response.data);
+            logger.error('[TinEye Service] API Error Data:', error.response.data || '(empty)');
             logger.error('[TinEye Service] API Error Headers:', error.response.headers);
-            const errorMessage = JSON.stringify(error.response.data);
+            const errorMessage = JSON.stringify(error.response.data) || `HTTP ${error.response.status}`;
             return { success: false, matches: [], error: errorMessage };
         } else if (error.request) {
             logger.error('[TinEye Service] No response received from API server.', error.request);
