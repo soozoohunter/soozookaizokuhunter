@@ -39,7 +39,9 @@ async function searchByBuffer(buffer) {
             url: match.image_url,
             type: 'Match',
             source: 'TinEye',
-            backlinks: match.backlinks.map(link => link.url)
+            backlinks: Array.isArray(match.backlinks)
+                ? match.backlinks.map(link => link.url)
+                : []
         }));
 
         logger.info(`[TinEye Service] Search complete. Found ${results.length} matches.`);
