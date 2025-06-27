@@ -7,8 +7,9 @@ const os = require('os');
 const logger = require('./logger');
 
 const VECTOR_SERVICE_URL = process.env.VECTOR_SERVICE_URL;
-const INDEX_ENDPOINT = `${VECTOR_SERVICE_URL}/index-image`;
-const SEARCH_ENDPOINT = `${VECTOR_SERVICE_URL}/search-image`;
+// Align with the FastAPI service routes
+const INDEX_ENDPOINT = `${VECTOR_SERVICE_URL}/api/v1/image-insert`;
+const SEARCH_ENDPOINT = `${VECTOR_SERVICE_URL}/api/v1/image-search`;
 
 /**
  * 【修正】發送圖片 Buffer 到 Python 服務進行索引。
