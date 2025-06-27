@@ -49,7 +49,9 @@ async function searchByBuffer(buffer) {
 
     } catch (error) {
         const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
-        logger.error('[TinEye Service] Search failed:', errorMessage);
+        // Log full error object for better diagnostics
+        logger.error('[TinEye Service] Search failed:', error);
+        logger.error(`[TinEye Service] Error detail: ${errorMessage}`);
         return { success: false, matches: [], error: errorMessage };
     }
 }

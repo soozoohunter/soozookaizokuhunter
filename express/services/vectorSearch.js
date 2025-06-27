@@ -20,7 +20,9 @@ async function indexImage(localFilePath, id) {
     return resp.data;
   } catch (err) {
     const errorDetail = err.response ? JSON.stringify(err.response.data) : err.message;
-    logger.error(`[VectorSearch] indexImage failed for ID ${id}. Reason: ${errorDetail}`);
+    // Log full error object for better diagnostics
+    logger.error(`[VectorSearch] indexImage failed for ID ${id}.`, err);
+    logger.error(`[VectorSearch] indexImage error detail: ${errorDetail}`);
     throw new Error(`Vector service failed to index image: ${errorDetail}`);
   }
 }
@@ -40,7 +42,9 @@ async function searchLocalImage(localFilePath, topK = 5) {
     return resp.data;
   } catch (err) {
     const errorDetail = err.response ? JSON.stringify(err.response.data) : err.message;
-    logger.error(`[VectorSearch] searchLocalImage failed. Reason: ${errorDetail}`);
+    // Log full error object for better diagnostics
+    logger.error('[VectorSearch] searchLocalImage failed:', err);
+    logger.error(`[VectorSearch] searchLocalImage error detail: ${errorDetail}`);
     throw new Error(`Vector service failed to search image: ${errorDetail}`);
   }
 }
