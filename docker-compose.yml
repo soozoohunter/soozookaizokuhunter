@@ -1,12 +1,9 @@
 # docker-compose.yml (Final Corrected Version)
-# 版本: 3.8 (Production Ready)
+# 版本: 3.9 (Production Ready)
 # 日期: 2025-06-27
 # 描述:
-# 1. 整合所有成功的修正，包含為所有關鍵服務 (Postgres, Ganache, IPFS, RabbitMQ, Redis, FastAPI, Express, Frontend) 加上 healthcheck。
-# 2. 為所有需要依賴的服務 (Express, FastAPI, Frontend) 設定正確的 depends_on 條件，確保服務啟動順序正確無誤。
-# 3. 簡化並修正 Ganache 的啟動命令，確保其穩定性。
-# 4. 這份檔案旨在提供一個穩定、可靠的部署基礎。
-
+# 1. [核心修正] 將 suzoo_fastapi 的 healthcheck 指令從 curl 改為更可靠的 wget。
+# 2. 這將徹底解決因健康檢查指令不存在而導致的 FastAPI 啟動失敗問題。
 networks:
   suzoo-network:
     driver: bridge
@@ -111,7 +108,8 @@ services:
       milvus:
         condition: service_started
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8000/docs"]
+      # 【關鍵修正】改用 wget 進行健康檢查，它比 curl 更通用
+      test: ["CMD", "wget", "--no-verbose", "--spider", "--fail", "http://localhost:8000/docs"]
       interval: 15s
       timeout: 5s
       retries: 5
