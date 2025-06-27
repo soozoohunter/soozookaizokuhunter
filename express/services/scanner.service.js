@@ -14,29 +14,29 @@ async function performFullScan(options) {
         keyword: options.keyword
     });
 
-    const { buffer, keyword } = options; // 從 options 物件中解構出 buffer 和 keyword
+    const { buffer, keyword } = options;
 
-    if (!buffer || !Buffer.isBuffer(buffer)) {
+    if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
         throw new Error('A valid image buffer is required for a full scan.');
     }
     if (!keyword) {
-        logger.warn('[Scanner Service] No keyword provided, skipping keyword-based searches.');
+        logger.warn('[Scanner Service] No keyword provided, skipping all keyword-based searches.');
     }
 
     const startTime = Date.now();
 
     const scanPromises = [
         visionService.infringementScan(buffer),
-        keyword ? rapidApiService.tiktokSearch(keyword) : Promise.resolve({ success: true, links: [] }),
-        keyword ? rapidApiService.youtubeSearch(keyword) : Promise.resolve({ success: true, links: [] }),
-        keyword ? rapidApiService.instagramSearch(keyword) : Promise.resolve({ success: true, links: [] }),
-        keyword ? rapidApiService.facebookSearch(keyword) : Promise.resolve({ success: true, links: [] })
+        keyword ? rapidApiService.tiktokSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
+        keyword ? rapidApiService.youtubeSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
+        keyword ? rapidApiService.instagramSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
+        keyword ? rapidApiService.facebookSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' })
     ];
 
     const results = await Promise.allSettled(scanPromises);
     
     const [
-        vtResult,
+        infringementResult,
         tiktokResult,
         youtubeResult,
         instagramResult,
@@ -46,12 +46,12 @@ async function performFullScan(options) {
             return { success: true, ...res.value };
         } else {
             logger.error('[Scanner Service] A sub-scan failed:', res.reason);
-            return { success: false, links: [], matches: [], error: res.reason?.message || '未知錯誤' };
+            return { success: false, links: [], matches: [], error: res.reason?.message || 'Unknown error during sub-scan' };
         }
     });
 
-    const visionResult = vtResult.vision || { success: false, links: [] };
-    const tinEyeResult = vtResult.tineye || { success: false, links: [] };
+    const visionResult = infringementResult.vision || { success: false, links: [], error: infringementResult.error };
+    const tinEyeResult = infringementResult.tineye || { success: false, matches: [], error: infringementResult.error };
 
     const aggregatedResults = {
         imageSearch: {

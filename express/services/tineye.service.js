@@ -16,17 +16,23 @@ async function searchByBuffer(buffer) {
         logger.warn('[TinEye Service] TINEYE_API_KEY is not configured. Service disabled.');
         return { success: false, matches: [], error: 'TinEye API key not configured.' };
     }
+    if (!buffer || buffer.length === 0) {
+        logger.error('[TinEye Service] searchByBuffer was called with an empty or invalid buffer.');
+        return { success: false, matches: [], error: 'Invalid image buffer provided.' };
+    }
 
     logger.info('[TinEye Service] Starting search by image buffer...');
     const form = new FormData();
-    form.append('image', buffer, { filename: 'search.jpg' });
+    form.append('image', buffer, { filename: 'upload.jpg', contentType: 'image/jpeg' });
 
     try {
         const response = await axios.post(TINEYE_API_URL, form, {
             headers: {
                 ...form.getHeaders(),
                 'X-Api-Key': TINEYE_API_KEY,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             },
+            timeout: 20000
         });
 
         const matches = Array.isArray(response.data?.results?.matches)
@@ -48,11 +54,19 @@ async function searchByBuffer(buffer) {
         return { success: true, matches: results, error: null };
 
     } catch (error) {
-        const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
-        // Log full error object for better diagnostics
-        logger.error('[TinEye Service] Search failed:', error);
-        logger.error(`[TinEye Service] Error detail: ${errorMessage}`);
-        return { success: false, matches: [], error: errorMessage };
+        if (error.response) {
+            logger.error(`[TinEye Service] API Error Status: ${error.response.status}`);
+            logger.error('[TinEye Service] API Error Data:', error.response.data);
+            logger.error('[TinEye Service] API Error Headers:', error.response.headers);
+            const errorMessage = JSON.stringify(error.response.data);
+            return { success: false, matches: [], error: errorMessage };
+        } else if (error.request) {
+            logger.error('[TinEye Service] No response received from API server.', error.request);
+            return { success: false, matches: [], error: 'No response from TinEye API.' };
+        } else {
+            logger.error('[TinEye Service] Axios request setup error:', error.message);
+            return { success: false, matches: [], error: error.message };
+        }
     }
 }
 
