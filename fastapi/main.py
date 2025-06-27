@@ -167,6 +167,11 @@ def generate_pdf_certificate(username, fingerprint, ipfs_cid, cloud_url, tx_hash
 def health():
     return {"status": "fastapi OK"}
 
+# Dedicated healthcheck endpoint for container probes
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), authorization: str = Header(None)):
     """上傳檔案 => IPFS => Cloudinary => Ganache => PDF => DB"""
