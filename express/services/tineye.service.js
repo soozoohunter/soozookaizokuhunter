@@ -2,6 +2,8 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
+// **FIX**: 引入 file-type
+const { fileTypeFromBuffer } = require('file-type');
 
 const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
 const TINEYE_API_URL = 'https://api.tineye.com/rest/search';
@@ -21,14 +23,25 @@ async function searchByBuffer(buffer) {
         return { success: false, matches: [], error: 'Invalid image buffer provided.' };
     }
 
-    logger.info(`[TinEye Service] Starting search by image buffer (size: ${buffer.length} bytes)...`);
+    // **FIX**: 動態偵測 MIME 類型
+    const type = await fileTypeFromBuffer(buffer);
+    if (!type) {
+        logger.error('[TinEye Service] Could not determine file type from buffer.');
+        return { success: false, matches: [], error: 'Could not determine file type.' };
+    }
+    const { mime, ext } = type;
+
+    logger.info(`[TinEye Service] Starting search by image buffer (size: ${buffer.length} bytes, type: ${mime})...`);
     const form = new FormData();
-    form.append('image', buffer, { filename: 'upload.jpg', contentType: 'image/jpeg' });
+    form.append('image', buffer, {
+        filename: `upload.${ext}`,
+        contentType: mime
+    });
 
     const headers = {
         ...form.getHeaders(),
         'X-Api-Key': TINEYE_API_KEY,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+        'User-Agent': 'SooZoo Kaizoku Hunter/1.0'
     };
 
     try {
@@ -59,7 +72,7 @@ async function searchByBuffer(buffer) {
         if (error.response) {
             logger.error(`[TinEye Service] API Error Status: ${error.response.status}`);
             logger.error('[TinEye Service] API Error Data:', error.response.data || '(empty)');
-            logger.error('[TinEye Service] API Error Headers:', error.response.headers);
+            // logger.error('[TinEye Service] API Error Headers:', error.response.headers); // Headers 通常太長，可以先註解
             const errorMessage = JSON.stringify(error.response.data) || `HTTP ${error.response.status}`;
             return { success: false, matches: [], error: errorMessage };
         } else if (error.request) {

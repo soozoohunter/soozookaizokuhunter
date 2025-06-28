@@ -41,9 +41,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const { realName, birthDate, phone, address, email, title, keywords } = req.body;
     const { path: tempPath, originalname, mimetype } = req.file;
     const userIdFromToken = req.user ? req.user.id : null;
+    let fileBuffer;
 
     try {
-        const fileBuffer = fs.readFileSync(tempPath);
+        fileBuffer = fs.readFileSync(tempPath);
 
         let user;
         if (userIdFromToken) {
@@ -57,17 +58,19 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
         if (!user) {
             if (!realName || !email) {
+                fs.unlinkSync(tempPath);
                 return res.status(400).json({ error: '對於新用戶，姓名和電子郵件為必填項。'});
             }
             user = await User.create({ name: realName, dob: birthDate, phone, address, email });
             logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
         }
 
-        // Calculate SHA-256 fingerprint from the temporary file path using the updated service
-        const fingerprint = await fingerprintService.getHashFromFile(req.file.path);
+        // 從 buffer 計算指紋
+        const fingerprint = fingerprintService.sha256(fileBuffer);
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
             logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
+            fs.unlinkSync(tempPath);
             return res.status(409).json({
                 message: '此圖片先前已被保護。',
                 error: 'Conflict',
@@ -98,10 +101,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
         setImmediate(async () => {
             try {
-                await vectorSearchService.indexImage(tempPath, newFile.id.toString());
+                await vectorSearchService.indexImage(fileBuffer, newFile.id.toString());
                 logger.info(`[Background] Vector indexing complete for File ID: ${newFile.id}`);
             } catch (err) {
-                logger.error(`[Background] Vector indexing failed for File ID: ${newFile.id}`, err);
+                logger.error(`[Background] Vector indexing failed for File ID: ${newFile.id}. See previous error log for details.`);
             }
 
             try {
@@ -129,7 +132,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 const handleScanRequest = async (req, res) => {
     const fileId = req.params.fileId || req.body.fileId;
-    const routeName = req.path.includes('step2') ? '[Step2]' : '[Scan Route]';
+    const routeName = req.path.startsWith('/api/protect/step2') ? '[Step2]' : `[Scan Route ${req.path}]`;
 
     if (!fileId) {
         return res.status(400).json({ error: 'fileId is required' });
@@ -161,7 +164,10 @@ const handleScanRequest = async (req, res) => {
         const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
         logger.info(`${routeName} Internal vector search found ${vectorMatches?.results?.length || 0} similar results.`);
 
-        const finalResults = { ...scanResults, internalMatches: vectorMatches };
+        const finalResults = { 
+            scan: scanResults, 
+            internalMatches: vectorMatches 
+        };
         file.status = 'scanned';
         file.resultJson = JSON.stringify(finalResults);
         await file.save();
@@ -172,8 +178,8 @@ const handleScanRequest = async (req, res) => {
         const reportUrl = `${process.env.PUBLIC_HOST}/uploads/reports/${reportFileName}`;
 
         const suspiciousLinks = [
-            ...(finalResults.imageSearch?.googleVision?.links || []),
-            ...((finalResults.imageSearch?.tineye?.matches || []).flatMap(m => m.backlinks || [m.url]))
+            ...(scanResults.reverseImageSearch?.googleVision?.links || []),
+            ...((scanResults.reverseImageSearch?.tineye?.matches || []).flatMap(m => m.backlinks?.length ? m.backlinks : [m.url]))
         ].filter(Boolean);
 
         setImmediate(async () => {
@@ -181,7 +187,7 @@ const handleScanRequest = async (req, res) => {
                 await generateScanPDFWithMatches({
                     file: file,
                     suspiciousLinks,
-                    matchedImages: vectorMatches?.results || [],
+                    matchedImages: scanResults.verifiedMatches || [],
                 }, reportPath);
                 await file.update({ report_url: reportUrl });
                 logger.info(`${routeName} Report generated and URL updated for File ID: ${fileId}`);
