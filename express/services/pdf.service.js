@@ -1,16 +1,24 @@
 const logger = require('../utils/logger');
 
 /**
- * Temporary placeholder for certificate PDF generation.
- * This implementation only logs and returns a fake path.
- * Replace with real PDF generation logic when ready.
- * @param {object} data
- * @returns {Promise<string>} absolute file path of generated PDF
+ * 這是一個臨時的、假的 PDF 生成函式，用於防止應用程式崩潰。
+ * 當您提供了真實的 PDF 生成邏輯後，我會為您替換掉它。
+ * @param {object} data - 生成證書所需的數據
+ * @returns {Promise<string>} - 返回一個假的 PDF 文件路徑
  */
 async function generateCertificatePDF(data) {
-  logger.warn('[PDF Service] Using temporary generateCertificatePDF implementation');
-  await new Promise(res => setTimeout(res, 50));
-  return '/tmp/fake-certificate.pdf';
+  logger.warn('[PDF Service] Using temporary patch for generateCertificatePDF. No actual PDF will be generated.');
+
+  // 模擬異步操作
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  // 假設 PDF 已生成並儲存在一個臨時路徑
+  const fakePdfPath = '/tmp/fake-certificate.pdf';
+  logger.info(`[PDF Service] Mock PDF generated for user: ${data.userName}, file: ${data.fileName}. Path: ${fakePdfPath}`);
+
+  return fakePdfPath;
 }
 
-module.exports = { generateCertificatePDF };
+module.exports = {
+  generateCertificatePDF,
+};
