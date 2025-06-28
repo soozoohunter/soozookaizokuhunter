@@ -37,7 +37,7 @@ Object.keys(db).forEach(modelName => {
 logger.info('[Database] Model associations configured.');
 
 // --- 4. 新增關鍵的資料庫連接函式 ---
-const connectToDatabase = async (retries = 5, delay = 5000) => {
+const connectToDatabase = async (retries = 10, delay = 5000) => {
   for (let i = 1; i <= retries; i++) {
     try {
       await sequelize.authenticate();
