@@ -63,7 +63,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
             logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
         }
 
-        const fingerprint = await fingerprintService.getHash(fileBuffer);
+        // Calculate SHA-256 fingerprint from the temporary file path
+        const fingerprint = await fingerprintService.getHash(tempPath);
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
             logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
