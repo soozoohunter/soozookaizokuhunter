@@ -1,13 +1,17 @@
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
-const logger = require('../utils/logger'); // 引入 logger
+const logger = require('../utils/logger');
 
 const PYTHON_VECTOR_URL = process.env.PYTHON_VECTOR_URL || 'http://suzoo_python_vector:8000';
 
-async function indexImage(localFilePath, id) {
+async function indexImage(imageInput, id) {
   const form = new FormData();
-  form.append('image', fs.createReadStream(localFilePath));
+  if (Buffer.isBuffer(imageInput)) {
+    form.append('image', imageInput, { filename: `image-${id}.jpg` });
+  } else {
+    form.append('image', fs.createReadStream(imageInput));
+  }
   form.append('id', String(id));
 
   const url = `${PYTHON_VECTOR_URL}/api/v1/image-insert`;
@@ -15,8 +19,8 @@ async function indexImage(localFilePath, id) {
 
   try {
     const resp = await axios.post(url, form, {
-      headers: { 
-        ...form.getHeaders() 
+      headers: {
+        ...form.getHeaders()
       },
       timeout: 10000
     });
@@ -35,17 +39,21 @@ async function indexImage(localFilePath, id) {
   }
 }
 
-async function searchLocalImage(localFilePath, topK = 5) {
+async function searchLocalImage(imageInput, topK = 5) {
   const form = new FormData();
-  form.append('image', fs.createReadStream(localFilePath));
+  if (Buffer.isBuffer(imageInput)) {
+    form.append('image', imageInput, { filename: 'search.jpg' });
+  } else {
+    form.append('image', fs.createReadStream(imageInput));
+  }
   form.append('top_k', topK.toString());
 
   const url = `${PYTHON_VECTOR_URL}/api/v1/image-search`;
   logger.info(`[VectorSearch] Sending search request to ${url} with topK=${topK}`);
   try {
     const resp = await axios.post(url, form, {
-      headers: { 
-        ...form.getHeaders() 
+      headers: {
+        ...form.getHeaders()
       },
       timeout: 10000
     });
