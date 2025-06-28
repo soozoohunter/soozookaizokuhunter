@@ -1,73 +1,90 @@
-// express/services/scanner.service.js (Robust Version)
+// express/services/scanner.service.js (New Logic for Reverse Image Search)
 const logger = require('../utils/logger');
 const visionService = require('./vision.service');
-const rapidApiService = require('./rapidApi.service');
+const tinEyeService = require('./tineye.service');
+const imageFetcher = require('./imageFetcher');
+const fingerprintService = require('./fingerprintService');
+const axios = require('axios');
+
+// 輔助函式：用於延遲，避免短時間內發送過多請求
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * 執行完整的侵權掃描，作為一個協同運作層。
+ * 執行完整的侵權掃描，核心是反向圖片搜尋和結果驗證。
+ * @param {object} options
+ * @param {Buffer} options.buffer - 原始圖片的緩衝區。
+ * @param {string} options.originalFingerprint - 原始圖片的 SHA256 指紋。
+ * @param {string} [options.keyword] - (可選) 用於輔助搜尋的關鍵字。
  */
 async function performFullScan(options) {
-    // 【新增】詳細記錄收到的參數，以便除錯
-    logger.info('[Scanner Service] Received scan request with options:', {
-        hasBuffer: !!options.buffer,
-        bufferLength: options.buffer ? options.buffer.length : 'N/A',
-        keyword: options.keyword
-    });
+    const startTime = Date.now();
+    logger.info('[Scanner Service] Received scan request with new logic.');
 
-    const { buffer, keyword } = options;
+    const { buffer, originalFingerprint } = options;
 
     if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
         throw new Error('A valid image buffer is required for a full scan.');
     }
-    if (!keyword) {
-        logger.warn('[Scanner Service] No keyword provided, skipping all keyword-based searches.');
+    if (!originalFingerprint) {
+        throw new Error('Original image fingerprint is required for comparison.');
     }
 
-    const startTime = Date.now();
+    // 1. 核心搜尋：使用 Google Vision 和 TinEye 進行反向圖片搜尋
+    logger.info('[Scanner Service] Step 1: Performing reverse image search with Google Vision and TinEye...');
+    const [visionResult, tineyeResult] = await Promise.all([
+        visionService.searchByBuffer(buffer),
+        tinEyeService.searchByBuffer(buffer)
+    ]);
 
-    const scanPromises = [
-        visionService.infringementScan(buffer),
-        keyword ? rapidApiService.tiktokSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
-        keyword ? rapidApiService.youtubeSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
-        keyword ? rapidApiService.instagramSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' }),
-        keyword ? rapidApiService.facebookSearch(keyword) : Promise.resolve({ success: true, links: [], error: 'Keyword not provided' })
-    ];
+    // 合併來自兩個來源的 URL，並確保唯一性
+    const visionLinks = visionResult.success ? visionResult.links : [];
+    const tineyeLinks = tineyeResult.success ? tineyeResult.matches.flatMap(m => m.backlinks.length > 0 ? m.backlinks : [m.url]) : [];
 
-    const results = await Promise.allSettled(scanPromises);
-    
-    const [
-        infringementResult,
-        tiktokResult,
-        youtubeResult,
-        instagramResult,
-        facebookResult
-    ] = results.map(res => {
-        if (res.status === 'fulfilled') {
-            return { success: true, ...res.value };
-        } else {
-            logger.error('[Scanner Service] A sub-scan failed:', res.reason);
-            return { success: false, links: [], matches: [], error: res.reason?.message || 'Unknown error during sub-scan' };
+    const uniqueUrls = [...new Set([...visionLinks, ...tineyeLinks])];
+    logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs.`);
+
+    // 2. 驗證與深化：訪問 URL，下載圖片並比對指紋
+    logger.info('[Scanner Service] Step 2: Verifying matches by fetching images and comparing fingerprints...');
+    const verifiedMatches = [];
+    for (const url of uniqueUrls.slice(0, 30)) { // 限制驗證數量以避免超時和成本
+        try {
+            const imageUrlOnPage = await imageFetcher.getMainImageUrl(url);
+            if (!imageUrlOnPage) {
+                logger.warn(`[Scanner Service] Could not extract image URL from page: ${url}`);
+                continue;
+            }
+
+            const imageResponse = await axios.get(imageUrlOnPage, { responseType: 'arraybuffer' });
+            const downloadedImageBuffer = Buffer.from(imageResponse.data);
+
+            const downloadedImageFingerprint = fingerprintService.sha256(downloadedImageBuffer);
+
+            if (downloadedImageFingerprint === originalFingerprint) {
+                logger.info(`[Scanner Service] CONFIRMED MATCH! Fingerprint matches at: ${url}`);
+                verifiedMatches.push({
+                    pageUrl: url,
+                    imageUrl: imageUrlOnPage,
+                    source: 'Verified Match',
+                    fingerprintMatch: true
+                });
+            }
+            await delay(200);
+        } catch (error) {
+            logger.error(`[Scanner Service] Failed to verify URL ${url}: ${error.message}`);
         }
-    });
-
-    const visionResult = infringementResult.vision || { success: false, links: [], error: infringementResult.error };
-    const tinEyeResult = infringementResult.tineye || { success: false, matches: [], error: infringementResult.error };
+    }
 
     const aggregatedResults = {
-        imageSearch: {
+        reverseImageSearch: {
             googleVision: visionResult,
-            tineye: tinEyeResult,
+            tineye: tineyeResult,
+            potentialUrlsFound: uniqueUrls.length
         },
-        keywordSearch: {
-            tiktok: tiktokResult,
-            youtube: youtubeResult,
-            instagram: instagramResult,
-            facebook: facebookResult,
-        }
+        verifiedMatches: verifiedMatches
     };
-    
+
     const duration = Date.now() - startTime;
-    logger.info(`[Scanner Service] Full scan completed in ${duration}ms`);
+    logger.info(`[Scanner Service] Full scan completed in ${duration}ms. Found ${verifiedMatches.length} verified matches.`);
     return aggregatedResults;
 }
 

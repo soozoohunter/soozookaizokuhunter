@@ -152,7 +152,8 @@ const handleScanRequest = async (req, res) => {
         logger.info(`${routeName} Performing full scan...`);
         const scanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
-            keyword: file.keywords || file.title || file.filename
+            originalFingerprint: file.fingerprint,
+            // keyword can be supplied in the future if needed
         });
         logger.info(`${routeName} Full scan complete.`);
 
