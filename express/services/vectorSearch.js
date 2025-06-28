@@ -7,10 +7,14 @@ const PYTHON_VECTOR_URL = process.env.PYTHON_VECTOR_URL || 'http://suzoo_python_
 
 async function indexImage(imageInput, id) {
   const form = new FormData();
+
+  // **FIX**: 處理傳入的 buffer 或 file path
   if (Buffer.isBuffer(imageInput)) {
-    form.append('image', imageInput, { filename: `image-${id}.jpg` });
-  } else {
+    form.append('image', imageInput, { filename: `image-${id}.jpg` }); // filename is arbitrary
+  } else if (typeof imageInput === 'string') { // Fallback for file path
     form.append('image', fs.createReadStream(imageInput));
+  } else {
+    throw new Error('Invalid imageInput type for indexImage. Must be a buffer or file path.');
   }
   form.append('id', String(id));
 
@@ -43,8 +47,10 @@ async function searchLocalImage(imageInput, topK = 5) {
   const form = new FormData();
   if (Buffer.isBuffer(imageInput)) {
     form.append('image', imageInput, { filename: 'search.jpg' });
-  } else {
+  } else if (typeof imageInput === 'string') {
     form.append('image', fs.createReadStream(imageInput));
+  } else {
+    throw new Error('Invalid imageInput type for searchLocalImage. Must be a buffer or file path.');
   }
   form.append('top_k', topK.toString());
 
