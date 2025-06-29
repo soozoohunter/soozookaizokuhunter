@@ -15,42 +15,33 @@ class IpfsService {
             const apiUrl = process.env.IPFS_API_URL || 'suzoo_ipfs';
             let url;
 
-            // **FIX**: Make the service smarter. If the ENV var is not a full URL, build one.
-            // This allows using 'suzoo_ipfs' for Python and still works for Node.js.
             if (apiUrl.startsWith('http')) {
                 url = new URL(apiUrl);
             } else {
-                // Assuming default port 5001 if only a hostname is provided
                 url = new URL(`http://${apiUrl}:5001`);
             }
-
+            
             this.client = create(url);
-            logger.info(`[ipfsService] IPFS client configured for ${url.href}`);
-            logger.info('[ipfsService] init =>');
-            this.client.isOnline().then(isOnline => {
-                if (isOnline) {
-                    logger.info('[ipfsService] connected to IPFS =>');
-                } else {
-                    logger.warn('[ipfsService] IPFS client created but node is not online.');
-                }
-            });
+            logger.info(`[ipfsService] IPFS client configured for ${url.hostname}:${url.port}`);
+            // **FIX**: Removed the problematic isOnline() check to avoid startup errors.
+            // The first real operation (add or cat) will test the connection anyway.
+            logger.info('[ipfsService] init => client created.');
 
         } catch (error) {
             logger.error('[ipfsService] Failed to initialize IPFS client:', error);
-            // The client remains null, subsequent calls will fail with a clear error.
         }
     }
 
     async saveFile(buffer) {
         if (!this.client) {
-            // This error is thrown if init() failed
             throw new Error('IPFS client not initialized (create() failed)');
         }
         try {
             logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
             const result = await this.client.add(buffer);
-            logger.info(`[ipfsService.saveFile] => CID= ${result.cid.toString()}`);
-            return result.cid.toString();
+            const cid = result.cid.toString();
+            logger.info(`[ipfsService.saveFile] => CID= ${cid}`);
+            return cid;
         } catch (error) {
             logger.error('[ipfsService.saveFile] Failed to save file:', error);
             throw error;
@@ -74,5 +65,4 @@ class IpfsService {
     }
 }
 
-// Export a singleton instance
 module.exports = new IpfsService();
