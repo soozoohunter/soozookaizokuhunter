@@ -1,9 +1,9 @@
-// express/services/tineye.service.js
+// express/services/tineye.service.js (Corrected for file-type v16)
 const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
-// **FIX**: 引入 file-type
-const { fileTypeFromBuffer } = require('file-type');
+// **FIX**: Correctly import file-type v16
+const fileType = require('file-type');
 
 const TINEYE_API_KEY = process.env.TINEYE_API_KEY;
 const TINEYE_API_URL = 'https://api.tineye.com/rest/search';
@@ -23,8 +23,8 @@ async function searchByBuffer(buffer) {
         return { success: false, matches: [], error: 'Invalid image buffer provided.' };
     }
 
-    // **FIX**: 動態偵測 MIME 類型
-    const type = await fileTypeFromBuffer(buffer);
+    // **FIX**: Correctly call the function for v16
+    const type = await fileType.fromBuffer(buffer);
     if (!type) {
         logger.error('[TinEye Service] Could not determine file type from buffer.');
         return { success: false, matches: [], error: 'Could not determine file type.' };
@@ -32,6 +32,7 @@ async function searchByBuffer(buffer) {
     const { mime, ext } = type;
 
     logger.info(`[TinEye Service] Starting search by image buffer (size: ${buffer.length} bytes, type: ${mime})...`);
+    
     const form = new FormData();
     form.append('image', buffer, {
         filename: `upload.${ext}`,
@@ -53,9 +54,7 @@ async function searchByBuffer(buffer) {
         const matches = Array.isArray(response.data?.results?.matches)
             ? response.data.results.matches
             : [];
-        if (!Array.isArray(response.data?.results?.matches)) {
-            logger.warn('[TinEye Service] matches is not array:', response.data?.results?.matches);
-        }
+        
         const results = matches.map(match => ({
             url: match.image_url,
             type: 'Match',
@@ -72,7 +71,6 @@ async function searchByBuffer(buffer) {
         if (error.response) {
             logger.error(`[TinEye Service] API Error Status: ${error.response.status}`);
             logger.error('[TinEye Service] API Error Data:', error.response.data || '(empty)');
-            // logger.error('[TinEye Service] API Error Headers:', error.response.headers); // Headers 通常太長，可以先註解
             const errorMessage = JSON.stringify(error.response.data) || `HTTP ${error.response.status}`;
             return { success: false, matches: [], error: errorMessage };
         } else if (error.request) {
