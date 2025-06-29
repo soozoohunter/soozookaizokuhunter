@@ -1,9 +1,6 @@
-# docker-compose.yml (Final Corrected Version)
-# 版本: 3.9 (Production Ready)
-# 日期: 2025-06-27
-# 描述:
-# 1. [核心修正] 將 suzoo_fastapi 的 healthcheck 改為使用 Python 執行
-#    內部 HTTP 檢查，以避免 curl/wget 缺失導致的啟動失敗。
+# docker-compose.yml (Final Robust Version - No YAML Anchors)
+version: '3.8'
+
 networks:
   suzoo-network:
     driver: bridge
@@ -36,7 +33,7 @@ services:
       retries: 3
       start_period: 30s
     restart: always
-    logging: &default-logging
+    logging:
       driver: "json-file"
       options:
         max-size: "10m"
@@ -69,8 +66,6 @@ services:
         condition: service_healthy
       suzoo_fastapi:
         condition: service_healthy
-      milvus:
-        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -82,7 +77,11 @@ services:
       retries: 5
       start_period: 60s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # -------------------------------------
   # AI/ML 後端服務 (Python/FastAPI)
@@ -108,16 +107,19 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
-      # Use a lightweight Python check since the image lacks curl/wget
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 20s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # -------------------------------------
   # 向量資料庫 Milvus (獨立模式)
@@ -145,10 +147,14 @@ services:
       retries: 10
       start_period: 30s
     restart: always
-  logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # -------------------------------------
-  # ETCD (for Milvus) - 新增服務
+  # ETCD (for Milvus)
   # -------------------------------------
   etcd:
     container_name: suzoo_etcd
@@ -169,7 +175,11 @@ services:
       retries: 5
       start_period: 15s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # -------------------------------------
   # 基礎架構服務
@@ -191,7 +201,11 @@ services:
       timeout: 5s
       retries: 5
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
@@ -212,7 +226,11 @@ services:
       retries: 3
       start_period: 20s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   suzoo_redis:
     container_name: suzoo_redis
@@ -229,7 +247,11 @@ services:
       timeout: 5s
       retries: 3
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
@@ -248,7 +270,11 @@ services:
       retries: 5
       start_period: 10s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   suzoo_ganache:
     container_name: suzoo_ganache
@@ -277,7 +303,11 @@ services:
       retries: 10
       start_period: 10s
     restart: always
-    logging: *default-logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 # -------------------------------------
 # 命名掛載卷 (Named Volumes)
