@@ -70,7 +70,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -108,7 +108,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       # Use a lightweight Python check since the image lacks curl/wget
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
