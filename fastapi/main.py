@@ -9,12 +9,15 @@ import ipfshttpclient
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
-from fastapi import FastAPI, File, UploadFile, HTTPException, Header
+import io
+from fastapi import FastAPI, File, UploadFile, HTTPException, Header, Form
 from fastapi.responses import JSONResponse
 from PIL import Image
 import imagehash
 from fpdf import FPDF
 from web3 import Web3
+from transformers import CLIPProcessor, CLIPModel
+from pymilvus import connections, utility, Collection, CollectionSchema, FieldSchema, DataType
 
 app = FastAPI()
 
@@ -33,6 +36,12 @@ RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+# Milvus and model configuration for vector search
+MILVUS_HOST = os.getenv("MILVUS_HOST", "suzoo_milvus")
+MILVUS_PORT = int(os.getenv("MILVUS_PORT", 19530))
+COLLECTION_NAME = "suzoo_image_vectors"
+MODEL_NAME = "openai/clip-vit-base-patch32"
 
 # 針對 IPFS，原本 "http://suzoo_ipfs:5001" 不符 multiaddr
 # 需改成 /dns4/ + /tcp/ + /http
@@ -162,6 +171,97 @@ def generate_pdf_certificate(username, fingerprint, ipfs_cid, cloud_url, tx_hash
     except Exception as ex:
         print("PDF upload error:", ex)
         return None
+
+# ====== Vector Search Setup ======
+# Load CLIP model once at startup
+print(f"Loading model: {MODEL_NAME}...")
+model = CLIPModel.from_pretrained(MODEL_NAME)
+processor = CLIPProcessor.from_pretrained(MODEL_NAME)
+print("Model loaded successfully.")
+
+def get_milvus_collection():
+    """Connect to Milvus and return the collection object"""
+    try:
+        if not connections.has_connection("default"):
+            connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
+
+        if not utility.has_collection(COLLECTION_NAME):
+            fields = [
+                FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=255),
+                FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512)
+            ]
+            schema = CollectionSchema(fields, "Image Similarity Search Collection")
+            collection = Collection(name=COLLECTION_NAME, schema=schema)
+
+            index_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
+            collection.create_index(field_name="vector", index_params=index_params)
+        else:
+            collection = Collection(name=COLLECTION_NAME)
+
+        collection.load()
+        return collection
+    except Exception as e:
+        print(f"Milvus connection/setup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Milvus service is unavailable: {e}")
+
+def image_to_vector(image: Image.Image):
+    """Convert PIL image to feature vector"""
+    inputs = processor(images=image, return_tensors="pt", padding=True)
+    image_features = model.get_image_features(**inputs)
+    vector = image_features[0].detach().numpy()
+    return vector / (vector ** 2).sum() ** 0.5
+
+
+@app.post("/api/v1/image-insert")
+async def image_insert(id: str = Form(...), image: UploadFile = File(...)):
+    try:
+        image_data = await image.read()
+        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+
+        vector = image_to_vector(pil_image)
+
+        collection = get_milvus_collection()
+
+        entities = [{"id": id, "vector": vector.tolist()}]
+
+        collection.insert(entities)
+        collection.flush()
+
+        print(f"Successfully inserted image with id: {id}")
+        return {"success": True, "message": "Image indexed successfully", "id": id}
+    except Exception as e:
+        print(f"Error during image insert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/image-search")
+async def image_search(top_k: int = Form(5), image: UploadFile = File(...)):
+    try:
+        image_data = await image.read()
+        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+
+        query_vector = image_to_vector(pil_image)
+
+        collection = get_milvus_collection()
+        search_params = {"metric_type": "L2", "params": {"nprobe": 10}}
+
+        results = collection.search(
+            data=[query_vector.tolist()],
+            anns_field="vector",
+            param=search_params,
+            limit=top_k,
+            output_fields=["id"]
+        )
+
+        response_data = []
+        for hit in results[0]:
+            response_data.append({"id": hit.entity.get('id'), "score": hit.distance})
+
+        print(f"Search complete. Found {len(response_data)} results.")
+        return {"success": True, "results": response_data}
+    except Exception as e:
+        print(f"Error during image search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 def health():
