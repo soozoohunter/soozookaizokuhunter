@@ -1,24 +1,25 @@
+// express/services/vectorSearch.js (Corrected Environment Variable)
 const axios = require('axios');
 const fs = require('fs');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
-const PYTHON_VECTOR_URL = process.env.PYTHON_VECTOR_URL || 'http://suzoo_python_vector:8000';
+// **FIX**: Use the correct environment variable 'VECTOR_SERVICE_URL'
+const VECTOR_URL = process.env.VECTOR_SERVICE_URL || 'http://suzoo_fastapi:8000';
 
 async function indexImage(imageInput, id) {
   const form = new FormData();
 
-  // **FIX**: 處理傳入的 buffer 或 file path
   if (Buffer.isBuffer(imageInput)) {
-    form.append('image', imageInput, { filename: `image-${id}.jpg` }); // filename is arbitrary
-  } else if (typeof imageInput === 'string') { // Fallback for file path
+    form.append('image', imageInput, { filename: `image-${id}.jpg` });
+  } else if (typeof imageInput === 'string') {
     form.append('image', fs.createReadStream(imageInput));
   } else {
     throw new Error('Invalid imageInput type for indexImage. Must be a buffer or file path.');
   }
   form.append('id', String(id));
 
-  const url = `${PYTHON_VECTOR_URL}/api/v1/image-insert`;
+  const url = `${VECTOR_URL}/api/v1/image-insert`;
   logger.info(`[VectorSearch] Sending index request for ID ${id} to ${url}`);
 
   try {
@@ -54,7 +55,7 @@ async function searchLocalImage(imageInput, topK = 5) {
   }
   form.append('top_k', topK.toString());
 
-  const url = `${PYTHON_VECTOR_URL}/api/v1/image-search`;
+  const url = `${VECTOR_URL}/api/v1/image-search`;
   logger.info(`[VectorSearch] Sending search request to ${url} with topK=${topK}`);
   try {
     const resp = await axios.post(url, form, {
