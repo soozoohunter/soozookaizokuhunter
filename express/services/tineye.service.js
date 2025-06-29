@@ -1,4 +1,4 @@
-// express/services/tineye.service.js (Final Version using Official Library)
+// express/services/tineye.service.js (Final Corrected Version)
 const TinEye = require('tineye-api');
 const logger = require('../utils/logger');
 
@@ -31,8 +31,9 @@ async function searchByBuffer(buffer) {
     logger.info(`[TinEye Service] Starting search by image buffer (size: ${buffer.length} bytes)...`);
 
     try {
-        // The official library handles everything internally
-        const response = await api.searchData(buffer, 'upload.jpg');
+        // **FIX**: The searchData method only requires the buffer.
+        // The second argument is an options object, not a filename string.
+        const response = await api.searchData(buffer);
 
         const rawMatches = response.results?.matches || [];
         
