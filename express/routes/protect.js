@@ -1,4 +1,4 @@
-// express/routes/protect.js (More Robust Version)
+// express/routes/protect.js (Final Fix for Buffer Type Check)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
@@ -33,7 +33,6 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-// This part seems fine and doesn't need changes.
 router.post('/step1', upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '未提供檔案。' });
@@ -69,7 +68,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
             logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
-            fs.unlinkSync(tempPath);
+            // No need to unlink here because the finally block will handle it.
             return res.status(409).json({
                 message: '此圖片先前已被保護。',
                 error: 'Conflict',
@@ -143,18 +142,19 @@ const handleScanRequest = async (req, res) => {
         }
         logger.info(`${routeName} File record found. Filename: ${file.filename}`);
 
-        const imageBuffer = await ipfsService.getFile(file.ipfs_hash);
+        const fetchedData = await ipfsService.getFile(file.ipfs_hash);
         
-        // **FIX**: Add a check here to ensure imageBuffer is valid before proceeding
-        if (!imageBuffer || !Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
+        // **FIX**: Convert Uint8Array to a Node.js Buffer and then check it.
+        const imageBuffer = fetchedData ? Buffer.from(fetchedData) : null;
+        
+        if (!imageBuffer || imageBuffer.length === 0) {
             logger.error(`${routeName} Failed to retrieve a valid image buffer from IPFS for CID: ${file.ipfs_hash}`);
             return res.status(500).json({ error: '從 IPFS 讀取有效圖片失敗。' });
         }
-        logger.info(`${routeName} Image retrieved from IPFS successfully.`);
+        logger.info(`${routeName} Image retrieved from IPFS successfully and converted to Buffer.`);
 
         logger.info(`${routeName} Performing full scan...`);
         
-        // **FIX**: Add debug log to inspect the object being passed
         const scanOptions = {
             buffer: imageBuffer,
             originalFingerprint: file.fingerprint,
@@ -218,7 +218,6 @@ const handleScanRequest = async (req, res) => {
 router.post('/step2', handleScanRequest);
 router.get('/scan/:fileId', handleScanRequest);
 
-// view route remains the same
 router.get('/view/:fileId', async (req, res) => {
     // ...
 });
