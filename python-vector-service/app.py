@@ -34,7 +34,12 @@ app = FastAPI()
 def init_milvus():
     try:
         logger.info(f"正在嘗試連接 Milvus: {MILVUS_HOST}:{MILVUS_PORT}...")
-        connections.connect(alias=MILVUS_ALIAS, host=MILVUS_HOST, port=MILVUS_PORT)
+        connections.connect(
+            alias=MILVUS_ALIAS,
+            host=MILVUS_HOST,
+            port=MILVUS_PORT,
+            timeout=60,  # increase timeout for slow startup environments
+        )
         logger.info("Milvus 連接成功。")
 
         # 檢查 Collection 是否存在
