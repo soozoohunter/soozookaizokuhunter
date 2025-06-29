@@ -76,15 +76,15 @@ cloudinary.config(
 # === Web3 (Ganache)
 w3 = Web3(Web3.HTTPProvider(BLOCKCHAIN_RPC_URL))
 
-# 改用 w3.isConnected() 以相容舊版 Web3
-if w3.isConnected():
+# 改用 w3.is_connected() 以相容新版 Web3
+if w3.is_connected():
     print("[FastAPI] Ganache connected at", BLOCKCHAIN_RPC_URL)
 else:
     print("[FastAPI] Ganache not connected:", BLOCKCHAIN_RPC_URL)
 
 # 預設合約 ABI
 contract = None
-if CONTRACT_ADDR and GANACHE_PRIV_KEY and w3.isConnected():
+if CONTRACT_ADDR and GANACHE_PRIV_KEY and w3.is_connected():
     try:
         abi = [
             {
@@ -117,14 +117,14 @@ def storeRecordOnChain(fingerprint, ipfsHash):
         return None
     try:
         acct = w3.eth.account.from_key(GANACHE_PRIV_KEY)
-        nonce = w3.eth.getTransactionCount(acct.address)
+        nonce = w3.eth.get_transaction_count(acct.address)
         tx_data = contract.functions.storeRecord(
             fingerprint, ipfsHash
-        ).buildTransaction({
+        ).build_transaction({
             'from': acct.address,
             'nonce': nonce,
             'gas': 300000,
-            'gasPrice': w3.toWei('1', 'gwei')
+            'gasPrice': w3.to_wei('1', 'gwei')
         })
         signed_tx = w3.eth.account.sign_transaction(tx_data, private_key=GANACHE_PRIV_KEY)
         tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
