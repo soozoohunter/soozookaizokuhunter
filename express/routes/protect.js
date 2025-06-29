@@ -70,7 +70,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
             logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
-            fs.unlinkSync(tempPath);
+            // **FIX**: Ensure temp file is unlinked even on conflict exit
+            fs.unlink(tempPath, (err) => {
+                if (err) logger.warn(`[Step 1] Conflict-Cleanup: Failed to delete temp file ${tempPath}:`, err);
+            });
             return res.status(409).json({
                 message: '此圖片先前已被保護。',
                 error: 'Conflict',
