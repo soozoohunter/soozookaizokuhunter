@@ -5,8 +5,6 @@ const FormData = require('form-data');
 const logger = require('../utils/logger');
 
 const VECTOR_URL = process.env.VECTOR_SERVICE_URL || 'http://suzoo_fastapi:8000';
-// ** FIX: Increased timeout from 10 seconds to 60 seconds for AI model processing
-const AXIOS_TIMEOUT = 60000;
 
 async function indexImage(imageInput, id) {
   const form = new FormData();
@@ -28,7 +26,8 @@ async function indexImage(imageInput, id) {
       headers: {
         ...form.getHeaders()
       },
-      timeout: AXIOS_TIMEOUT // Use the new timeout value
+      // **FIX**: Increased timeout to 3 minutes (180,000 ms) for CPU-based AI inference
+      timeout: 180000 
     });
     logger.info(`[VectorSearch] Index request for ID ${id} successful. Response:`, resp.data);
     return resp.data;
@@ -41,7 +40,7 @@ async function indexImage(imageInput, id) {
         detail: errorDetail,
         axiosError: err.toJSON()
     });
-    throw new Error(`Vector service failed to index image (ID: ${id}): ${errorDetail}`);
+    throw new Error(`Vector service failed to index image: ${errorDetail}`);
   }
 }
 
@@ -63,7 +62,8 @@ async function searchLocalImage(imageInput, topK = 5) {
       headers: {
         ...form.getHeaders()
       },
-      timeout: AXIOS_TIMEOUT // Use the new timeout value
+      // **FIX**: Increased timeout to 3 minutes (180,000 ms)
+      timeout: 180000
     });
     logger.info(`[VectorSearch] Search request successful. Found ${resp.data?.results?.length || 0} results.`);
     return resp.data;
