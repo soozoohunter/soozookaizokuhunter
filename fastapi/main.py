@@ -183,7 +183,12 @@ def get_milvus_collection():
     """Connect to Milvus and return the collection object"""
     try:
         if not connections.has_connection("default"):
-            connections.connect("default", host=MILVUS_HOST, port=MILVUS_PORT)
+            connections.connect(
+                "default",
+                host=MILVUS_HOST,
+                port=MILVUS_PORT,
+                timeout=60,  # increase timeout for slow startup environments
+            )
 
         if not utility.has_collection(COLLECTION_NAME):
             fields = [
