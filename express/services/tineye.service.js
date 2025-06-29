@@ -1,9 +1,9 @@
-// express/services/tineye.service.js (Corrected with HMAC-SHA256 Signature)
+// express/services/tineye.service.js (Corrected Signature Generation)
 const axios = require('axios');
 const FormData = require('form-data');
-const crypto = require('crypto'); // Node.js built-in crypto module
+const crypto = require('crypto');
 const logger = require('../utils/logger');
-const { fileTypeFromBuffer } = require('file-type');
+const { fromBuffer } = require('file-type'); // Correct way to import for v16
 
 const TINEYE_API_KEY = process.env.TINEYE_API_KEY; // This is the PRIVATE key
 const TINEYE_API_URL = 'https://api.tineye.com/rest/search/';
@@ -13,10 +13,10 @@ const TINEYE_API_URL = 'https://api.tineye.com/rest/search/';
  * @param {string} requestMethod - The HTTP method, e.g., 'POST'.
  * @param {string} nonce - A unique random string for this request.
  * @param {string} date - The current timestamp in seconds.
- * @param {string} boundary - The boundary string from the multipart/form-data.
+ * @param {object} params - The query parameters for the request.
  * @returns {string} The calculated hex signature.
  */
-function generateSignature(requestMethod, nonce, date, boundary) {
+function generateSignature(requestMethod, nonce, date, params) {
   const apiKey = TINEYE_API_KEY;
   if (!apiKey) {
     throw new Error('TINEYE_API_KEY is not defined.');
@@ -24,6 +24,9 @@ function generateSignature(requestMethod, nonce, date, boundary) {
 
   const api_url_path = '/rest/search/';
   const request_url = `https://api.tineye.com${api_url_path}`;
+  
+  // Sort parameters alphabetically
+  const sortedParams = Object.keys(params).sort().map(key => `${key}=${params[key]}`).join('&');
 
   const toSign = [
     apiKey,
@@ -33,7 +36,7 @@ function generateSignature(requestMethod, nonce, date, boundary) {
     date,
     nonce,
     request_url,
-    `image_count=0&limit=100&min_score=0&offset=0&sort=score&boundary=${boundary}`
+    sortedParams
   ].join('');
 
   const signature = crypto
@@ -60,7 +63,7 @@ async function searchByBuffer(buffer) {
     }
 
     try {
-        const imageType = await fileTypeFromBuffer(buffer);
+        const imageType = await fromBuffer(buffer);
         if (!imageType) {
             logger.error('[TinEye Service] Could not determine file type from buffer.');
             return { success: false, matches: [], error: 'Could not determine file type.' };
@@ -75,24 +78,30 @@ async function searchByBuffer(buffer) {
             contentType: mime
         });
 
-        // Generate signature components
+        // --- Signature Generation ---
         const nonce = crypto.randomBytes(12).toString('hex');
         const date = Math.floor(new Date().getTime() / 1000).toString();
-        const boundary = form.getBoundary();
-
-        // Generate the signature
-        const signature = generateSignature('POST', nonce, date, boundary);
         
-        const requestUrlWithParams = `${TINEYE_API_URL}?limit=100&offset=0&sort=score&min_score=0&image_count=0&date=${date}&nonce=${nonce}&api_sig=${signature}`;
+        const queryParams = {
+            limit: 100,
+            offset: 0,
+            sort: 'score',
+            min_score: 0,
+            image_count: 0, // This is a required parameter for signing, even if it's 0
+        };
+
+        const signature = generateSignature('POST', nonce, date, queryParams);
+        
+        const requestUrl = `${TINEYE_API_URL}?limit=${queryParams.limit}&offset=${queryParams.offset}&sort=${queryParams.sort}&min_score=${queryParams.min_score}&image_count=${queryParams.image_count}&date=${date}&nonce=${nonce}&api_sig=${signature}`;
         
         const headers = {
             ...form.getHeaders(),
-            'User-Agent': 'SooZoo Kaizoku Hunter/1.1'
+            'User-Agent': 'SooZoo Kaizoku Hunter/1.2'
         };
 
-        const response = await axios.post(requestUrlWithParams, form, {
+        const response = await axios.post(requestUrl, form, {
             headers,
-            timeout: 30000 // Increased timeout for signature requests
+            timeout: 30000
         });
 
         const matches = Array.isArray(response.data?.results?.matches)
