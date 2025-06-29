@@ -10,6 +10,7 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 import io
+import time
 from fastapi import FastAPI, File, UploadFile, HTTPException, Header, Form
 from fastapi.responses import JSONResponse
 from PIL import Image
@@ -38,14 +39,14 @@ CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 # Milvus and model configuration for vector search
-MILVUS_HOST = os.getenv("MILVUS_HOST", "suzoo_milvus")
+# Default to service name "milvus" to match docker-compose
+MILVUS_HOST = os.getenv("MILVUS_HOST", "milvus")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", 19530))
 COLLECTION_NAME = "suzoo_image_vectors"
 MODEL_NAME = "openai/clip-vit-base-patch32"
 
-# 針對 IPFS，原本 "http://suzoo_ipfs:5001" 不符 multiaddr
-# 需改成 /dns4/ + /tcp/ + /http
-IPFS_API_URL = "/dns4/suzoo_ipfs/tcp/5001/http"
+# Use simple HTTP URL to avoid multiaddr issues
+IPFS_API_URL = "http://suzoo_ipfs:5001"
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://suzoo_ganache:8545")
 GANACHE_PRIV_KEY = os.getenv("GANACHE_PRIVATE_KEY", "")
@@ -179,35 +180,41 @@ model = CLIPModel.from_pretrained(MODEL_NAME)
 processor = CLIPProcessor.from_pretrained(MODEL_NAME)
 print("Model loaded successfully.")
 
-def get_milvus_collection():
-    """Connect to Milvus and return the collection object"""
-    try:
-        if not connections.has_connection("default"):
-            connections.connect(
-                "default",
-                host=MILVUS_HOST,
-                port=MILVUS_PORT,
-                timeout=60,  # increase timeout for slow startup environments
-            )
+def get_milvus_collection(retries: int = 3, delay: int = 5):
+    """Connect to Milvus and return the collection object with simple retry."""
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            if not connections.has_connection("default"):
+                connections.connect(
+                    "default",
+                    host=MILVUS_HOST,
+                    port=MILVUS_PORT,
+                    timeout=60,  # increase timeout for slow startup environments
+                )
 
-        if not utility.has_collection(COLLECTION_NAME):
-            fields = [
-                FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=255),
-                FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512)
-            ]
-            schema = CollectionSchema(fields, "Image Similarity Search Collection")
-            collection = Collection(name=COLLECTION_NAME, schema=schema)
+            if not utility.has_collection(COLLECTION_NAME):
+                fields = [
+                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=255),
+                    FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512)
+                ]
+                schema = CollectionSchema(fields, "Image Similarity Search Collection")
+                collection = Collection(name=COLLECTION_NAME, schema=schema)
 
-            index_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
-            collection.create_index(field_name="vector", index_params=index_params)
-        else:
-            collection = Collection(name=COLLECTION_NAME)
+                index_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
+                collection.create_index(field_name="vector", index_params=index_params)
+            else:
+                collection = Collection(name=COLLECTION_NAME)
 
-        collection.load()
-        return collection
-    except Exception as e:
-        print(f"Milvus connection/setup failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Milvus service is unavailable: {e}")
+            collection.load()
+            return collection
+        except Exception as e:
+            last_err = e
+            print(f"Milvus connection attempt {attempt} failed: {e}")
+            time.sleep(delay)
+
+    print(f"Milvus connection/setup failed after {retries} attempts: {last_err}")
+    raise HTTPException(status_code=500, detail="Milvus service is unavailable")
 
 def image_to_vector(image: Image.Image):
     """Convert PIL image to feature vector"""
