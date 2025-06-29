@@ -124,8 +124,7 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:v2.3.16
-    command: ["milvus", "run", "standalone"]
+    image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
     ports:
       - "19530:19530"
       - "9091:9091"
@@ -133,12 +132,42 @@ services:
       - milvus_data:/var/lib/milvus
     networks:
       - suzoo-network
+    environment:
+      ETCD_ENDPOINTS: ${ETCD_ENDPOINTS}
+      ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
+    depends_on:
+      etcd:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9091/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9091/api/v1/health"]
       interval: 10s
-      timeout: 3s
-      retries: 3
+      timeout: 5s
+      retries: 10
       start_period: 30s
+    restart: always
+  logging: *default-logging
+
+  # -------------------------------------
+  # ETCD (for Milvus) - 新增服務
+  # -------------------------------------
+  etcd:
+    container_name: suzoo_etcd
+    image: bitnami/etcd:3.5
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd_data:/bitnami/etcd
+    networks:
+      - suzoo-network
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: always
     logging: *default-logging
 
@@ -259,3 +288,4 @@ volumes:
   redis_data:
   ipfs_data:
   milvus_data:
+  etcd_data:
