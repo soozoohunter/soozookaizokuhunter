@@ -73,6 +73,8 @@ services:
         condition: service_started
     networks:
       - suzoo-network
+    dns:
+      - 8.8.8.8
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
       interval: 15s
