@@ -108,7 +108,6 @@ export default function ProtectStep3() {
   const [internalMatches, setInternalMatches] = useState([]);
   const [fileInfoMap, setFileInfoMap] = useState({});
   const [linkItems, setLinkItems] = useState([]); // {source,url,status}
-  const [confirmedLinks, setConfirmedLinks] = useState([]);
   const [matchStatus, setMatchStatus] = useState({}); // id -> status
   const [confirmedMatches, setConfirmedMatches] = useState([]);
 
@@ -123,9 +122,21 @@ export default function ProtectStep3() {
 
   const allPotentialLinks = useMemo(() => {
     if (!scanResult) return [];
-    const googleLinks = scanResult.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google Vision', url })) || [];
-    const tineyeLinks = scanResult.reverseImageSearch?.tineye?.matches?.map(m => ({ source: 'TinEye', url: m.url })) || [];
-    const bingLinks = scanResult.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
+    const googleLinks =
+      scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({
+        source: 'Google',
+        url,
+      })) || [];
+    const tineyeLinks =
+      scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(m => ({
+        source: 'TinEye',
+        url: m.url,
+      })) || [];
+    const bingLinks =
+      scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({
+        source: 'Bing',
+        url,
+      })) || [];
     return [...googleLinks, ...tineyeLinks, ...bingLinks];
   }, [scanResult]);
 
@@ -214,7 +225,6 @@ export default function ProtectStep3() {
       const next = [...prev];
       if (next[idx]) {
         next[idx].status = 'confirmed';
-        setConfirmedLinks(c => [...c, next[idx].url]);
       }
       return next;
     });
@@ -326,7 +336,7 @@ export default function ProtectStep3() {
                 state: {
                   ...fileData,
                   suspiciousLinks: [
-                    ...confirmedLinks,
+                    ...linkItems.filter(l => l.status !== 'ignored').map(l => l.url),
                     ...confirmedMatches.map(id => `/api/protect/view/${id}`)
                   ],
                   scanReportUrl: scanResult?.scanReportUrl
@@ -336,7 +346,7 @@ export default function ProtectStep3() {
             disabled={
               loading ||
               error ||
-              (!confirmedLinks.length && !confirmedMatches.length)
+              linkItems.filter(l => l.status !== 'ignored').length === 0
             }
           >
             查看報告與申訴 (Step 4) →
