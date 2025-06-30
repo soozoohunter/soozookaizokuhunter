@@ -1,4 +1,4 @@
-// express/services/ipfsService.js (Final, Robust Version)
+// express/services/ipfsService.js (Final, Simplified & Corrected Version)
 const { create } = require('ipfs-http-client');
 const logger = require('../utils/logger');
 
@@ -11,19 +11,18 @@ class IpfsService {
   init() {
     try {
       const url = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
-      // The URL needs to be parsed for the ipfs-http-client v56+
-      const urlObject = new URL(url);
 
-      this.client = create({
-        host: urlObject.hostname,
-        port: urlObject.port,
-        protocol: urlObject.protocol.replace(':', ''),
-      });
+      // **FIX**: Let the ipfs-http-client handle the URL parsing directly.
+      // This is more robust and avoids the 'Invalid URL' error if a multiaddress
+      // string is used in the .env file.
+      this.client = create(url);
 
-      logger.info(`[ipfsService] IPFS client configured for ${urlObject.hostname}:${urlObject.port}`);
+      logger.info(`[ipfsService] IPFS client configured for: ${url}`);
       logger.info('[ipfsService] init => client created.');
     } catch (error) {
       logger.error('[ipfsService] Failed to initialize IPFS client:', error);
+      // Ensure client is null if initialization fails
+      this.client = null;
     }
   }
 
