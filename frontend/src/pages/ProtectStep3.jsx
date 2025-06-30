@@ -130,7 +130,6 @@ export default function ProtectStep3() {
       setLoading(true);
       setError('');
 
-      // 正確呼叫後端掃描 API
       const response = await fetch('/api/protect/step2', {
         method: 'POST',
         headers: {
@@ -138,23 +137,54 @@ export default function ProtectStep3() {
         },
         body: JSON.stringify({ fileId }),
       });
-      
-      // 後端回傳一般 JSON，因此直接解析即可
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || `Scan failed with status: ${response.status}`);
       }
 
-      setScanResult(data.results);
-      localStorage.setItem('protectStep3', JSON.stringify({ scanResults: data.results }));
+      const taskId = data.taskId;
+      if (!taskId) throw new Error('Scan task ID missing from response');
+
+      pollScanStatus(taskId);
 
     } catch (err) {
       console.error('[Step3 Scan Error]', err);
       setError(err.message || 'An unknown error occurred during the scan.');
-    } finally {
       setLoading(false);
     }
+  }
+
+  function pollScanStatus(taskId) {
+    let timer;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/scans/status/${taskId}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to get scan status');
+
+        if (data.status === 'completed') {
+          const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setScanResult(parsed.scan);
+          localStorage.setItem('protectStep3', JSON.stringify({ scanResults: parsed.scan }));
+          clearInterval(timer);
+          setLoading(false);
+        } else if (data.status === 'failed') {
+          clearInterval(timer);
+          setLoading(false);
+          setError('Scan task failed');
+        }
+      } catch (err) {
+        console.error('[Scan Poll Error]', err);
+        clearInterval(timer);
+        setLoading(false);
+        setError(err.message || 'Failed to retrieve scan result');
+      }
+    };
+
+    poll();
+    timer = setInterval(poll, 5000);
   }
 
   const handleGoBack = () => {
