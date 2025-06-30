@@ -4,7 +4,35 @@ const fs = require('fs');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
+const DEFAULT_TIMEOUT = parseInt(process.env.VECTOR_REQUEST_TIMEOUT_MS || '60000');
+const MAX_RETRIES = parseInt(process.env.VECTOR_REQUEST_RETRIES || '3');
+const RETRY_DELAY_MS = parseInt(process.env.VECTOR_REQUEST_RETRY_DELAY_MS || '5000');
+
 const VECTOR_URL = process.env.VECTOR_SERVICE_URL || 'http://suzoo_fastapi:8000';
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postWithRetry(url, form, timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const resp = await axios.post(url, form, {
+        headers: { ...form.getHeaders() },
+        timeout
+      });
+      return resp;
+    } catch (err) {
+      const errorSource = err.response ? 'server' : (err.request ? 'network' : 'request_setup');
+      const errorDetail = err.response ? JSON.stringify(err.response.data) : err.message;
+      logger.warn(`[VectorSearch] Attempt ${attempt} failed. Source: ${errorSource}. Detail: ${errorDetail}`);
+      if (attempt === retries) {
+        throw err;
+      }
+      await delay(RETRY_DELAY_MS);
+    }
+  }
+}
 
 async function indexImage(imageInput, id) {
   const form = new FormData();
@@ -22,13 +50,7 @@ async function indexImage(imageInput, id) {
   logger.info(`[VectorSearch] Sending index request for ID ${id} to ${url}`);
 
   try {
-    const resp = await axios.post(url, form, {
-      headers: {
-        ...form.getHeaders()
-      },
-      // **FIX**: Increased timeout to 3 minutes (180,000 ms) for CPU-based AI inference
-      timeout: 180000 
-    });
+    const resp = await postWithRetry(url, form);
     logger.info(`[VectorSearch] Index request for ID ${id} successful. Response:`, resp.data);
     return resp.data;
   } catch (err) {
@@ -58,13 +80,7 @@ async function searchLocalImage(imageInput, topK = 5) {
   const url = `${VECTOR_URL}/api/v1/image-search`;
   logger.info(`[VectorSearch] Sending search request to ${url} with topK=${topK}`);
   try {
-    const resp = await axios.post(url, form, {
-      headers: {
-        ...form.getHeaders()
-      },
-      // **FIX**: Increased timeout to 3 minutes (180,000 ms)
-      timeout: 180000
-    });
+    const resp = await postWithRetry(url, form);
     logger.info(`[VectorSearch] Search request successful. Found ${resp.data?.results?.length || 0} results.`);
     return resp.data;
   } catch (err) {
