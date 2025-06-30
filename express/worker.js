@@ -1,10 +1,9 @@
-// express/worker.js (Final Corrected Version for DB Models)
+// express/worker.js (Final Optimized Version)
 require('dotenv').config();
-const db = require('./models'); // Correctly import the main db object
+const db = require('./models');
 const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
-// The models are now accessed via the 'db' object, e.g., db.Scan, db.File
 const ipfsService = require('./services/ipfsService');
 const vectorSearchService = require('./services/vectorSearch');
 
@@ -14,79 +13,79 @@ async function processScanTask(task) {
 
     let scanRecord;
     try {
-        // ** FIX: Access the Scan model via the db object
         scanRecord = await db.Scan.findByPk(taskId);
-        if (!scanRecord) {
-            throw new Error(`Scan task with ID ${taskId} not found.`);
-        }
+        if (!scanRecord) throw new Error(`Scan task with ID ${taskId} not found.`);
         await scanRecord.update({ status: 'processing', started_at: new Date() });
 
-        // ** FIX: Access the File model via the db object
         const fileRecord = await db.File.findByPk(fileId);
-        if (!fileRecord) {
-            throw new Error(`File record with ID ${fileId} not found.`);
-        }
+        if (!fileRecord) throw new Error(`File record with ID ${fileId} not found.`);
 
-        logger.info(`[Worker] Task ${taskId}: Retrieving image from IPFS with hash ${fileRecord.ipfs_hash}`);
         const imageBuffer = await ipfsService.getFile(fileRecord.ipfs_hash);
-        
-        // This is a critical check to ensure we have a valid buffer before proceeding.
         if (!imageBuffer || !Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
             throw new Error('Failed to retrieve a valid image buffer from IPFS.');
         }
 
-        logger.info(`[Worker] Task ${taskId}: Performing full scan...`);
-        
-        // **FIX**: Ensure we pass the options object correctly.
-        const scanResults = await scannerService.performFullScan({
+        // --- Step 1: Fast External Scan ---
+        logger.info(`[Worker] Task ${taskId}: Performing FAST external scan...`);
+        const externalScanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
             originalFingerprint: fileRecord.fingerprint,
         });
-
-        logger.info(`[Worker] Task ${taskId}: Performing internal vector search...`);
-        const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
-
-        const finalResults = {
-            scan: scanResults,
-            internalMatches: vectorMatches
+        
+        let finalResults = {
+            scan: externalScanResults,
+            internalMatches: null
         };
         
-        logger.info(`[Worker] Task ${taskId}: Scan complete. Saving results to database.`);
-        // ** FIX: Access the File model via the db object
+        // --- Step 2: Save FIRST results to DB ---
+        // Now the frontend can already see the potential links!
+        logger.info(`[Worker] Task ${taskId}: External scan complete. Saving initial results.`);
+        await db.Scan.update(
+            { result: JSON.stringify(finalResults) },
+            { where: { id: taskId } }
+        );
+
+        // --- Step 3: Slow Internal Vector Scan ---
+        logger.info(`[Worker] Task ${taskId}: Performing SLOW internal vector search...`);
+        try {
+            const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
+            finalResults.internalMatches = vectorMatches;
+            logger.info(`[Worker] Task ${taskId}: Internal vector search completed.`);
+        } catch (vectorError) {
+            logger.error(`[Worker] Task ${taskId}: Internal vector search FAILED. Error: ${vectorError.message}`);
+            finalResults.internalMatches = { success: false, error: vectorError.message };
+        }
+
+        // --- Step 4: Save FINAL results and mark as completed ---
+        logger.info(`[Worker] Task ${taskId}: All scans finished. Saving final results.`);
+        await db.Scan.update(
+            {
+                status: 'completed',
+                completed_at: new Date(),
+                result: JSON.stringify(finalResults)
+            },
+            { where: { id: taskId } }
+        );
         await db.File.update(
-            { 
+            {
                 status: 'scanned',
                 resultJson: JSON.stringify(finalResults)
             },
             { where: { id: fileId } }
         );
 
-        // ** FIX: Access the Scan model via the db object
-        await db.Scan.update(
-            { 
-                status: 'completed', 
-                completed_at: new Date(),
-                result: JSON.stringify(finalResults)
-            },
-            { where: { id: taskId } }
-        );
-
-        logger.info(`[Worker] Task ${taskId}: Successfully processed scan for File ID ${fileId}.`);
+        logger.info(`[Worker] Task ${taskId}: Successfully processed all scans for File ID ${fileId}.`);
         return true;
 
     } catch (error) {
-        logger.error(`[Worker] Task ${taskId}: FAILED to process scan for File ID ${fileId}. Error: ${error.message}`);
+        logger.error(`[Worker] Task ${taskId}: A critical error occurred. Error: ${error.message}`);
         logger.error(error.stack);
         if (scanRecord) {
-            // ** FIX: Access the Scan model via the db object
-            await db.Scan.update(
-                {
-                    status: 'failed',
-                    completed_at: new Date(),
-                    result: JSON.stringify({ error: error.message })
-                },
-                { where: { id: taskId } }
-            );
+            await db.Scan.update({
+                status: 'failed',
+                completed_at: new Date(),
+                result: JSON.stringify({ error: error.message })
+            }, { where: { id: taskId } });
         }
         return false;
     }
@@ -98,7 +97,7 @@ async function startWorker() {
         await db.sequelize.authenticate();
         logger.info('[Worker] Database connection has been established successfully.');
         await queueService.connect();
-        
+
         queueService.consumeTasks(processScanTask);
         logger.info('[Worker] Worker is running and waiting for tasks. To exit press CTRL+C');
 
