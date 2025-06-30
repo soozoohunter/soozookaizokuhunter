@@ -1,4 +1,4 @@
-// express/services/ipfsService.js (Final, Simplified & Corrected Version)
+// express/services/ipfsService.js (Final Robust Version)
 const { create } = require('ipfs-http-client');
 const logger = require('../utils/logger');
 
@@ -10,18 +10,19 @@ class IpfsService {
 
   init() {
     try {
-      const url = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
+      // **FIX**: Read separate environment variables for robust configuration.
+      const host = process.env.IPFS_HOST || 'suzoo_ipfs';
+      const port = parseInt(process.env.IPFS_PORT || '5001', 10);
+      const protocol = process.env.IPFS_PROTOCOL || 'http';
 
-      // **FIX**: Let the ipfs-http-client handle the URL parsing directly.
-      // This is more robust and avoids the 'Invalid URL' error if a multiaddress
-      // string is used in the .env file.
-      this.client = create(url);
+      // **FIX**: Initialize the client with a configuration object instead of a URL string.
+      // This is the most reliable method and avoids all URL parsing issues.
+      this.client = create({ host, port, protocol });
 
-      logger.info(`[ipfsService] IPFS client configured for: ${url}`);
+      logger.info(`[ipfsService] IPFS client configured for ${protocol}://${host}:${port}`);
       logger.info('[ipfsService] init => client created.');
     } catch (error) {
       logger.error('[ipfsService] Failed to initialize IPFS client:', error);
-      // Ensure client is null if initialization fails
       this.client = null;
     }
   }
@@ -50,12 +51,10 @@ class IpfsService {
     logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
     try {
       const chunks = [];
-      // The 'cat' method returns an async iterator. We need to collect all chunks.
       for await (const chunk of this.client.cat(cid)) {
         chunks.push(chunk);
       }
 
-      // Concatenate all chunks into a single, standard Node.js Buffer.
       const fileBuffer = Buffer.concat(chunks);
       logger.info(`[ipfsService.getFile] Successfully fetched ${fileBuffer.length} bytes for CID: ${cid}`);
 
