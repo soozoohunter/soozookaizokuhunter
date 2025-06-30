@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
-const { User, File, ScanTask } = require('../models');
+const { User, File, Scan } = require('../models');
 
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
@@ -127,58 +127,68 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 });
 
 
-const handleScanRequest = async (req, res) => {
+/**
+ * @description Handles the dispatch of a new scan task.
+ * It first creates a record in the database, then sends the task to the queue.
+ */
+async function dispatchScanTask(req, res) {
     const fileId = req.params.fileId || req.body.fileId;
     const routeName = `[Scan Dispatch]`;
 
     logger.info(`${routeName} Received scan request for File ID: ${fileId}`);
 
+    if (!fileId) {
+        return res.status(400).json({ error: 'fileId is required.' });
+    }
+
     try {
-        const file = await File.findByPk(fileId);
-        if (!file) {
-            return res.status(404).json({ error: '找不到指定的檔案紀錄。' });
+        const fileRecord = await File.findByPk(fileId);
+        if (!fileRecord) {
+            return res.status(404).json({ error: `File with ID ${fileId} not found.` });
         }
 
-        const scanTask = await ScanTask.create({
-            file_id: file.id,
-            status: 'PENDING',
+        const newScan = await Scan.create({
+            file_id: fileId,
+            status: 'pending',
         });
-        logger.info(`${routeName} Created new scan task with ID: ${scanTask.id}`);
+        const taskId = newScan.id;
+        logger.info(`${routeName} Created new scan task in DB with ID: ${taskId}`);
 
         const taskMessage = {
-            taskId: scanTask.id,
-            fileId: file.id,
-            ipfsHash: file.ipfs_hash,
-            fingerprint: file.fingerprint,
+            taskId: taskId,
+            fileId: fileId,
+            ipfsHash: fileRecord.ipfs_hash,
+            fingerprint: fileRecord.fingerprint,
         };
 
         await queueService.sendToQueue(taskMessage);
 
         res.status(202).json({
             message: '掃描請求已接受，正在背景處理中。',
-            taskId: scanTask.id,
+            taskId: taskId,
+            fileId: fileId,
         });
 
     } catch (error) {
-        logger.error(`${routeName} A critical error occurred while dispatching scan for file ID ${fileId}:`, error);
-        res.status(500).json({ message: '分派掃描任務時發生內部伺服器錯誤', error: error.message });
+        logger.error(`${routeName} Failed to dispatch scan task for File ID ${fileId}:`, error);
+        res.status(500).json({ error: 'Failed to dispatch scan task.' });
     }
-};
+}
 
-router.post('/step2', handleScanRequest);
-router.get('/scan/:fileId', handleScanRequest);
+router.post('/step2', dispatchScanTask);
+router.get('/scan/:fileId', dispatchScanTask);
 
 router.get('/task/:taskId', async (req, res) => {
     const { taskId } = req.params;
     try {
-        const task = await ScanTask.findByPk(taskId);
+        const task = await Scan.findByPk(taskId);
         if (!task) {
             return res.status(404).json({ error: '找不到指定的任務。'});
         }
         res.status(200).json({
             taskId: task.id,
             status: task.status,
-            results: task.result_json,
+            results: task.result,
             updatedAt: task.updatedAt,
         });
     } catch (error) {
