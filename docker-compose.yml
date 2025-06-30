@@ -152,7 +152,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 15s
