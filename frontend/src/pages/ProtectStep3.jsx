@@ -1,37 +1,123 @@
-// frontend/src/pages/ProtectStep3.jsx (Final Corrected Logic)
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-// ... (Styled components: PageWrapper, Container, Title, etc. remain the same)
-const PageWrapper = styled.div`/* ... */`;
-const Container = styled.div`/* ... */`;
-const Title = styled.h1`/* ... */`;
-const InfoBlock = styled.div`/* ... */`;
-const ErrorMsg = styled.div`/* ... */`;
-const ButtonRow = styled.div`/* ... */`;
-const NavButton = styled.button`/* ... */`;
-const spin = keyframes`/* ... */`;
-const Spinner = styled.div`/* ... */`;
+/* (此處的 styled-components keyframes 與樣式維持原樣，故省略以節省篇幅) */
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+const neonGlow = keyframes`
+  0%, 100% {
+    box-shadow: 0 0 8px #ff6f00;
+  }
+  50% {
+    box-shadow: 0 0 25px #ff6f00;
+  }
+`;
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
 
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
+  background-size: 500% 500%;
+  animation: ${gradientFlow} 12s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
+
+const Container = styled.div`
+  width: 95%;
+  max-width: 600px;
+  background-color: rgba(30, 30, 30, 0.8);
+  border-radius: 12px;
+  border: 2px solid #ff6f00;
+  padding: 2rem;
+  animation: ${neonGlow} 2s ease-in-out infinite alternate;
+  text-align: center;
+`;
+
+const Title = styled.h2`
+  color: #FFD700;
+  margin-bottom: 1rem;
+  text-align: center;
+`;
+
+const InfoBlock = styled.div`
+  background-color: #1e1e1e;
+  border: 1px solid #ff6f00;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  word-break: break-all;
+  text-align: left;
+`;
+
+const ErrorMsg = styled.div`
+  background: #ff4444;
+  color: #fff;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+  text-align: center;
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+`;
+
+const NavButton = styled.button`
+  background: #f97316;
+  color: #fff;
+  border: 1px solid #ffaa00;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  &:hover:not(:disabled) {
+    background: #ea580c;
+    box-shadow: 0 0 8px #ff6f00;
+  }
+  &:disabled {
+    background: #555;
+    cursor: not-allowed;
+    border-color: #666;
+  }
+`;
+
+const Spinner = styled.div`
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 4px solid #fff;
+  border-top: 4px solid #f97316;
+  border-radius: 50%;
+  margin: 1rem auto;
+  animation: ${spin} 1s linear infinite;
+`;
 
 export default function ProtectStep3() {
   const navigate = useNavigate();
-  const location = useLocation(); // Use location to get state passed from previous route
-
+  const location = useLocation();
   const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [step1Data, setStep1Data] = useState(null);
   const [internalMatches, setInternalMatches] = useState([]);
   const [fileInfoMap, setFileInfoMap] = useState({});
 
-  // Memoize high similarity matches to prevent re-calculations
-  const highSimilarityMatches = React.useMemo(() => 
-    (internalMatches || []).filter(m => m.score >= 0.8),
-    [internalMatches]
-  );
+  const highSimilarityMatches = internalMatches.filter(m => m.score >= 0.8);
 
-  // This effect fetches detailed info for matched files
   useEffect(() => {
     highSimilarityMatches.forEach(match => {
       if (!fileInfoMap[match.id]) {
@@ -42,33 +128,28 @@ export default function ProtectStep3() {
               setFileInfoMap(prev => ({ ...prev, [match.id]: data }));
             }
           })
-          .catch(console.error);
+          .catch(() => {});
       }
     });
-  }, [highSimilarityMatches, fileInfoMap]);
+  }, [highSimilarityMatches]);
 
-  // ** CORE LOGIC FIX **
-  // This effect now ONLY starts polling based on a taskId passed from the previous page.
   useEffect(() => {
-    // The taskId should be passed via `Maps` state from the component that triggers the scan
+    const stored = localStorage.getItem('protectStep1');
+    if (stored) {
+      setStep1Data(JSON.parse(stored));
+    }
     const taskId = location.state?.taskId;
-    
     if (!taskId) {
       setError('沒有提供掃描任務 ID。請返回上一步重試。');
       setLoading(false);
       return;
     }
-    
-    // Start polling for the result of the ALREADY CREATED task.
     pollScanStatus(taskId);
+  }, [location.state]);
 
-  }, [location.state]); // Depend on location.state
-
-  // This function ONLY polls. It does not trigger a new scan.
   function pollScanStatus(taskId) {
     let attempts = 0;
-    const maxAttempts = 60; // Poll for 5 minutes max (60 attempts * 5 seconds)
-    
+    const maxAttempts = 60;
     const timer = setInterval(async () => {
       if (attempts >= maxAttempts) {
         clearInterval(timer);
@@ -77,13 +158,10 @@ export default function ProtectStep3() {
         return;
       }
       attempts++;
-
       try {
         const res = await fetch(`/api/scans/status/${taskId}`);
         if (!res.ok) throw new Error(`無法取得掃描狀態 (HTTP ${res.status})`);
-        
         const data = await res.json();
-        
         if (data.status === 'completed') {
           clearInterval(timer);
           const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
@@ -93,35 +171,160 @@ export default function ProtectStep3() {
           setLoading(false);
         } else if (data.status === 'failed') {
           clearInterval(timer);
-          const resultError = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setError(`掃描任務失敗: ${resultError.error}`);
+          const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setError(`掃描任務失敗: ${errData.error}`);
           setLoading(false);
         }
-        // If status is 'pending' or 'processing', do nothing and wait for the next interval.
       } catch (err) {
         clearInterval(timer);
         setError(err.message || '無法取得掃描結果');
         setLoading(false);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
   }
-  
-  // ... (Other functions like handleGoBack, handleGoStep4, handleDMCATakedown remain the same) ...
-  const handleGoBack = () => { /* ... */ };
-  const handleGoStep4 = () => { /* ... */ };
-  const handleDMCATakedown = async (matchId) => { /* ... */ };
-  
+
+  const handleGoBack = () => {
+    navigate('/protect/step2');
+  };
+
+  const handleGoStep4 = () => {
+    if (scanResult) {
+      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
+        ? scanResult.imageSearch.googleVision.links
+        : [];
+      const tineyeMatches = Array.isArray(scanResult.imageSearch?.tineye?.matches)
+        ? scanResult.imageSearch.tineye.matches
+        : [];
+      const tineyeLinks = tineyeMatches.map(m => m.url);
+      const suspiciousLinks = [...googleLinks, ...tineyeLinks];
+      navigate('/protect/step4-infringement', {
+        state: {
+          ...step1Data,
+          scanResults: scanResult,
+          suspiciousLinks
+        }
+      });
+    }
+  };
+
+  const handleDMCATakedown = async(matchId) => {
+    if(!window.confirm('確定要對此相似圖片提出 DMCA 申訴嗎？')) return;
+    try {
+      const res = await fetch('/api/dmca/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          workId: step1Data?.fileId,
+          infringingUrl: `/api/protect/view/${matchId}`
+        })
+      });
+      const data = await res.json();
+      if(res.ok){
+        alert('DMCA 已提交');
+      }else{
+        alert(`失敗: ${data.error || '未知錯誤'}`);
+      }
+    } catch(e){
+      alert(`錯誤: ${e.message}`);
+    }
+  };
+
   const renderContent = () => {
-    // ... (Your existing renderContent logic is mostly correct and can be reused) ...
+    if (loading) {
+      return (
+        <>
+          <Spinner />
+          <p>AI 侵權偵測進行中...</p>
+          <p>正在掃描 Google, TinEye 及各大圖庫平台，請稍候...</p>
+        </>
+      );
+    }
+
+    if (error) {
+      return <ErrorMsg><strong>掃描失敗：</strong>{error}</ErrorMsg>;
+    }
+
+    if (scanResult) {
+      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
+        ? scanResult.imageSearch.googleVision.links.map(url => ({ source: 'Google Vision', url }))
+        : [];
+      const tineyeLinks = Array.isArray(scanResult.imageSearch?.tineye?.matches)
+        ? scanResult.imageSearch.tineye.matches.map(m => ({ source: 'TinEye', url: m.url }))
+        : [];
+      const allLinks = [...googleLinks, ...tineyeLinks];
+
+      return (
+        <>
+          <InfoBlock>
+            <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
+            {allLinks.length > 0 ? (
+              <>
+                <p>發現 {allLinks.length} 個潛在的侵權或相似圖片連結：</p>
+                <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
+                  {allLinks.map((item, idx) => (
+                    <li key={idx} style={{ margin: '0.5rem 0' }}>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50' }}>
+                        {item.source}: {item.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>恭喜！初步掃描未在各大平台發現相似的公開圖片。</p>
+            )}
+          </InfoBlock>
+
+          <div className="ai-matches-section" style={{ marginTop: '1rem' }}>
+            <h3>內部資料庫 AI 相似度匹配 (待審核)</h3>
+            {highSimilarityMatches.length > 0 ? (
+              <div className="matches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                {highSimilarityMatches.map(match => (
+                  <div key={match.id} className="match-card" style={{ border: '1px solid #555', padding: '0.5rem', borderRadius: '6px' }}>
+                    <img
+                      src={`/api/protect/view/${match.id}`}
+                      alt={`Similar image with ID ${match.id}`}
+                      className="preview-image"
+                      style={{ maxWidth: '120px', display: 'block', marginBottom: '0.5rem' }}
+                    />
+                    <div className="match-info" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                      <p><strong>檔案 ID:</strong> {match.id}</p>
+                      <p><strong>相似度:</strong> {(match.score * 100).toFixed(1)}%</p>
+                      {fileInfoMap[match.id]?.title && (
+                        <p><strong>標題:</strong> {fileInfoMap[match.id].title}</p>
+                      )}
+                    </div>
+                    <div className="match-actions" style={{ textAlign: 'center' }}>
+                      <button onClick={() => handleDMCATakedown(match.id)}>發送 DMCA 申訴</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>在內部資料庫中未找到相似度高於 80% 的圖片。</p>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    return null;
   };
 
   return (
     <PageWrapper>
       <Container>
         <Title>Step 3: AI Infringement Scan</Title>
-        {/* Your renderContent function call here */}
+        {renderContent()}
         <ButtonRow>
-          {/* ... Your buttons here ... */}
+          <NavButton onClick={handleGoBack} disabled={loading}>
+            ← 返回上一步
+          </NavButton>
+          <NavButton onClick={handleGoStep4} disabled={loading || error || !scanResult}>
+            查看報告與申訴 (Step 4) →
+          </NavButton>
         </ButtonRow>
       </Container>
     </PageWrapper>
