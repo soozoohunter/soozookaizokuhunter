@@ -238,12 +238,15 @@ export default function ProtectStep1() {
 
       const receivedFile = data.file;
       const step1Data = {
-        fileId: receivedFile.id,
-        fingerprint: receivedFile.fingerprint,
-        ipfsHash: receivedFile.ipfs_hash,
-        txHash: receivedFile.tx_hash,
-        pdfUrl: data.pdfUrl || receivedFile.pdfUrl || '',
-        publicImageUrl: data.publicImageUrl || receivedFile.publicImageUrl || ''
+        file: {
+          id: receivedFile.id,
+          fingerprint: receivedFile.fingerprint,
+          ipfsHash: receivedFile.ipfs_hash,
+          txHash: receivedFile.tx_hash,
+          pdfUrl: data.pdfUrl || receivedFile.pdfUrl || '',
+          publicImageUrl: data.publicImageUrl || receivedFile.publicImageUrl || ''
+        },
+        user: data.user || null
       };
 
       localStorage.setItem('protectStep1', JSON.stringify(step1Data));
