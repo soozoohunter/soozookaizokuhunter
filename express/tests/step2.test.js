@@ -5,10 +5,13 @@ jest.mock('../models', () => ({
   File: {
     findByPk: jest.fn()
   },
+  ScanTask: {
+    create: jest.fn()
+  },
   User: {}
 }));
 
-const { File } = require('../models');
+const { File, ScanTask } = require('../models');
 const protectRouter = require('../routes/protect');
 
 const app = express();
@@ -18,6 +21,7 @@ app.use('/api/protect', protectRouter);
 describe('POST /api/protect/step2', () => {
   beforeEach(() => {
     File.findByPk.mockReset();
+    if (ScanTask.create) ScanTask.create.mockReset();
   });
 
   test('missing fileId returns 400', async () => {
@@ -31,10 +35,11 @@ describe('POST /api/protect/step2', () => {
     expect(res.status).toBe(404);
   });
 
-  test('valid fileId returns success', async () => {
+  test('valid fileId dispatches task', async () => {
     File.findByPk.mockResolvedValue({ id: 2, save: jest.fn() });
+    ScanTask.create = jest.fn().mockResolvedValue({ id: 5 });
     const res = await request(app).post('/api/protect/step2').send({ fileId: 2 });
-    expect(res.status).toBe(200);
-    expect(res.body.fileId).toBe(2);
+    expect(res.status).toBe(202);
+    expect(res.body.taskId).toBe(5);
   });
 });

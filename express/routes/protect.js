@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
-const { User, File } = require('../models');
+const { User, File, ScanTask } = require('../models');
 
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
@@ -15,6 +15,7 @@ const scannerService = require('../services/scanner.service');
 const fingerprintService = require('../services/fingerprintService');
 const vectorSearchService = require('../services/vectorSearch');
 const { generateCertificatePDF, generateScanPDFWithMatches } = require('../services/pdf.service.js');
+const queueService = require('../services/queue.service');
 
 const router = express.Router();
 
@@ -128,11 +129,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
 const handleScanRequest = async (req, res) => {
     const fileId = req.params.fileId || req.body.fileId;
-    const routeName = `[Scan Route ${req.path}]`;
+    const routeName = `[Scan Dispatch]`;
 
-    if (!fileId) {
-        return res.status(400).json({ error: 'fileId is required' });
-    }
     logger.info(`${routeName} Received scan request for File ID: ${fileId}`);
 
     try {
@@ -140,83 +138,54 @@ const handleScanRequest = async (req, res) => {
         if (!file) {
             return res.status(404).json({ error: '找不到指定的檔案紀錄。' });
         }
-        logger.info(`${routeName} File record found. Filename: ${file.filename}`);
 
-        const fetchedData = await ipfsService.getFile(file.ipfs_hash);
-        
-        // **FIX**: Convert Uint8Array to a Node.js Buffer and then check it.
-        const imageBuffer = fetchedData ? Buffer.from(fetchedData) : null;
-        
-        if (!imageBuffer || imageBuffer.length === 0) {
-            logger.error(`${routeName} Failed to retrieve a valid image buffer from IPFS for CID: ${file.ipfs_hash}`);
-            return res.status(500).json({ error: '從 IPFS 讀取有效圖片失敗。' });
-        }
-        logger.info(`${routeName} Image retrieved from IPFS successfully and converted to Buffer.`);
+        const scanTask = await ScanTask.create({
+            file_id: file.id,
+            status: 'PENDING',
+        });
+        logger.info(`${routeName} Created new scan task with ID: ${scanTask.id}`);
 
-        logger.info(`${routeName} Performing full scan...`);
-        
-        const scanOptions = {
-            buffer: imageBuffer,
-            originalFingerprint: file.fingerprint,
+        const taskMessage = {
+            taskId: scanTask.id,
+            fileId: file.id,
+            ipfsHash: file.ipfs_hash,
+            fingerprint: file.fingerprint,
         };
-        logger.info(`${routeName} Calling performFullScan with options:`, { 
-            hasBuffer: !!scanOptions.buffer, 
-            bufferLength: scanOptions.buffer?.length, 
-            hasFingerprint: !!scanOptions.originalFingerprint 
+
+        await queueService.sendToQueue(taskMessage);
+
+        res.status(202).json({
+            message: '掃描請求已接受，正在背景處理中。',
+            taskId: scanTask.id,
         });
-
-        const scanResults = await scannerService.performFullScan(scanOptions);
-        logger.info(`${routeName} Full scan complete.`);
-
-        logger.info(`${routeName} Performing internal vector search...`);
-        const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
-        logger.info(`${routeName} Internal vector search found ${vectorMatches?.results?.length || 0} similar results.`);
-
-        const finalResults = { scan: scanResults, internalMatches: vectorMatches };
-        
-        file.status = 'scanned';
-        file.resultJson = JSON.stringify(finalResults);
-        await file.save();
-        logger.info(`${routeName} Scan results saved to database.`);
-
-        const reportFileName = `report_${fileId}_${Date.now()}.pdf`;
-        const reportPath = path.join(REPORTS_DIR, reportFileName);
-        const reportUrl = `${process.env.PUBLIC_HOST}/uploads/reports/${reportFileName}`;
-
-        const suspiciousLinks = [
-            ...(scanResults.reverseImageSearch?.googleVision?.links || []),
-            ...((scanResults.reverseImageSearch?.tineye?.matches || []).flatMap(m => m.backlinks?.length ? m.backlinks : [m.url]))
-        ].filter(Boolean);
-
-        setImmediate(async () => {
-            try {
-                await generateScanPDFWithMatches({
-                    file: file,
-                    suspiciousLinks,
-                    matchedImages: scanResults.verifiedMatches || [],
-                }, reportPath);
-                await file.update({ report_url: reportUrl });
-                logger.info(`${routeName} Report generated and URL updated for File ID: ${fileId}`);
-            } catch (err) {
-                logger.error(`${routeName} Failed to generate or save report for File ID: ${fileId}`, err);
-            }
-        });
-
-        res.status(200).json({
-            message: '掃描完成',
-            reportUrl: reportUrl,
-            results: finalResults
-        });
-        logger.info(`${routeName} Successfully sent scan results to client.`);
 
     } catch (error) {
-        logger.error(`${routeName} A critical error occurred while scanning file ID ${fileId}:`, error);
-        res.status(500).json({ message: '掃描時發生內部伺服器錯誤', error: error.message });
+        logger.error(`${routeName} A critical error occurred while dispatching scan for file ID ${fileId}:`, error);
+        res.status(500).json({ message: '分派掃描任務時發生內部伺服器錯誤', error: error.message });
     }
 };
 
 router.post('/step2', handleScanRequest);
 router.get('/scan/:fileId', handleScanRequest);
+
+router.get('/task/:taskId', async (req, res) => {
+    const { taskId } = req.params;
+    try {
+        const task = await ScanTask.findByPk(taskId);
+        if (!task) {
+            return res.status(404).json({ error: '找不到指定的任務。'});
+        }
+        res.status(200).json({
+            taskId: task.id,
+            status: task.status,
+            results: task.result_json,
+            updatedAt: task.updatedAt,
+        });
+    } catch (error) {
+        logger.error(`[Task Status] Failed to get status for task ID ${taskId}:`, error);
+        res.status(500).json({ error: '查詢任務狀態失敗。' });
+    }
+});
 
 router.get('/view/:fileId', async (req, res) => {
     // ...
