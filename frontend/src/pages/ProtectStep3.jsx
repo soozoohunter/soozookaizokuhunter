@@ -107,6 +107,10 @@ export default function ProtectStep3() {
   const [error, setError] = useState('');
   const [internalMatches, setInternalMatches] = useState([]);
   const [fileInfoMap, setFileInfoMap] = useState({});
+  const [linkItems, setLinkItems] = useState([]); // {source,url,status}
+  const [confirmedLinks, setConfirmedLinks] = useState([]);
+  const [matchStatus, setMatchStatus] = useState({}); // id -> status
+  const [confirmedMatches, setConfirmedMatches] = useState([]);
 
   // 從路由狀態中獲取上一步傳來的檔案資訊和任務ID
   const fileData = location.state?.fileInfo;
@@ -124,6 +128,11 @@ export default function ProtectStep3() {
     const bingLinks = scanResult.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
     return [...googleLinks, ...tineyeLinks, ...bingLinks];
   }, [scanResult]);
+
+  useEffect(() => {
+    const items = allPotentialLinks.map(l => ({ ...l, status: 'pending' }));
+    setLinkItems(items);
+  }, [allPotentialLinks]);
 
   const fetchMatchDetails = useCallback(() => {
     highSimilarityMatches.forEach(match => {
@@ -199,38 +208,35 @@ export default function ProtectStep3() {
     pollScanStatus();
   }, [taskId]);
 
-  const handleDMCATakedown = async (matchId) => {
-    if (!fileData?.id) {
-      alert('無法獲取當前保護的檔案ID');
-      return;
-    }
-    if (!window.confirm(`確定要對檔案 ID: ${matchId} 的持有者提出 DMCA 申訴嗎？`))
-      return;
-    // ... DMCA 申訴邏輯 ...
+
+  const confirmLink = (idx) => {
+    setLinkItems(prev => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx].status = 'confirmed';
+        setConfirmedLinks(c => [...c, next[idx].url]);
+      }
+      return next;
+    });
   };
 
-  const handleLinkTakedown = async (infringingUrl) => {
-    if (!fileData?.id) {
-      alert('無法獲取當前保護的檔案ID');
-      return;
-    }
-    if (!window.confirm(`確定要對以下連結發起 DMCA 申訴？\n${infringingUrl}`)) return;
-
-    try {
-      const res = await fetch('/api/infringement/takedown', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ originalFileId: fileData.id, infringingUrl })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`DMCA 案件已提交！案件編號: ${data.dmcaCaseId || data.caseId || 'N/A'}`);
-      } else {
-        throw new Error(data.error || data.message || '未知錯誤');
+  const ignoreLink = (idx) => {
+    setLinkItems(prev => {
+      const next = [...prev];
+      if (next[idx]) {
+        next[idx].status = 'ignored';
       }
-    } catch (err) {
-      alert(`DMCA 申訴失敗：${err.message}`);
-    }
+      return next;
+    });
+  };
+
+  const confirmMatch = (id) => {
+    setMatchStatus(prev => ({ ...prev, [id]: 'confirmed' }));
+    setConfirmedMatches(c => [...c, id]);
+  };
+
+  const ignoreMatch = (id) => {
+    setMatchStatus(prev => ({ ...prev, [id]: 'ignored' }));
   };
 
   const renderContent = () => {
@@ -251,16 +257,24 @@ export default function ProtectStep3() {
         <InfoBlock>
           <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
           <h4>AI 尋獲的潛在連結 (待人工審核)</h4>
-          {allPotentialLinks.length > 0 ? (
+          {linkItems.length > 0 ? (
             <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
-              {allPotentialLinks.map((item, idx) => (
+              {linkItems.filter(l => l.status !== 'ignored').map((item, idx) => (
                 <li key={idx} style={{ margin: '0.5rem 0', display:'flex', alignItems:'center' }}>
                   <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#66bb6a', wordBreak:'break-all', flex:1 }}>
                     [{item.source}] {item.url}
                   </a>
-                  <button style={{ marginLeft: '0.5rem' }} onClick={() => handleLinkTakedown(item.url)}>
-                    發送申訴
-                  </button>
+                  {item.status === 'pending' && (
+                    <>
+                      <button style={{ marginLeft: '0.5rem', background:'#22c55e', color:'#000' }} onClick={() => confirmLink(idx)}>
+                        確認為侵權
+                      </button>
+                      <button style={{ marginLeft: '0.5rem', background:'#666', color:'#fff' }} onClick={() => ignoreLink(idx)}>
+                        標示為無關
+                      </button>
+                    </>
+                  )}
+                  {item.status === 'confirmed' && <span style={{ marginLeft:'0.5rem', color:'#22c55e' }}>已確認</span>}
                 </li>
               ))}
             </ul>
@@ -270,19 +284,26 @@ export default function ProtectStep3() {
           <h4>內部資料庫 AI 相似度匹配 (>{'80%'})</h4>
           {highSimilarityMatches.length > 0 ? (
             <div className="matches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
-              {highSimilarityMatches.map(match => (
-                <div key={match.id} /*...*/>
-                  <img src={`/api/protect/view/${match.id}`} /*...*/ />
-                  <div /*...*/>
-                    <p><strong>檔案 ID:</strong> {match.id}</p>
-                    <p><strong>相似度:</strong> {(match.score * 100).toFixed(1)}%</p>
-                    {fileInfoMap[match.id]?.title && <p><strong>標題:</strong> {fileInfoMap[match.id].title}</p>}
+              {highSimilarityMatches.filter(m => matchStatus[m.id] !== 'ignored').map(match => {
+                const status = matchStatus[match.id] || 'pending';
+                return (
+                  <div key={match.id} style={{ border:'1px solid #555', padding:'0.5rem' }}>
+                    <img src={`/api/protect/view/${match.id}`} alt="match" style={{ width:'120px', height:'120px', objectFit:'cover' }} />
+                    <div style={{ fontSize:'0.9rem', marginTop:'0.5rem' }}>
+                      <p><strong>檔案 ID:</strong> {match.id}</p>
+                      <p><strong>相似度:</strong> {(match.score * 100).toFixed(1)}%</p>
+                      {fileInfoMap[match.id]?.title && <p><strong>標題:</strong> {fileInfoMap[match.id].title}</p>}
+                    </div>
+                    {status === 'pending' && (
+                      <div style={{ marginTop:'0.5rem' }}>
+                        <button style={{ background:'#22c55e', color:'#000', marginRight:'0.25rem' }} onClick={() => confirmMatch(match.id)}>確認為侵權</button>
+                        <button style={{ background:'#666', color:'#fff' }} onClick={() => ignoreMatch(match.id)}>標示為無關</button>
+                      </div>
+                    )}
+                    {status === 'confirmed' && <div style={{ color:'#22c55e', marginTop:'0.5rem' }}>已確認</div>}
                   </div>
-                  <div /*...*/>
-                    <button onClick={() => handleDMCATakedown(match.id)}>發送 DMCA 申訴</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : <p>在內部資料庫中未找到相似度高於 80% 的圖片。</p>}
         </div>
@@ -299,7 +320,25 @@ export default function ProtectStep3() {
           <NavButton onClick={() => navigate(-1)} disabled={loading}>
             ← 返回
           </NavButton>
-          <NavButton onClick={() => navigate('/protect/step4-infringement', { state: { scanResult } })} disabled={loading || error || !scanResult}>
+          <NavButton
+            onClick={() =>
+              navigate('/protect/step4-infringement', {
+                state: {
+                  ...fileData,
+                  suspiciousLinks: [
+                    ...confirmedLinks,
+                    ...confirmedMatches.map(id => `/api/protect/view/${id}`)
+                  ],
+                  scanReportUrl: scanResult?.scanReportUrl
+                }
+              })
+            }
+            disabled={
+              loading ||
+              error ||
+              (!confirmedLinks.length && !confirmedMatches.length)
+            }
+          >
             查看報告與申訴 (Step 4) →
           </NavButton>
         </ButtonRow>
