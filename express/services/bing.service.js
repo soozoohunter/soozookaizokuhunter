@@ -31,9 +31,9 @@ async function searchByBuffer(buffer) {
         'Ocp-Apim-Subscription-Key': BING_API_KEY,
     };
     
-    // **FIX**: Corrected the endpoint path for Azure AI Services. 
-    // It should be '/images/search' directly appended to the custom domain.
-    const fullUrl = new URL('/images/search', BING_API_ENDPOINT).href;
+    // **FIX**: Corrected the endpoint path for Azure AI Services.
+    // The path is directly appended to the custom domain provided in .env.
+    const fullUrl = new URL('/bing/v7.0/images/search', BING_API_ENDPOINT).href;
     
     const params = {
         modules: 'SimilarImages',
