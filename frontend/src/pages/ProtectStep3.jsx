@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-/* (此處的 styled-components keyframes 與樣式維持原樣，故省略以節省篇幅) */
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -109,6 +108,7 @@ const Spinner = styled.div`
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -116,7 +116,107 @@ export default function ProtectStep3() {
   const [internalMatches, setInternalMatches] = useState([]);
   const [fileInfoMap, setFileInfoMap] = useState({});
 
-  const highSimilarityMatches = internalMatches.filter(m => m.score >= 0.8);
+  // 從上一個頁面獲取觸發掃描所需的 fileId 和 fileInfo
+  const fileToScan = location.state?.fileInfo;
+
+  const highSimilarityMatches = useMemo(() => internalMatches.filter(m => m.score >= 0.8), [internalMatches]);
+
+  const pollScanStatus = useCallback((taskId) => {
+    let attempts = 0;
+    const maxAttempts = 60; // 最多輪詢 5 分鐘 (60 * 5s)
+
+    const timer = setInterval(async () => {
+      if (attempts >= maxAttempts) {
+        clearInterval(timer);
+        setError('掃描處理超時，請稍後再試或聯繫客服。');
+        setLoading(false);
+        return;
+      }
+      attempts++;
+
+      try {
+        const res = await fetch(`/api/scans/status/${taskId}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error(`找不到任務 ID ${taskId}，請返回重試。`);
+          }
+          console.warn(`Polling failed with status ${res.status}, retrying...`);
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.status === 'completed') {
+          clearInterval(timer);
+          const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setScanResult(resultData);
+          setInternalMatches(resultData.internalMatches?.results || []);
+          localStorage.setItem('protectStep3Result', JSON.stringify(resultData));
+          setLoading(false);
+        } else if (data.status === 'failed') {
+          clearInterval(timer);
+          const resultError = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setError(`掃描任務失敗: ${resultError.error}`);
+          setLoading(false);
+        }
+        // 若狀態是 'pending' 或 'processing'，則繼續等待下一次輪詢
+      } catch (err) {
+        console.error('[Scan Poll Error]', err);
+        clearInterval(timer);
+        setError(err.message || '無法取得掃描結果，請檢查網路連線。');
+        setLoading(false);
+      }
+    }, 5000); // 每 5 秒輪詢一次
+  }, []);
+
+  useEffect(() => {
+    if (!fileToScan || !fileToScan.id) {
+      alert('未找到需要掃描的檔案資訊，將返回第一步。');
+      navigate('/protect/step1');
+      return;
+    }
+
+    const triggerAndPoll = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const response = await fetch('/api/protect/step2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId: fileToScan.id }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `啟動掃描失敗 (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+        const taskId = data.taskId;
+
+        if (!taskId) {
+          throw new Error('後端未回傳掃描任務 ID');
+        }
+
+        pollScanStatus(taskId);
+
+      } catch (err) {
+        console.error('[Step3 Trigger Error]', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    triggerAndPoll();
+  }, [fileToScan, navigate, pollScanStatus]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('protectStep1');
+    if (stored) {
+      setStep1Data(JSON.parse(stored));
+    }
+  }, []);
 
   useEffect(() => {
     highSimilarityMatches.forEach(match => {
@@ -131,57 +231,7 @@ export default function ProtectStep3() {
           .catch(() => {});
       }
     });
-  }, [highSimilarityMatches]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('protectStep1');
-    if (stored) {
-      setStep1Data(JSON.parse(stored));
-    }
-    const taskId = location.state?.taskId;
-    if (!taskId) {
-      setError('沒有提供掃描任務 ID。請返回上一步重試。');
-      setLoading(false);
-      return;
-    }
-    pollScanStatus(taskId);
-  }, [location.state]);
-
-  function pollScanStatus(taskId) {
-    let attempts = 0;
-    const maxAttempts = 60;
-    const timer = setInterval(async () => {
-      if (attempts >= maxAttempts) {
-        clearInterval(timer);
-        setError('掃描超時，請稍後再試。');
-        setLoading(false);
-        return;
-      }
-      attempts++;
-      try {
-        const res = await fetch(`/api/scans/status/${taskId}`);
-        if (!res.ok) throw new Error(`無法取得掃描狀態 (HTTP ${res.status})`);
-        const data = await res.json();
-        if (data.status === 'completed') {
-          clearInterval(timer);
-          const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setScanResult(resultData.scan);
-          setInternalMatches(resultData.internalMatches?.results || []);
-          localStorage.setItem('protectStep3', JSON.stringify(resultData));
-          setLoading(false);
-        } else if (data.status === 'failed') {
-          clearInterval(timer);
-          const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setError(`掃描任務失敗: ${errData.error}`);
-          setLoading(false);
-        }
-      } catch (err) {
-        clearInterval(timer);
-        setError(err.message || '無法取得掃描結果');
-        setLoading(false);
-      }
-    }, 5000);
-  }
+  }, [highSimilarityMatches, fileInfoMap]);
 
   const handleGoBack = () => {
     navigate('/protect/step2');
