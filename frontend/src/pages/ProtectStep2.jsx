@@ -88,10 +88,11 @@ export default function ProtectStep2() {
   }, [navigate]);
 
   const handleProceedToScan = async () => {
-    if (!step1Data || !step1Data.file.id) {
-      alert('錯誤：無效的檔案資訊。');
+    if (!step1Data || !step1Data.file || !step1Data.file.id) {
+      alert('錯誤：無效的檔案資訊，無法啟動掃描。');
       return;
     }
+
     setIsLoading(true);
     try {
       const response = await fetch('/api/protect/step2', {
@@ -99,19 +100,25 @@ export default function ProtectStep2() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId: step1Data.file.id }),
       });
-      if (!response.ok) throw new Error('啟動掃描任務失敗。');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '啟動掃描任務失敗。');
+      }
 
       const data = await response.json();
+      const taskId = data.taskId;
 
       navigate('/protect/step3', {
         state: {
-          taskId: data.taskId,
+          taskId,
           fileInfo: step1Data.file,
-          userInfo: step1Data.user,
         },
       });
     } catch (error) {
+      console.error('Failed to dispatch scan:', error);
       alert(`啟動掃描失敗：${error.message}`);
+    } finally {
       setIsLoading(false);
     }
   };

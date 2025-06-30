@@ -1,7 +1,9 @@
+// frontend/src/pages/ProtectStep3.jsx (Final Production-Ready Version)
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
+// --- 樣式定義 ---
 const spin = keyframes` to { transform: rotate(360deg); } `;
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -66,6 +68,7 @@ const Spinner = styled.div`
   animation: ${spin} 1s linear infinite;
 `;
 
+// --- 主元件 ---
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,76 +78,68 @@ export default function ProtectStep3() {
   const [scanResult, setScanResult] = useState(null);
   const [confirmedLinks, setConfirmedLinks] = useState([]);
 
-  const { taskId, fileInfo, userInfo } = location.state || {};
-
-  const pollScanStatus = useCallback((id) => {
-    const timer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/scans/status/${id}`);
-        if (!res.ok) return;
-
-        const data = await res.json();
-
-        if (data.status === 'completed' || data.status === 'failed') {
-          clearInterval(timer);
-          setLoading(false);
-          if (data.status === 'completed') {
-            const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-            setScanResult(resultData);
-          } else {
-            const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-            setError(errData?.error || '掃描任務執行失敗');
-          }
-        }
-      } catch (err) {
-        clearInterval(timer);
-        setLoading(false);
-        setError('無法取得掃描結果，請檢查網路連線。');
-      }
-    }, 5000);
-
-    return () => clearInterval(timer);
-  }, []);
-
+  const { taskId, fileInfo } = location.state || {};
+  
+  // 主要的 useEffect，只負責輪詢
   useEffect(() => {
     if (!taskId) {
       setError('沒有提供掃描任務 ID。請返回並重新觸發掃描。');
       setLoading(false);
       return;
     }
-    pollScanStatus(taskId);
-  }, [taskId, pollScanStatus]);
 
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/scans/status/${taskId}`);
+        if (!res.ok) {
+            if (res.status === 404) throw new Error(`找不到任務 ID ${taskId}，請返回重試。`);
+            console.warn(`Polling failed with status ${res.status}, retrying...`);
+            return; 
+        }
+        
+        const data = await res.json();
+        
+        if (data.status === 'completed') {
+          clearInterval(timer);
+          setLoading(false);
+          setScanResult(data.result);
+        } else if (data.status === 'failed') {
+          clearInterval(timer);
+          setLoading(false);
+          const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setError(errData?.error || '掃描任務執行失敗');
+        }
+      } catch (err) {
+        clearInterval(timer);
+        setLoading(false);
+        setError(err.message || '無法取得掃描結果，請檢查網路連線。');
+      }
+    };
+    
+    const timer = setInterval(poll, 5000); // 每 5 秒輪詢一次
+    poll(); // 立即執行一次，不用等待5秒
+
+    return () => clearInterval(timer); // 元件卸載時清除計時器
+  }, [taskId]);
+  
+  // 提取所有潛在連結
   const potentialLinks = useMemo(() => {
     if (!scanResult) return [];
     const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
-    const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(m => ({ source: 'TinEye', url: m.url })) || [];
+    const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(match => ({ source: 'TinEye', url: match.url })) || [];
     const bing = scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
     const uniqueLinksMap = new Map();
     [...google, ...tineye, ...bing].forEach(link => uniqueLinksMap.set(link.url, link));
     return Array.from(uniqueLinksMap.values());
   }, [scanResult]);
 
+  // 處理使用者手動確認/取消確認連結
   const toggleLinkConfirmation = (url) => {
-    setConfirmedLinks(prev =>
+    setConfirmedLinks(prev => 
       prev.includes(url) ? prev.filter(l => l !== url) : [...prev, url]
     );
   };
-
-  const handleGoToStep4 = () => {
-    if (confirmedLinks.length === 0) {
-      alert('請至少確認一個侵權連結後再進行下一步。');
-      return;
-    }
-    navigate('/protect/step4', {
-      state: {
-        confirmedLinks,
-        fileInfo,
-        userInfo,
-      },
-    });
-  };
-
+  
   const renderContent = () => {
     if (loading) {
       return (
@@ -170,7 +165,7 @@ export default function ProtectStep3() {
                   <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9', wordBreak: 'break-all', flexGrow: 1 }}>
                     [{item.source}] {item.url}
                   </a>
-                  <button
+                  <button 
                     onClick={() => toggleLinkConfirmation(item.url)}
                     style={{ background: isConfirmed ? '#c53030' : '#2f855a', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', minWidth: '80px' }}
                   >
@@ -184,7 +179,7 @@ export default function ProtectStep3() {
       </InfoBlock>
     );
   };
-
+  
   return (
     <PageWrapper>
       <Container>
@@ -192,7 +187,10 @@ export default function ProtectStep3() {
         {renderContent()}
         <ButtonRow>
           <NavButton onClick={() => navigate(-1)}>← 返回</NavButton>
-          <NavButton onClick={handleGoToStep4} disabled={confirmedLinks.length === 0 || loading}>
+          <NavButton
+            onClick={() => navigate('/protect/step4', { state: { fileInfo, confirmedLinks } })}
+            disabled={confirmedLinks.length === 0}
+          >
             下一步 (已確認 {confirmedLinks.length} 項) →
           </NavButton>
         </ButtonRow>
