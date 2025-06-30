@@ -89,9 +89,37 @@ export default function ProtectStep2() {
     setStep1Data(JSON.parse(storedData));
   }, [navigate]);
 
-  const handleProceedToScan = () => {
-    // 導航到第三步，第三步會負責觸發掃描
-    navigate('/protect/step3');
+  const handleProceedToScan = async () => {
+    if (!step1Data || !step1Data.fileId) {
+      alert('錯誤：無效的檔案資訊。');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/protect/step2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: step1Data.fileId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '啟動掃描任務失敗。');
+      }
+
+      const data = await response.json();
+      const taskId = data.taskId;
+
+      navigate('/protect/step3', {
+        state: {
+          taskId,
+          fileInfo: step1Data,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to dispatch scan:', error);
+      alert(`啟動掃描失敗：${error.message}`);
+    }
   };
 
   if (!step1Data) {
