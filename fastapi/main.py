@@ -180,41 +180,59 @@ model = CLIPModel.from_pretrained(MODEL_NAME)
 processor = CLIPProcessor.from_pretrained(MODEL_NAME)
 print("Model loaded successfully.")
 
-def get_milvus_collection(retries: int = 3, delay: int = 5):
-    """Connect to Milvus and return the collection object with simple retry."""
-    last_err = None
-    for attempt in range(1, retries + 1):
-        try:
-            if not connections.has_connection("default"):
-                connections.connect(
-                    "default",
-                    host=MILVUS_HOST,
-                    port=MILVUS_PORT,
-                    timeout=60,  # increase timeout for slow startup environments
-                )
+def get_milvus_collection():
+    """Connect to Milvus with retries and return the collection object."""
+    alias = "default"
+    retries = 5
+    delay = 5  # seconds
 
-            if not utility.has_collection(COLLECTION_NAME):
+    if connections.has_connection(alias):
+        try:
+            utility.has_collection(COLLECTION_NAME, using=alias)
+            print("[Milvus] Using existing connection.")
+            return Collection(name=COLLECTION_NAME, using=alias)
+        except Exception:
+            print("[Milvus] Existing connection is stale, disconnecting.")
+            connections.remove_connection(alias)
+
+    for i in range(retries):
+        try:
+            print(f"[Milvus] Attempting to connect (Attempt {i + 1}/{retries})...")
+            connections.connect(
+                alias=alias,
+                host=MILVUS_HOST,
+                port=MILVUS_PORT,
+                timeout=20,
+            )
+            print("[Milvus] Connection successful.")
+
+            if not utility.has_collection(COLLECTION_NAME, using=alias):
+                print(f"[Milvus] Collection '{COLLECTION_NAME}' not found. Creating...")
                 fields = [
-                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=255),
+                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=255),
                     FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512)
                 ]
-                schema = CollectionSchema(fields, "Image Similarity Search Collection")
-                collection = Collection(name=COLLECTION_NAME, schema=schema)
+                schema = CollectionSchema(fields, "Image similarity search collection")
+                collection = Collection(name=COLLECTION_NAME, schema=schema, using=alias)
 
                 index_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
                 collection.create_index(field_name="vector", index_params=index_params)
             else:
-                collection = Collection(name=COLLECTION_NAME)
+                collection = Collection(name=COLLECTION_NAME, using=alias)
 
             collection.load()
             return collection
-        except Exception as e:
-            last_err = e
-            print(f"Milvus connection attempt {attempt} failed: {e}")
-            time.sleep(delay)
 
-    print(f"Milvus connection/setup failed after {retries} attempts: {last_err}")
-    raise HTTPException(status_code=500, detail="Milvus service is unavailable")
+        except Exception as e:
+            print(f"[Milvus] Connection attempt {i + 1} failed: {e}")
+            if i < retries - 1:
+                print(f"Retrying in {delay} seconds...")
+                time.sleep(delay)
+            else:
+                print("[Milvus] All connection attempts failed.")
+                raise HTTPException(status_code=500, detail=f"Could not connect to Milvus: {e}")
+
+    raise HTTPException(status_code=500, detail="Failed to get Milvus collection after all retries.")
 
 def image_to_vector(image: Image.Image):
     """Convert PIL image to feature vector"""
