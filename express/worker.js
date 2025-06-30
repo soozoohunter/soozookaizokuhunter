@@ -1,7 +1,7 @@
-// express/worker.js (Final Optimized Version)
+// express/worker.js (Final Production-Ready Version with Robust Error Handling)
 require('dotenv').config();
-const db = require('./models');
-const logger = require('./utils/logger');
+const db = require('../models');
+const logger = require('../utils/logger');
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
 const ipfsService = require('./services/ipfsService');
@@ -25,60 +25,58 @@ async function processScanTask(task) {
             throw new Error('Failed to retrieve a valid image buffer from IPFS.');
         }
 
-        // --- Step 1: Fast External Scan ---
-        logger.info(`[Worker] Task ${taskId}: Performing FAST external scan...`);
+        // --- Stage 1: Perform the fast and reliable external scan ---
+        logger.info(`[Worker] Task ${taskId}: Performing external scan (Google, TinEye, etc.)...`);
         const externalScanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
             originalFingerprint: fileRecord.fingerprint,
         });
-        
+
         let finalResults = {
             scan: externalScanResults,
-            internalMatches: null
+            internalMatches: { success: false, error: "Not performed yet." } // Default state
         };
         
-        // --- Step 2: Save FIRST results to DB ---
-        // Now the frontend can already see the potential links!
-        logger.info(`[Worker] Task ${taskId}: External scan complete. Saving initial results.`);
+        // --- Stage 2: Save intermediate results ---
+        // This allows the frontend to see potential links immediately.
+        logger.info(`[Worker] Task ${taskId}: External scan complete. Saving intermediate results.`);
         await db.Scan.update(
-            { result: JSON.stringify(finalResults) },
+            { result: JSON.stringify(finalResults), status: 'processing' }, // Status is still 'processing'
             { where: { id: taskId } }
         );
 
-        // --- Step 3: Slow Internal Vector Scan ---
-        logger.info(`[Worker] Task ${taskId}: Performing SLOW internal vector search...`);
+        // --- Stage 3: Perform the slow and potentially failing internal vector scan ---
+        logger.info(`[Worker] Task ${taskId}: Performing internal vector search...`);
         try {
             const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
             finalResults.internalMatches = vectorMatches;
-            logger.info(`[Worker] Task ${taskId}: Internal vector search completed.`);
+            logger.info(`[Worker] Task ${taskId}: Internal vector search completed successfully.`);
         } catch (vectorError) {
-            logger.error(`[Worker] Task ${taskId}: Internal vector search FAILED. Error: ${vectorError.message}`);
+            logger.error(`[Worker] Task ${taskId}: Internal vector search FAILED: ${vectorError.message}. This is non-critical.`);
             finalResults.internalMatches = { success: false, error: vectorError.message };
         }
 
-        // --- Step 4: Save FINAL results and mark as completed ---
-        logger.info(`[Worker] Task ${taskId}: All scans finished. Saving final results.`);
-        await db.Scan.update(
-            {
-                status: 'completed',
-                completed_at: new Date(),
-                result: JSON.stringify(finalResults)
-            },
-            { where: { id: taskId } }
-        );
-        await db.File.update(
-            {
-                status: 'scanned',
-                resultJson: JSON.stringify(finalResults)
-            },
-            { where: { id: fileId } }
-        );
+        // --- Stage 4: Save final results and mark the entire task as completed ---
+        logger.info(`[Worker] Task ${taskId}: All stages finished. Saving final aggregated results.`);
+        const finalStatus = 'completed'; // Mark as completed regardless of vector search outcome
+        
+        await db.Scan.update({ 
+            status: finalStatus, 
+            completed_at: new Date(),
+            result: JSON.stringify(finalResults)
+        }, { where: { id: taskId } });
+        
+        await db.File.update({ 
+            status: 'scanned',
+            resultJson: JSON.stringify(finalResults)
+        }, { where: { id: fileId } });
 
-        logger.info(`[Worker] Task ${taskId}: Successfully processed all scans for File ID ${fileId}.`);
-        return true;
+        logger.info(`[Worker] Task ${taskId}: Successfully processed task for File ID ${fileId}. Final status: ${finalStatus}`);
+        return true; // Acknowledge message from queue
 
     } catch (error) {
-        logger.error(`[Worker] Task ${taskId}: A critical error occurred. Error: ${error.message}`);
+        // This block now catches critical errors from Stage 1 (e.g., IPFS failure, main scanner failure)
+        logger.error(`[Worker] Task ${taskId}: A CRITICAL error occurred, task will be marked as failed. Error: ${error.message}`);
         logger.error(error.stack);
         if (scanRecord) {
             await db.Scan.update({
@@ -87,7 +85,7 @@ async function processScanTask(task) {
                 result: JSON.stringify({ error: error.message })
             }, { where: { id: taskId } });
         }
-        return false;
+        return false; // Reject message
     }
 }
 
@@ -95,12 +93,10 @@ async function startWorker() {
     try {
         logger.info('[Worker] Starting up...');
         await db.sequelize.authenticate();
-        logger.info('[Worker] Database connection has been established successfully.');
+        logger.info('[Worker] Database connection established.');
         await queueService.connect();
-
         queueService.consumeTasks(processScanTask);
-        logger.info('[Worker] Worker is running and waiting for tasks. To exit press CTRL+C');
-
+        logger.info('[Worker] Ready and waiting for tasks.');
     } catch (error) {
         logger.error('[Worker] Failed to start:', error);
         process.exit(1);
