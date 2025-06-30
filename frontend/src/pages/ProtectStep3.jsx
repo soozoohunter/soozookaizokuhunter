@@ -3,7 +3,8 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-// --- 樣式定義 (請保持你現有的樣式或使用這些) ---
+// --- 樣式定義 ---
+const spin = keyframes` to { transform: rotate(360deg); } `;
 const PageWrapper = styled.div`
   min-height: 100vh;
   background: #1a1a1a;
@@ -33,7 +34,7 @@ const InfoBlock = styled.div`
   text-align: left;
 `;
 const ErrorMsg = styled.div`
-  background: #ff4444;
+  background: #c53030;
   color: #fff;
   padding: 1rem;
   border-radius: 6px;
@@ -53,10 +54,10 @@ const NavButton = styled.button`
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
+  transition: background-color 0.2s;
   &:hover:not(:disabled) { background: #ea580c; }
-  &:disabled { background: #555; cursor: not-allowed; }
+  &:disabled { background: #555; color: #999; cursor: not-allowed; }
 `;
-const spin = keyframes` to { transform: rotate(360deg); } `;
 const Spinner = styled.div`
   display: inline-block;
   width: 50px;
@@ -67,77 +68,77 @@ const Spinner = styled.div`
   animation: ${spin} 1s linear infinite;
 `;
 
-// --- 主元件 ---
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [scanResult, setScanResult] = useState(null);
   const [confirmedLinks, setConfirmedLinks] = useState([]);
+  const [fileInfoMap, setFileInfoMap] = useState({});
 
   const { taskId, fileInfo } = location.state || {};
-
-  // 使用 useMemo 來計算結果，只有在 scanResult 改變時才重新計算
-  const potentialLinks = useMemo(() => {
-    if (!scanResult) return [];
-    const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
-    // 這裡可以加入 Bing, TinEye 的結果
-    return [...google];
-  }, [scanResult]);
-
-  // 主要的 useEffect，只負責輪詢
-  useEffect(() => {
-    if (!taskId) {
-      setError('沒有提供掃描任務 ID。請返回並重新觸發掃描。');
-      setLoading(false);
-      return;
-    }
-
-    const poll = async () => {
+  
+  // 輪詢邏輯
+  const pollScanStatus = useCallback((id) => {
+    const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/scans/status/${taskId}`);
-        if (!res.ok) return; // 暫時性錯誤，等待下一次輪詢
+        const res = await fetch(`/api/scans/status/${id}`);
+        if (!res.ok) return; // 等待下一次輪詢
+        
         const data = await res.json();
-
-        if (data.status === 'completed') {
+        
+        if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(timer);
           setLoading(false);
-          setScanResult(data.result);
-          // 初始化已確認連結的狀態
-          const initialConfirmed = data.result?.scan?.verifiedMatches?.map(match => match.pageUrl) || [];
-          setConfirmedLinks(initialConfirmed);
-        } else if (data.status === 'failed') {
-          clearInterval(timer);
-          setLoading(false);
-          const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setError(errData?.error || '掃描任務失敗');
+          if (data.status === 'completed') {
+            const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            setScanResult(resultData);
+          } else {
+            const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            setError(errData?.error || '掃描任務執行失敗');
+          }
         }
       } catch (err) {
         clearInterval(timer);
         setLoading(false);
         setError('無法取得掃描結果，請檢查網路連線。');
       }
-    };
-    
-    const timer = setInterval(poll, 5000);
-    poll(); // 立即執行一次，不用等待5秒
+    }, 5000);
 
-    return () => clearInterval(timer); // 元件卸載時清除計時器
-  }, [taskId]);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 頁面載入時啟動輪詢
+  useEffect(() => {
+    if (!taskId) {
+      setError('沒有提供掃描任務 ID。請返回並重新觸發掃描。');
+      setLoading(false);
+      return;
+    }
+    pollScanStatus(taskId);
+  }, [taskId, pollScanStatus]);
   
-  // 處理使用者手動確認侵權
-  const handleConfirmLink = (url) => {
-    setConfirmedLinks(prev => [...new Set([...prev, url])]);
+  // 提取所有潛在連結
+  const potentialLinks = useMemo(() => {
+    if (!scanResult) return [];
+    const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
+    const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(m => ({ source: 'TinEye', url: m.url })) || [];
+    const bing = scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
+    // 使用 Map 去除重複的 URL
+    const uniqueLinksMap = new Map();
+    [...google, ...tineye, ...bing].forEach(link => uniqueLinksMap.set(link.url, link));
+    return Array.from(uniqueLinksMap.values());
+  }, [scanResult]);
+
+  // 處理確認/取消確認連結
+  const toggleLinkConfirmation = (url) => {
+    setConfirmedLinks(prev => 
+      prev.includes(url) ? prev.filter(l => l !== url) : [...prev, url]
+    );
   };
   
-  // 處理使用者取消確認
-  const handleRemoveLink = (url) => {
-    setConfirmedLinks(prev => prev.filter(link => link !== url));
-  };
-  
-  // 渲染內容的函式
   const renderContent = () => {
     if (loading) {
       return (
@@ -150,7 +151,7 @@ export default function ProtectStep3() {
     }
     if (error) return <ErrorMsg><strong>掃描失敗：</strong>{error}</ErrorMsg>;
     if (!scanResult) return <p>暫無掃描結果，或仍在處理中。</p>;
-  
+
     return (
       <InfoBlock>
         <h4>AI 尋獲的潛在連結 (請人工審核)</h4>
@@ -164,8 +165,8 @@ export default function ProtectStep3() {
                     [{item.source}] {item.url}
                   </a>
                   <button 
-                    onClick={() => isConfirmed ? handleRemoveLink(item.url) : handleConfirmLink(item.url)}
-                    style={{ background: isConfirmed ? '#f44336' : '#4caf50', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}
+                    onClick={() => toggleLinkConfirmation(item.url)}
+                    style={{ background: isConfirmed ? '#c53030' : '#2f855a', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', minWidth: '80px' }}
                   >
                     {isConfirmed ? '取消確認' : '確認侵權'}
                   </button>
@@ -177,7 +178,7 @@ export default function ProtectStep3() {
       </InfoBlock>
     );
   };
-  
+
   return (
     <PageWrapper>
       <Container>
@@ -185,9 +186,9 @@ export default function ProtectStep3() {
         {renderContent()}
         <ButtonRow>
           <NavButton onClick={() => navigate(-1)}>← 返回</NavButton>
-          <NavButton 
-            disabled={confirmedLinks.length === 0}
+          <NavButton
             onClick={() => navigate('/protect/step4', { state: { fileInfo, confirmedLinks } })}
+            disabled={confirmedLinks.length === 0}
           >
             下一步 (已確認 {confirmedLinks.length} 項) →
           </NavButton>
