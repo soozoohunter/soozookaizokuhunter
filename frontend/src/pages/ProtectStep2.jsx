@@ -80,11 +80,11 @@ export default function ProtectStep2() {
 
   useEffect(() => {
     const storedData = localStorage.getItem('protectStep1');
-    if (storedData) {
-      setStep1Data(JSON.parse(storedData));
-    } else {
+    if (!storedData) {
       navigate('/protect/step1');
+      return;
     }
+    setStep1Data(JSON.parse(storedData));
   }, [navigate]);
 
   const handleProceedToScan = async () => {
@@ -92,8 +92,8 @@ export default function ProtectStep2() {
       alert('錯誤：無效的檔案資訊，無法啟動掃描。');
       return;
     }
-
     setIsLoading(true);
+
     try {
       const response = await fetch('/api/protect/step2', {
         method: 'POST',
@@ -107,25 +107,33 @@ export default function ProtectStep2() {
       }
 
       const data = await response.json();
-      const taskId = data.taskId;
 
       navigate('/protect/step3', {
         state: {
-          taskId,
+          taskId: data.taskId,
           fileInfo: step1Data.file,
+          userInfo: step1Data.user,
         },
       });
     } catch (error) {
       console.error('Failed to dispatch scan:', error);
       alert(`啟動掃描失敗：${error.message}`);
-    } finally {
       setIsLoading(false);
     }
   };
 
-  if (!step1Data) return <div>Loading...</div>;
+  if (!step1Data) {
+    return (
+      <PageWrapper>
+        <Container>
+          <Title>Loading Data...</Title>
+        </Container>
+      </PageWrapper>
+    );
+  }
 
   const { file, user } = step1Data;
+  const { id: fileId, fingerprint, ipfs_hash: ipfsHash, tx_hash: txHash, pdfUrl, publicImageUrl } = file || {};
 
   return (
     <PageWrapper>
@@ -136,35 +144,25 @@ export default function ProtectStep2() {
         </p>
 
         <InfoBlock>
-          <p><strong>File ID:</strong> {file?.id || 'N/A'}</p>
-          <p><strong>Fingerprint (SHA-256):</strong> {file?.fingerprint || 'N/A'}</p>
-          <p><strong>IPFS Hash:</strong> {file?.ipfsHash || 'N/A'}</p>
-          <p><strong>Blockchain TxHash:</strong> {file?.txHash || 'N/A'}</p>
+          <p><strong>File ID:</strong> {fileId || 'N/A'}</p>
+          <p><strong>Fingerprint (SHA-256):</strong> {fingerprint || 'N/A'}</p>
+          <p><strong>IPFS Hash:</strong> {ipfsHash || 'N/A'}</p>
+          <p><strong>Blockchain TxHash:</strong> {txHash || 'N/A'}</p>
         </InfoBlock>
 
-        {file?.pdfUrl && (
+        {pdfUrl && (
           <InfoBlock>
             <p><strong>原創證書 PDF:</strong></p>
-            <a
-              href={file.pdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#4caf50', textDecoration: 'underline' }}
-            >
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50' }}>
               點此下載或預覽您的著作權證書
             </a>
           </InfoBlock>
         )}
 
-        {file?.publicImageUrl && (
+        {publicImageUrl && (
           <InfoBlock>
             <p><strong>公開圖片連結 (含浮水印):</strong></p>
-            <a
-              href={file.publicImageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: '#4caf50', textDecoration: 'underline' }}
-            >
+            <a href={publicImageUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50' }}>
               點此預覽公開的保護圖片
             </a>
           </InfoBlock>
