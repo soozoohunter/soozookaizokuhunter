@@ -102,7 +102,8 @@ export default function ProtectStep3() {
         if (data.status === 'completed') {
           clearInterval(timer);
           setLoading(false);
-          setScanResult(data.result);
+          const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+          setScanResult(resultData);
         } else if (data.status === 'failed') {
           clearInterval(timer);
           setLoading(false);
