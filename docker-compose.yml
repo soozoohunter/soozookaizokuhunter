@@ -47,6 +47,7 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
+    command: node server.js
     ports:
       - "3000:3000"
     env_file:
@@ -60,11 +61,15 @@ services:
     depends_on:
       suzoo_postgres:
         condition: service_healthy
+      suzoo_rabbitmq:
+        condition: service_healthy
       suzoo_ipfs:
         condition: service_healthy
       suzoo_ganache:
         condition: service_healthy
       suzoo_fastapi:
+        condition: service_healthy
+      milvus:
         condition: service_healthy
     networks:
       - suzoo-network
@@ -76,6 +81,46 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ----------------------------------------------------
+  # 背景任務工人 (Node.js Background Worker)
+  # ----------------------------------------------------
+  suzoo_worker:
+    container_name: suzoo_worker
+    build:
+      context: ./express
+      dockerfile: Dockerfile
+    command: node worker.js
+    env_file:
+      - .env
+    volumes:
+      - ./express:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+      - ./credentials:/app/credentials:ro
+    depends_on:
+      suzoo_postgres:
+        condition: service_healthy
+      suzoo_rabbitmq:
+        condition: service_healthy
+      suzoo_ipfs:
+        condition: service_healthy
+      suzoo_ganache:
+        condition: service_healthy
+      suzoo_fastapi:
+        condition: service_healthy
+      milvus:
+        condition: service_healthy
+    networks:
+      - suzoo-network
+    dns:
+      - 8.8.8.8
     restart: always
     logging:
       driver: "json-file"
