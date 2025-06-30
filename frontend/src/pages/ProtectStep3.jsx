@@ -122,14 +122,27 @@ export default function ProtectStep3() {
     return () => clearInterval(timer); // 元件卸載時清除計時器
   }, [taskId]);
   
-  // 提取所有潛在連結
+  // [核心修正] 調整 useMemo 的資料來源
   const potentialLinks = useMemo(() => {
-    if (!scanResult) return [];
-    const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
-    const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(match => ({ source: 'TinEye', url: match.url })) || [];
-    const bing = scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
+    if (!scanResult || !scanResult.scan || !scanResult.scan.reverseImageSearch) {
+      return [];
+    }
+
+    const { googleVision, tineye, bing } = scanResult.scan.reverseImageSearch;
+
+    const googleLinks = googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
+    const tineyeLinks = tineye?.matches?.map(match => ({ source: 'TinEye', url: match.url })) || [];
+    const bingLinks = bing?.links?.map(url => ({ source: 'Bing', url })) || [];
+
+    // 使用 Map 來過濾掉重複的 URL，確保列表的唯一性
     const uniqueLinksMap = new Map();
-    [...google, ...tineye, ...bing].forEach(link => uniqueLinksMap.set(link.url, link));
+    [...googleLinks, ...tineyeLinks, ...bingLinks].forEach(link => {
+      // 確保 URL 是有效的字串再存入
+      if (typeof link.url === 'string' && link.url.trim() !== '') {
+        uniqueLinksMap.set(link.url, link);
+      }
+    });
+
     return Array.from(uniqueLinksMap.values());
   }, [scanResult]);
 
