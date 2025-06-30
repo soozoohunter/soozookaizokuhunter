@@ -1,11 +1,35 @@
-// express/services/imageFetcher.js (Upgraded Version)
+// express/services/imageFetcher.js (Final Hardened Version)
 const axios = require('axios');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const logger = require('../utils/logger');
+const { URL } = require('url'); // Node.js built-in URL module
 
+// Use stealth plugin to make puppeteer requests look more like a real user
 puppeteer.use(StealthPlugin());
+
+const REALISTIC_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36';
+
+/**
+ * Given a URL from a source page, intelligently resolves it to an absolute URL.
+ * Handles cases like //domain.com/path or /path.
+ * @param {string} imageUrl - The image URL found on the page.
+ * @param {string} pageUrl - The URL of the page where the image was found.
+ * @returns {string|null} A full, absolute URL or null if invalid.
+ */
+function resolveUrl(imageUrl, pageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return null;
+  }
+  // Use the URL constructor for robust resolving of relative paths.
+  try {
+    return new URL(imageUrl, pageUrl).href;
+  } catch (e) {
+    logger.warn(`[ImageFetcher] Could not resolve invalid URL: ${imageUrl}`);
+    return null;
+  }
+}
 
 /**
  * Given a URL, tries various strategies to find the main image URL on that page.
@@ -13,68 +37,73 @@ puppeteer.use(StealthPlugin());
  * @returns {Promise<string|null>} The URL of the most likely main image, or null if not found.
  */
 async function getMainImageUrl(pageUrl) {
-  // Strategy 1: Simple fetch with Cheerio (fastest)
+  // --- Strategy 1: Fast fetch with Axios + Cheerio ---
   try {
     const { data } = await axios.get(pageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
+      headers: { 'User-Agent': REALISTIC_USER_AGENT },
+      timeout: 10000, // 10 second timeout for initial request
     });
     const $ = cheerio.load(data);
-
-    // Prioritize standard meta tags
-    let imgUrl =
-      $('meta[property="og:image"]').attr('content') ||
-      $('meta[property="twitter:image"]').attr('content');
+    
+    let imgUrl = $('meta[property="og:image"]').attr('content') ||
+                 $('meta[property="twitter:image"]').attr('content');
 
     if (imgUrl) {
-      logger.info(`[ImageFetcher] Found image via meta tag: ${imgUrl}`);
-      return new URL(imgUrl, pageUrl).href;
+      const absoluteUrl = resolveUrl(imgUrl, pageUrl);
+      if (absoluteUrl) {
+        logger.info(`[ImageFetcher] Found image via meta tag (fast method): ${absoluteUrl}`);
+        return absoluteUrl;
+      }
     }
   } catch (error) {
     logger.warn(`[ImageFetcher] Axios+Cheerio failed for ${pageUrl}. Falling back to Puppeteer. Error: ${error.message}`);
   }
 
-  // Strategy 2: Full browser rendering with Puppeteer (slower but more powerful)
+  // --- Strategy 2: Full browser rendering with Puppeteer (slower but more powerful) ---
   let browser = null;
   try {
     browser = await puppeteer.launch({
-      headless: 'new', // Use the new headless mode
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      headless: "new",
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     });
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-    await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+    await page.setUserAgent(REALISTIC_USER_AGENT);
+    await page.setViewport({ width: 1280, height: 800 });
+    
+    // Increased timeout and wait until the page is truly idle
+    await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 30000 });
 
-    // Try meta tags again after JavaScript execution
-    let imgUrl =
-      (await page.$eval('meta[property="og:image"]', (el) => el.content).catch(() => null)) ||
-      (await page.$eval('meta[property="twitter:image"]', (el) => el.content).catch(() => null));
+    let imgUrl = await page.$eval('meta[property="og:image"]', el => el.content).catch(() => null) ||
+                 await page.$eval('meta[property="twitter:image"]', el => el.content).catch(() => null);
 
     if (imgUrl) {
-      logger.info(`[ImageFetcher] Found image via Puppeteer meta tag: ${imgUrl}`);
-      return new URL(imgUrl, pageUrl).href;
+      const absoluteUrl = resolveUrl(imgUrl, pageUrl);
+       if (absoluteUrl) {
+        logger.info(`[ImageFetcher] Found image via Puppeteer meta tag: ${absoluteUrl}`);
+        return absoluteUrl;
+       }
     }
 
-    // **NEW**: Fallback strategy - find the largest image on the page
     const largestImageSrc = await page.evaluate(() => {
       return Array.from(document.images)
-        .filter((img) => img.naturalWidth > 200 && img.naturalHeight > 200)
-        .sort((a, b) => b.naturalWidth * b.naturalHeight - a.naturalWidth * a.naturalHeight)
-        .map((img) => img.src)[0];
+        .filter(img => img.naturalWidth > 200 && img.naturalHeight > 200)
+        .sort((a, b) => (b.naturalWidth * b.naturalHeight) - (a.naturalWidth * a.naturalHeight))
+        .map(img => img.src)[0];
     });
 
     if (largestImageSrc) {
-      logger.info(`[ImageFetcher] Found largest image as fallback: ${largestImageSrc}`);
-      return new URL(largestImageSrc, pageUrl).href;
+        const absoluteUrl = resolveUrl(largestImageSrc, pageUrl);
+        if (absoluteUrl) {
+            logger.info(`[ImageFetcher] Found largest image as fallback: ${absoluteUrl}`);
+            return absoluteUrl;
+        }
     }
-
+    
     logger.warn(`[ImageFetcher] Puppeteer could not find any suitable image on page: ${pageUrl}`);
     return null;
+
   } catch (error) {
-    logger.error(`[ImageFetcher] Puppeteer failed for ${pageUrl}:`, error);
+    logger.error(`[ImageFetcher] Puppeteer execution failed for ${pageUrl}:`, error);
     return null;
   } finally {
     if (browser) {
