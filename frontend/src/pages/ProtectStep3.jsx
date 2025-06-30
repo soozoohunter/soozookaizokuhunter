@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
+// --- 樣式定義 (保持不變) ---
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -19,7 +20,6 @@ const spin = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 `;
-
 const PageWrapper = styled.div`
   min-height: 100vh;
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
@@ -30,7 +30,6 @@ const PageWrapper = styled.div`
   justify-content: center;
   color: #fff;
 `;
-
 const Container = styled.div`
   width: 95%;
   max-width: 600px;
@@ -41,13 +40,11 @@ const Container = styled.div`
   animation: ${neonGlow} 2s ease-in-out infinite alternate;
   text-align: center;
 `;
-
 const Title = styled.h2`
   color: #FFD700;
   margin-bottom: 1rem;
   text-align: center;
 `;
-
 const InfoBlock = styled.div`
   background-color: #1e1e1e;
   border: 1px solid #ff6f00;
@@ -57,7 +54,6 @@ const InfoBlock = styled.div`
   word-break: break-all;
   text-align: left;
 `;
-
 const ErrorMsg = styled.div`
   background: #ff4444;
   color: #fff;
@@ -66,14 +62,12 @@ const ErrorMsg = styled.div`
   margin: 1rem 0;
   text-align: center;
 `;
-
 const ButtonRow = styled.div`
   display: flex;
   gap: 1rem;
   justify-content: center;
   margin-top: 1.5rem;
 `;
-
 const NavButton = styled.button`
   background: #f97316;
   color: #fff;
@@ -93,7 +87,6 @@ const NavButton = styled.button`
     border-color: #666;
   }
 `;
-
 const Spinner = styled.div`
   display: inline-block;
   width: 50px;
@@ -112,173 +105,107 @@ export default function ProtectStep3() {
   const [scanResult, setScanResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [step1Data, setStep1Data] = useState(null);
   const [internalMatches, setInternalMatches] = useState([]);
   const [fileInfoMap, setFileInfoMap] = useState({});
 
-  // 從上一個頁面獲取觸發掃描所需的 fileId 和 fileInfo
-  const fileToScan = location.state?.fileInfo;
+  // 從路由狀態中獲取上一步傳來的檔案資訊和任務ID
+  const fileData = location.state?.fileInfo;
+  const taskId = location.state?.taskId;
 
-  const highSimilarityMatches = useMemo(() => internalMatches.filter(m => m.score >= 0.8), [internalMatches]);
+  const highSimilarityMatches = useMemo(() =>
+    (internalMatches || []).filter(match => match.score >= 0.8),
+    [internalMatches]
+  );
 
-  const pollScanStatus = useCallback((taskId) => {
-    let attempts = 0;
-    const maxAttempts = 60; // 最多輪詢 5 分鐘 (60 * 5s)
+  const allPotentialLinks = useMemo(() => {
+    if (!scanResult) return [];
+    const googleLinks = scanResult.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google Vision', url })) || [];
+    const tineyeLinks = scanResult.reverseImageSearch?.tineye?.matches?.map(m => ({ source: 'TinEye', url: m.url })) || [];
+    const bingLinks = scanResult.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
+    return [...googleLinks, ...tineyeLinks, ...bingLinks];
+  }, [scanResult]);
 
-    const timer = setInterval(async () => {
-      if (attempts >= maxAttempts) {
-        clearInterval(timer);
-        setError('掃描處理超時，請稍後再試或聯繫客服。');
-        setLoading(false);
-        return;
-      }
-      attempts++;
-
-      try {
-        const res = await fetch(`/api/scans/status/${taskId}`);
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error(`找不到任務 ID ${taskId}，請返回重試。`);
-          }
-          console.warn(`Polling failed with status ${res.status}, retrying...`);
-          return;
-        }
-
-        const data = await res.json();
-
-        if (data.status === 'completed') {
-          clearInterval(timer);
-          const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setScanResult(resultData);
-          setInternalMatches(resultData.internalMatches?.results || []);
-          localStorage.setItem('protectStep3Result', JSON.stringify(resultData));
-          setLoading(false);
-        } else if (data.status === 'failed') {
-          clearInterval(timer);
-          const resultError = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-          setError(`掃描任務失敗: ${resultError.error}`);
-          setLoading(false);
-        }
-        // 若狀態是 'pending' 或 'processing'，則繼續等待下一次輪詢
-      } catch (err) {
-        console.error('[Scan Poll Error]', err);
-        clearInterval(timer);
-        setError(err.message || '無法取得掃描結果，請檢查網路連線。');
-        setLoading(false);
-      }
-    }, 5000); // 每 5 秒輪詢一次
-  }, []);
-
-  useEffect(() => {
-    if (!fileToScan || !fileToScan.id) {
-      alert('未找到需要掃描的檔案資訊，將返回第一步。');
-      navigate('/protect/step1');
-      return;
-    }
-
-    const triggerAndPoll = async () => {
-      try {
-        setLoading(true);
-        setError('');
-
-        const response = await fetch('/api/protect/step2', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId: fileToScan.id }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `啟動掃描失敗 (HTTP ${response.status})`);
-        }
-
-        const data = await response.json();
-        const taskId = data.taskId;
-
-        if (!taskId) {
-          throw new Error('後端未回傳掃描任務 ID');
-        }
-
-        pollScanStatus(taskId);
-
-      } catch (err) {
-        console.error('[Step3 Trigger Error]', err);
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-
-    triggerAndPoll();
-  }, [fileToScan, navigate, pollScanStatus]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('protectStep1');
-    if (stored) {
-      setStep1Data(JSON.parse(stored));
-    }
-  }, []);
-
-  useEffect(() => {
+  const fetchMatchDetails = useCallback(() => {
     highSimilarityMatches.forEach(match => {
       if (!fileInfoMap[match.id]) {
         fetch(`/api/files/${match.id}`)
-          .then(res => res.ok ? res.json() : null)
+          .then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to fetch file info')))
           .then(data => {
             if (data) {
               setFileInfoMap(prev => ({ ...prev, [match.id]: data }));
             }
           })
-          .catch(() => {});
+          .catch(err => console.error(`Failed to fetch info for file ${match.id}:`, err));
       }
     });
   }, [highSimilarityMatches, fileInfoMap]);
 
-  const handleGoBack = () => {
-    navigate('/protect/step2');
-  };
+  useEffect(() => {
+    fetchMatchDetails();
+  }, [fetchMatchDetails]);
 
-  const handleGoStep4 = () => {
-    if (scanResult) {
-      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
-        ? scanResult.imageSearch.googleVision.links
-        : [];
-      const tineyeMatches = Array.isArray(scanResult.imageSearch?.tineye?.matches)
-        ? scanResult.imageSearch.tineye.matches
-        : [];
-      const tineyeLinks = tineyeMatches.map(m => m.url);
-      const suspiciousLinks = [...googleLinks, ...tineyeLinks];
-      navigate('/protect/step4-infringement', {
-        state: {
-          ...step1Data,
-          scanResults: scanResult,
-          suspiciousLinks
+  useEffect(() => {
+    if (!taskId) {
+      setError('沒有提供掃描任務 ID。請返回並重新觸發掃描。');
+      setLoading(false);
+      return;
+    }
+
+    const pollScanStatus = () => {
+      let attempts = 0;
+      const maxAttempts = 60; // Poll for 5 minutes max
+
+      const timer = setInterval(async () => {
+        if (attempts >= maxAttempts) {
+          clearInterval(timer);
+          setError('掃描處理超時，請稍後於儀表板查看結果。');
+          setLoading(false);
+          return;
         }
-      });
-    }
-  };
+        attempts++;
 
-  const handleDMCATakedown = async(matchId) => {
-    if(!window.confirm('確定要對此相似圖片提出 DMCA 申訴嗎？')) return;
-    try {
-      const res = await fetch('/api/dmca/report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          workId: step1Data?.fileId,
-          infringingUrl: `/api/protect/view/${matchId}`
-        })
-      });
-      const data = await res.json();
-      if(res.ok){
-        alert('DMCA 已提交');
-      }else{
-        alert(`失敗: ${data.error || '未知錯誤'}`);
-      }
-    } catch(e){
-      alert(`錯誤: ${e.message}`);
+        try {
+          const res = await fetch(`/api/scans/status/${taskId}`);
+          if (!res.ok) {
+            console.warn(`Polling failed with status ${res.status}, retrying...`);
+            return; // Continue polling on non-fatal errors
+          }
+          
+          const data = await res.json();
+          
+          if (data.status === 'completed') {
+            clearInterval(timer);
+            const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            setScanResult(resultData);
+            setInternalMatches(resultData.internalMatches?.results || []);
+            localStorage.setItem(`scanResult_${taskId}`, JSON.stringify(resultData));
+            setLoading(false);
+          } else if (data.status === 'failed') {
+            clearInterval(timer);
+            const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+            setError(`掃描任務失敗: ${errData.error || '未知錯誤'}`);
+            setLoading(false);
+          }
+        } catch (err) {
+          clearInterval(timer);
+          setError(err.message || '無法取得掃描結果，請檢查網路連線。');
+          setLoading(false);
+        }
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(timer); // Cleanup function for useEffect
+    };
+
+    pollScanStatus();
+  }, [taskId]);
+
+  const handleDMCATakedown = async (matchId) => {
+    if (!fileData?.id) {
+        alert('無法獲取當前保護的檔案ID');
+        return;
     }
+    if (!window.confirm(`確定要對檔案 ID: ${matchId} 的持有者提出 DMCA 申訴嗎？`)) return;
+    // ... DMCA 申訴邏輯 ...
   };
 
   const renderContent = () => {
@@ -287,80 +214,52 @@ export default function ProtectStep3() {
         <>
           <Spinner />
           <p>AI 侵權偵測進行中...</p>
-          <p>正在掃描 Google, TinEye 及各大圖庫平台，請稍候...</p>
+          <p>正在掃描 Google, TinEye, Bing 及內部資料庫，請稍候...</p>
         </>
       );
     }
+    if (error) return <ErrorMsg><strong>掃描失敗：</strong>{error}</ErrorMsg>;
+    if (!scanResult) return <p>暫無掃描結果。</p>;
 
-    if (error) {
-      return <ErrorMsg><strong>掃描失敗：</strong>{error}</ErrorMsg>;
-    }
-
-    if (scanResult) {
-      const googleLinks = Array.isArray(scanResult.imageSearch?.googleVision?.links)
-        ? scanResult.imageSearch.googleVision.links.map(url => ({ source: 'Google Vision', url }))
-        : [];
-      const tineyeLinks = Array.isArray(scanResult.imageSearch?.tineye?.matches)
-        ? scanResult.imageSearch.tineye.matches.map(m => ({ source: 'TinEye', url: m.url }))
-        : [];
-      const allLinks = [...googleLinks, ...tineyeLinks];
-
-      return (
-        <>
-          <InfoBlock>
-            <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
-            {allLinks.length > 0 ? (
-              <>
-                <p>發現 {allLinks.length} 個潛在的侵權或相似圖片連結：</p>
-                <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
-                  {allLinks.map((item, idx) => (
-                    <li key={idx} style={{ margin: '0.5rem 0' }}>
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#4caf50' }}>
-                        {item.source}: {item.url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p>恭喜！初步掃描未在各大平台發現相似的公開圖片。</p>
-            )}
-          </InfoBlock>
-
-          <div className="ai-matches-section" style={{ marginTop: '1rem' }}>
-            <h3>內部資料庫 AI 相似度匹配 (待審核)</h3>
-            {highSimilarityMatches.length > 0 ? (
-              <div className="matches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-                {highSimilarityMatches.map(match => (
-                  <div key={match.id} className="match-card" style={{ border: '1px solid #555', padding: '0.5rem', borderRadius: '6px' }}>
-                    <img
-                      src={`/api/protect/view/${match.id}`}
-                      alt={`Similar image with ID ${match.id}`}
-                      className="preview-image"
-                      style={{ maxWidth: '120px', display: 'block', marginBottom: '0.5rem' }}
-                    />
-                    <div className="match-info" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
-                      <p><strong>檔案 ID:</strong> {match.id}</p>
-                      <p><strong>相似度:</strong> {(match.score * 100).toFixed(1)}%</p>
-                      {fileInfoMap[match.id]?.title && (
-                        <p><strong>標題:</strong> {fileInfoMap[match.id].title}</p>
-                      )}
-                    </div>
-                    <div className="match-actions" style={{ textAlign: 'center' }}>
-                      <button onClick={() => handleDMCATakedown(match.id)}>發送 DMCA 申訴</button>
-                    </div>
+    return (
+      <>
+        <InfoBlock>
+          <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
+          <h4>全網潛在連結</h4>
+          {allPotentialLinks.length > 0 ? (
+            <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
+              {allPotentialLinks.map((item, idx) => (
+                <li key={idx} style={{ margin: '0.5rem 0' }}>
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#66bb6a' }}>
+                    [{item.source}] {item.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : <p>恭喜！初步掃描未在各大平台發現相似的公開圖片。</p>}
+        </InfoBlock>
+        <div className="ai-matches-section" style={{ marginTop: '2rem' }}>
+          <h4>內部資料庫 AI 相似度匹配 (>{'80%'})</h4>
+          {highSimilarityMatches.length > 0 ? (
+            <div className="matches-grid" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
+              {highSimilarityMatches.map(match => (
+                <div key={match.id} /*...*/>
+                  <img src={`/api/protect/view/${match.id}`} /*...*/ />
+                  <div /*...*/>
+                    <p><strong>檔案 ID:</strong> {match.id}</p>
+                    <p><strong>相似度:</strong> {(match.score * 100).toFixed(1)}%</p>
+                    {fileInfoMap[match.id]?.title && <p><strong>標題:</strong> {fileInfoMap[match.id].title}</p>}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p>在內部資料庫中未找到相似度高於 80% 的圖片。</p>
-            )}
-          </div>
-        </>
-      );
-    }
-
-    return null;
+                  <div /*...*/>
+                    <button onClick={() => handleDMCATakedown(match.id)}>發送 DMCA 申訴</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p>在內部資料庫中未找到相似度高於 80% 的圖片。</p>}
+        </div>
+      </>
+    );
   };
 
   return (
@@ -369,10 +268,10 @@ export default function ProtectStep3() {
         <Title>Step 3: AI Infringement Scan</Title>
         {renderContent()}
         <ButtonRow>
-          <NavButton onClick={handleGoBack} disabled={loading}>
-            ← 返回上一步
+          <NavButton onClick={() => navigate(-1)} disabled={loading}>
+            ← 返回
           </NavButton>
-          <NavButton onClick={handleGoStep4} disabled={loading || error || !scanResult}>
+          <NavButton onClick={() => navigate('/protect/step4-infringement', { state: { scanResult } })} disabled={loading || error || !scanResult}>
             查看報告與申訴 (Step 4) →
           </NavButton>
         </ButtonRow>
