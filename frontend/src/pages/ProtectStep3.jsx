@@ -201,11 +201,36 @@ export default function ProtectStep3() {
 
   const handleDMCATakedown = async (matchId) => {
     if (!fileData?.id) {
-        alert('無法獲取當前保護的檔案ID');
-        return;
+      alert('無法獲取當前保護的檔案ID');
+      return;
     }
-    if (!window.confirm(`確定要對檔案 ID: ${matchId} 的持有者提出 DMCA 申訴嗎？`)) return;
+    if (!window.confirm(`確定要對檔案 ID: ${matchId} 的持有者提出 DMCA 申訴嗎？`))
+      return;
     // ... DMCA 申訴邏輯 ...
+  };
+
+  const handleLinkTakedown = async (infringingUrl) => {
+    if (!fileData?.id) {
+      alert('無法獲取當前保護的檔案ID');
+      return;
+    }
+    if (!window.confirm(`確定要對以下連結發起 DMCA 申訴？\n${infringingUrl}`)) return;
+
+    try {
+      const res = await fetch('/api/infringement/takedown', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ originalFileId: fileData.id, infringingUrl })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`DMCA 案件已提交！案件編號: ${data.dmcaCaseId || data.caseId || 'N/A'}`);
+      } else {
+        throw new Error(data.error || data.message || '未知錯誤');
+      }
+    } catch (err) {
+      alert(`DMCA 申訴失敗：${err.message}`);
+    }
   };
 
   const renderContent = () => {
@@ -225,14 +250,17 @@ export default function ProtectStep3() {
       <>
         <InfoBlock>
           <p style={{ fontWeight: 'bold', marginBottom: '1rem' }}>偵測完成！</p>
-          <h4>全網潛在連結</h4>
+          <h4>AI 尋獲的潛在連結 (待人工審核)</h4>
           {allPotentialLinks.length > 0 ? (
             <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
               {allPotentialLinks.map((item, idx) => (
-                <li key={idx} style={{ margin: '0.5rem 0' }}>
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#66bb6a' }}>
+                <li key={idx} style={{ margin: '0.5rem 0', display:'flex', alignItems:'center' }}>
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#66bb6a', wordBreak:'break-all', flex:1 }}>
                     [{item.source}] {item.url}
                   </a>
+                  <button style={{ marginLeft: '0.5rem' }} onClick={() => handleLinkTakedown(item.url)}>
+                    發送申訴
+                  </button>
                 </li>
               ))}
             </ul>
