@@ -27,6 +27,7 @@ const infringementRouter = require('./routes/infringement');
 const paymentRoutes = require('./routes/paymentRoutes');
 const searchMilvusRouter = require('./routes/searchMilvus');
 const scanRoutes = require('./routes/scans'); // newly added route for scan status
+const filesRouter = require('./routes/files');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/api/infringement', infringementRouter);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/milvus', searchMilvusRouter);
 app.use('/api/scans', scanRoutes); // route handling scan status queries
+app.use('/api/files', filesRouter);
 
 // --- 健康檢查路由 ---
 app.get('/health', (req, res) => {
