@@ -10,8 +10,11 @@ class QueueService {
         this.channel = null;
     }
 
-    // **FIX**: Changed to an async init method
-    async init() {
+    // Connect to RabbitMQ and assert queue
+    async connect() {
+        if (this.channel) {
+            return;
+        }
         try {
             this.connection = await amqp.connect(BROKER_URL);
             this.channel = await this.connection.createChannel();
@@ -19,9 +22,13 @@ class QueueService {
             logger.info('[QueueService] RabbitMQ connected and queue asserted successfully.');
         } catch (error) {
             logger.error('[QueueService] Failed to connect to RabbitMQ:', error.message);
-            // Re-throw the error to prevent the application from starting
             throw error;
         }
+    }
+
+    // Backwards compatibility
+    init() {
+        return this.connect();
     }
 
     async sendToQueue(task) {
@@ -36,6 +43,33 @@ class QueueService {
             logger.error('[QueueService] Failed to send task to queue:', error);
             throw error;
         }
+    }
+
+    consumeTasks(handler) {
+        if (!this.channel) {
+            throw new Error('RabbitMQ channel is not available.');
+        }
+        this.channel.consume(
+            SCAN_QUEUE,
+            async (msg) => {
+                if (!msg) return;
+                let ack = false;
+                try {
+                    const payload = JSON.parse(msg.content.toString());
+                    ack = await handler(payload);
+                } catch (err) {
+                    logger.error('[QueueService] Error processing message:', err);
+                } finally {
+                    if (ack) {
+                        this.channel.ack(msg);
+                    } else {
+                        this.channel.nack(msg, false, false);
+                    }
+                }
+            },
+            { noAck: false }
+        );
+        logger.info('[QueueService] Started consuming tasks from queue.');
     }
 }
 
