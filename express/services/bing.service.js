@@ -1,10 +1,9 @@
-// express/services/bing.service.js
+// express/services/bing.service.js (Final Endpoint Corrected Version)
 const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
 const BING_API_KEY = process.env.BING_API_KEY;
-// Read the custom endpoint from .env file
 const BING_API_ENDPOINT = process.env.BING_API_ENDPOINT;
 
 /**
@@ -32,8 +31,9 @@ async function searchByBuffer(buffer) {
         'Ocp-Apim-Subscription-Key': BING_API_KEY,
     };
     
-    // Construct the full URL for the request
-    const fullUrl = `${BING_API_ENDPOINT}/bing/v7.0/images/search`;
+    // **FIX**: Corrected the endpoint path for Azure AI Services. 
+    // It should be '/images/search' directly appended to the custom domain.
+    const fullUrl = new URL('/images/search', BING_API_ENDPOINT).href;
     
     const params = {
         modules: 'SimilarImages',
