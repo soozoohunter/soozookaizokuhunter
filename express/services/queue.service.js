@@ -8,18 +8,19 @@ class QueueService {
     constructor() {
         this.connection = null;
         this.channel = null;
-        this.connect();
     }
 
-    async connect() {
+    // **FIX**: Changed to an async init method
+    async init() {
         try {
             this.connection = await amqp.connect(BROKER_URL);
             this.channel = await this.connection.createChannel();
             await this.channel.assertQueue(SCAN_QUEUE, { durable: true });
-            logger.info('[QueueService] RabbitMQ connected and queue asserted.');
+            logger.info('[QueueService] RabbitMQ connected and queue asserted successfully.');
         } catch (error) {
-            logger.error('[QueueService] Failed to connect to RabbitMQ:', error);
-            setTimeout(() => this.connect(), 5000);
+            logger.error('[QueueService] Failed to connect to RabbitMQ:', error.message);
+            // Re-throw the error to prevent the application from starting
+            throw error;
         }
     }
 

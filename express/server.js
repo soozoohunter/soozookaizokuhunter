@@ -8,6 +8,7 @@ const logger = require('./utils/logger');
 const { sequelize, connectToDatabase } = require('./models');
 const { initializeBlockchainService } = require('./utils/chain');
 const createAdmin = require('./createDefaultAdmin');
+const queueService = require('./services/queue.service');
 
 process.on('unhandledRejection', (reason) => {
     logger.error('[UnhandledRejection]', reason);
@@ -72,17 +73,22 @@ async function startServer() {
         await sequelize.sync({ alter: true });
         logger.info('[Startup] Step 2: Database models synchronized successfully.');
 
-        // 步驟 3: 建立預設管理員帳號
-        logger.info('[Startup] Step 3: Setting up default admin user...');
+        // 步驟 3: 初始化 RabbitMQ
+        logger.info('[Startup] Step 3: Initializing RabbitMQ connection...');
+        await queueService.init();
+        logger.info('[Startup] Step 3: RabbitMQ connection successful.');
+
+        // 步驟 4: 建立預設管理員帳號
+        logger.info('[Startup] Step 4: Setting up default admin user...');
         await createAdmin();
-        logger.info('[Startup] Step 3: Default admin user setup complete.');
+        logger.info('[Startup] Step 4: Default admin user setup complete.');
 
-        // 步驟 4: 初始化區塊鏈服務
-        logger.info('[Startup] Step 4: Initializing Blockchain service...');
+        // 步驟 5: 初始化區塊鏈服務
+        logger.info('[Startup] Step 5: Initializing Blockchain service...');
         await initializeBlockchainService();
-        logger.info('[Startup] Step 4: Blockchain service initialization successful.');
+        logger.info('[Startup] Step 5: Blockchain service initialization successful.');
 
-        // 步驟 5: 所有服務就緒，啟動 Express 監聽
+        // 最終步驟: 所有服務就緒，啟動 Express 監聽
         app.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
         });
