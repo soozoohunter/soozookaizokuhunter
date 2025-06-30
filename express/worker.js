@@ -1,10 +1,10 @@
-// express/worker.js (Final Corrected Version)
+// express/worker.js (Final Corrected Version for DB Models)
 require('dotenv').config();
-const db = require('./models');
+const db = require('./models'); // Correctly import the main db object
 const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
-const { Scan, File } = require('./models');
+// The models are now accessed via the 'db' object, e.g., db.Scan, db.File
 const ipfsService = require('./services/ipfsService');
 const vectorSearchService = require('./services/vectorSearch');
 
@@ -14,13 +14,15 @@ async function processScanTask(task) {
 
     let scanRecord;
     try {
-        scanRecord = await Scan.findByPk(taskId);
+        // ** FIX: Access the Scan model via the db object
+        scanRecord = await db.Scan.findByPk(taskId);
         if (!scanRecord) {
             throw new Error(`Scan task with ID ${taskId} not found.`);
         }
         await scanRecord.update({ status: 'processing', started_at: new Date() });
 
-        const fileRecord = await File.findByPk(fileId);
+        // ** FIX: Access the File model via the db object
+        const fileRecord = await db.File.findByPk(fileId);
         if (!fileRecord) {
             throw new Error(`File record with ID ${fileId} not found.`);
         }
@@ -50,15 +52,24 @@ async function processScanTask(task) {
         };
         
         logger.info(`[Worker] Task ${taskId}: Scan complete. Saving results to database.`);
-        fileRecord.status = 'scanned';
-        fileRecord.resultJson = JSON.stringify(finalResults);
-        await fileRecord.save();
+        // ** FIX: Access the File model via the db object
+        await db.File.update(
+            { 
+                status: 'scanned',
+                resultJson: JSON.stringify(finalResults)
+            },
+            { where: { id: fileId } }
+        );
 
-        await scanRecord.update({ 
-            status: 'completed', 
-            completed_at: new Date(),
-            result: JSON.stringify(finalResults)
-        });
+        // ** FIX: Access the Scan model via the db object
+        await db.Scan.update(
+            { 
+                status: 'completed', 
+                completed_at: new Date(),
+                result: JSON.stringify(finalResults)
+            },
+            { where: { id: taskId } }
+        );
 
         logger.info(`[Worker] Task ${taskId}: Successfully processed scan for File ID ${fileId}.`);
         return true;
@@ -67,11 +78,15 @@ async function processScanTask(task) {
         logger.error(`[Worker] Task ${taskId}: FAILED to process scan for File ID ${fileId}. Error: ${error.message}`);
         logger.error(error.stack);
         if (scanRecord) {
-            await scanRecord.update({
-                status: 'failed',
-                completed_at: new Date(),
-                result: JSON.stringify({ error: error.message })
-            });
+            // ** FIX: Access the Scan model via the db object
+            await db.Scan.update(
+                {
+                    status: 'failed',
+                    completed_at: new Date(),
+                    result: JSON.stringify({ error: error.message })
+                },
+                { where: { id: taskId } }
+            );
         }
         return false;
     }
