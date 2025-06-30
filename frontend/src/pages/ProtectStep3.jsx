@@ -1,9 +1,7 @@
-// frontend/src/pages/ProtectStep3.jsx (Final Production-Ready Version)
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-// --- 樣式定義 ---
 const spin = keyframes` to { transform: rotate(360deg); } `;
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -76,19 +74,17 @@ export default function ProtectStep3() {
   const [error, setError] = useState('');
   const [scanResult, setScanResult] = useState(null);
   const [confirmedLinks, setConfirmedLinks] = useState([]);
-  const [fileInfoMap, setFileInfoMap] = useState({});
 
-  const { taskId, fileInfo } = location.state || {};
-  
-  // 輪詢邏輯
+  const { taskId, fileInfo, userInfo } = location.state || {};
+
   const pollScanStatus = useCallback((id) => {
     const timer = setInterval(async () => {
       try {
         const res = await fetch(`/api/scans/status/${id}`);
-        if (!res.ok) return; // 等待下一次輪詢
-        
+        if (!res.ok) return;
+
         const data = await res.json();
-        
+
         if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(timer);
           setLoading(false);
@@ -110,7 +106,6 @@ export default function ProtectStep3() {
     return () => clearInterval(timer);
   }, []);
 
-  // 頁面載入時啟動輪詢
   useEffect(() => {
     if (!taskId) {
       setError('沒有提供掃描任務 ID。請返回並重新觸發掃描。');
@@ -119,26 +114,37 @@ export default function ProtectStep3() {
     }
     pollScanStatus(taskId);
   }, [taskId, pollScanStatus]);
-  
-  // 提取所有潛在連結
+
   const potentialLinks = useMemo(() => {
     if (!scanResult) return [];
     const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
     const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(m => ({ source: 'TinEye', url: m.url })) || [];
     const bing = scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
-    // 使用 Map 去除重複的 URL
     const uniqueLinksMap = new Map();
     [...google, ...tineye, ...bing].forEach(link => uniqueLinksMap.set(link.url, link));
     return Array.from(uniqueLinksMap.values());
   }, [scanResult]);
 
-  // 處理確認/取消確認連結
   const toggleLinkConfirmation = (url) => {
-    setConfirmedLinks(prev => 
+    setConfirmedLinks(prev =>
       prev.includes(url) ? prev.filter(l => l !== url) : [...prev, url]
     );
   };
-  
+
+  const handleGoToStep4 = () => {
+    if (confirmedLinks.length === 0) {
+      alert('請至少確認一個侵權連結後再進行下一步。');
+      return;
+    }
+    navigate('/protect/step4', {
+      state: {
+        confirmedLinks,
+        fileInfo,
+        userInfo,
+      },
+    });
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -164,7 +170,7 @@ export default function ProtectStep3() {
                   <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9', wordBreak: 'break-all', flexGrow: 1 }}>
                     [{item.source}] {item.url}
                   </a>
-                  <button 
+                  <button
                     onClick={() => toggleLinkConfirmation(item.url)}
                     style={{ background: isConfirmed ? '#c53030' : '#2f855a', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', minWidth: '80px' }}
                   >
@@ -186,10 +192,7 @@ export default function ProtectStep3() {
         {renderContent()}
         <ButtonRow>
           <NavButton onClick={() => navigate(-1)}>← 返回</NavButton>
-          <NavButton
-            onClick={() => navigate('/protect/step4', { state: { fileInfo, confirmedLinks } })}
-            disabled={confirmedLinks.length === 0}
-          >
+          <NavButton onClick={handleGoToStep4} disabled={confirmedLinks.length === 0 || loading}>
             下一步 (已確認 {confirmedLinks.length} 項) →
           </NavButton>
         </ButtonRow>

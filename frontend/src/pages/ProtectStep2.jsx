@@ -1,9 +1,7 @@
-// frontend/src/pages/ProtectStep2.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-/* (此處的 styled-components keyframes 與樣式維持原樣，故省略以節省篇幅) */
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -78,61 +76,49 @@ const OrangeButton = styled.button`
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const [step1Data, setStep1Data] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const storedData = localStorage.getItem('protectStep1');
-    if (!storedData) {
-      // 如果沒有 localStorage 資料，導回第一步
+    if (storedData) {
+      setStep1Data(JSON.parse(storedData));
+    } else {
       navigate('/protect/step1');
-      return;
     }
-    setStep1Data(JSON.parse(storedData));
   }, [navigate]);
 
   const handleProceedToScan = async () => {
-    if (!step1Data || !step1Data.fileId) {
+    if (!step1Data || !step1Data.file.id) {
       alert('錯誤：無效的檔案資訊。');
       return;
     }
-
+    setIsLoading(true);
     try {
       const response = await fetch('/api/protect/step2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: step1Data.fileId }),
+        body: JSON.stringify({ fileId: step1Data.file.id }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '啟動掃描任務失敗。');
-      }
+      if (!response.ok) throw new Error('啟動掃描任務失敗。');
 
       const data = await response.json();
-      const taskId = data.taskId;
 
       navigate('/protect/step3', {
         state: {
-          taskId,
-          fileInfo: step1Data,
+          taskId: data.taskId,
+          fileInfo: step1Data.file,
+          userInfo: step1Data.user,
         },
       });
     } catch (error) {
-      console.error('Failed to dispatch scan:', error);
       alert(`啟動掃描失敗：${error.message}`);
+      setIsLoading(false);
     }
   };
 
-  if (!step1Data) {
-    return (
-      <PageWrapper>
-        <Container>
-          <Title>Loading Data...</Title>
-        </Container>
-      </PageWrapper>
-    );
-  }
+  if (!step1Data) return <div>Loading...</div>;
 
-  const { fileId, fingerprint, ipfsHash, txHash, pdfUrl, publicImageUrl } = step1Data;
+  const { file, user } = step1Data;
 
   return (
     <PageWrapper>
@@ -143,17 +129,17 @@ export default function ProtectStep2() {
         </p>
 
         <InfoBlock>
-          <p><strong>File ID:</strong> {fileId || 'N/A'}</p>
-          <p><strong>Fingerprint (SHA-256):</strong> {fingerprint || 'N/A'}</p>
-          <p><strong>IPFS Hash:</strong> {ipfsHash || 'N/A'}</p>
-          <p><strong>Blockchain TxHash:</strong> {txHash || 'N/A'}</p>
+          <p><strong>File ID:</strong> {file?.id || 'N/A'}</p>
+          <p><strong>Fingerprint (SHA-256):</strong> {file?.fingerprint || 'N/A'}</p>
+          <p><strong>IPFS Hash:</strong> {file?.ipfsHash || 'N/A'}</p>
+          <p><strong>Blockchain TxHash:</strong> {file?.txHash || 'N/A'}</p>
         </InfoBlock>
 
-        {pdfUrl && (
+        {file?.pdfUrl && (
           <InfoBlock>
             <p><strong>原創證書 PDF:</strong></p>
             <a
-              href={pdfUrl}
+              href={file.pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#4caf50', textDecoration: 'underline' }}
@@ -162,12 +148,12 @@ export default function ProtectStep2() {
             </a>
           </InfoBlock>
         )}
-        
-        {publicImageUrl && (
+
+        {file?.publicImageUrl && (
           <InfoBlock>
             <p><strong>公開圖片連結 (含浮水印):</strong></p>
             <a
-              href={publicImageUrl}
+              href={file.publicImageUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: '#4caf50', textDecoration: 'underline' }}
@@ -178,8 +164,8 @@ export default function ProtectStep2() {
         )}
 
         <ButtonRow>
-          <OrangeButton onClick={handleProceedToScan}>
-            下一步：開始侵權偵測 (Step 3) →
+          <OrangeButton onClick={handleProceedToScan} disabled={isLoading}>
+            {isLoading ? '處理中...' : '下一步：開始侵權偵測 (Step 3) →'}
           </OrangeButton>
         </ButtonRow>
       </Container>
