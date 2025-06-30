@@ -1,37 +1,31 @@
-// express/services/scanner.service.js (with more input logging)
+// express/services/scanner.service.js (Final Robust Version)
 const logger = require('../utils/logger');
 const visionService = require('./vision.service');
 const tinEyeService = require('./tineye.service');
 const imageFetcher = require('./imageFetcher');
 const fingerprintService = require('./fingerprintService');
-const axios = require('axios');
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const axios = require('axios'); // Needed for downloading images
 
 async function performFullScan(options) {
-    const startTime = Date.now();
-    
-    // **FIX**: Log the received options object immediately
-    logger.info('[Scanner Service] Received scan request. Options:', { 
-        hasOptions: !!options,
-        hasBuffer: !!options?.buffer,
-        bufferLength: options?.buffer?.length,
-        hasFingerprint: !!options?.originalFingerprint
+    // **FIX**: Enhanced logging to show exactly what is received.
+    logger.info('[Scanner Service] Received scan request with options:', { 
+        hasBuffer: !!options.buffer, 
+        bufferLength: options.buffer ? options.buffer.length : 'N/A',
+        originalFingerprint: options.originalFingerprint 
     });
 
-    // It's good practice to check if options itself is valid
-    if (!options) {
-        throw new Error('Options object is required for a full scan.');
-    }
-
-    const { buffer, originalFingerprint } = options;
-
-    if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+    // This is the check that was failing.
+    if (!options.buffer || !Buffer.isBuffer(options.buffer) || options.buffer.length === 0) {
         throw new Error('A valid image buffer is required for a full scan.');
     }
+    
+    const { buffer, originalFingerprint } = options;
+
     if (!originalFingerprint) {
         throw new Error('Original image fingerprint is required for comparison.');
     }
+
+    const startTime = Date.now();
 
     logger.info('[Scanner Service] Step 1: Performing reverse image search with Google Vision and TinEye...');
     const [visionResult, tineyeResult] = await Promise.all([
@@ -47,18 +41,16 @@ async function performFullScan(options) {
 
     logger.info('[Scanner Service] Step 2: Verifying matches by fetching images and comparing fingerprints...');
     const verifiedMatches = [];
-    for (const url of uniqueUrls.slice(0, 20)) {
+    // Limit verification to avoid excessive requests, e.g., first 30 URLs.
+    for (const url of uniqueUrls.slice(0, 30)) { 
         try {
             const imageUrlOnPage = await imageFetcher.getMainImageUrl(url);
             if (!imageUrlOnPage) {
-                logger.warn(`[Scanner Service] Could not extract image URL from page, skipping: ${url}`);
+                logger.warn(`[Scanner Service] Could not extract image URL from page: ${url}`);
                 continue;
             }
 
-            const imageResponse = await axios.get(imageUrlOnPage, { 
-                responseType: 'arraybuffer',
-                timeout: 15000
-            });
+            const imageResponse = await axios.get(imageUrlOnPage, { responseType: 'arraybuffer' });
             const downloadedImageBuffer = Buffer.from(imageResponse.data);
             
             const downloadedImageFingerprint = fingerprintService.sha256(downloadedImageBuffer);
@@ -72,9 +64,10 @@ async function performFullScan(options) {
                     fingerprintMatch: true
                 });
             }
-            await delay(200);
+            // Add a small delay to avoid rate-limiting
+            await new Promise(resolve => setTimeout(resolve, 200)); 
         } catch (error) {
-            logger.error(`[Scanner Service] Failed to verify URL ${url}.`, { errorMessage: error.message, errorObj: error });
+            logger.error(`[Scanner Service] Failed to verify URL ${url}: ${error.message}`);
         }
     }
 

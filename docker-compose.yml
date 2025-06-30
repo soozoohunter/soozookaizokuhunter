@@ -1,5 +1,5 @@
-# docker-compose.yml (Final Robust Version - No YAML Anchors)
-version: '3.8'
+# docker-compose.yml (Final Cleanup)
+# REMOVED the top-level 'version' attribute to prevent warnings.
 
 networks:
   suzoo-network:
