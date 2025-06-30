@@ -1,68 +1,71 @@
-// express/services/ipfsService.js (Final Robust Version)
+// express/services/ipfsService.js (Final, Robust Version)
 const { create } = require('ipfs-http-client');
 const logger = require('../utils/logger');
-const all = require('it-all');
-const { concat: uint8ArrayConcat } = require('uint8arrays/concat');
 
 class IpfsService {
-    constructor() {
-        this.client = null;
-        this.init();
+  constructor() {
+    this.client = null;
+    this.init();
+  }
+
+  init() {
+    try {
+      const url = process.env.IPFS_API_URL || 'http://suzoo_ipfs:5001';
+      // The URL needs to be parsed for the ipfs-http-client v56+
+      const urlObject = new URL(url);
+
+      this.client = create({
+        host: urlObject.hostname,
+        port: urlObject.port,
+        protocol: urlObject.protocol.replace(':', ''),
+      });
+
+      logger.info(`[ipfsService] IPFS client configured for ${urlObject.hostname}:${urlObject.port}`);
+      logger.info('[ipfsService] init => client created.');
+    } catch (error) {
+      logger.error('[ipfsService] Failed to initialize IPFS client:', error);
     }
+  }
 
-    init() {
-        try {
-            const apiUrl = process.env.IPFS_API_URL || 'suzoo_ipfs';
-            let url;
-
-            if (apiUrl.startsWith('http')) {
-                url = new URL(apiUrl);
-            } else {
-                url = new URL(`http://${apiUrl}:5001`);
-            }
-            
-            this.client = create(url);
-            logger.info(`[ipfsService] IPFS client configured for ${url.hostname}:${url.port}`);
-            // **FIX**: Removed the problematic isOnline() check to avoid startup errors.
-            // The first real operation (add or cat) will test the connection anyway.
-            logger.info('[ipfsService] init => client created.');
-
-        } catch (error) {
-            logger.error('[ipfsService] Failed to initialize IPFS client:', error);
-        }
+  async saveFile(buffer) {
+    if (!this.client) {
+      logger.error('[ipfsService.saveFile] IPFS client not initialized.');
+      return null;
     }
-
-    async saveFile(buffer) {
-        if (!this.client) {
-            throw new Error('IPFS client not initialized (create() failed)');
-        }
-        try {
-            logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
-            const result = await this.client.add(buffer);
-            const cid = result.cid.toString();
-            logger.info(`[ipfsService.saveFile] => CID= ${cid}`);
-            return cid;
-        } catch (error) {
-            logger.error('[ipfsService.saveFile] Failed to save file:', error);
-            throw error;
-        }
+    try {
+      logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
+      const { cid } = await this.client.add(buffer);
+      logger.info('[ipfsService.saveFile] => CID=', cid.toString());
+      return cid.toString();
+    } catch (error) {
+      logger.error('[ipfsService.saveFile] Error saving file to IPFS:', error);
+      return null;
     }
+  }
 
-    async getFile(cid) {
-        if (!this.client) {
-            throw new Error('IPFS client not initialized (create() failed)');
-        }
-        try {
-            logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
-            const chunks = await all(this.client.cat(cid));
-            const buffer = uint8ArrayConcat(chunks);
-            logger.info(`[ipfsService.getFile] Successfully fetched ${buffer.length} bytes for CID: ${cid}`);
-            return buffer;
-        } catch (error) {
-            logger.error(`[ipfsService.getFile] Failed to get file for CID ${cid}:`, error);
-            return null;
-        }
+  async getFile(cid) {
+    if (!this.client) {
+      logger.error('[ipfsService.getFile] IPFS client not initialized.');
+      return null;
     }
+    logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
+    try {
+      const chunks = [];
+      // The 'cat' method returns an async iterator. We need to collect all chunks.
+      for await (const chunk of this.client.cat(cid)) {
+        chunks.push(chunk);
+      }
+
+      // Concatenate all chunks into a single, standard Node.js Buffer.
+      const fileBuffer = Buffer.concat(chunks);
+      logger.info(`[ipfsService.getFile] Successfully fetched ${fileBuffer.length} bytes for CID: ${cid}`);
+
+      return fileBuffer;
+    } catch (error) {
+      logger.error(`[ipfsService.getFile] Error getting file from IPFS for CID ${cid}:`, error);
+      return null;
+    }
+  }
 }
 
 module.exports = new IpfsService();
