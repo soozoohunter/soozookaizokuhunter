@@ -24,7 +24,10 @@ async function processScanTask(task) {
 
         // --- Stage 1: Fast External Scan ---
         logger.info(`[Worker] Task ${taskId}: Performing external scan (Google, TinEye, Bing)...`);
-        const externalScanResults = await scannerService.performFullScan(imageBuffer, fileRecord.fingerprint);
+        const externalScanResults = await scannerService.performFullScan({
+            buffer: imageBuffer,
+            originalFingerprint: fileRecord.fingerprint,
+        });
 
         let finalResults = {
             scan: externalScanResults,
