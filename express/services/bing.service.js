@@ -26,11 +26,12 @@ async function searchByBuffer(buffer) {
         'Ocp-Apim-Subscription-Key': BING_API_KEY,
     };
     
-    // ** THE FINAL FIX **: According to the latest Azure AI Services documentation,
-    // the path for Bing Search on a multi-service endpoint is '/v7.0/images/search',
-    // without the '/bing' prefix.
+    // NOTE: When using an Azure multi-service endpoint, Bing APIs require the
+    // '/bing' path prefix. Without it the service responds with `Resource not
+    // found` (HTTP 404).
+    // Ref: https://learn.microsoft.com/azure/ai-services/bing-search/bing-search-api-endpoint
     const endpointUrl = new URL(BING_API_ENDPOINT);
-    endpointUrl.pathname = '/v7.0/images/search'; // Correct path
+    endpointUrl.pathname = '/bing/v7.0/images/search'; // correct path for multi-service
     endpointUrl.searchParams.set('modules', 'SimilarImages');
     
     const fullUrl = endpointUrl.href;
