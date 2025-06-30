@@ -1,7 +1,9 @@
-// express/worker.js (Final Production-Ready Version with Robust Error Handling)
+// express/worker.js (Final Path-Corrected Version)
 require('dotenv').config();
-const db = require('../models');
-const logger = require('../utils/logger');
+// ** FIX: Corrected path from '../models' to './models'
+const db = require('./models'); 
+const logger = require('./utils/logger');
+// ** FIX: Corrected path for all services
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
 const ipfsService = require('./services/ipfsService');
@@ -25,7 +27,7 @@ async function processScanTask(task) {
             throw new Error('Failed to retrieve a valid image buffer from IPFS.');
         }
 
-        // --- Stage 1: Perform the fast and reliable external scan ---
+        // --- Stage 1: Fast External Scan ---
         logger.info(`[Worker] Task ${taskId}: Performing external scan (Google, TinEye, etc.)...`);
         const externalScanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
@@ -34,18 +36,17 @@ async function processScanTask(task) {
 
         let finalResults = {
             scan: externalScanResults,
-            internalMatches: { success: false, error: "Not performed yet." } // Default state
+            internalMatches: { success: false, error: "Not performed yet." } 
         };
         
         // --- Stage 2: Save intermediate results ---
-        // This allows the frontend to see potential links immediately.
         logger.info(`[Worker] Task ${taskId}: External scan complete. Saving intermediate results.`);
         await db.Scan.update(
-            { result: JSON.stringify(finalResults), status: 'processing' }, // Status is still 'processing'
+            { result: JSON.stringify(finalResults), status: 'processing' },
             { where: { id: taskId } }
         );
 
-        // --- Stage 3: Perform the slow and potentially failing internal vector scan ---
+        // --- Stage 3: Slow Internal Vector Scan ---
         logger.info(`[Worker] Task ${taskId}: Performing internal vector search...`);
         try {
             const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
@@ -58,7 +59,7 @@ async function processScanTask(task) {
 
         // --- Stage 4: Save final results and mark the entire task as completed ---
         logger.info(`[Worker] Task ${taskId}: All stages finished. Saving final aggregated results.`);
-        const finalStatus = 'completed'; // Mark as completed regardless of vector search outcome
+        const finalStatus = 'completed'; 
         
         await db.Scan.update({ 
             status: finalStatus, 
@@ -72,10 +73,9 @@ async function processScanTask(task) {
         }, { where: { id: fileId } });
 
         logger.info(`[Worker] Task ${taskId}: Successfully processed task for File ID ${fileId}. Final status: ${finalStatus}`);
-        return true; // Acknowledge message from queue
+        return true;
 
     } catch (error) {
-        // This block now catches critical errors from Stage 1 (e.g., IPFS failure, main scanner failure)
         logger.error(`[Worker] Task ${taskId}: A CRITICAL error occurred, task will be marked as failed. Error: ${error.message}`);
         logger.error(error.stack);
         if (scanRecord) {
@@ -85,7 +85,7 @@ async function processScanTask(task) {
                 result: JSON.stringify({ error: error.message })
             }, { where: { id: taskId } });
         }
-        return false; // Reject message
+        return false;
     }
 }
 
