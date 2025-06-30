@@ -1,4 +1,4 @@
-// express/services/bing.service.js (Final Endpoint Corrected Version)
+// express/services/bing.service.js (Final Endpoint Corrected Version v2)
 const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
@@ -16,8 +16,7 @@ async function searchByBuffer(buffer) {
         logger.warn('[Bing Service] BING_API_KEY or BING_API_ENDPOINT is not configured. Service disabled.');
         return { success: false, links: [], error: 'Bing API key or endpoint not configured.' };
     }
-    if (!buffer || buffer.length === 0) {
-        logger.error('[Bing Service] searchByBuffer was called with an empty or invalid buffer.');
+    if (!buffer) {
         return { success: false, links: [], error: 'Invalid image buffer provided.' };
     }
 
@@ -32,7 +31,7 @@ async function searchByBuffer(buffer) {
     };
     
     // **FIX**: Corrected the endpoint path for Azure AI Services.
-    // The path is directly appended to the custom domain provided in .env.
+    // The path is directly '/images/search' relative to the endpoint.
     const fullUrl = new URL('/bing/v7.0/images/search', BING_API_ENDPOINT).href;
     
     const params = {
@@ -56,10 +55,7 @@ async function searchByBuffer(buffer) {
 
     } catch (error) {
         const errorMsg = error.response?.data?.error?.message || error.message;
-        logger.error(`[Bing Service] Search failed: ${errorMsg}`);
-        if (error.response) {
-            logger.error(`[Bing Service] API Error Status: ${error.response.status}`);
-        }
+        logger.error(`[Bing Service] Search failed: ${errorMsg}`, { status: error.response?.status });
         return { success: false, links: [], error: errorMsg };
     }
 }

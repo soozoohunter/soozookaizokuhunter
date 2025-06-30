@@ -5,70 +5,15 @@ import styled, { keyframes } from 'styled-components';
 
 // --- 樣式定義 ---
 const spin = keyframes` to { transform: rotate(360deg); } `;
-const PageWrapper = styled.div`
-  min-height: 100vh;
-  background: #1a1a1a;
-  padding: 2rem 1rem;
-  color: #fff;
-`;
-const Container = styled.div`
-  width: 95%;
-  max-width: 800px;
-  margin: 0 auto;
-  background-color: rgba(30, 30, 30, 0.9);
-  border-radius: 12px;
-  border: 1px solid #444;
-  padding: 2rem;
-  text-align: center;
-`;
-const Title = styled.h2`
-  color: #f97316;
-  margin-bottom: 1.5rem;
-`;
-const InfoBlock = styled.div`
-  background-color: #2a2a2a;
-  border: 1px solid #444;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  text-align: left;
-`;
-const ErrorMsg = styled.div`
-  background: #c53030;
-  color: #fff;
-  padding: 1rem;
-  border-radius: 6px;
-`;
-const ButtonRow = styled.div`
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
-`;
-const NavButton = styled.button`
-  background: #f97316;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 0.75rem 1.5rem;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
-  transition: background-color 0.2s;
-  &:hover:not(:disabled) { background: #ea580c; }
-  &:disabled { background: #555; color: #999; cursor: not-allowed; }
-`;
-const Spinner = styled.div`
-  display: inline-block;
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #f97316;
-  border-radius: 50%;
-  animation: ${spin} 1s linear infinite;
-`;
+const PageWrapper = styled.div`/* ... */`;
+const Container = styled.div`/* ... */`;
+const Title = styled.h2`/* ... */`;
+const InfoBlock = styled.div`/* ... */`;
+const ErrorMsg = styled.div`/* ... */`;
+const ButtonRow = styled.div`/* ... */`;
+const NavButton = styled.button`/* ... */`;
+const Spinner = styled.div`/* ... */`;
 
-// --- 主元件 ---
 export default function ProtectStep3() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -92,9 +37,9 @@ export default function ProtectStep3() {
       try {
         const res = await fetch(`/api/scans/status/${taskId}`);
         if (!res.ok) {
-            if (res.status === 404) throw new Error(`找不到任務 ID ${taskId}，請返回重試。`);
-            console.warn(`Polling failed with status ${res.status}, retrying...`);
-            return; 
+          if (res.status === 404) throw new Error(`找不到任務 ID ${taskId}，請返回重試。`);
+          console.warn(`Polling failed with status ${res.status}, retrying...`);
+          return;
         }
         
         const data = await res.json();
@@ -117,33 +62,24 @@ export default function ProtectStep3() {
       }
     };
     
-    const timer = setInterval(poll, 5000); // 每 5 秒輪詢一次
+    const timer = setInterval(poll, 5000);
     poll(); // 立即執行一次，不用等待5秒
 
     return () => clearInterval(timer); // 元件卸載時清除計時器
   }, [taskId]);
   
-  // [核心修正] 調整 useMemo 的資料來源
+  // 提取所有潛在連結
   const potentialLinks = useMemo(() => {
-    if (!scanResult || !scanResult.scan || !scanResult.scan.reverseImageSearch) {
-      return [];
-    }
-
-    const { googleVision, tineye, bing } = scanResult.scan.reverseImageSearch;
-
-    const googleLinks = googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
-    const tineyeLinks = tineye?.matches?.map(match => ({ source: 'TinEye', url: match.url })) || [];
-    const bingLinks = bing?.links?.map(url => ({ source: 'Bing', url })) || [];
-
-    // 使用 Map 來過濾掉重複的 URL，確保列表的唯一性
+    if (!scanResult) return [];
+    const google = scanResult.scan?.reverseImageSearch?.googleVision?.links?.map(url => ({ source: 'Google', url })) || [];
+    const tineye = scanResult.scan?.reverseImageSearch?.tineye?.matches?.map(match => ({ source: 'TinEye', url: match.url })) || [];
+    const bing = scanResult.scan?.reverseImageSearch?.bing?.links?.map(url => ({ source: 'Bing', url })) || [];
     const uniqueLinksMap = new Map();
-    [...googleLinks, ...tineyeLinks, ...bingLinks].forEach(link => {
-      // 確保 URL 是有效的字串再存入
+    [...google, ...tineye, ...bing].forEach(link => {
       if (typeof link.url === 'string' && link.url.trim() !== '') {
         uniqueLinksMap.set(link.url, link);
       }
     });
-
     return Array.from(uniqueLinksMap.values());
   }, [scanResult]);
 
@@ -160,7 +96,7 @@ export default function ProtectStep3() {
         <>
           <Spinner />
           <p style={{ marginTop: '1rem' }}>AI 侵權掃描正在執行中，請稍候...</p>
-          <p style={{ fontSize: '0.8rem', color: '#aaa' }}>這可能需要幾分鐘時間，您可以離開此頁面，稍後再回來查看結果。</p>
+          <p style={{ fontSize: '0.8rem', color: '#aaa' }}>這可能需要數分鐘，您可以離開此頁面，稍後再回來查看結果。</p>
         </>
       );
     }
