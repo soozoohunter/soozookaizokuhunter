@@ -13,6 +13,10 @@ const neonGlow = keyframes`
   0%, 100% { box-shadow: 0 0 8px #ff6f00; }
   50% { box-shadow: 0 0 25px #ff6f00; }
 `;
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
 const PageWrapper = styled.div`
   min-height: 100vh;
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
@@ -35,7 +39,7 @@ const Container = styled.div`
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.2rem;
-  color: #FFD700;
+  color: #ffd700;
   font-weight: 700;
   letter-spacing: 1px;
 `;
@@ -66,11 +70,21 @@ const OrangeButton = styled.button`
     cursor: not-allowed;
   }
 `;
+const Spinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  animation: ${spin} 0.8s linear infinite;
+`;
 
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // 優先從 location.state 獲取數據，其次才從 localStorage 獲取
   const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,7 +123,7 @@ export default function ProtectStep2() {
       }
 
       const data = await response.json();
-      
+
       // 關鍵: 將 taskId 和完整的 step1Data 傳遞給下一個頁面
       navigate('/protect/step3', { state: { taskId: data.taskId, step1Data } });
     } catch (error) {
@@ -122,7 +136,9 @@ export default function ProtectStep2() {
   if (!step1Data) {
     return (
       <PageWrapper>
-        <Container><Title>正在載入資料...</Title></Container>
+        <Container>
+          <Title>正在載入資料...</Title>
+        </Container>
       </PageWrapper>
     );
   }
@@ -137,13 +153,22 @@ export default function ProtectStep2() {
           您的原創著作證明已成功建立並儲存於區塊鏈上。
         </p>
         <InfoBlock>
-          <p><strong>檔案 ID:</strong> {file.id || 'N/A'}</p>
-          <p><strong>數位指紋 (SHA-256):</strong> {file.fingerprint || 'N/A'}</p>
-          <p><strong>IPFS Hash:</strong> {file.ipfs_hash || 'N/A'}</p>
-          <p><strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}</p>
+          <p>
+            <strong>檔案 ID:</strong> {file.id || 'N/A'}
+          </p>
+          <p>
+            <strong>數位指紋 (SHA-256):</strong> {file.fingerprint || 'N/A'}
+          </p>
+          <p>
+            <strong>IPFS Hash:</strong> {file.ipfs_hash || 'N/A'}
+          </p>
+          <p>
+            <strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}
+          </p>
         </InfoBlock>
         <ButtonRow>
           <OrangeButton onClick={handleProceedToScan} disabled={isLoading}>
+            {isLoading && <Spinner />}
             {isLoading ? '處理中...' : '下一步：開始侵權偵測 →'}
           </OrangeButton>
         </ButtonRow>
