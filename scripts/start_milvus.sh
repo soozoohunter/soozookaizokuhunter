@@ -1,7 +1,24 @@
 #!/bin/bash
 set -e
+
 LOCK_DIR=/var/lib/milvus
-# remove possible leftover RocksMQ lock files
+
+# Remove possible leftover RocksMQ lock files to avoid startup errors
 rm -f "$LOCK_DIR/rdb_data_meta_kv/LOCK" || true
 rm -f "$LOCK_DIR/rdb_data"/*.lock || true
+
+# Wait for dependency services before launching Milvus
+wait_for() {
+  local name=$1
+  local url=$2
+  echo "Waiting for $name at $url ..."
+  until curl -fs "$url" >/dev/null 2>&1; do
+    sleep 2
+  done
+  echo "$name is available"
+}
+
+wait_for "etcd" "http://${ETCD_ENDPOINTS}/health"
+wait_for "minio" "http://${MINIO_ADDRESS}/minio/health/ready"
+
 exec milvus run standalone
