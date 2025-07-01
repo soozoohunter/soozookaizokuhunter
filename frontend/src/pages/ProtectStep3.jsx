@@ -3,16 +3,109 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-// --- 樣式定義 (請保持或使用你現有的) ---
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+const neonGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 8px #ff6f00; }
+  50% { box-shadow: 0 0 25px #ff6f00; }
+`;
 const spin = keyframes` to { transform: rotate(360deg); } `;
-const PageWrapper = styled.div`/* ... */`;
-const Container = styled.div`/* ... */`;
-const Title = styled.h2`/* ... */`;
-const InfoBlock = styled.div`/* ... */`;
-const ErrorMsg = styled.div`/* ... */`;
-const ButtonRow = styled.div`/* ... */`;
-const NavButton = styled.button`/* ... */`;
-const Spinner = styled.div`/* ... */`;
+const progressAnim = keyframes`
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 0%; }
+`;
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
+  background-size: 500% 500%;
+  animation: ${gradientFlow} 10s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
+const Container = styled.div`
+  background-color: rgba(20, 20, 20, 0.8);
+  width: 95%;
+  max-width: 600px;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  border: 1px solid #444;
+  animation: ${neonGlow} 2s ease-in-out infinite alternate;
+`;
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.2rem;
+  color: #ffd700;
+  font-weight: 700;
+  letter-spacing: 1px;
+`;
+const InfoBlock = styled.div`
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+`;
+const ErrorMsg = styled.div`
+  background: #ff4444;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+`;
+const ButtonRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1rem;
+`;
+const NavButton = styled.button`
+  background-color: #f97316;
+  color: #fff;
+  padding: 0.75rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  &:hover:not(:disabled) {
+    background-color: #ea580c;
+  }
+  &:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+  }
+`;
+const Spinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #fff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  animation: ${spin} 0.8s linear infinite;
+`;
+const ProgressBar = styled.div`
+  width: 100%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 1rem;
+`;
+const ProgressIndicator = styled.div`
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, #f97316, #ffce00);
+  background-size: 200% 100%;
+  animation: ${progressAnim} 1s linear infinite;
+`;
 
 
 // --- Helper Function to safely extract links ---
@@ -50,6 +143,7 @@ export default function ProtectStep3() {
     const [error, setError] = useState('');
     const [scanData, setScanData] = useState(null); // Holds the full result object
     const [confirmedLinks, setConfirmedLinks] = useState([]);
+    const [taskStatus, setTaskStatus] = useState('pending');
 
     const { taskId } = location.state || {};
     const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
@@ -76,6 +170,9 @@ export default function ProtectStep3() {
                     return; // Don't stop polling on temporary server errors
                 }
                 const data = await res.json();
+                if (data.status) {
+                    setTaskStatus(data.status);
+                }
                 
                 // Always update the data, even if it's just intermediate
                 if (data.result) {
@@ -114,7 +211,15 @@ export default function ProtectStep3() {
 
     const renderContent = () => {
         if (loading) {
-            return <> <Spinner /> <p>掃描進行中，請稍候...</p> </>
+            return (
+                <>
+                    <Spinner />
+                    <p>掃描進行中，狀態：{taskStatus}</p>
+                    <ProgressBar>
+                        <ProgressIndicator />
+                    </ProgressBar>
+                </>
+            );
         }
         if (error) {
             return <ErrorMsg><strong>錯誤：</strong>{error}</ErrorMsg>;
@@ -143,9 +248,9 @@ export default function ProtectStep3() {
                                     </button>
                                 </li>
                             );
-                        })}
+                        })
                     </ul>
-                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>}
+                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>
             </InfoBlock>
         );
     };

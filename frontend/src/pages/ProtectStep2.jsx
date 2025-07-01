@@ -17,6 +17,10 @@ const spin = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 `;
+const progressAnim = keyframes`
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 0%; }
+`;
 const PageWrapper = styled.div`
   min-height: 100vh;
   background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
@@ -79,6 +83,38 @@ const Spinner = styled.div`
   border-radius: 50%;
   margin-right: 0.5rem;
   animation: ${spin} 0.8s linear infinite;
+`;
+const Overlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+const LoadingBox = styled.div`
+  text-align: center;
+`;
+const ProgressBar = styled.div`
+  width: 80%;
+  height: 8px;
+  background: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 1rem;
+  margin-left: auto;
+  margin-right: auto;
+`;
+const ProgressIndicator = styled.div`
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, #f97316, #ffce00);
+  background-size: 200% 100%;
+  animation: ${progressAnim} 1s linear infinite;
 `;
 
 export default function ProtectStep2() {
@@ -173,6 +209,17 @@ export default function ProtectStep2() {
           </OrangeButton>
         </ButtonRow>
       </Container>
+      {isLoading && (
+        <Overlay>
+          <LoadingBox>
+            <Spinner />
+            <p>啟動偵測任務中，請稍候...</p>
+            <ProgressBar>
+              <ProgressIndicator />
+            </ProgressBar>
+          </LoadingBox>
+        </Overlay>
+      )
     </PageWrapper>
   );
 }
