@@ -193,7 +193,9 @@ services:
       etcd:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/api/v1/health"]
+      # Milvus exposes a simple healthz endpoint on the HTTP port
+      # Using /healthz avoids API changes across versions
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
