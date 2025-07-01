@@ -1,5 +1,5 @@
-# docker-compose.yml (最終正確版)
-# 已修正 Milvus 啟動方式並增加共享記憶體
+# docker-compose.yml (真正最終版)
+# 強制使用 Milvus v2.3.16 穩定版映像檔，不再讀取 .env 變數
 
 networks:
   suzoo-network:
@@ -171,7 +171,7 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
+    image: milvusdb/milvus:v2.3.16
     ports:
       - "19530:19530"
       - "9091:9091"
