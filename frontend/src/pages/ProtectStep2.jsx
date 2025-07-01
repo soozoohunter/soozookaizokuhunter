@@ -1,14 +1,55 @@
 // frontend/src/pages/ProtectStep2.jsx (Final Version)
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import styled from 'styled-components'; // 假設你已定義樣式
+import styled, { keyframes } from 'styled-components';
 
-// --- 建議的樣式，或使用你現有的 ---
-const PageWrapper = styled.div`/* ... */`;
-const Container = styled.div`/* ... */`;
-const Title = styled.h2`/* ... */`;
-const InfoBlock = styled.div`/* ... */`;
-const ButtonRow = styled.div`/* ... */`;
+// Reuse animations and styles from Step1 for visual consistency
+const gradientFlow = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+const neonGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 8px #ff6f00; }
+  50% { box-shadow: 0 0 25px #ff6f00; }
+`;
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
+  background-size: 500% 500%;
+  animation: ${gradientFlow} 10s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+`;
+const Container = styled.div`
+  background-color: rgba(20, 20, 20, 0.8);
+  width: 95%;
+  max-width: 600px;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  border: 1px solid #444;
+  animation: ${neonGlow} 2s ease-in-out infinite alternate;
+`;
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.2rem;
+  color: #FFD700;
+  font-weight: 700;
+  letter-spacing: 1px;
+`;
+const InfoBlock = styled.div`
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+`;
+const ButtonRow = styled.div`
+  text-align: center;
+`;
 const OrangeButton = styled.button`
   background-color: #f97316;
   color: #fff;
