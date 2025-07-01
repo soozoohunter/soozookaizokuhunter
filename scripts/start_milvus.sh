@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 LOCK_DIR=/var/lib/milvus
-# remove possible leftover RocksMQ lock files
-rm -f "$LOCK_DIR/rdb_data_meta_kv/LOCK" || true
-rm -f "$LOCK_DIR/rdb_data"/*.lock || true
+# remove any leftover RocksMQ lock files that might prevent startup
+find "$LOCK_DIR" -name LOCK -exec rm -f {} \; || true
+find "$LOCK_DIR" -name '*.lock' -exec rm -f {} \; || true
 exec milvus run standalone

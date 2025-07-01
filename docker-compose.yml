@@ -200,8 +200,8 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 20
+      start_period: 60s
     restart: always
     logging:
       driver: "json-file"
