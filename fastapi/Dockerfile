@@ -4,6 +4,11 @@ FROM python:3.9-slim
 # 在容器中建立並設定工作目錄
 WORKDIR /app
 
+# 安裝系統工具 (供健康檢查使用)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # --- 安裝依賴 ---
 # 為了利用 Docker 的層快取機制，我們先只複製 requirements.txt
 COPY requirements.txt .
