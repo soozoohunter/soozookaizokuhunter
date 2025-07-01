@@ -45,8 +45,9 @@ MILVUS_PORT = int(os.getenv("MILVUS_PORT", 19530))
 COLLECTION_NAME = "suzoo_image_vectors"
 MODEL_NAME = "openai/clip-vit-base-patch32"
 
-# Use simple HTTP URL to avoid multiaddr issues
-IPFS_API_URL = "http://suzoo_ipfs:5001"
+# IPFS daemon expects a multiaddr when using ipfshttpclient
+# Use DNS-based multiaddr so the service name resolves correctly in Docker
+IPFS_API_URL = "/dns/suzoo_ipfs/tcp/5001/http"
 
 BLOCKCHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", "http://suzoo_ganache:8545")
 GANACHE_PRIV_KEY = os.getenv("GANACHE_PRIVATE_KEY", "")
