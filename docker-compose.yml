@@ -1,5 +1,5 @@
-# docker-compose.yml (最終修正版)
-# 修正 Milvus 啟動方式並恢復正確的健康檢查與依賴條件
+# docker-compose.yml (最終正確版)
+# 已修正 Milvus 啟動方式並增加共享記憶體
 
 networks:
   suzoo-network:
@@ -70,7 +70,6 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
         condition: service_healthy
     networks:
       - suzoo-network
@@ -117,7 +116,6 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
         condition: service_healthy
     networks:
       - suzoo-network
@@ -154,7 +152,6 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
@@ -174,16 +171,13 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    # 注意：您的 .env 檔案中 MILVUS_IMAGE_TAG 可能指向 v2.4.4，此修復同樣適用
     image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
-    # 清理舊鎖檔後啟動，以避免 RocksMQ lock 導致服務啟動失敗
-    command: ["bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
+    shm_size: '2gb'
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
@@ -198,7 +192,6 @@ services:
         condition: service_healthy
       etcd:
         condition: service_healthy
-    # [FIXED] 恢復健康檢查，這是確保服務穩定的關鍵
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:9091/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 10s
