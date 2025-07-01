@@ -194,7 +194,7 @@ services:
     depends_on:
       suzoo_minio:
         condition: service_healthy
-      suzoo_etcd:
+      etcd:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
