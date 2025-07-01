@@ -193,7 +193,7 @@ services:
       etcd:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:9091/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
+      test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
       interval: 10s
       timeout: 5s
       retries: 10
