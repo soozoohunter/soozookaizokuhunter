@@ -250,9 +250,9 @@ export default function ProtectStep3() {
                                     </button>
                                 </li>
                             );
-                        })
+                        })}
                     </ul>
-                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>
+                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>}
             </InfoBlock>
         );
     };

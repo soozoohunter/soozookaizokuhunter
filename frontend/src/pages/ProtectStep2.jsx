@@ -221,7 +221,7 @@ export default function ProtectStep2() {
             </ProgressBar>
           </LoadingBox>
         </Overlay>
-      )
+      )}
     </PageWrapper>
   );
 }
