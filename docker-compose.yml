@@ -1,5 +1,5 @@
-# docker-compose.yml (Final Cleanup)
-# REMOVED the top-level 'version' attribute to prevent warnings.
+# docker-compose.yml (修正版)
+# 已移除 Milvus healthcheck，確保容器能正常啟動
 
 networks:
   suzoo-network:
@@ -70,7 +70,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started
     networks:
       - suzoo-network
     dns:
@@ -116,7 +116,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started
     networks:
       - suzoo-network
     dns:
@@ -152,7 +152,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 15s
@@ -172,34 +172,28 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
-    # [FIXED] Removed custom command and script volume.
-    # The container will use its default command to run in standalone mode.
+    # 清理舊鎖檔後啟動
+    command: ["bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
     volumes:
       - milvus_data:/var/lib/milvus
+      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
-      ETCD_ENDPOINTS: etcd:2379 # Connect to etcd service on port 2379
-      MINIO_ADDRESS: suzoo_minio:9000 # Connect to minio service on port 9000
-      # The following should be defined in your .env file
+      ETCD_ENDPOINTS: ${ETCD_ENDPOINTS}
       ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
+      MINIO_ADDRESS: ${MINIO_ADDRESS}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     depends_on:
       suzoo_minio:
         condition: service_healthy
-      etcd:
+      suzoo_etcd:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:9091/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
     restart: always
     logging:
       driver: "json-file"
@@ -210,7 +204,7 @@ services:
   # -------------------------------------
   # ETCD (for Milvus)
   # -------------------------------------
-  etcd:
+  suzoo_etcd:
     container_name: suzoo_etcd
     image: bitnami/etcd:3.5
     ports:
@@ -392,9 +386,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-# -------------------------------------
-# 命名掛載卷 (Named Volumes)
-# -------------------------------------
 volumes:
   postgres_data:
   rabbitmq_data:
