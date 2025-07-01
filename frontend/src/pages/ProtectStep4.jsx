@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -53,6 +53,7 @@ export default function ProtectStep4() {
   const location = useLocation();
 
   const { confirmedLinks, fileInfo, userInfo } = location.state || {};
+  const [takedownStatus, setTakedownStatus] = useState({});
 
   if (!confirmedLinks || confirmedLinks.length === 0 || !fileInfo) {
     return (
@@ -69,7 +70,9 @@ export default function ProtectStep4() {
   }
 
   const handleTakedown = async (infringingUrl) => {
-    if (!window.confirm(`確定要對以下連結發起 DMCA 申訴嗎？\n${infringingUrl}`)) return;
+    if (takedownStatus[infringingUrl]) return;
+
+    setTakedownStatus(prev => ({ ...prev, [infringingUrl]: 'sending' }));
 
     try {
       const response = await fetch('/api/infringement/takedown', {
@@ -82,9 +85,10 @@ export default function ProtectStep4() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || '申訴請求失敗');
-      alert(`申訴已成功提交！案件 ID: ${result.caseId}`);
+
+      setTakedownStatus(prev => ({ ...prev, [infringingUrl]: `成功 (ID: ${result.caseId})` }));
     } catch (error) {
-      alert(`申訴失敗：${error.message}`);
+      setTakedownStatus(prev => ({ ...prev, [infringingUrl]: `失敗: ${error.message}` }));
     }
   };
 
@@ -95,12 +99,17 @@ export default function ProtectStep4() {
         <InfoBlock>
           <h4>您已確認以下連結為侵權內容：</h4>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {confirmedLinks.map((link, index) => (
-              <li key={index} style={{ background: '#333', padding: '0.75rem', borderRadius: '4px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ wordBreak: 'break-all', flexGrow: 1 }}>{link}</span>
-                <button onClick={() => handleTakedown(link)}>發送 DMCA 申訴</button>
-              </li>
-            ))}
+            {confirmedLinks.map((link, index) => {
+              const status = takedownStatus[link];
+              return (
+                <li key={index} style={{ background: '#333', padding: '0.75rem', borderRadius: '4px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span style={{ wordBreak: 'break-all', flexGrow: 1 }}>{link}</span>
+                  <button onClick={() => handleTakedown(link)} disabled={status === 'sending'}>
+                    {status ? status : '發送 DMCA 申訴'}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </InfoBlock>
         <ButtonRow>

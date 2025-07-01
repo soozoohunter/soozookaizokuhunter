@@ -27,6 +27,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const searchMilvusRouter = require('./routes/searchMilvus');
 const scanRoutes = require('./routes/scans');
 const filesRouter = require('./routes/files');
+const usersRouter = require('./routes/users');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/milvus', searchMilvusRouter);
 app.use('/api/scans', scanRoutes);
 app.use('/api/files', filesRouter);
+app.use('/api/users', usersRouter);
 
 // --- Health Check Route ---
 app.get('/health', (req, res) => {

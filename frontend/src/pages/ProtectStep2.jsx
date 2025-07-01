@@ -49,7 +49,7 @@ export default function ProtectStep2() {
   }, [step1Data, navigate]);
 
   const handleProceedToScan = async () => {
-    if (!step1Data || !step1Data.file || !step1Data.file.id) {
+    if (!step1Data?.file?.id) {
       alert('錯誤：無效的檔案資訊，無法啟動掃描。');
       return;
     }
@@ -70,13 +70,7 @@ export default function ProtectStep2() {
       const data = await response.json();
       
       // 關鍵: 將 taskId 和完整的 step1Data 傳遞給下一個頁面
-      navigate('/protect/step3', {
-        state: {
-          taskId: data.taskId,
-          fileInfo: step1Data.file, 
-          userInfo: step1Data.user 
-        },
-      });
+      navigate('/protect/step3', { state: { taskId: data.taskId, step1Data } });
     } catch (error) {
       console.error('Failed to dispatch scan:', error);
       alert(`啟動掃描失敗：${error.message}`);

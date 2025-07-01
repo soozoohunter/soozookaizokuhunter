@@ -51,7 +51,15 @@ export default function ProtectStep3() {
     const [scanData, setScanData] = useState(null); // Holds the full result object
     const [confirmedLinks, setConfirmedLinks] = useState([]);
 
-    const { taskId, fileInfo } = location.state || {};
+    const { taskId } = location.state || {};
+    const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
+
+    useEffect(() => {
+        if (!step1Data) {
+            const stored = localStorage.getItem('protectStep1');
+            if (stored) setStep1Data(JSON.parse(stored));
+        }
+    }, [step1Data]);
 
     useEffect(() => {
         if (!taskId) {
@@ -148,9 +156,9 @@ export default function ProtectStep3() {
                 <Title>Step 3: 侵權掃描儀表板</Title>
                 {renderContent()}
                 <ButtonRow>
-                    <NavButton onClick={() => navigate(-1)}>← 返回</NavButton>
+                    <NavButton onClick={() => navigate('/protect/step2', { state: { step1Data } })}>← 返回修改</NavButton>
                     <NavButton
-                        onClick={() => navigate('/protect/step4', { state: { fileInfo, confirmedLinks } })}
+                        onClick={() => navigate('/protect/step4', { state: { fileInfo: step1Data.file, userInfo: step1Data.user, confirmedLinks } })}
                         disabled={confirmedLinks.length === 0}
                     >
                         下一步 (已確認 {confirmedLinks.length} 項) →

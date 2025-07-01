@@ -26,7 +26,6 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
-import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 import ProtectStep4 from './pages/ProtectStep4';
 
 // Admin
@@ -49,7 +48,7 @@ function RootLayout() {
   const showBanner = location.pathname === '/';
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    localStorage.clear();
     window.location.href = '/';
   };
 
@@ -152,7 +151,6 @@ export default function App() {
             <Route path="step2" element={<ProtectStep2 />} />
           <Route path="step3" element={<ProtectStep3 />} />
           <Route path="step4" element={<ProtectStep4 />} />
-          <Route path="step4-infringement" element={<ProtectStep4Infringement />} />
           </Route>
 
           <Route path="payment" element={<Payment />} />

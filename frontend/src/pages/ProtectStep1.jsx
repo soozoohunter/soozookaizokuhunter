@@ -236,21 +236,10 @@ export default function ProtectStep1() {
         throw new Error('從伺服器收到的回應格式不正確，無法繼續。');
       }
 
-      const receivedFile = data.file;
-      const step1Data = {
-        file: {
-          id: receivedFile.id,
-          fingerprint: receivedFile.fingerprint,
-          ipfsHash: receivedFile.ipfs_hash,
-          txHash: receivedFile.tx_hash,
-          pdfUrl: data.pdfUrl || receivedFile.pdfUrl || '',
-          publicImageUrl: data.publicImageUrl || receivedFile.publicImageUrl || ''
-        },
-        user: data.user || null
-      };
-
-      localStorage.setItem('protectStep1', JSON.stringify(step1Data));
-      navigate('/protect/step2');
+      // 將後端回傳的完整資料(包含 file 與 user)保存
+      localStorage.setItem('protectStep1', JSON.stringify(data));
+      // 同時透過 state 傳遞給下一步，避免 localStorage 延遲問題
+      navigate('/protect/step2', { state: { step1Data: data } });
 
     } catch (err) {
       // 確保 err 是一個有 message 屬性的物件
