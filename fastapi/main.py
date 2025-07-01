@@ -300,7 +300,14 @@ def health():
 # Dedicated healthcheck endpoint for container probes
 @app.get("/healthz", status_code=200)
 def health_check():
-    return {"status": "ok"}
+    """Health endpoint that verifies Milvus connectivity."""
+    try:
+        connections.connect(alias="healthz", host=MILVUS_HOST, port=MILVUS_PORT, timeout=5)
+        ok = utility.has_collection(COLLECTION_NAME, using="healthz")
+        connections.remove_connection("healthz")
+        return {"status": "ok" if ok else "milvus_collection_missing"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "detail": str(e)})
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), authorization: str = Header(None)):
