@@ -10,7 +10,7 @@ RUN pip install --upgrade pip \
 from transformers import CLIPProcessor, CLIPModel
 CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-EOF
+EOF \
     && pip show uvicorn  # 明確檢查uvicorn安裝成功
 
 # 複製 FastAPI 專案程式碼
