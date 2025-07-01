@@ -299,16 +299,11 @@ def health():
     return {"status": "fastapi OK"}
 
 # Dedicated healthcheck endpoint for container probes
+# Keep it lightweight so Docker healthcheck can succeed even if
+# Milvus is still starting up. Only return a simple OK status.
 @app.get("/healthz", status_code=200)
-def health_check():
-    """Health endpoint that verifies Milvus connectivity."""
-    try:
-        connections.connect(alias="healthz", host=MILVUS_HOST, port=MILVUS_PORT, timeout=5)
-        ok = utility.has_collection(COLLECTION_NAME, using="healthz")
-        connections.remove_connection("healthz")
-        return {"status": "ok" if ok else "milvus_collection_missing"}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "detail": str(e)})
+async def health_check():
+    return {"status": "ok"}
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...), authorization: str = Header(None)):
