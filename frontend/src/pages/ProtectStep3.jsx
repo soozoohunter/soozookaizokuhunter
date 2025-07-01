@@ -115,13 +115,13 @@ const extractLinks = (result) => {
     }
     const { googleVision, tineye, bing } = result.scan.reverseImageSearch;
     const links = [];
-    if (googleVision?.success && Array.isArray(googleVision.links)) {
+    if (googleVision && googleVision.success && Array.isArray(googleVision.links)) {
         googleVision.links.forEach(url => links.push({ source: 'Google', url }));
     }
-    if (tineye?.success && Array.isArray(tineye.matches)) {
+    if (tineye && tineye.success && Array.isArray(tineye.matches)) {
         tineye.matches.forEach(match => links.push({ source: 'TinEye', url: match.url }));
     }
-    if (bing?.success && Array.isArray(bing.links)) {
+    if (bing && bing.success && Array.isArray(bing.links)) {
         bing.links.forEach(url => links.push({ source: 'Bing', url }));
     }
     // Remove duplicate URLs
@@ -146,7 +146,9 @@ export default function ProtectStep3() {
     const [taskStatus, setTaskStatus] = useState('pending');
 
     const { taskId } = location.state || {};
-    const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
+    const [step1Data, setStep1Data] = useState(
+        location.state && location.state.step1Data ? location.state.step1Data : null
+    );
 
     useEffect(() => {
         if (!step1Data) {
@@ -185,7 +187,7 @@ export default function ProtectStep3() {
                     setLoading(false);
                     if (data.status === 'failed') {
                         const errData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-                        setError(errData?.error || '掃描任務執行失敗');
+                        setError((errData && errData.error) || '掃描任務執行失敗');
                     }
                 }
             } catch (err) {
@@ -248,9 +250,9 @@ export default function ProtectStep3() {
                                     </button>
                                 </li>
                             );
-                        })
+                        })}
                     </ul>
-                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>
+                ) : <p>恭喜！AI 未在公開網路上找到任何潛在連結。</p>}
             </InfoBlock>
         );
     };
