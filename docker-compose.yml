@@ -176,12 +176,14 @@ services:
     container_name: suzoo_milvus
     # 注意：您的 .env 檔案中 MILVUS_IMAGE_TAG 可能指向 v2.4.4，此修復同樣適用
     image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
-    # [FIXED] 移除自訂的 command 和 script volume，使用官方預設啟動方式
+    # 清理舊鎖檔後啟動，以避免 RocksMQ lock 導致服務啟動失敗
+    command: ["bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
     volumes:
       - milvus_data:/var/lib/milvus
+      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
