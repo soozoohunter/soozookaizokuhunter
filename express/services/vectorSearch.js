@@ -4,7 +4,7 @@ const fs = require('fs');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
-const DEFAULT_TIMEOUT = parseInt(process.env.VECTOR_REQUEST_TIMEOUT_MS || '60000');
+const DEFAULT_TIMEOUT = parseInt(process.env.VECTOR_REQUEST_TIMEOUT_MS || '120000');
 const MAX_RETRIES = parseInt(process.env.VECTOR_REQUEST_RETRIES || '3');
 const RETRY_DELAY_MS = parseInt(process.env.VECTOR_REQUEST_RETRY_DELAY_MS || '5000');
 
