@@ -1,12 +1,14 @@
-# docker-compose.yml (究極版)
-# 新增 create-minio-bucket 服務，確保 Milvus 啟動前儲存桶已存在
+# docker-compose.yml (最終完美版)
+# 優化 create-minio-bucket 服務的啟動腳本
 
 networks:
   suzoo-network:
     driver: bridge
 
 services:
-  # ... [suzoo_frontend, suzoo_express, suzoo_worker, suzoo_fastapi 保持不變] ...
+  # ... [其他所有服務內容與之前完全相同，為節省篇幅此處省略] ...
+  # ... suzoo_frontend, suzoo_express, suzoo_worker, suzoo_fastapi ...
+  # ... etcd, minio, postgres, rabbitmq, redis, ipfs, ganache ...
 
   # -------------------------------------
   # 前端網頁伺服器 (Nginx)
@@ -190,7 +192,6 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     depends_on:
-      # [ULTIMATE FIX] 等待儲存桶建立完成後再啟動
       create-minio-bucket:
         condition: service_completed_successfully
     healthcheck:
@@ -264,7 +265,7 @@ services:
         max-file: "3"
 
   # -------------------------------------
-  # [NEW] MinIO Bucket Creation Service
+  # [OPTIMIZED] MinIO Bucket Creation Service
   # -------------------------------------
   create-minio-bucket:
     image: minio/mc
@@ -276,13 +277,21 @@ services:
       - suzoo-network
     entrypoint: >
       /bin/sh -c "
-      until (/usr/bin/mc config host add minio_local http://suzoo_minio:9000 $$MINIO_ACCESS_KEY $$MINIO_SECRET_KEY) do echo '...waiting for minio...' && sleep 1; done;
-      /usr/bin/mc mb minio_local/$$MINIO_BUCKET_NAME || echo 'Bucket already exists.';
-      /usr/bin/mc policy set public minio_local/$$MINIO_BUCKET_NAME;
+      echo 'Bucket creation script started...';
+      sleep 2;
+      echo 'Attempting to configure mc against suzoo_minio:9000...';
+      until /usr/bin/mc config host add minio_local http://suzoo_minio:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY; do
+        echo '...waiting for minio...' && sleep 1;
+      done;
+      echo 'mc configured successfully.';
+      echo 'Creating bucket: $MINIO_BUCKET_NAME';
+      /usr/bin/mc mb minio_local/$MINIO_BUCKET_NAME || echo 'Bucket $MINIO_BUCKET_NAME already exists.';
+      echo 'Setting policy for bucket: $MINIO_BUCKET_NAME';
+      /usr/bin/mc policy set public minio_local/$MINIO_BUCKET_NAME;
+      echo 'Script finished successfully.';
       exit 0;
       "
     restart: "no"
-
 
   # -------------------------------------
   # 基礎架構服務
@@ -299,7 +308,7 @@ services:
     networks:
       - suzoo-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
