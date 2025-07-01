@@ -1,5 +1,5 @@
-# docker-compose.yml (最終完美版)
-# 優化 create-minio-bucket 服務的啟動腳本
+# docker-compose.yml (畢業證書版)
+# 使用 MinIO 官方初始化腳本，徹底解決 Bucket 建立問題
 
 networks:
   suzoo-network:
@@ -192,8 +192,8 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     depends_on:
-      create-minio-bucket:
-        condition: service_completed_successfully
+      suzoo_minio:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
       interval: 10s
@@ -248,8 +248,10 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     volumes:
       - minio_data:/data
+      - ./scripts/create_bucket.sh:/docker-entrypoint-init.d/create_bucket.sh
     networks:
       - suzoo-network
     healthcheck:
@@ -264,34 +266,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # -------------------------------------
-  # [OPTIMIZED] MinIO Bucket Creation Service
-  # -------------------------------------
-  create-minio-bucket:
-    image: minio/mc
-    depends_on:
-      suzoo_minio:
-        condition: service_healthy
-    env_file: .env
-    networks:
-      - suzoo-network
-    entrypoint: >
-      /bin/sh -c "
-      echo 'Bucket creation script started...';
-      sleep 2;
-      echo 'Attempting to configure mc against suzoo_minio:9000...';
-      until /usr/bin/mc config host add minio_local http://suzoo_minio:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY; do
-        echo '...waiting for minio...' && sleep 1;
-      done;
-      echo 'mc configured successfully.';
-      echo 'Creating bucket: $MINIO_BUCKET_NAME';
-      /usr/bin/mc mb minio_local/$MINIO_BUCKET_NAME || echo 'Bucket $MINIO_BUCKET_NAME already exists.';
-      echo 'Setting policy for bucket: $MINIO_BUCKET_NAME';
-      /usr/bin/mc policy set public minio_local/$MINIO_BUCKET_NAME;
-      echo 'Script finished successfully.';
-      exit 0;
-      "
-    restart: "no"
 
   # -------------------------------------
   # 基礎架構服務
