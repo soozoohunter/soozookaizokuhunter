@@ -122,7 +122,9 @@ export default function ProtectStep2() {
   const location = useLocation();
 
   // 優先從 location.state 獲取數據，其次才從 localStorage 獲取
-  const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
+  const [step1Data, setStep1Data] = useState(
+    location.state && location.state.step1Data ? location.state.step1Data : null
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function ProtectStep2() {
   }, [step1Data, navigate]);
 
   const handleProceedToScan = async () => {
-    if (!step1Data?.file?.id) {
+    if (!(step1Data && step1Data.file && step1Data.file.id)) {
       alert('錯誤：無效的檔案資訊，無法啟動掃描。');
       return;
     }
