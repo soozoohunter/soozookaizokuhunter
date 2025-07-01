@@ -1,82 +1,64 @@
-/**
- * express/routes/infringement.js
- * - 侵權掃描 / DMCA 申訴
- */
-// Load environment variables from .env at startup. The key values used here are
-// TINEYE_PRIVATE_KEY/TINEYE_PUBLIC_KEY (TinEye REST API keys) and
-// GOOGLE_APPLICATION_CREDENTIALS for Google Vision. Any missing required
-// config will cause the service to exit.
 require('dotenv').config();
 
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const scanner = require('../services/scanner.service');
-const upload = require('../middleware/upload');
-
-//
-// 兼容兩邊的環境變數設定：
-// ENGINE_MAX_LINKS: TinEye 搜尋結果截取
-// VISION_MAX_RESULTS: Google Vision 搜尋結果截取
-//
-const ENGINE_MAX_LINKS = parseInt(process.env.ENGINE_MAX_LINKS, 10) || 50;
-
-const { sendTakedownRequest } = require('../services/dmcaService');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'KaiKaiShieldSecret';
-// ** FIX: Read the new environment variables for TinEye
-const TINEYE_PRIVATE_KEY = process.env.TINEYE_PRIVATE_KEY;
-const TINEYE_PUBLIC_KEY = process.env.TINEYE_PUBLIC_KEY;
-const VISION_CRED_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || '/app/credentials/gcp-vision.json';
-
-// ** FIX: Check for the new keys on startup.
-if (!TINEYE_PRIVATE_KEY || !TINEYE_PUBLIC_KEY) {
-  // Fail fast when the service starts if TinEye keys are missing
-  throw new Error('Startup failed: TINEYE_PRIVATE_KEY or TINEYE_PUBLIC_KEY are not defined in .env file.');
-}
-
-function ensureVisionCredentials(req, res, next) {
-  try {
-    if (!fs.existsSync(VISION_CRED_PATH)) {
-      throw new Error('credential file missing');
-    }
-    const raw = fs.readFileSync(VISION_CRED_PATH, 'utf-8');
-    JSON.parse(raw); // will throw if invalid
-    // set for vision client to pick up
-    process.env.GOOGLE_APPLICATION_CREDENTIALS = VISION_CRED_PATH;
-    next();
-  } catch (err) {
-    console.error('[Vision Credential Error]', err);
-    return res.status(500).json({ success: false, message: 'Vision credential invalid' });
-  }
-}
-
-// --- Mock Data ------------------------------------------------------------
-// This part seems to be incomplete in your provided code,
-// but the crash happens before this, so we'll leave it as is.
-const works = [
-  {
-    id: 1,
-    title: 'Demo Work',
-    fingerprint: 'abcd1234',
-    fileType: 'image',
-    // ... other properties
-  }
-];
-
-// --- Routes -----------------------------------------------------------------
-
-// This route seems to be a work in progress, but we'll include it.
-// GET /api/infringement/scan/:workId
-router.get('/scan/:workId', ensureVisionCredentials, async (req, res) => {
-  // ... route logic
-});
+const db = require('../models');
+const { sendTakedownRequest, isDmcaEnabled } = require('../services/dmcaService');
+const logger = require('../utils/logger');
 
 // POST /api/infringement/takedown
-router.post('/takedown', (req, res) => {
-    // ... route logic
-});
+// Handles the DMCA takedown request from the frontend.
+router.post('/takedown', async (req, res) => {
+    if (!isDmcaEnabled) {
+        return res.status(503).json({ error: 'DMCA Service is not configured on the server.' });
+    }
 
+    const { originalFileId, infringingUrl } = req.body;
+
+    if (!originalFileId || !infringingUrl) {
+        return res.status(400).json({ error: 'Missing originalFileId or infringingUrl in request body.' });
+    }
+
+    try {
+        // 1. Find the original file from our database to get its public URL
+        const originalFile = await db.File.findByPk(originalFileId);
+        if (!originalFile) {
+            return res.status(404).json({ error: `Original file with ID ${originalFileId} not found.` });
+        }
+
+        // 2. Construct the original content URL. This could be an IPFS gateway link or a direct server link.
+        // We'll use a link to our own server's protected view as the original content.
+        const originalUrl = `${process.env.PUBLIC_HOST}/api/protect/view/${originalFile.id}`;
+
+        // 3. Prepare the details for the DMCA takedown request
+        const takedownDetails = {
+            infringingUrl: infringingUrl,
+            originalUrl: originalUrl,
+            description: `Automated takedown request for copyrighted work. Original work registered with File ID: ${originalFile.id}, Title: "${originalFile.title}".`,
+        };
+
+        // 4. Call the dmcaService to send the actual request
+        const dmcaResult = await sendTakedownRequest(takedownDetails);
+
+        if (dmcaResult.success) {
+            res.status(200).json({
+                success: true,
+                message: dmcaResult.message,
+                caseId: dmcaResult.data?.caseID,
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                error: dmcaResult.message,
+            });
+        }
+    } catch (error) {
+        logger.error('[Takedown Route] An unexpected error occurred:', error);
+        res.status(500).json({
+            success: false,
+            error: 'An internal server error occurred while processing the takedown request.',
+        });
+    }
+});
 
 module.exports = router;
