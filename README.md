@@ -58,6 +58,15 @@ docker compose up -d --build
 TINEYE_API_KEY=your_tineye_api_key
 ````
 
+## Bing Image Search API
+
+啟用 Bing 反向圖搜尋，需在 `.env` 中設定以下兩個參數：
+
+```bash
+BING_API_KEY=your-bing-api-key
+BING_API_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
+```
+
 ## Protect API Endpoints
 
 ### POST `/api/protect/step1`

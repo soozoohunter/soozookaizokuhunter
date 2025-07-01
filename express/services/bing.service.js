@@ -31,7 +31,8 @@ async function searchByBuffer(buffer) {
   // found` (HTTP 404).
   // Ref: https://learn.microsoft.com/azure/ai-services/bing-search/bing-search-api-endpoint
   const endpointUrl = new URL(BING_API_ENDPOINT);
-  endpointUrl.pathname = '/bing/v7.0/images/search'; // correct path for multi-service
+  // Use Visual Search endpoint for reverse image lookup
+  endpointUrl.pathname = '/bing/v7.0/images/visualsearch';
   endpointUrl.searchParams.set('modules', 'SimilarImages');
 
   const fullUrl = endpointUrl.href;
