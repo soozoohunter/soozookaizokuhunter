@@ -1,5 +1,5 @@
-# docker-compose.yml (修正版)
-# 已移除 Milvus healthcheck，確保容器能正常啟動
+# docker-compose.yml (最終修正版)
+# 修正 Milvus 啟動方式並恢復正確的健康檢查與依賴條件
 
 networks:
   suzoo-network:
@@ -70,7 +70,8 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started
+        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -116,7 +117,8 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started
+        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -152,7 +154,8 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_started
+        # [FIXED] 依賴條件改回 service_healthy，確保 Milvus 完全就緒
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:8000/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
       interval: 15s
@@ -171,29 +174,35 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
+    # 注意：您的 .env 檔案中 MILVUS_IMAGE_TAG 可能指向 v2.4.4，此修復同樣適用
     image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
-    # 清理舊鎖檔後啟動
-    command: ["bash", "/start_milvus.sh"]
+    # [FIXED] 移除自訂的 command 和 script volume，使用官方預設啟動方式
     ports:
       - "19530:19530"
       - "9091:9091"
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
-      ETCD_ENDPOINTS: ${ETCD_ENDPOINTS}
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: suzoo_minio:9000
       ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
-      MINIO_ADDRESS: ${MINIO_ADDRESS}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     depends_on:
       suzoo_minio:
         condition: service_healthy
-      suzoo_etcd:
+      etcd:
         condition: service_healthy
+    # [FIXED] 恢復健康檢查，這是確保服務穩定的關鍵
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; u=urllib.request.urlopen('http://localhost:9091/healthz', timeout=5); sys.exit(0 if u.status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
     logging:
       driver: "json-file"
@@ -204,7 +213,7 @@ services:
   # -------------------------------------
   # ETCD (for Milvus)
   # -------------------------------------
-  suzoo_etcd:
+  etcd:
     container_name: suzoo_etcd
     image: bitnami/etcd:3.5
     ports:
