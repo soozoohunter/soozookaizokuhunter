@@ -13,7 +13,6 @@ const indexImage = async (fileBuffer, fileId) => {
         logger.warn(`[vectorSearchService-DISABLED] indexImage called for File ID: ${fileId}. Service is disabled, skipping.`);
         return Promise.resolve();
     }
-    // 如果未來需要重新啟用，可以在此處添加連線到新服務的邏輯
     logger.warn(`[vectorSearchService] indexImage called but no vector service is configured.`);
     return Promise.resolve();
 };
@@ -27,7 +26,6 @@ const searchLocalImage = async (imageBuffer) => {
         logger.warn('[vectorSearchService-DISABLED] searchLocalImage called. Service is disabled, skipping. Returning empty results.');
         return Promise.resolve({ success: true, matches: [] });
     }
-    // 如果未來需要重新啟用，可以在此處添加連線到新服務的邏輯
     logger.warn(`[vectorSearchService] searchLocalImage called but no vector service is configured. Returning empty results.`);
     return Promise.resolve({ success: true, matches: [] });
 };
