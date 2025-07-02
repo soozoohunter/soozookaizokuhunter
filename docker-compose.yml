@@ -397,6 +397,6 @@ volumes:
   rabbitmq_data:
   redis_data:
   ipfs_data:
-  milvus__data:
+  milvus_data:
   etcd_data:
   minio_data:
