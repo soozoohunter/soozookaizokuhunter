@@ -61,7 +61,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
                 fs.unlinkSync(tempPath);
                 return res.status(400).json({ error: '對於新用戶，姓名和電子郵件為必填項。'});
             }
-            user = await User.create({ name: realName, dob: birthDate, phone, address, email });
+            user = await User.create({ realName, birthDate, phone, address, email });
             logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
         }
 

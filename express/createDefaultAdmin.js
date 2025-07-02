@@ -66,16 +66,15 @@ module.exports = async function createDefaultAdmin() {
     // 若不存在 => 新建 admin
     logger.info(`[AdminSetup] No existing admin found. Creating a new admin user with email: ${defaultEmail}`);
     const hashed = await bcrypt.hash(defaultPass, 10);
-    await User.create({
-      serialNumber: 'SNADMIN001',
-      email: defaultEmail,
-      phone: defaultPhone,
-      password: hashed,
-      role: 'admin',
-      name: 'System Admin', // 使用 'name' 欄位
-      realName: 'System Admin', // 保留您原有的 realName
-      username: 'admin_user' // 提供一個預設 username
-    });
+      await User.create({
+        serialNumber: 'SNADMIN001',
+        email: defaultEmail,
+        phone: defaultPhone,
+        password: hashed,
+        role: 'admin',
+        realName: 'System Admin',
+        username: 'admin_user'
+      });
     logger.info(`[AdminSetup] New admin user created successfully with email: ${defaultEmail}`);
 
   } catch (err) {
