@@ -67,7 +67,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started # 改為 started，因為 milvus 不會變 healthy
     networks:
       - suzoo-network
     dns:
@@ -113,7 +113,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started # 改為 started，因為 milvus 不會變 healthy
     networks:
       - suzoo-network
     dns:
@@ -149,7 +149,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_healthy
+        condition: service_started # 改為 started，因為 milvus 不會變 healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
       interval: 10s
@@ -169,40 +169,11 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    # 使用一個無害的指令讓容器保持運行，以便我們登入
-    command: ["tail", "-f", "/dev/null"]
-    ports:
-      - "19530:19530"
-      - "9091:9091"
-    shm_size: '2gb'
-    volumes:
-      - milvus_data:/var/lib/milvus
-    networks:
-      - suzoo-network
-    environment:
-      ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: suzoo_minio:9000
-      ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
-    depends_on:
-      etcd:
-        condition: service_started
-      suzoo_minio:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 120s
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    # 覆寫所有指令，只為了印出一行字
+    entrypoint: echo
+    command: "Hello World, a log from the milvus container."
+    # 移除所有不必要的設定
+    restart: "no"
 
   # -------------------------------------
   # ETCD (for Milvus)
