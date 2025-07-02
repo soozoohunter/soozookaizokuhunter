@@ -44,8 +44,8 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [FIX] 在啟動伺服器前，先執行資料庫遷移指令
-    command: sh -c "npx sequelize-cli db:migrate && node server.js"
+    # [FIX] 使用 --config 參數指定 database.js 的路徑
+    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && node server.js"
     ports:
       - "3000:3000"
     env_file:
@@ -92,8 +92,8 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [FIX] 在啟動工人前，也確保資料庫已遷移
-    command: sh -c "npx sequelize-cli db:migrate && node worker.js"
+    # [FIX] Worker 也需要同樣的修正
+    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && node worker.js"
     env_file:
       - .env
     volumes:
