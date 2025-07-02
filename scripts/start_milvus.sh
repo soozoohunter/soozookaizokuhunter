@@ -1,4 +1,3 @@
-# scripts/start_milvus.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -7,11 +6,11 @@ echo "ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-}"
 echo "MINIO_ADDRESS=${MINIO_ADDRESS:-}"
 
 LOCK_DIR=/var/lib/milvus
-# 清理殘留鎖檔
+# 清理殘留鎖檔，避免啟動錯誤
 rm -f "$LOCK_DIR/rdb_data_meta_kv/LOCK" || true
 rm -f "$LOCK_DIR/rdb_data"/*.lock    || true
 
-# 等待服務可用
+# 等待依賴服務可用
 wait_for() {
   local name=$1 url=$2
   echo "$(date) - Waiting for $name at $url ..."
@@ -24,5 +23,5 @@ wait_for() {
 wait_for "etcd"  "http://${ETCD_ENDPOINTS}/health"
 wait_for "minio" "http://${MINIO_ADDRESS}/minio/health/ready"
 
-echo "$(date) - Launching Milvus standalone..."
+echo "$(date) - Launching Milvus in standalone mode..."
 exec milvus run standalone
