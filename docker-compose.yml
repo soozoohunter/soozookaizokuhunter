@@ -337,14 +337,13 @@ services:
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
-    image: ipfs/kubo:latest
-    entrypoint: ["/bin/sh", "/start_ipfs.sh"]
+    image: ipfs/kubo:v0.28.0
+    user: ipfs
     ports:
       - "5001:5001"
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
-      - ./scripts/start_ipfs.sh:/start_ipfs.sh:ro
     networks:
       - suzoo-network
     healthcheck:
