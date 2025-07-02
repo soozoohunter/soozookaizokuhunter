@@ -44,7 +44,8 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    command: node server.js
+    # [FIX] 在啟動伺服器前，先執行資料庫遷移指令
+    command: sh -c "npx sequelize-cli db:migrate && node server.js"
     ports:
       - "3000:3000"
     env_file:
@@ -91,7 +92,8 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    command: node worker.js
+    # [FIX] 在啟動工人前，也確保資料庫已遷移
+    command: sh -c "npx sequelize-cli db:migrate && node worker.js"
     env_file:
       - .env
     volumes:
