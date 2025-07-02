@@ -108,6 +108,12 @@ Express 服務在 `/api/protect` 下提供上述端點，前端在完成上傳�
 docker compose up -d suzoo_express --build
 ```
 
+建置完成後，如有資料庫結構更新，可在容器內執行 Sequelize 遷移：
+
+```bash
+docker compose exec suzoo_express npx sequelize-cli db:migrate
+```
+
 ## Monorepo Workflow
 
 專案採用 pnpm 與 Turborepo 管理多個服務，開發前可執行：
