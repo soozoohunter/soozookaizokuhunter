@@ -1,3 +1,6 @@
+# docker-compose.yml
+version: '3.8'
+
 networks:
   suzoo-network:
     driver: bridge
@@ -66,7 +69,7 @@ services:
         condition: service_healthy
       suzoo_fastapi:
         condition: service_healthy
-      milvus:
+      suzoo_milvus:
         condition: service_healthy
     networks:
       - suzoo-network
@@ -112,7 +115,7 @@ services:
         condition: service_healthy
       suzoo_fastapi:
         condition: service_healthy
-      milvus:
+      suzoo_milvus:
         condition: service_healthy
     networks:
       - suzoo-network
@@ -148,7 +151,7 @@ services:
         condition: service_healthy
       suzoo_ganache:
         condition: service_healthy
-      milvus:
+      suzoo_milvus:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
@@ -166,7 +169,7 @@ services:
   # -------------------------------------
   # 向量資料庫 Milvus (獨立模式)
   # -------------------------------------
-  milvus:
+  suzoo_milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
     entrypoint: ["/bin/bash", "/start_milvus.sh"]
@@ -189,14 +192,14 @@ services:
     depends_on:
       suzoo_minio:
         condition: service_healthy
-      etcd:
+      suzoo_etcd:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 60s
+      interval:    10s
+      timeout:     10s
+      retries:     20
+      start_period:120s
     restart: always
     logging:
       driver: "json-file"
@@ -207,7 +210,7 @@ services:
   # -------------------------------------
   # ETCD (for Milvus)
   # -------------------------------------
-  etcd:
+  suzoo_etcd:
     container_name: suzoo_etcd
     image: bitnami/etcd:3.5
     ports:
@@ -218,7 +221,7 @@ services:
       - suzoo-network
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 10s
@@ -264,7 +267,73 @@ services:
         max-file: "3"
 
   # -------------------------------------
-  # 基礎架構服務
+  # IPFS (內容儲存)
+  # -------------------------------------
+  suzoo_ipfs:
+    container_name: suzoo_ipfs
+    image: ipfs/kubo:latest
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - "chown -R ipfs:ipfs /data/ipfs && /sbin/tini -- /usr/local/bin/start_ipfs_daemon"
+    ports:
+      - "5001:5001"
+      - "8080:8080"
+    volumes:
+      - ipfs_data:/data/ipfs
+    networks:
+      - suzoo-network
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------
+  # Ganache (本地以太坊測試網)
+  # -------------------------------------
+  suzoo_ganache:
+    container_name: suzoo_ganache
+    image: trufflesuite/ganache:latest
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--wallet.accounts"
+      - "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"
+    env_file:
+      - .env
+    ports:
+      - "8545:8545"
+    networks:
+      - suzoo-network
+    healthcheck:
+      test: >
+        node -e "const http = require('http');
+        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
+        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
+        req.on('error', () => process.exit(1));
+        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
+        req.end();"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -------------------------------------
+  # 其他基礎服務
   # -------------------------------------
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -328,66 +397,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  suzoo_ipfs:
-    container_name: suzoo_ipfs
-    image: ipfs/kubo:latest
-    entrypoint:
-      - "/bin/sh"
-      - "-c"
-      - "chown -R ipfs:ipfs /data/ipfs && /sbin/tini -- /usr/local/bin/start_ipfs_daemon"
-    ports:
-      - "5001:5001"
-      - "8080:8080"
-    volumes:
-      - ipfs_data:/data/ipfs
-    networks:
-      - suzoo-network
-    healthcheck:
-      test: ["CMD", "ipfs", "id"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  suzoo_ganache:
-    container_name: suzoo_ganache
-    image: trufflesuite/ganache:latest
-    command:
-      - "--host"
-      - "0.0.0.0"
-      - "--wallet.accounts"
-      - "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"
-    env_file:
-      - .env
-    ports:
-      - "8545:8545"
-    networks:
-      - suzoo-network
-    healthcheck:
-      test: >
-        node -e "const http = require('http');
-        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
-        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
-        req.on('error', () => process.exit(1));
-        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
-        req.end();"
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
     restart: always
     logging:
       driver: "json-file"
