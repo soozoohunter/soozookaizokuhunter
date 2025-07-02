@@ -6,6 +6,8 @@ const path = require('path');
 const sharp = require('sharp');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const { User, File, Scan } = require('../models');
 
@@ -61,7 +63,16 @@ router.post('/step1', upload.single('file'), async (req, res) => {
                 fs.unlinkSync(tempPath);
                 return res.status(400).json({ error: '對於新用戶，姓名和電子郵件為必填項。'});
             }
-            user = await User.create({ realName, birthDate, phone, address, email });
+            const tempPassword = crypto.randomBytes(16).toString('hex');
+            const hashedPassword = await bcrypt.hash(tempPassword, 10);
+            user = await User.create({
+                realName,
+                birthDate,
+                phone,
+                address,
+                email,
+                password: hashedPassword,
+            });
             logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
         }
 
