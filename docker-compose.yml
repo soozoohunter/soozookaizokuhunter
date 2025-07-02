@@ -169,7 +169,7 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    command: ["/bin/bash", "/start_milvus.sh"]
+    command: ["/bin/sh", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
@@ -397,6 +397,6 @@ volumes:
   rabbitmq_data:
   redis_data:
   ipfs_data:
-  milvus_data:
+  milvus__data:
   etcd_data:
   minio_data:
