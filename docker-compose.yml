@@ -1,6 +1,3 @@
-# docker-compose.yml
-version: '3.8'
-
 networks:
   suzoo-network:
     driver: bridge
@@ -88,9 +85,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # ----------------------------------------------------
+  # -------------------------------------
   # 背景任務工人 (Node.js Background Worker)
-  # ----------------------------------------------------
+  # -------------------------------------
   suzoo_worker:
     container_name: suzoo_worker
     build:
@@ -333,7 +330,7 @@ services:
         max-file: "3"
 
   # -------------------------------------
-  # 其他基礎服務
+  # 基礎資料庫服務
   # -------------------------------------
   suzoo_postgres:
     container_name: suzoo_postgres
@@ -358,6 +355,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # -------------------------------------
+  # RabbitMQ
+  # -------------------------------------
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.13-management
@@ -383,6 +383,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # -------------------------------------
+  # Redis
+  # -------------------------------------
   suzoo_redis:
     container_name: suzoo_redis
     image: redis:7-alpine
