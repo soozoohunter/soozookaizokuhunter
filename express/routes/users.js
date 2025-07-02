@@ -7,7 +7,7 @@ router.get('/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
     const user = await db.User.findByPk(userId, {
-      attributes: ['id', 'name', 'email', 'phone']
+      attributes: ['id', 'realName', 'email', 'phone']
     });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
