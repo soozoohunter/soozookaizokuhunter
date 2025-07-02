@@ -22,7 +22,10 @@ wait_for() {
   echo "$name is available"
 }
 
+echo "$(date) - Waiting for etcd service..."
 wait_for "etcd" "http://${ETCD_ENDPOINTS}/health"
+echo "$(date) - Waiting for MinIO service..."
 wait_for "minio" "http://${MINIO_ADDRESS}/minio/health/ready"
 
+echo "$(date) - Starting Milvus in standalone mode"
 exec milvus run standalone
