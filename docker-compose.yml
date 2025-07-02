@@ -338,19 +338,17 @@ services:
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:latest
-    entrypoint:
-      - "/bin/sh"
-      - "-c"
-      - "chown -R ipfs:ipfs /data/ipfs && /sbin/tini -- /usr/local/bin/start_ipfs_daemon"
+    entrypoint: ["/bin/sh", "/start_ipfs.sh"]
     ports:
       - "5001:5001"
       - "8080:8080"
     volumes:
       - ipfs_data:/data/ipfs
+      - ./scripts/start_ipfs.sh:/start_ipfs.sh:ro
     networks:
       - suzoo-network
     healthcheck:
-      test: ["CMD", "ipfs", "id"]
+      test: ["CMD-SHELL", "ipfs id || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
