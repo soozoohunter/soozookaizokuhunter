@@ -1,12 +1,13 @@
-# docker-compose.yml (畢業證書版)
-# 使用 MinIO 官方初始化腳本，徹底解決 Bucket 建立問題
----
+# docker-compose.yml (混合動力最終版)
+# 結合 MinIO 初始化腳本 和 Milvus 自訂啟動腳本
 
 networks:
   suzoo-network:
     driver: bridge
 
 services:
+  # ... [其他所有服務內容與之前完全相同，為節省篇幅此處省略] ...
+
   # -------------------------------------
   # 前端網頁伺服器 (Nginx)
   # -------------------------------------
@@ -173,16 +174,18 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
+    # [HYBRID FIX] 使用對您環境有效的自訂腳本啟動
+    command: ["/bin/bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
     shm_size: '2gb'
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./express/scripts/start_milvus.sh:/start_milvus.sh:ro
+      # [HYBRID FIX] 將啟動腳本掛載到容器中
+      - ./scripts/start_milvus.sh:/start_milvus.sh
     networks:
       - suzoo-network
-    entrypoint: ["/bin/bash", "/start_milvus.sh"]
     environment:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: suzoo_minio:9000
@@ -200,7 +203,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 60s
+      start_period: 30s
     restart: always
     logging:
       driver: "json-file"
@@ -376,10 +379,14 @@ services:
       - "8545:8545"
     networks:
       - suzoo-network
-    volumes:
-      - ./scripts/ganache_healthcheck.js:/ganache_healthcheck.js:ro
     healthcheck:
-      test: ["CMD", "node", "/ganache_healthcheck.js"]
+      test: >
+        node -e "const http = require('http');
+        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
+        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
+        req.on('error', () => process.exit(1));
+        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
+        req.end();"
       interval: 10s
       timeout: 5s
       retries: 10
