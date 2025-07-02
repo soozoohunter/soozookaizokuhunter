@@ -67,7 +67,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started # 改為 started，因為 milvus 不會變 healthy
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -113,7 +113,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started # 改為 started，因為 milvus 不會變 healthy
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -149,7 +149,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_started # 改為 started，因為 milvus 不會變 healthy
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
       interval: 10s
@@ -169,11 +169,42 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    # 覆寫所有指令，只為了印出一行字
-    entrypoint: echo
-    command: "Hello World, a log from the milvus container."
-    # 移除所有不必要的設定
-    restart: "no"
+    # 覆寫 entrypoint，直接使用 shell，並用 tail 讓容器活著
+    entrypoint: /bin/sh
+    command: -c "tail -f /dev/null"
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    shm_size: '2gb'
+    volumes:
+      - milvus_data:/var/lib/milvus
+      - ./scripts/start_milvus.sh:/start_milvus.sh:ro # 暫時保留腳本掛載
+    networks:
+      - suzoo-network
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: suzoo_minio:9000
+      ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
+    depends_on:
+      etcd:
+        condition: service_healthy
+      suzoo_minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # -------------------------------------
   # ETCD (for Milvus)
