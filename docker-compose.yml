@@ -1,3 +1,6 @@
+# docker-compose.yml (畢業證書版)
+# 使用 MinIO 官方初始化腳本，徹底解決 Bucket 建立問題
+
 networks:
   suzoo-network:
     driver: bridge
@@ -67,7 +70,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -113,7 +116,7 @@ services:
       suzoo_fastapi:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     networks:
       - suzoo-network
     dns:
@@ -149,7 +152,7 @@ services:
       suzoo_ganache:
         condition: service_healthy
       milvus:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
       interval: 10s
@@ -168,21 +171,19 @@ services:
   # -------------------------------------
   milvus:
     container_name: suzoo_milvus
-    image: milvusdb/milvus:${MILVUS_IMAGE_TAG:-v2.3.16}
-    command: ["bash", "/start_milvus.sh"]
+    image: milvusdb/milvus:v2.3.16
     ports:
       - "19530:19530"
       - "9091:9091"
     shm_size: '2gb'
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
-      ETCD_ENDPOINTS: ${ETCD_ENDPOINTS}
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: suzoo_minio:9000
       ETCD_ROOT_PATH: ${ETCD_ROOT_PATH}
-      MINIO_ADDRESS: ${MINIO_ADDRESS}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
@@ -191,6 +192,12 @@ services:
         condition: service_healthy
       etcd:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
     logging:
       driver: "json-file"
@@ -239,6 +246,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME}
     volumes:
       - minio_data:/data
       - ./scripts/create_bucket.sh:/docker-entrypoint-init.d/create_bucket.sh
