@@ -183,7 +183,7 @@ services:
     volumes:
       - milvus_data:/var/lib/milvus
       # [HYBRID FIX] 將啟動腳本掛載到容器中
-      - ./scripts/start_milvus.sh:/start_milvus.sh
+      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
@@ -202,8 +202,8 @@ services:
       test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 15
+      start_period: 60s
     restart: always
     logging:
       driver: "json-file"
