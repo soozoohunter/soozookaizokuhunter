@@ -9,6 +9,7 @@ const MAX_RETRIES = parseInt(process.env.VECTOR_REQUEST_RETRIES || '3');
 const RETRY_DELAY_MS = parseInt(process.env.VECTOR_REQUEST_RETRY_DELAY_MS || '5000');
 
 const VECTOR_URL = process.env.VECTOR_SERVICE_URL || 'http://suzoo_fastapi:8000';
+const VECTOR_DISABLED = process.env.DISABLE_VECTOR_SEARCH === 'true' || !VECTOR_URL;
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,6 +36,10 @@ async function postWithRetry(url, form, timeout = DEFAULT_TIMEOUT, retries = MAX
 }
 
 async function indexImage(imageInput, id) {
+  if (VECTOR_DISABLED) {
+    logger.info('[VectorSearch] indexImage skipped: vector search disabled');
+    return null;
+  }
   const form = new FormData();
 
   if (Buffer.isBuffer(imageInput)) {
@@ -67,6 +72,10 @@ async function indexImage(imageInput, id) {
 }
 
 async function searchLocalImage(imageInput, topK = 5) {
+  if (VECTOR_DISABLED) {
+    logger.info('[VectorSearch] searchLocalImage skipped: vector search disabled');
+    return { results: [] };
+  }
   const form = new FormData();
   if (Buffer.isBuffer(imageInput)) {
     form.append('image', imageInput, { filename: 'search.jpg' });
