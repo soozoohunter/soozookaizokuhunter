@@ -19,9 +19,6 @@ def shutdown_event():
     """
     print("[FastAPI] Application shutting down.")
 
-# [REMOVED] 移除了 /api/v1/image-insert 和 /api/v1/image-search 路由
-# 因為它們的功能依賴於已被棄用的 Milvus。
-
 @app.get("/health")
 def health():
     """
@@ -35,8 +32,3 @@ async def health_check():
     專為 Docker healthcheck 設計的輕量級健康檢查端點。
     """
     return {"status": "ok"}
-
-# [REMOVED] 所有與資料庫連線、Cloudinary、IPFS、Web3、PDF生成、
-# Milvus 連線、CLIP 模型載入、圖片向量化相關的函式和全域變數都已被移除，
-# 因為在此服務的職責中已不再需要它們。
-# FastAPI 服務現在是一個極簡的存根(stub)服務。
