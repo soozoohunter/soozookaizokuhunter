@@ -338,6 +338,10 @@ services:
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:latest
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - "chown -R ipfs:ipfs /data/ipfs && /sbin/tini -- /usr/local/bin/start_ipfs_daemon"
     ports:
       - "5001:5001"
       - "8080:8080"
