@@ -66,7 +66,7 @@ services:
         condition: service_healthy
       suzoo_fastapi:
         condition: service_healthy
-      suzoo_milvus:
+      milvus:
         condition: service_healthy
     networks:
       - suzoo-network
@@ -85,9 +85,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # -------------------------------------
+  # ----------------------------------------------------
   # 背景任務工人 (Node.js Background Worker)
-  # -------------------------------------
+  # ----------------------------------------------------
   suzoo_worker:
     container_name: suzoo_worker
     build:
@@ -112,7 +112,7 @@ services:
         condition: service_healthy
       suzoo_fastapi:
         condition: service_healthy
-      suzoo_milvus:
+      milvus:
         condition: service_healthy
     networks:
       - suzoo-network
@@ -148,7 +148,7 @@ services:
         condition: service_healthy
       suzoo_ganache:
         condition: service_healthy
-      suzoo_milvus:
+      milvus:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
@@ -166,10 +166,10 @@ services:
   # -------------------------------------
   # 向量資料庫 Milvus (獨立模式)
   # -------------------------------------
-  suzoo_milvus:
+  milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    entrypoint: ["/bin/bash", "/start_milvus.sh"]
+    command: ["/bin/bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
@@ -189,14 +189,14 @@ services:
     depends_on:
       suzoo_minio:
         condition: service_healthy
-      suzoo_etcd:
+      etcd:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:9091/healthz"]
-      interval:    10s
-      timeout:     10s
-      retries:     20
-      start_period:120s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     restart: always
     logging:
       driver: "json-file"
@@ -207,7 +207,7 @@ services:
   # -------------------------------------
   # ETCD (for Milvus)
   # -------------------------------------
-  suzoo_etcd:
+  etcd:
     container_name: suzoo_etcd
     image: bitnami/etcd:3.5
     ports:
@@ -218,7 +218,7 @@ services:
       - suzoo-network
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
-      - ETCD_ADVERTISE_CLIENT_URLS=http://suzoo_etcd:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 10s
@@ -264,8 +264,77 @@ services:
         max-file: "3"
 
   # -------------------------------------
-  # IPFS (內容儲存)
+  # 基礎架構服務
   # -------------------------------------
+  suzoo_postgres:
+    container_name: suzoo_postgres
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - suzoo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  suzoo_rabbitmq:
+    container_name: suzoo_rabbitmq
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - .env
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - suzoo-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  suzoo_redis:
+    container_name: suzoo_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - suzoo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:latest
@@ -293,9 +362,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # -------------------------------------
-  # Ganache (本地以太坊測試網)
-  # -------------------------------------
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
@@ -322,84 +388,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # -------------------------------------
-  # 基礎資料庫服務
-  # -------------------------------------
-  suzoo_postgres:
-    container_name: suzoo_postgres
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    env_file:
-      - .env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - suzoo-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # -------------------------------------
-  # RabbitMQ
-  # -------------------------------------
-  suzoo_rabbitmq:
-    container_name: suzoo_rabbitmq
-    image: rabbitmq:3.13-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    env_file:
-      - .env
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - suzoo-network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # -------------------------------------
-  # Redis
-  # -------------------------------------
-  suzoo_redis:
-    container_name: suzoo_redis
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - suzoo-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     restart: always
     logging:
       driver: "json-file"
