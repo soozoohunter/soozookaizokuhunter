@@ -179,7 +179,7 @@ services:
     shm_size: '2gb'
     volumes:
       - milvus_data:/var/lib/milvus
-      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
+      - ./express/scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     entrypoint: ["/bin/bash", "/start_milvus.sh"]
