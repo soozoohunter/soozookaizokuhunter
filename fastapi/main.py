@@ -11,7 +11,7 @@ import psycopg2.extras
 from datetime import datetime
 import io
 import time
-from fastapi import FastAPI, File, UploadFile, HTTPException, Header, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Header, Form, Depends
 from fastapi.responses import JSONResponse
 from PIL import Image
 import imagehash
@@ -21,6 +21,26 @@ from transformers import CLIPProcessor, CLIPModel
 from pymilvus import connections, utility, Collection, CollectionSchema, FieldSchema, DataType
 
 app = FastAPI()
+
+# Global Milvus collection object
+milvus_collection = None
+
+@app.on_event("startup")
+def startup_event():
+    """Initialize Milvus connection at application startup."""
+    global milvus_collection
+    print("[FastAPI] Application startup...")
+    try:
+        milvus_collection = get_milvus_collection()
+        print("[FastAPI] Milvus connection established and collection loaded on startup.")
+    except Exception as e:
+        print(f"[FastAPI] CRITICAL: Failed to connect to Milvus on startup: {e}")
+        milvus_collection = None
+
+def get_collection():
+    if milvus_collection is None:
+        raise HTTPException(status_code=503, detail="Milvus service not available or not connected on startup.")
+    return milvus_collection
 
 # ====== 環境變數 ======
 DB_HOST = os.getenv("POSTGRES_HOST", "suzoo_postgres")
@@ -244,14 +264,12 @@ def image_to_vector(image: Image.Image):
 
 
 @app.post("/api/v1/image-insert")
-async def image_insert(id: str = Form(...), image: UploadFile = File(...)):
+async def image_insert(id: str = Form(...), image: UploadFile = File(...), collection: Collection = Depends(get_collection)):
     try:
         image_data = await image.read()
         pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
 
         vector = image_to_vector(pil_image)
-
-        collection = get_milvus_collection()
 
         entities = [{"id": id, "vector": vector.tolist()}]
 
@@ -266,14 +284,13 @@ async def image_insert(id: str = Form(...), image: UploadFile = File(...)):
 
 
 @app.post("/api/v1/image-search")
-async def image_search(top_k: int = Form(5), image: UploadFile = File(...)):
+async def image_search(top_k: int = Form(5), image: UploadFile = File(...), collection: Collection = Depends(get_collection)):
     try:
         image_data = await image.read()
         pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
 
         query_vector = image_to_vector(pil_image)
 
-        collection = get_milvus_collection()
         search_params = {"metric_type": "L2", "params": {"nprobe": 10}}
 
         results = collection.search(

@@ -1,13 +1,8 @@
-# docker-compose.yml (混合動力最終版)
-# 結合 MinIO 初始化腳本 和 Milvus 自訂啟動腳本
-
 networks:
   suzoo-network:
     driver: bridge
 
 services:
-  # ... [其他所有服務內容與之前完全相同，為節省篇幅此處省略] ...
-
   # -------------------------------------
   # 前端網頁伺服器 (Nginx)
   # -------------------------------------
@@ -174,16 +169,12 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    # [HYBRID FIX] 使用對您環境有效的自訂腳本啟動
-    command: ["/bin/bash", "/start_milvus.sh"]
     ports:
       - "19530:19530"
       - "9091:9091"
     shm_size: '2gb'
     volumes:
       - milvus_data:/var/lib/milvus
-      # [HYBRID FIX] 將啟動腳本掛載到容器中
-      - ./scripts/start_milvus.sh:/start_milvus.sh:ro
     networks:
       - suzoo-network
     environment:
