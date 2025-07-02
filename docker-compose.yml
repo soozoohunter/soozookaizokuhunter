@@ -169,7 +169,8 @@ services:
   milvus:
     container_name: suzoo_milvus
     image: milvusdb/milvus:v2.3.16
-    command: ["milvus", "run", "standalone"]
+    # 使用一個無害的指令讓容器保持運行，以便我們登入
+    command: ["tail", "-f", "/dev/null"]
     ports:
       - "19530:19530"
       - "9091:9091"
