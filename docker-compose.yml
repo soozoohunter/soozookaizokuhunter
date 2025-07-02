@@ -1,5 +1,6 @@
 # docker-compose.yml (畢業證書版)
 # 使用 MinIO 官方初始化腳本，徹底解決 Bucket 建立問題
+---
 
 networks:
   suzoo-network:
@@ -373,14 +374,10 @@ services:
       - "8545:8545"
     networks:
       - suzoo-network
+    volumes:
+      - ./scripts/ganache_healthcheck.js:/ganache_healthcheck.js:ro
     healthcheck:
-      test: >
-        node -e "const http = require('http');
-        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
-        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
-        req.on('error', () => process.exit(1));
-        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
-        req.end();"
+      test: ["CMD", "node", "/ganache_healthcheck.js"]
       interval: 10s
       timeout: 5s
       retries: 10
