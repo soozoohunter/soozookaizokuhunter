@@ -1,6 +1,6 @@
 # Soozoo Kaizoku Hunter
 
-Soozoo Kaizoku Hunter 是一個數位內容保護平台，整合了反向圖像搜尋、向量比對與區塊鏈存證，平台架構包含 React 前端、Express API、Python FastAPI，並使用 PostgreSQL、IPFS、Milvus 等服務，透過 Docker Compose 管理整體運行。
+Soozoo Kaizoku Hunter 是一個數位內容保護平台，整合了反向圖像搜尋與區塊鏈存證，平台架構包含 React 前端、Express API、Python FastAPI，並使用 PostgreSQL、IPFS 等服務，透過 Docker Compose 管理整體運行。
 
 ## 必要條件（Prerequisites）
 

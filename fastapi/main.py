@@ -17,30 +17,20 @@ from PIL import Image
 import imagehash
 from fpdf import FPDF
 from web3 import Web3
-from transformers import CLIPProcessor, CLIPModel
-from pymilvus import connections, utility, Collection, CollectionSchema, FieldSchema, DataType
+
 
 app = FastAPI()
 
-# Global Milvus collection object
+# Vector search functionality is disabled. Placeholder variable kept for
+# backward compatibility with existing code paths.
 milvus_collection = None
 
 @app.on_event("startup")
 def startup_event():
-    """Initialize Milvus connection at application startup."""
-    global milvus_collection
-    print("[FastAPI] Application startup...")
-    try:
-        milvus_collection = get_milvus_collection()
-        print("[FastAPI] Milvus connection established and collection loaded on startup.")
-    except Exception as e:
-        print(f"[FastAPI] CRITICAL: Failed to connect to Milvus on startup: {e}")
-        milvus_collection = None
+    print("[FastAPI] Application startup... Milvus features disabled")
 
 def get_collection():
-    if milvus_collection is None:
-        raise HTTPException(status_code=503, detail="Milvus service not available or not connected on startup.")
-    return milvus_collection
+    return None
 
 # ====== 環境變數 ======
 DB_HOST = os.getenv("POSTGRES_HOST", "suzoo_postgres")
@@ -58,13 +48,7 @@ CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUD_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUD_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
-# Milvus and model configuration for vector search
-# Default to service name "milvus" to match docker-compose
-MILVUS_HOST = os.getenv("MILVUS_HOST", "milvus")
-MILVUS_PORT = int(os.getenv("MILVUS_PORT", 19530))
-COLLECTION_NAME = "suzoo_image_vectors"
-MODEL_NAME = "openai/clip-vit-base-patch32"
-
+# Vector search removed - related parameters no longer used
 # IPFS daemon expects a multiaddr when using ipfshttpclient
 # Use DNS-based multiaddr so the service name resolves correctly in Docker
 IPFS_API_URL = "/dns/suzoo_ipfs/tcp/5001/http"
@@ -194,130 +178,14 @@ def generate_pdf_certificate(username, fingerprint, ipfs_cid, cloud_url, tx_hash
         print("PDF upload error:", ex)
         return None
 
-# ====== Vector Search Setup ======
-# Load CLIP model once at startup
-print(f"Loading model: {MODEL_NAME}...")
-model = CLIPModel.from_pretrained(MODEL_NAME)
-processor = CLIPProcessor.from_pretrained(MODEL_NAME)
-print("Model loaded successfully.")
 
-def get_milvus_collection():
-    """Connect to Milvus with retries and return the collection object."""
-    alias = "default"
-    retries = 5
-    delay = 5  # seconds
-
-    if connections.has_connection(alias):
-        try:
-            utility.has_collection(COLLECTION_NAME, using=alias)
-            print("[Milvus] Using existing connection.")
-            return Collection(name=COLLECTION_NAME, using=alias)
-        except Exception:
-            print("[Milvus] Existing connection is stale, disconnecting.")
-            connections.remove_connection(alias)
-
-    for i in range(retries):
-        try:
-            print(f"[Milvus] Attempting to connect (Attempt {i + 1}/{retries})...")
-            connections.connect(
-                alias=alias,
-                host=MILVUS_HOST,
-                port=MILVUS_PORT,
-                timeout=20,
-            )
-            print("[Milvus] Connection successful.")
-
-            if not utility.has_collection(COLLECTION_NAME, using=alias):
-                print(f"[Milvus] Collection '{COLLECTION_NAME}' not found. Creating...")
-                fields = [
-                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, auto_id=False, max_length=255),
-                    FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=512)
-                ]
-                schema = CollectionSchema(fields, "Image similarity search collection")
-                collection = Collection(name=COLLECTION_NAME, schema=schema, using=alias)
-
-                index_params = {"metric_type": "L2", "index_type": "IVF_FLAT", "params": {"nlist": 1024}}
-                collection.create_index(field_name="vector", index_params=index_params)
-            else:
-                collection = Collection(name=COLLECTION_NAME, using=alias)
-
-            collection.load()
-            return collection
-
-        except Exception as e:
-            print(f"[Milvus] Connection attempt {i + 1} failed: {e}")
-            if i < retries - 1:
-                print(f"Retrying in {delay} seconds...")
-                time.sleep(delay)
-            else:
-                print("[Milvus] All connection attempts failed.")
-                raise HTTPException(status_code=500, detail=f"Could not connect to Milvus: {e}")
-
-    raise HTTPException(status_code=500, detail="Failed to get Milvus collection after all retries.")
-
-def image_to_vector(image: Image.Image):
-    """Convert PIL image to feature vector"""
-    inputs = processor(images=image, return_tensors="pt", padding=True)
-    image_features = model.get_image_features(**inputs)
-    vector = image_features[0].detach().numpy()
-    return vector / (vector ** 2).sum() ** 0.5
-
-
-@app.post("/api/v1/image-insert")
-async def image_insert(id: str = Form(...), image: UploadFile = File(...), collection: Collection = Depends(get_collection)):
-    try:
-        image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
-
-        vector = image_to_vector(pil_image)
-
-        entities = [{"id": id, "vector": vector.tolist()}]
-
-        collection.insert(entities)
-        collection.flush()
-
-        print(f"Successfully inserted image with id: {id}")
-        return {"success": True, "message": "Image indexed successfully", "id": id}
-    except Exception as e:
-        print(f"Error during image insert: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/v1/image-search")
-async def image_search(top_k: int = Form(5), image: UploadFile = File(...), collection: Collection = Depends(get_collection)):
-    try:
-        image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
-
-        query_vector = image_to_vector(pil_image)
-
-        search_params = {"metric_type": "L2", "params": {"nprobe": 10}}
-
-        results = collection.search(
-            data=[query_vector.tolist()],
-            anns_field="vector",
-            param=search_params,
-            limit=top_k,
-            output_fields=["id"]
-        )
-
-        response_data = []
-        for hit in results[0]:
-            response_data.append({"id": hit.entity.get('id'), "score": hit.distance})
-
-        print(f"Search complete. Found {len(response_data)} results.")
-        return {"success": True, "results": response_data}
-    except Exception as e:
-        print(f"Error during image search: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 def health():
     return {"status": "fastapi OK"}
 
 # Dedicated healthcheck endpoint for container probes
-# Keep it lightweight so Docker healthcheck can succeed even if
-# Milvus is still starting up. Only return a simple OK status.
+# Keep it lightweight so Docker healthcheck can succeed quickly.
 @app.get("/healthz", status_code=200)
 async def health_check():
     return {"status": "ok"}

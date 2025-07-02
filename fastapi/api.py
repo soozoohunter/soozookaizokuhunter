@@ -1,7 +1,6 @@
 # fastapi/api.py
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
-from milvus import Milvus, DataType
 import uvicorn
 import numpy as np
 import cv2

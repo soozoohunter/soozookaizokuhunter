@@ -1,8 +1,0 @@
-fastapi>=0.104.0
-pydantic>=2.0
-uvicorn[standard]
-python-multipart
-pymilvus
-sentence-transformers
-numpy
-Pillow
