@@ -1,3 +1,4 @@
+// express/worker.js (最終無 Milvus 版本)
 require('dotenv').config();
 const db = require('./models');
 const logger = require('./utils/logger');
@@ -22,39 +23,23 @@ async function processScanTask(task) {
         const imageBuffer = await ipfsService.getFile(fileRecord.ipfs_hash);
         if (!imageBuffer) throw new Error('Failed to retrieve a valid image buffer from IPFS.');
 
-        // --- Stage 1: Fast External Scan ---
+        // --- 步驟 1: 執行外部掃描 ---
         logger.info(`[Worker] Task ${taskId}: Performing external scan (Google, TinEye, Bing)...`);
         const externalScanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
             originalFingerprint: fileRecord.fingerprint,
         });
 
-        let finalResults = {
+        // --- 步驟 2: 執行(已停用的)內部向量掃描 ---
+        logger.info(`[Worker] Task ${taskId}: Performing internal vector search (currently disabled)...`);
+        const internalScanResults = await vectorSearchService.searchLocalImage(imageBuffer);
+
+        // --- 步驟 3: 組合並儲存最終結果 ---
+        const finalResults = {
             scan: externalScanResults,
-            internalMatches: null
+            internalMatches: internalScanResults.matches || [] // 使用來自停用服務的空結果
         };
         
-        // --- Stage 2: Save intermediate results ---
-        logger.info(`[Worker] Task ${taskId}: External scan complete. Saving intermediate results.`);
-        await db.Scan.update(
-            { result: JSON.stringify(finalResults), status: 'processing' },
-            { where: { id: taskId } }
-        );
-
-        // --- Stage 3: Slow Internal Vector Scan (Non-critical) ---
-        logger.info(`[Worker] Task ${taskId}: Performing internal vector search...`);
-        try {
-            const vectorMatches = await vectorSearchService.searchLocalImage(imageBuffer);
-            finalResults.internalMatches = vectorMatches;
-            logger.info(`[Worker] Task ${taskId}: Internal vector search completed successfully.`);
-        } catch (vectorError) {
-            // **FIX**: This error is no longer fatal to the whole process.
-            logger.error(`[Worker] Task ${taskId}: Internal vector search FAILED: ${vectorError.message}. This is non-critical.`);
-            finalResults.internalMatches = { success: false, error: vectorError.message };
-        }
-
-        // --- Stage 4: Save FINAL results and mark task as completed ---
-        logger.info(`[Worker] Task ${taskId}: All stages finished. Saving final aggregated results.`);
         const finalStatus = 'completed';
         
         await db.Scan.update({ 

@@ -1,9 +1,8 @@
-// express/routes/protect.js (Final Fix for Buffer Type Check)
+// express/routes/protect.js (最終無 Milvus 版本)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const bcrypt = require('bcryptjs');
@@ -13,10 +12,9 @@ const { User, File, Scan } = require('../models');
 
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
-const scannerService = require('../services/scanner.service');
 const fingerprintService = require('../services/fingerprintService');
 const vectorSearchService = require('../services/vectorSearch');
-const { generateCertificatePDF, generateScanPDFWithMatches } = require('../services/pdf.service.js');
+const { generateCertificatePDF } = require('../services/pdf.service.js');
 const queueService = require('../services/queue.service');
 
 const router = express.Router();
@@ -80,7 +78,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
             logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
-            // No need to unlink here because the finally block will handle it.
             return res.status(409).json({
                 message: '此圖片先前已被保護。',
                 error: 'Conflict',
@@ -110,13 +107,9 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         logger.info(`[Step 1] File record saved to database, File ID: ${newFile.id}`);
 
         setImmediate(async () => {
-            try {
-                await vectorSearchService.indexImage(fileBuffer, newFile.id.toString());
-                logger.info(`[Background] Vector indexing complete for File ID: ${newFile.id}`);
-            } catch (err) {
-                logger.error(`[Background] Vector indexing failed for File ID: ${newFile.id}. See previous error log for details.`);
-            }
-
+            // 呼叫已被停用的向量服務，它將只在日誌中留下記錄
+            await vectorSearchService.indexImage(fileBuffer, newFile.id.toString());
+            
             try {
                 const pdfPath = await generateCertificatePDF({ fileId: newFile.id, user, file: newFile });
                 logger.info(`[Background] Certificate PDF generated for File ID: ${newFile.id} at ${pdfPath}`);
@@ -137,11 +130,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
 });
 
-
-/**
- * @description Handles the dispatch of a new scan task.
- * It first creates a record in the database, then sends the task to the queue.
- */
 async function dispatchScanTask(req, res) {
     const fileId = req.params.fileId || req.body.fileId;
     const routeName = `[Scan Dispatch]`;

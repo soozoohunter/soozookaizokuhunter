@@ -1,4 +1,4 @@
-# fastapi/requirements.txt (Corrected with pinned dependencies for compatibility)
+# fastapi/requirements.txt (無 Milvus 最終版)
 
 fastapi==0.95.0
 uvicorn==0.20.0
@@ -6,10 +6,7 @@ requests==2.28.2
 python-dotenv==1.0.0
 psycopg2-binary==2.9.6
 cloudinary==1.30.0
-
-# [FIX] Upgraded web3 to v6 to resolve protobuf dependency conflict
 web3>=6.0.0
-
 fpdf==1.7.2
 pydantic==1.10.7
 ipfshttpclient==0.8.0a2
@@ -18,7 +15,5 @@ Pillow==9.4.0
 imagehash==4.3.1
 python-multipart==0.0.5
 SQLAlchemy==2.0.27
-
-
-# [FIX] Add numpy<2.0 pin to solve C-compiled module incompatibility
+# [REMOVED] pymilvus, transformers, torch and related dependencies are no longer needed.
 numpy<2.0
