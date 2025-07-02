@@ -1,5 +1,9 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Starting custom Milvus script..."
+echo "ETCD_ENDPOINTS=${ETCD_ENDPOINTS:-}"
+echo "MINIO_ADDRESS=${MINIO_ADDRESS:-}"
 
 LOCK_DIR=/var/lib/milvus
 
