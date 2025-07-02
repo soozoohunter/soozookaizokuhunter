@@ -1,0 +1,9 @@
+const path = require('path');
+
+// 這個檔案告訴 Sequelize CLI 去哪裡找設定、模型和遷移檔案
+module.exports = {
+  'config': path.resolve('config', 'database.js'),
+  'models-path': path.resolve('models'),
+  'migrations-path': path.resolve('migrations'),
+  'seeders-path': path.resolve('seeders'),
+};
