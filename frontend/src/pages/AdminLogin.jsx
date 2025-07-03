@@ -19,8 +19,8 @@ export default function AdminLogin() {
     }
 
     try {
-      // 送到後端 /admin/login
-      const res = await fetch('/admin/login', {
+      // 送到後端 /api/admin/login
+      const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
