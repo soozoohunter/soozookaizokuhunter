@@ -61,4 +61,28 @@ router.post('/takedown', async (req, res) => {
     }
 });
 
+// POST /api/infringement/manual
+// Store manual notification for admin follow-up when DMCA API fails
+router.post('/manual', async (req, res) => {
+    const { originalFileId, infringingUrl, contactEmail, contactName, contactPhone } = req.body;
+    if (!infringingUrl || !contactEmail || !contactName) {
+        return res.status(400).json({ error: 'Missing required fields.' });
+    }
+    try {
+        const report = await db.ManualReport.create({
+            file_id: originalFileId || null,
+            user_id: req.user?.userId || null,
+            infringing_url: infringingUrl,
+            contact_email: contactEmail,
+            contact_name: contactName,
+            contact_phone: contactPhone || null
+        });
+        logger.info(`[ManualReport] Created manual report ID ${report.id} for ${infringingUrl}`);
+        res.status(201).json({ success: true, reportId: report.id });
+    } catch (err) {
+        logger.error('[ManualReport] Failed to create manual report:', err);
+        res.status(500).json({ error: 'Failed to record manual report.' });
+    }
+});
+
 module.exports = router;
