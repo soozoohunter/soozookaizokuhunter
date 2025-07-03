@@ -95,7 +95,7 @@ export default function Login() {
         ? { email: identifier.trim().toLowerCase(), password }
         : { username: identifier.trim(), password };
 
-      const resp = await fetch('/auth/login', {
+      const resp = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
