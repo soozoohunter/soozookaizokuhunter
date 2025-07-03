@@ -3,49 +3,71 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('users', 'plan', {
+    const table = await queryInterface.describeTable('users');
+
+    const addIfNotExists = async (columnName, options) => {
+      if (!table[columnName]) {
+        await queryInterface.addColumn('users', columnName, options);
+      }
+    };
+
+    await addIfNotExists('plan', {
       type: Sequelize.STRING,
       allowNull: false,
       defaultValue: 'free_trial',
     });
-    await queryInterface.addColumn('users', 'status', {
+
+    await addIfNotExists('status', {
       type: Sequelize.STRING,
       allowNull: false,
       defaultValue: 'active',
     });
-    await queryInterface.addColumn('users', 'image_upload_limit', {
+
+    await addIfNotExists('image_upload_limit', {
       type: Sequelize.INTEGER,
       allowNull: false,
       defaultValue: 10,
     });
-    await queryInterface.addColumn('users', 'scan_limit_monthly', {
+
+    await addIfNotExists('scan_limit_monthly', {
       type: Sequelize.INTEGER,
       allowNull: false,
       defaultValue: 20,
     });
-    await queryInterface.addColumn('users', 'image_upload_usage', {
+
+    await addIfNotExists('image_upload_usage', {
       type: Sequelize.INTEGER,
       allowNull: false,
       defaultValue: 0,
     });
-    await queryInterface.addColumn('users', 'scan_usage_monthly', {
+
+    await addIfNotExists('scan_usage_monthly', {
       type: Sequelize.INTEGER,
       allowNull: false,
       defaultValue: 0,
     });
-    await queryInterface.addColumn('users', 'scan_usage_reset_at', {
+
+    await addIfNotExists('scan_usage_reset_at', {
       type: Sequelize.DATE,
       allowNull: true,
     });
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeColumn('users', 'scan_usage_reset_at');
-    await queryInterface.removeColumn('users', 'scan_usage_monthly');
-    await queryInterface.removeColumn('users', 'image_upload_usage');
-    await queryInterface.removeColumn('users', 'scan_limit_monthly');
-    await queryInterface.removeColumn('users', 'image_upload_limit');
-    await queryInterface.removeColumn('users', 'status');
-    await queryInterface.removeColumn('users', 'plan');
+    const table = await queryInterface.describeTable('users');
+
+    const removeIfExists = async (columnName) => {
+      if (table[columnName]) {
+        await queryInterface.removeColumn('users', columnName);
+      }
+    };
+
+    await removeIfExists('scan_usage_reset_at');
+    await removeIfExists('scan_usage_monthly');
+    await removeIfExists('image_upload_usage');
+    await removeIfExists('scan_limit_monthly');
+    await removeIfExists('image_upload_limit');
+    await removeIfExists('status');
+    await removeIfExists('plan');
   }
 };
