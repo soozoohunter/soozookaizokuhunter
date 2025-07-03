@@ -30,12 +30,21 @@ async function searchByBuffer(buffer) {
     };
 
     const endpointUrl = new URL(BING_API_ENDPOINT);
-    // When using an Azure multi-service endpoint, Bing APIs require the '/bing' prefix
+    // When using an Azure Cognitive Services (multi-service) endpoint you must
+    // include the '/bing' prefix. Dedicated Bing endpoints like
+    // 'api.bing.microsoft.com' do not use this prefix. We infer the proper
+    // format from the hostname.
     let basePath = endpointUrl.pathname.replace(/\/+$/, '');
-    if (basePath.includes('/bing')) {
+    const usesCognitiveEndpoint = /\.cognitiveservices\.azure\.com$/i.test(
+      endpointUrl.hostname,
+    );
+
+    if (usesCognitiveEndpoint) {
+      endpointUrl.pathname = `${basePath}/bing/v7.0/images/visualsearch`;
+    } else if (basePath.includes('/bing')) {
       endpointUrl.pathname = `${basePath}/v7.0/images/visualsearch`;
     } else {
-      endpointUrl.pathname = `${basePath}/bing/v7.0/images/visualsearch`;
+      endpointUrl.pathname = `${basePath}/v7.0/images/visualsearch`;
     }
     endpointUrl.searchParams.set('modules', 'SimilarImages');
 
