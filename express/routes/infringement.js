@@ -4,11 +4,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models');
 const { sendTakedownRequest, isDmcaEnabled } = require('../services/dmcaService');
+const checkQuota = require('../middleware/quotaCheck');
+const { UsageRecord, DMCARequest } = db;
 const logger = require('../utils/logger');
 
 // POST /api/infringement/takedown
 // Handles the DMCA takedown request from the frontend.
-router.post('/takedown', async (req, res) => {
+router.post('/takedown', checkQuota('dmca_takedown'), async (req, res) => {
     if (!isDmcaEnabled) {
         return res.status(503).json({ error: 'DMCA Service is not configured on the server.' });
     }
@@ -39,6 +41,15 @@ router.post('/takedown', async (req, res) => {
 
         // 4. Call the dmcaService to send the actual request
         const dmcaResult = await sendTakedownRequest(takedownDetails);
+        await DMCARequest.create({
+            user_id: req.user.userId || req.user.id,
+            scan_id: null,
+            infringing_url: infringingUrl,
+            status: dmcaResult.success ? 'submitted' : 'failed',
+            dmca_case_id: dmcaResult.data?.caseID || null,
+            submitted_at: new Date()
+        });
+        await UsageRecord.create({ user_id: req.user.userId || req.user.id, feature_code: 'dmca_takedown' });
 
         if (dmcaResult.success) {
             res.status(200).json({

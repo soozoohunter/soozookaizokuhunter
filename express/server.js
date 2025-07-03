@@ -23,6 +23,7 @@ const adminRouter = require('./routes/admin');
 const searchRoutes = require('./routes/searchRoutes');
 const reportRouter = require('./routes/report');
 const infringementRouter = require('./routes/infringement');
+const dashboardRouter = require('./routes/dashboard');
 const paymentRoutes = require('./routes/paymentRoutes');
 const scanRoutes = require('./routes/scans');
 const filesRouter = require('./routes/files');
@@ -54,6 +55,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/scans', scanRoutes);
 app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 // --- Health Check Route ---
 app.get('/health', (req, res) => {

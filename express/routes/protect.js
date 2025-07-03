@@ -8,7 +8,7 @@ const logger = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
-const { User, File, Scan } = require('../models');
+const { User, File, Scan, UsageRecord } = require('../models');
 const checkQuota = require('../middleware/quotaCheck');
 
 const chain = require('../utils/chain');
@@ -35,7 +35,7 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-router.post('/step1', checkQuota('upload'), upload.single('file'), async (req, res) => {
+router.post('/step1', checkQuota('image_upload'), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '未提供檔案。' });
     }
@@ -110,7 +110,7 @@ router.post('/step1', checkQuota('upload'), upload.single('file'), async (req, r
             status: 'protected',
             mime_type: mimetype,
         });
-        await user.increment('image_upload_usage');
+        await UsageRecord.create({ user_id: user.id, feature_code: 'image_upload' });
         logger.info(`[Step 1] File record saved to database, File ID: ${newFile.id}`);
 
         setImmediate(async () => {
@@ -158,7 +158,7 @@ async function dispatchScanTask(req, res) {
             status: 'pending',
         });
         const user = await User.findByPk(fileRecord.user_id);
-        if (user) await user.increment('scan_usage_monthly');
+        if (user) await UsageRecord.create({ user_id: user.id, feature_code: 'scan' });
         const taskId = newScan.id;
         logger.info(`${routeName} Created new scan task in DB with ID: ${taskId}`);
 
@@ -183,7 +183,9 @@ async function dispatchScanTask(req, res) {
     }
 }
 
-router.post('/step2', checkQuota('scan'), dispatchScanTask);
+router.post('/step2', checkQuota('scan'), async (req, res) => {
+    await dispatchScanTask(req, res);
+});
 router.get('/scan/:fileId', dispatchScanTask);
 
 router.get('/task/:taskId', async (req, res) => {

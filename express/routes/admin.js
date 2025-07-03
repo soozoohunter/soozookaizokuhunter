@@ -8,7 +8,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User } = require('../models');
+const { User, SubscriptionPlan, UserSubscription } = require('../models');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
@@ -145,6 +145,45 @@ router.get('/users', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Create a subscription for user
+router.post('/subscriptions', requireAdmin, async (req, res) => {
+  try {
+    const { userId, planCode, durationInMonths } = req.body;
+    const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode } });
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    const startedAt = new Date();
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + (durationInMonths || 1));
+    const sub = await UserSubscription.create({
+      user_id: userId,
+      plan_id: plan.id,
+      status: 'active',
+      started_at: startedAt,
+      expires_at: expiresAt
+    });
+    res.status(201).json(sub);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+});
+
+// Update subscription status or expiry
+router.put('/subscriptions/:subId', requireAdmin, async (req, res) => {
+  try {
+    const sub = await UserSubscription.findByPk(req.params.subId);
+    if (!sub) return res.status(404).json({ error: 'Subscription not found' });
+    const { status, expires_at } = req.body;
+    if (status) sub.status = status;
+    if (expires_at) sub.expires_at = new Date(expires_at);
+    await sub.save();
+    res.json(sub);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update subscription' });
   }
 });
 
