@@ -41,9 +41,15 @@ router.post('/takedown', checkQuota('dmca_takedown'), async (req, res) => {
 
         // 4. Call the dmcaService to send the actual request
         const dmcaResult = await sendTakedownRequest(takedownDetails);
+        const report = await db.InfringementReport.create({
+            user_id: req.user.userId || req.user.id,
+            scan_id: null,
+            links_confirmed: [infringingUrl]
+        });
         await DMCARequest.create({
             user_id: req.user.userId || req.user.id,
             scan_id: null,
+            report_id: report.id,
             infringing_url: infringingUrl,
             status: dmcaResult.success ? 'submitted' : 'failed',
             dmca_case_id: dmcaResult.data?.caseID || null,

@@ -21,6 +21,8 @@ import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
+import DashboardPage from './pages/DashboardPage';
+import FileDetailPage from './pages/FileDetailPage';
 
 // Protect (4-steps)
 import ProtectStep1 from './pages/ProtectStep1';
@@ -31,6 +33,7 @@ import ProtectStep4 from './pages/ProtectStep4';
 // Admin
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminUsersPage from './pages/AdminUsersPage';
 
 function RootLayout() {
   const token = localStorage.getItem('token') || '';
@@ -143,7 +146,9 @@ export default function App() {
           <Route path="pricing" element={<PricingPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
+         <Route path="register" element={<RegisterPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="file/:fileId" element={<FileDetailPage />} />
 
           {/* Protect: Step1~4 */}
           <Route path="protect">
@@ -159,6 +164,7 @@ export default function App() {
 
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
       </Routes>
     </BrowserRouter>
   );
