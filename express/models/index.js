@@ -30,6 +30,7 @@ db.SubscriptionPlan = require('./SubscriptionPlan')(sequelize, DataTypes);
 db.UserSubscription = require('./UserSubscription')(sequelize, DataTypes);
 db.UsageRecord = require('./UsageRecord')(sequelize, DataTypes);
 db.DMCARequest = require('./DMCARequest')(sequelize, DataTypes);
+db.InfringementReport = require('./InfringementReport')(sequelize, DataTypes);
 // 如果未來有其他模型，例如 Payment.js，請在此處手動加入：
 // db.Payment = require('./Payment')(sequelize, DataTypes);
 

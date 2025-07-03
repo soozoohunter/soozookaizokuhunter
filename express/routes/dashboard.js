@@ -27,13 +27,16 @@ router.get('/', auth, async (req, res) => {
       limit: 5
     });
     res.json({
-      planInfo: { name: plan.name, expires_at: active.expires_at },
+      plan: plan.name,
+      expires_at: active.expires_at,
       usage: {
-        images: { used: imgUsed, limit: plan.image_upload_limit },
-        scans: { used: scanUsed, limit: plan.scan_limit_monthly },
-        dmca: { used: dmcaUsed, limit: plan.dmca_takedown_limit_monthly }
+        videos: { used: 0, limit: plan.video_limit },
+        images: { used: imgUsed, limit: plan.image_limit || plan.image_upload_limit },
+        scans: { used: scanUsed, frequency: plan.scan_frequency || `${plan.scan_frequency_in_hours}h` },
+        certificates: { used: 0, unlimited: true },
+        dmca: { used: dmcaUsed, free_limit: plan.dmca_free || plan.dmca_takedown_limit_monthly }
       },
-      recentProtectedFiles,
+      protectedContent: recentProtectedFiles,
       recentScans
     });
   } catch (err) {
