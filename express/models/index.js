@@ -26,6 +26,10 @@ db.File = require('./File')(sequelize, DataTypes);
 db.ScanTask = require('./ScanTask')(sequelize, DataTypes);
 db.Scan = require('./scan')(sequelize, DataTypes);
 db.ManualReport = require('./ManualReport')(sequelize, DataTypes);
+db.SubscriptionPlan = require('./SubscriptionPlan')(sequelize, DataTypes);
+db.UserSubscription = require('./UserSubscription')(sequelize, DataTypes);
+db.UsageRecord = require('./UsageRecord')(sequelize, DataTypes);
+db.DMCARequest = require('./DMCARequest')(sequelize, DataTypes);
 // 如果未來有其他模型，例如 Payment.js，請在此處手動加入：
 // db.Payment = require('./Payment')(sequelize, DataTypes);
 
