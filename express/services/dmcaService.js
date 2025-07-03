@@ -13,13 +13,44 @@ if (isDmcaEnabled) {
   logger.warn('[DMCA Service] Service is DISABLED due to missing DMCA_API_EMAIL or DMCA_API_PASSWORD environment variables.');
 }
 
-let DMCA_API_ENDPOINT = process.env.DMCA_API_URL || 'https://www.dmca.com/rest/takedowns/send';
-if (!DMCA_API_ENDPOINT.includes('/rest/')) {
-  DMCA_API_ENDPOINT = `${DMCA_API_ENDPOINT.replace(/\/+$/, '')}/rest/takedowns/send`;
+const DMCA_API_BASE = process.env.DMCA_API_URL || 'https://api.dmca.com';
+
+/**
+ * Authenticate with DMCA API and return a token
+ * @returns {Promise<string>}
+ */
+async function login() {
+  const loginData = { email: DMCA_EMAIL, password: DMCA_PASSWORD };
+  const response = await axios.post(`${DMCA_API_BASE}/login`, loginData, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  let token = response.data;
+  // API may wrap token in quotes or return JSON
+  if (typeof token === 'object' && token.Token) {
+    token = token.Token;
+  }
+  return typeof token === 'string' ? token.replace(/"/g, '') : '';
 }
 
 /**
- * Sends a takedown notice to DMCA.com API.
+ * Call DMCA createCase API with provided token
+ * @param {string} token
+ * @param {object} caseData
+ * @returns {Promise<object>}
+ */
+async function createCase(token, caseData) {
+  const response = await axios.post(`${DMCA_API_BASE}/createCase`, caseData, {
+    headers: {
+      'Content-Type': 'application/json',
+      Token: token,
+    },
+  });
+  return response.data;
+}
+
+/**
+ * Sends a takedown notice via DMCA.com API using login/createCase workflow.
  * @param {object} takedownDetails
  * @param {string} takedownDetails.infringingUrl - The URL of the infringing content.
  * @param {string} takedownDetails.originalUrl - The URL of the original content.
@@ -39,27 +70,28 @@ async function sendTakedownRequest(takedownDetails) {
     throw new Error('Infringing URL and Original URL are required for a takedown request.');
   }
 
-  const params = new URLSearchParams();
-  params.append('email', DMCA_EMAIL);
-  params.append('password', DMCA_PASSWORD);
-  params.append('infringingURL', infringingUrl);
-  params.append('originalURL', originalUrl);
-  if (description) {
-    params.append('description', description);
-  }
-
   try {
-    logger.info(`[DMCA Service] Sending takedown notice for: ${infringingUrl}`);
-    const response = await axios.post(DMCA_API_ENDPOINT, params);
+    logger.info(`[DMCA Service] Logging in to DMCA API for takedown of: ${infringingUrl}`);
+    const token = await login();
+    if (!token) throw new Error('Failed to obtain DMCA API token');
 
-    if (response.data && response.data.status === 'success') {
-      logger.info(`[DMCA Service] Takedown request successful for ${infringingUrl}. Response: ${response.data.message}`);
-      return { success: true, message: response.data.message, data: response.data };
+    const caseData = {
+      Subject: 'Automated Takedown Request',
+      Description: description || 'Automated takedown request',
+      CopiedFromURL: originalUrl,
+      InfringingURL: infringingUrl,
+    };
+
+    const response = await createCase(token, caseData);
+
+    if (response && (response.status === 'success' || response.caseID)) {
+      logger.info(`[DMCA Service] Takedown request successful for ${infringingUrl}.`);
+      return { success: true, message: 'Case created', data: response };
     }
 
-    const errorMsg = response.data ? response.data.message : 'Unknown error from DMCA API';
+    const errorMsg = response && response.message ? response.message : 'Unknown error from DMCA API';
     logger.error(`[DMCA Service] Takedown request failed: ${errorMsg}`);
-    return { success: false, message: errorMsg, data: response.data };
+    return { success: false, message: errorMsg, data: response };
   } catch (error) {
     const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
     logger.error(`[DMCA Service] An exception occurred during takedown request: ${errorMsg}`);
