@@ -87,4 +87,65 @@ router.get('/protected', requireAdmin, (req, res) => {
   return res.json({ message: 'admin protected data' });
 });
 
+// 預設方案額度，可依需求擴充
+const PLAN_PRESETS = {
+  free_trial: { image_upload_limit: 10, scan_limit_monthly: 20 },
+  creator: { image_upload_limit: 500, scan_limit_monthly: 100 },
+  business: { image_upload_limit: 1000, scan_limit_monthly: 500 },
+};
+
+// 更新使用者方案與狀態
+router.post('/users/:userId/plan', requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { plan, status } = req.body;
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const preset = PLAN_PRESETS[plan];
+    if (!preset) return res.status(400).json({ error: 'Invalid plan' });
+
+    user.plan = plan;
+    user.status = status || user.status;
+    user.image_upload_limit = preset.image_upload_limit;
+    user.scan_limit_monthly = preset.scan_limit_monthly;
+    await user.save();
+
+    res.json({ message: 'Plan updated', user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
+});
+
+// 手動調整額度
+router.post('/users/:userId/quotas', requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { image_upload_limit, scan_limit_monthly } = req.body;
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (image_upload_limit !== undefined) user.image_upload_limit = image_upload_limit;
+    if (scan_limit_monthly !== undefined) user.scan_limit_monthly = scan_limit_monthly;
+    await user.save();
+
+    res.json({ message: 'Quotas updated', user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update quotas' });
+  }
+});
+
+// 取得所有使用者列表
+router.get('/users', requireAdmin, async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
 module.exports = router;
