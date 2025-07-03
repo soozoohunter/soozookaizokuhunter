@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 const { User, File, Scan } = require('../models');
+const checkQuota = require('../middleware/quotaCheck');
 
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
@@ -34,7 +35,7 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-router.post('/step1', upload.single('file'), async (req, res) => {
+router.post('/step1', checkQuota('upload'), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '未提供檔案。' });
     }
@@ -70,6 +71,11 @@ router.post('/step1', upload.single('file'), async (req, res) => {
                 address,
                 email,
                 password: hashedPassword,
+                plan: 'free_trial',
+                status: 'active',
+                image_upload_limit: 10,
+                scan_limit_monthly: 20,
+                scan_usage_reset_at: new Date(new Date().setMonth(new Date().getMonth() + 1)),
             });
             logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
         }
@@ -104,6 +110,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
             status: 'protected',
             mime_type: mimetype,
         });
+        await user.increment('image_upload_usage');
         logger.info(`[Step 1] File record saved to database, File ID: ${newFile.id}`);
 
         setImmediate(async () => {
@@ -150,6 +157,8 @@ async function dispatchScanTask(req, res) {
             file_id: fileId,
             status: 'pending',
         });
+        const user = await User.findByPk(fileRecord.user_id);
+        if (user) await user.increment('scan_usage_monthly');
         const taskId = newScan.id;
         logger.info(`${routeName} Created new scan task in DB with ID: ${taskId}`);
 
@@ -174,7 +183,7 @@ async function dispatchScanTask(req, res) {
     }
 }
 
-router.post('/step2', dispatchScanTask);
+router.post('/step2', checkQuota('scan'), dispatchScanTask);
 router.get('/scan/:fileId', dispatchScanTask);
 
 router.get('/task/:taskId', async (req, res) => {

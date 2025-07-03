@@ -84,7 +84,12 @@ async function register(req, res) {
       IG, FB, YouTube, TikTok,
       Shopee, Ruten, Yahoo, Amazon, Taobao, eBay,
       serialNumber,
-      role: finalRole
+      role: finalRole,
+      plan: 'free_trial',
+      status: 'active',
+      image_upload_limit: 10,
+      scan_limit_monthly: 20,
+      scan_usage_reset_at: new Date(new Date().setMonth(new Date().getMonth() + 1)),
     });
 
     // [I] 同步寫入區塊鏈 (非阻塞式)

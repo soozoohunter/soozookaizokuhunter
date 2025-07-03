@@ -53,7 +53,13 @@ module.exports = (sequelize, DataTypes) => {
     birthDate: { type: DataTypes.STRING, allowNull: true },
     phone: { type: DataTypes.STRING, allowNull: true },
     address: { type: DataTypes.STRING, allowNull: true },
-    plan: { type: DataTypes.STRING, allowNull: false, defaultValue: 'freeTrial' },
+    plan: { type: DataTypes.STRING, allowNull: false, defaultValue: 'free_trial' },
+    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'active' },
+    image_upload_limit: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 10 },
+    scan_limit_monthly: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 20 },
+    image_upload_usage: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    scan_usage_monthly: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    scan_usage_reset_at: { type: DataTypes.DATE, allowNull: true },
     uploadVideos: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     uploadImages: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
   }, {
