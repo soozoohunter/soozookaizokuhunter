@@ -37,14 +37,13 @@ services:
         max-file: "3"
 
   # -------------------------------------
-  # 核心後端服務 (Node.js)
+  # 核心後端服務 (Node.js) - 作為唯一的遷移執行者
   # -------------------------------------
   suzoo_express:
     container_name: suzoo_express
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [FIX] 使用 --config 參數指定 database.js 的路徑
     command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && node server.js"
     ports:
       - "3000:3000"
@@ -92,8 +91,8 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [FIX] Worker 也需要同樣的修正
-    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && node worker.js"
+    # [FIX] 移除遷移指令，只啟動主程式。它會等待 express 健康後才啟動。
+    command: node worker.js
     env_file:
       - .env
     volumes:
@@ -111,6 +110,10 @@ services:
       suzoo_ganache:
         condition: service_healthy
       suzoo_fastapi:
+        condition: service_healthy
+      # [IMPORTANT] Worker 依賴 Express 的健康狀態，
+      # 這確保了在 Worker 啟動時，遷移肯定已經由 Express 完成。
+      suzoo_express:
         condition: service_healthy
     networks:
       - suzoo-network
