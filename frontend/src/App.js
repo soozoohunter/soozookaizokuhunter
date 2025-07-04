@@ -13,8 +13,8 @@ import RegisterPage from './pages/Register';
 import DashboardPage from './pages/DashboardPage';
 import FileDetailPage from './pages/FileDetailPage';
 import AdminLogin from './pages/AdminLogin';
-import AdminDashboard from './pages/AdminDashboard';
-// ... import other pages ...
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminUsersPage from './pages/AdminUsersPage';
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
@@ -58,7 +58,8 @@ function RootLayout() {
             <>
               <Link to="/register" style={styles.navButton}>Register</Link>
               <Link to="/login" style={{...styles.navButton, ...styles.loginButton}}>Login</Link>
-              {/* <Link to="/admin/login" style={styles.navLink}>Admin</Link> */}
+              {/* 為管理員保留一個不顯眼的登入入口 */}
+              <Link to="/admin/login" style={styles.navLink}>Admin</Link>
             </>
           ) : (
             <>
@@ -109,15 +110,18 @@ export default function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           
-          <Route element={<ProtectedRoute />}>
+          <Route path="/admin/login" element={<AdminLogin />} />
+
+          {/* --- 會員保護路由 --- */}
+          <Route element={<ProtectedRoute role="user" />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="file/:fileId" element={<FileDetailPage />} />
-            {/* ... other protected routes */}
           </Route>
 
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route element={<ProtectedRoute />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          {/* --- 管理員保護路由 --- */}
+          <Route element={<ProtectedRoute role="admin" />}>
+            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
         </Route>
       </Routes>
