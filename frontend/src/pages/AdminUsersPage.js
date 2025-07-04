@@ -53,6 +53,28 @@ function AdminUsersPage() {
         }
     };
 
+    // [新功能] 處理手動修改額度
+    const handleOverride = (userId) => {
+        const newImageLimit = prompt(`請輸入使用者 #${userId} 的新圖片上傳總額度:`, '100');
+        const newScanLimit = prompt(`請輸入使用者 #${userId} 的新每月掃描額度:`, '200');
+
+        if (newImageLimit === null || newScanLimit === null) return;
+
+        fetch(`/api/admin/users/${userId}/overrides`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image_upload_limit: parseInt(newImageLimit, 10),
+                scan_limit_monthly: parseInt(newScanLimit, 10),
+            })
+        })
+        .then(res => res.ok ? alert('額度更新成功！') : Promise.reject('Update failed'))
+        .catch(() => alert('額度更新失敗！'));
+    };
+
     if (isLoading) return <div style={styles.container}>Loading users...</div>;
     if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
@@ -66,6 +88,7 @@ function AdminUsersPage() {
                         <th style={styles.th}>Email</th>
                         <th style={styles.th}>角色</th>
                         <th style={styles.th}>目前方案</th>
+                        <th style={styles.th}>圖片額度(用/總)</th>
                         <th style={styles.th}>操作</th>
                     </tr>
                 </thead>
@@ -76,17 +99,18 @@ function AdminUsersPage() {
                             <td style={styles.td}>{user.email}</td>
                             <td style={styles.td}>{user.role}</td>
                             <td style={styles.td}>{user.subscription?.plan?.plan_code || 'N/A'}</td>
+                            <td style={styles.td}>{user.image_upload_usage} / {user.image_upload_limit}</td>
                             <td style={styles.td}>
-                                <select 
+                                <select
                                     onChange={(e) => handlePlanChange(user.id, e.target.value)}
-                                    defaultValue={user.subscription?.plan?.plan_code || ''}
+                                    defaultValue=""
                                     style={styles.select}
                                 >
-                                    <option value="" disabled>更改方案</option>
-                                    <option value="free_trial">Free Trial</option>
+                                    <option value="" disabled>指派方案</option>
                                     <option value="basic">Basic</option>
                                     <option value="pro">Pro</option>
                                 </select>
+                                <button onClick={() => handleOverride(user.id)} style={{marginLeft: '10px'}}>手動調整</button>
                             </td>
                         </tr>
                     ))}
