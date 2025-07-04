@@ -1,4 +1,4 @@
-// frontend/src/App.js (最終重構版)
+// frontend/src/App.js (導覽列 UI 還原版)
 import React, { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
@@ -18,7 +18,45 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// [UI 優化] 全域樣式，設定基礎字體和背景
+// [UI 還原] 定義一個統一的導覽列連結樣式
+const NavLink = styled(Link)`
+  color: #D1D5DB;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    color: #FFFFFF;
+    background-color: #374151;
+  }
+`;
+
+// [UI 還原] 建立一個看起來和 NavLink 一樣的 button 元件，用於登出
+const NavButtonAsLink = styled.button`
+  color: #D1D5DB;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  
+  /* button 樣式重設 */
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    color: #FFFFFF;
+    background-color: #374151;
+  }
+`;
+
+// 其他元件樣式
 const GlobalStyle = styled.div`
   font-family: 'Inter', 'Roboto', sans-serif;
   background-color: #0a0f17;
@@ -28,7 +66,6 @@ const GlobalStyle = styled.div`
   flex-direction: column;
 `;
 
-// [UI 優化] 使用 styled-components 定義所有佈局和元件樣式
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -45,7 +82,7 @@ const Header = styled.header`
 const NavSection = styled.div`
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1.5rem; // 統一間距
 `;
 
 const BrandLink = styled(Link)`
@@ -53,62 +90,6 @@ const BrandLink = styled(Link)`
   align-items: center;
   text-decoration: none;
   color: #F3F4F6;
-`;
-
-const NavLink = styled(Link)`
-  color: #D1D5DB;
-  text-decoration: none;
-  font-size: 1rem;
-  padding: 0.5rem 0.75rem;
-  transition: color 0.2s ease;
-  &:hover {
-    color: #FFFFFF;
-  }
-`;
-
-const NavButton = styled(Link)`
-  color: #F97316;
-  font-weight: bold;
-  text-decoration: none;
-  font-size: 1rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
-  border: 2px solid #F97316;
-  background-color: transparent;
-  transition: background-color 0.2s ease, color 0.2s ease;
-  cursor: pointer;
-  &:hover {
-    background-color: #F97316;
-    color: #FFFFFF;
-  }
-`;
-
-const LoginButton = styled(NavButton)`
-  background-color: #F97316;
-  color: #FFFFFF;
-  margin-left: 0.5rem;
-  &:hover {
-    background-color: #EA580C; // 橘色加深
-    border-color: #EA580C;
-  }
-`;
-
-const LogoutButton = styled.button`
-    color: #9CA3AF;
-    font-weight: bold;
-    font-size: 1rem;
-    padding: 0.6rem 1.2rem;
-    border-radius: 8px;
-    border: 2px solid #4B5563;
-    background-color: transparent;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    cursor: pointer;
-    font-family: inherit;
-    &:hover {
-        background-color: #4B5563;
-        color: #FFFFFF;
-        border-color: #6B7280;
-    }
 `;
 
 const MainContent = styled.main`
@@ -122,9 +103,8 @@ const Footer = styled.footer`
   background-color: #111827;
   border-top: 1px solid #374151;
   font-size: 0.9rem;
-  color: '#9CA3AF';
+  color: #9CA3AF;
 `;
-
 
 function RootLayout() {
   const { token, logout } = useContext(AuthContext);
@@ -150,8 +130,10 @@ function RootLayout() {
         <NavSection>
             {!token ? (
                 <>
-                    <NavButton to="/register">Register</NavButton>
-                    <LoginButton to="/login">Login</LoginButton>
+                    {/* [UI 還原] Register 和 Login 都使用 NavLink 樣式 */}
+                    <NavLink to="/register">Register</NavLink>
+                    <NavLink to="/login">Login</NavLink>
+                    <NavLink to="/admin/login">Admin</NavLink>
                 </>
             ) : (
                 <>
@@ -159,7 +141,8 @@ function RootLayout() {
                     {userRole === 'admin' && (
                         <NavLink to="/admin/dashboard">Admin Panel</NavLink>
                     )}
-                    <LogoutButton onClick={logout}>Logout</LogoutButton>
+                    {/* [UI 還原] Logout 使用看起來像連結的 button 樣式 */}
+                    <NavButtonAsLink onClick={logout}>Logout</NavButtonAsLink>
                 </>
             )}
         </NavSection>
@@ -185,13 +168,13 @@ export default function App() {
           <Route path="contact" element={<ContactPage />} />
           <Route path="/admin/login" element={<AdminLogin />} />
 
-          {/* 會員保護路由 */}
+          {/* 受保護的會員路由 */}
           <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="file/:fileId" element={<FileDetailPage />} />
           </Route>
 
-          {/* 管理員保護路由 */}
+          {/* 受保護的管理員路由 */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
