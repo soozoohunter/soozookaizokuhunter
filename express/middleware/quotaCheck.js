@@ -1,52 +1,74 @@
-// express/middleware/quotaCheck.js (升級版，支援批量檢查)
-const { User } = require('../models'); // 簡化，我們只需要 User 模型來查額度
+// express/middleware/quotaCheck.js (最終統一架構版)
 const { Op } = require('sequelize');
+const { User, UserSubscription, SubscriptionPlan, UsageRecord } = require('../models');
 const logger = require('../utils/logger');
 
-const checkQuota = (checkType) => async (req, res, next) => {
+const checkQuota = (featureCode) => async (req, res, next) => {
     try {
         const userId = req.user.id;
         if (!userId) {
             return res.status(401).json({ error: 'Authentication required.' });
         }
 
-        const user = await User.findByPk(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found.' });
-        }
-        
-        let requestedAmount = 1; // 單次操作預設為 1
-        // 如果是批量上傳，我們會從 req.files 中獲取檔案數量
-        if (checkType === 'upload' && req.files) {
-            requestedAmount = req.files.length;
+        const activeSubscription = await UserSubscription.findOne({
+            where: { user_id: userId, status: 'active' },
+            include: { model: SubscriptionPlan, as: 'plan' }
+        });
+
+        if (!activeSubscription || !activeSubscription.plan) {
+            // 如果使用者沒有有效訂閱，可以定義一個預設的免費/試用方案邏輯
+            // 這裡我們暫時回傳錯誤，要求管理員必須為使用者指派方案
+            return res.status(403).json({ error: "No active subscription plan found. Please contact support." });
         }
 
-        if (checkType === 'upload') {
-            const remaining = user.image_upload_limit - user.image_upload_usage;
-            if (requestedAmount > remaining) {
-                return res.status(403).json({ 
-                    error: `圖片上傳數量超出上限。您剩餘 ${remaining} 個額度，但嘗試上傳 ${requestedAmount} 個檔案。請升級方案或減少檔案數量。` 
+        const plan = activeSubscription.plan;
+        
+        let limit;
+        let usage;
+        let requestedAmount = 1; // 預設請求數量為 1
+
+        switch (featureCode) {
+            case 'image_upload':
+                limit = plan.image_limit;
+                // 對於批量上傳，從 req.files 獲取實際請求數量
+                if (req.files && req.files.length > 0) {
+                    requestedAmount = req.files.length;
+                }
+                // 總上傳數是查詢 File 表的總數
+                usage = await require('../models/File').count({ where: { user_id: userId } });
+                break;
+            
+            case 'scan':
+                limit = plan.scan_limit_monthly;
+                const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                usage = await UsageRecord.count({
+                    where: { user_id: userId, feature_code: 'scan', created_at: { [Op.gte]: startOfMonth } }
                 });
-            }
-        } else if (checkType === 'scan') {
-            // 檢查每月掃描額度是否需要重置
-            if (user.scan_usage_reset_at && new Date() > new Date(user.scan_usage_reset_at)) {
-                logger.info(`Resetting monthly scan quota for user ${userId}.`);
-                user.scan_usage_monthly = 0;
-                user.scan_usage_reset_at = new Date(new Date().setMonth(new Date().getMonth() + 1));
-                await user.save();
-            }
-            const remaining = user.scan_limit_monthly - user.scan_usage_monthly;
-            if (requestedAmount > remaining) {
-                return res.status(403).json({ error: `本月侵權偵測次數已達上限。您剩餘 ${remaining} 次額度。` });
-            }
+                break;
+
+            case 'dmca_takedown':
+                limit = plan.dmca_takedown_limit_monthly;
+                const startOfMonthDmca = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                usage = await UsageRecord.count({
+                    where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonthDmca } }
+                });
+                break;
+
+            default:
+                return res.status(400).json({ error: 'Invalid feature code for quota check.' });
+        }
+
+        // limit 為 null 代表無限制
+        if (limit !== null && (usage + requestedAmount > limit)) {
+            const remaining = limit - usage;
+            return res.status(403).json({ 
+                error: `Quota limit for '${featureCode}' reached. You have ${remaining} left, but tried to use ${requestedAmount}. Please upgrade your plan.`
+            });
         }
         
-        // 將請求數量附加到 req 物件上，方便後續路由使用
-        req.quota = { requestedAmount };
         next();
     } catch (error) {
-        logger.error(`[Quota Check Middleware] Error:`, error);
+        logger.error(`[Quota Check Middleware] Error checking quota for '${featureCode}':`, error);
         res.status(500).json({ error: "Failed to verify quota." });
     }
 };
