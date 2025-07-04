@@ -17,6 +17,12 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import ProtectedRoute from './components/ProtectedRoute';
+// Protect workflow pages
+import ProtectStep1 from './pages/ProtectStep1';
+import ProtectStep2 from './pages/ProtectStep2';
+import ProtectStep3 from './pages/ProtectStep3';
+import ProtectStep4 from './pages/ProtectStep4';
+import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 
 // [UI 還原] 定義一個統一的導覽列連結樣式
 const NavLink = styled(Link)`
@@ -172,6 +178,13 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="file/:fileId" element={<FileDetailPage />} />
+            <Route path="protect">
+              <Route path="step1" element={<ProtectStep1 />} />
+              <Route path="step2" element={<ProtectStep2 />} />
+              <Route path="step3" element={<ProtectStep3 />} />
+              <Route path="step4" element={<ProtectStep4 />} />
+              <Route path="step4/infringement" element={<ProtectStep4Infringement />} />
+            </Route>
           </Route>
 
           {/* 受保護的管理員路由 */}
