@@ -16,6 +16,11 @@ import FileDetailPage from './pages/FileDetailPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import ProtectStep1 from './pages/ProtectStep1';
+import ProtectStep2 from './pages/ProtectStep2';
+import ProtectStep3 from './pages/ProtectStep3';
+import ProtectStep4 from './pages/ProtectStep4';
+import ProtectStep4Infringement from './pages/ProtectStep4Infringement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // [UI 優化] 全域樣式，設定基礎字體和背景
@@ -183,6 +188,11 @@ export default function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="pricing" element={<PricingPage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="protect/step1" element={<ProtectStep1 />} />
+          <Route path="protect/step2" element={<ProtectStep2 />} />
+          <Route path="protect/step3" element={<ProtectStep3 />} />
+          <Route path="protect/step4" element={<ProtectStep4 />} />
+          <Route path="protect/step4-infringement" element={<ProtectStep4Infringement />} />
           <Route path="/admin/login" element={<AdminLogin />} />
 
           {/* 會員保護路由 */}
