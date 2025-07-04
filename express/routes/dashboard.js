@@ -1,7 +1,8 @@
-// express/routes/dashboard.js (修正模型命名)
+// express/routes/dashboard.js (語法修正最終版)
+// =================== 檔案開始 ===================
+
 const express = require('express');
 const { Op } = require('sequelize');
-// [FIX] 將 UserSubscriptions (複數) 更正為 UserSubscription (單數)，與 models/index.js 的匯出保持一致
 const { User, UserSubscription, SubscriptionPlan, UsageRecord, File, Scan } = require('../models');
 const auth = require('../middleware/auth.js');
 const logger = require('../utils/logger');
@@ -20,10 +21,8 @@ router.get('/', auth, async (req, res) => {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    // [FIX] 使用正確的單數模型名稱 UserSubscription
     const activeSubscription = await UserSubscription.findOne({
       where: { user_id: userId, status: 'active' },
-      // 確保您的 model 關聯 (association) 使用了 'plan' 這個別名
       include: { model: SubscriptionPlan, as: 'plan' }
     });
 
@@ -33,37 +32,36 @@ router.get('/', auth, async (req, res) => {
         expires_at = activeSubscription.expires_at;
     } else {
         logger.warn(`User ${userId} has no active subscription, providing default free plan data.`);
-        // 如果使用者沒有有效訂閱，我們給他一個預設的免費方案資料結構
-        // 注意：這裡的欄位名稱需要與您 `SubscriptionPlans` 資料表中的欄位完全對應
         plan = {
             name: 'Free Trial',
-            video_limit: 0,
             image_limit: 5,
-            scan_frequency_in_hours: 48,
+            scan_limit_monthly: 10,
             dmca_takedown_limit_monthly: 0,
-            scan_limit_monthly: 10, // 確保預設物件也包含所有需要的欄位
         };
         expires_at = null;
     }
 
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     
-    // [FIX] 優化用量查詢邏輯，使其更準確
     const [imageUsage, scanUsage, dmcaUsage] = await Promise.all([
-      File.count({ where: { user_id: userId } }), // 總上傳數
+      File.count({ where: { user_id: userId } }),
       Scan.count({ 
-          where: { 
-              createdAt: { [Op.gte]: startOfMonth },
-          },
+          where: { createdAt: { [Op.gte]: startOfMonth } },
           include: [{ model: File, as: 'file', where: { user_id: userId }, attributes: [] }]
-      }), // 當月掃描量
-      UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } }) // 當月 DMCA 用量
+      }),
+      UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } })
     ]);
 
-    const recentProtectedFiles = await File.findAll({ where: { user_id: userId }, order: [['createdAt', 'DESC']], limit: 5 });
+    const recentProtectedFiles = await File.findAll({ 
+      where: { user_id: userId }, 
+      order: [['createdAt', 'DESC']], 
+      limit: 5 
+    });
+    
+    const fileIds = recentProtectedFiles.length > 0 ? recentProtectedFiles.map(f => f.id) : [0]; // 避免 IN () 語法錯誤
     const recentScans = await Scan.findAll({
-      where: { file_id: { [Op.in]: recentProtectedFiles.map(f => f.id) } },
-      include: { model: File, as: 'file' },
+      where: { file_id: { [Op.in]: fileIds } },
+      include: { model: File, as: 'file', attributes: ['filename'] },
       order: [['createdAt', 'DESC']],
       limit: 5
     });
@@ -73,3 +71,37 @@ router.get('/', auth, async (req, res) => {
         id: user.id,
         email: user.email,
         realName: user.realName,
+      },
+      planInfo: {
+        name: plan.name,
+        expires_at: expires_at,
+      },
+      usage: {
+        images: { used: imageUsage, limit: plan.image_limit ?? 5 },
+        monthlyScan: { used: scanUsage, limit: plan.scan_limit_monthly ?? 10 },
+        monthlyDmca: { used: dmcaUsage, limit: plan.dmca_takedown_limit_monthly ?? 0 },
+      },
+      protectedContent: recentProtectedFiles.map(f => ({
+        fileId: f.id,
+        fileName: f.filename,
+        uploadDate: f.createdAt,
+        status: f.status,
+      })),
+      recentScans: recentScans.map(s => ({
+        scanId: s.id,
+        fileId: s.file_id,
+        fileName: s.file?.filename, // 使用可選串連
+        status: s.status,
+        requestDate: s.createdAt,
+      }))
+    });
+
+  } catch (err) {
+    logger.error(`[Dashboard API Error] Failed to load dashboard for user ${req.user.id || 'unknown'}:`, err);
+    res.status(500).json({ error: 'Failed to load dashboard data.' });
+  }
+});
+
+module.exports = router;
+
+// =================== 檔案結束 ===================
