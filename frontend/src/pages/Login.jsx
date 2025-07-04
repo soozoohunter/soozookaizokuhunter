@@ -1,6 +1,7 @@
 // frontend/src/pages/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { AuthContext } from '../AuthContext';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
@@ -81,6 +82,7 @@ const SwitchPrompt = styled.p`
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -108,10 +110,10 @@ export default function Login() {
       }
 
       if (data.token) {
-        localStorage.setItem('token', data.token);
+        login(data.token);
       }
       alert(data.message || '登入成功');
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       console.error(err);
       setErrorMsg('伺服器錯誤');

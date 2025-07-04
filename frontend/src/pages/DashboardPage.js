@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../AuthContext';
 
-function DashboardPage({ token }) {
+function DashboardPage() {
+  const { token } = useContext(AuthContext);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState('');
 
