@@ -6,7 +6,6 @@ const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User, SubscriptionPlan, UserSubscription, File, Scan } = require('../models');
 const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
-const userAuth = require('../middleware/auth'); // 引入普通用戶驗證
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
@@ -42,21 +41,6 @@ router.post('/login', async (req, res) => {
 // === 以下所有 API 都需要先通過管理員驗證 ===
 router.use(adminAuth);
 
-// 獲取全站營運統計數據
-router.get('/stats', async (req, res) => {
-    try {
-        const [totalUsers, totalAdmins, totalFiles, totalScans] = await Promise.all([
-            User.count(),
-            User.count({ where: { role: 'admin' } }),
-            File.count(),
-            Scan.count()
-        ]);
-        res.json({ totalUsers, totalAdmins, totalFiles, totalScans });
-    } catch (error) {
-        console.error('[Admin Stats API Error]', error);
-        res.status(500).json({ error: 'Failed to retrieve statistics.' });
-    }
-});
 
 // 獲取所有使用者列表及其當前的有效訂閱方案
 router.get('/users', async (req, res) => {
@@ -108,6 +92,15 @@ router.put('/users/:userId/subscription', async (req, res) => {
             started_at: startedAt,
             expires_at: expiresAt
         });
+
+        // 當指派新方案時，同時更新 User 表上的額度欄位
+        const user = await User.findByPk(userId);
+        if (user) {
+            user.image_upload_limit = plan.image_limit;
+            user.scan_limit_monthly = plan.scan_limit_monthly;
+            user.dmca_takedown_limit_monthly = plan.dmca_takedown_limit_monthly;
+            await user.save();
+        }
 
         res.status(201).json({ message: 'Subscription updated successfully', subscription: newSubscription });
     } catch (err) {
