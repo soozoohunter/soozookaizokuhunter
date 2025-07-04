@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // 定義關聯
       File.belongsTo(models.User, { foreignKey: 'user_id' });
+      File.hasMany(models.Scan, { foreignKey: 'file_id', as: 'scans' });
     }
   }
 

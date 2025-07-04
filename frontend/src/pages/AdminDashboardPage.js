@@ -29,7 +29,7 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('/admin/stats', {
+      const res = await fetch('/api/admin/stats', {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('/admin/users', {
+      const res = await fetch('/api/admin/users', {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
 
   const fetchFiles = async () => {
     try {
-      const res = await fetch('/admin/files', {
+      const res = await fetch('/api/admin/files', {
         headers: { Authorization: 'Bearer ' + token }
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);

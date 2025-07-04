@@ -41,6 +41,22 @@ router.post('/login', async (req, res) => {
 // === 以下所有 API 都需要先通過管理員驗證 ===
 router.use(adminAuth);
 
+// 獲取全站營運統計數據
+router.get('/stats', async (req, res) => {
+    try {
+        const [totalUsers, totalAdmins, totalFiles, totalScans] = await Promise.all([
+            User.count(),
+            User.count({ where: { role: 'admin' } }),
+            File.count(),
+            Scan.count()
+        ]);
+        res.json({ totalUsers, totalAdmins, totalFiles, totalScans });
+    } catch (error) {
+        console.error('[Admin Stats API Error]', error);
+        res.status(500).json({ error: 'Failed to retrieve statistics.' });
+    }
+});
+
 
 // 獲取所有使用者列表及其當前的有效訂閱方案
 router.get('/users', async (req, res) => {
@@ -128,6 +144,30 @@ router.put('/users/:userId/overrides', async (req, res) => {
     } catch (err) {
         console.error('[Admin Overrides Error]', err);
         res.status(500).json({ error: 'Failed to apply overrides.' });
+    }
+});
+
+// 查看所有使用者上傳的檔案及其最新掃描結果
+router.get('/files', async (req, res) => {
+    try {
+        const files = await File.findAll({
+            order: [['createdAt', 'DESC']],
+            include: [
+                { model: User, attributes: ['id', 'email', 'username'] },
+                {
+                    model: Scan,
+                    as: 'scans',
+                    attributes: ['id', 'status', 'completed_at'],
+                    separate: true,
+                    limit: 1,
+                    order: [['createdAt', 'DESC']]
+                }
+            ]
+        });
+        res.json(files);
+    } catch (err) {
+        console.error('[Admin Files List Error]', err);
+        res.status(500).json({ error: 'Failed to fetch files' });
     }
 });
 
