@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User, SubscriptionPlan, UserSubscription, File, Scan } = require('../models');
 const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
+const userAuth = require('../middleware/auth'); // 引入普通用戶驗證
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
@@ -112,6 +113,28 @@ router.put('/users/:userId/subscription', async (req, res) => {
     } catch (err) {
         console.error('[Admin Update Subscription Error]', err);
         res.status(500).json({ error: 'Failed to update subscription' });
+    }
+});
+
+// [新功能] 手動修改使用者的額度與狀態
+router.put('/users/:userId/overrides', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { image_upload_limit, scan_limit_monthly, status } = req.body;
+
+        const user = await User.findByPk(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (image_upload_limit !== undefined) user.image_upload_limit = image_upload_limit;
+        if (scan_limit_monthly !== undefined) user.scan_limit_monthly = scan_limit_monthly;
+        if (status) user.status = status;
+
+        await user.save();
+        res.json({ message: 'User overrides applied successfully.', user });
+
+    } catch (err) {
+        console.error('[Admin Overrides Error]', err);
+        res.status(500).json({ error: 'Failed to apply overrides.' });
     }
 });
 
