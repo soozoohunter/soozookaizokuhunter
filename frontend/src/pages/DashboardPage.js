@@ -1,6 +1,7 @@
 // frontend/src/pages/DashboardPage.js (UI 優化與錯誤處理強化版)
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
+import BulkUploader from '../components/BulkUploader.jsx';
 
 // 簡單的卡片樣式元件
 const Card = ({ children, title }) => (
@@ -16,6 +17,7 @@ function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showBulkUploader, setShowBulkUploader] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -72,6 +74,10 @@ function DashboardPage() {
   return (
     <div style={styles.pageContainer}>
       <h2 style={styles.pageTitle}>Hi, {userInfo.realName || userInfo.email}! 歡迎來到您的儀表板</h2>
+      {/* [新增] 批量上傳按鈕 */}
+      <button style={styles.batchUploadButton} onClick={() => setShowBulkUploader(true)}>
+        + 批量保護新內容
+      </button>
       <div style={styles.grid}>
         <Card title="方案總覽">
           <p><strong>當前方案:</strong> {planInfo.name}</p>
@@ -97,6 +103,11 @@ function DashboardPage() {
             ) : <p>沒有最近的掃描活動。</p>}
         </Card>
       </div>
+      {showBulkUploader && (
+        <div style={styles.modalOverlay}>
+          <BulkUploader onClose={() => setShowBulkUploader(false)} />
+        </div>
+      )}
     </div>
   );
 }
@@ -124,6 +135,27 @@ const styles = {
         padding: '1.5rem',
         borderRadius: '8px',
         border: '1px solid #374151',
+    },
+    batchUploadButton: {
+        marginBottom: '1rem',
+        padding: '0.5rem 1rem',
+        backgroundColor: '#2563eb',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+    },
+    modalOverlay: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
     },
     cardTitle: {
         margin: '0 0 1rem 0',
