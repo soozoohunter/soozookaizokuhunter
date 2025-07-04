@@ -7,6 +7,7 @@ const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const auth = require('../middleware/auth');
 
 const { User, File, Scan, UsageRecord } = require('../models');
 const checkQuota = require('../middleware/quotaCheck');
@@ -35,7 +36,17 @@ const upload = multer({
     limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-router.post('/step1', checkQuota('image_upload'), upload.single('file'), async (req, res) => {
+// [修改] 為 multer 設定一個批次上傳的數量上限，例如一次最多 20 張
+const MAX_BATCH_UPLOAD = 20;
+const batchUpload = multer({
+    dest: TEMP_DIR,
+    limits: {
+        fileSize: 100 * 1024 * 1024,
+        files: MAX_BATCH_UPLOAD,
+    }
+});
+
+router.post('/step1', checkQuota('upload'), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '未提供檔案。' });
     }
@@ -135,6 +146,87 @@ router.post('/step1', checkQuota('image_upload'), upload.single('file'), async (
             if (err) logger.warn(`[Step 1] Failed to delete temp file ${tempPath}:`, err);
         });
     }
+});
+
+// [新增] 批量保護的 API 路由
+router.post('/batch-protect', auth, checkQuota('upload'), batchUpload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: '未提供任何檔案。' });
+    }
+
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+    if (!user) {
+        return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const results = [];
+    let successfulUploads = 0;
+
+    // 使用 for...of 迴圈來確保異步操作能被正確處理
+    for (const file of req.files) {
+        const { path: tempPath, originalname, mimetype } = file;
+        let fileBuffer;
+        try {
+            fileBuffer = fs.readFileSync(tempPath);
+            const fingerprint = fingerprintService.sha256(fileBuffer);
+
+            const existingFile = await File.findOne({ where: { fingerprint } });
+            if (existingFile) {
+                results.push({ filename: originalname, status: 'failed', reason: 'Conflict: File already protected.' });
+                continue; // 跳過此檔案，繼續處理下一個
+            }
+
+            const ipfsHash = await ipfsService.saveFile(fileBuffer);
+            if (!ipfsHash) throw new Error('Failed to save to IPFS.');
+
+            const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
+            const txHash = txReceipt.transactionHash;
+
+            const newFile = await File.create({
+                user_id: userId,
+                filename: originalname,
+                title: originalname,
+                fingerprint,
+                ipfs_hash: ipfsHash,
+                tx_hash: txHash,
+                status: 'protected',
+                mime_type: mimetype,
+            });
+            
+            successfulUploads++;
+            results.push({ filename: originalname, status: 'success', fileId: newFile.id });
+
+            // 為每個成功保護的檔案派發背景任務
+            setImmediate(async () => {
+                await queueService.sendToQueue({
+                    taskId: new Date().getTime(),
+                    fileId: newFile.id,
+                    ipfsHash: newFile.ipfs_hash,
+                    fingerprint: newFile.fingerprint,
+                });
+                logger.info(`[Batch Protect] Scan task dispatched for new File ID: ${newFile.id}`);
+            });
+
+        } catch (error) {
+            logger.error(`[Batch Protect] Failed to process file ${originalname}:`, error);
+            results.push({ filename: originalname, status: 'failed', reason: error.message });
+        } finally {
+            fs.unlink(tempPath, err => {
+                if (err) logger.warn(`[Batch Protect] Failed to delete temp file ${tempPath}:`, err);
+            });
+        }
+    }
+
+    if (successfulUploads > 0) {
+        await user.increment('image_upload_usage', { by: successfulUploads });
+    }
+
+    logger.info(`[Batch Protect] Completed for user ${userId}. Successful: ${successfulUploads}, Failed: ${req.files.length - successfulUploads}`);
+    res.status(207).json({
+        message: '批量保護任務已完成。',
+        results,
+    });
 });
 
 async function dispatchScanTask(req, res) {
