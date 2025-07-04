@@ -3,7 +3,7 @@
  * 維持您既有 Navbar/Banner/UI；追加 Protect Step1~4 完整路由
  * - 加強容器之霓虹漸層效果
  **************************************************************/
-import React from 'react';
+import React, { useContext } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -23,6 +23,8 @@ import Payment from './pages/Payment';
 import PaymentSuccess from './pages/PaymentSuccess';
 import DashboardPage from './pages/DashboardPage';
 import FileDetailPage from './pages/FileDetailPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthContext } from './AuthContext';
 
 // Protect (4-steps)
 import ProtectStep1 from './pages/ProtectStep1';
@@ -36,7 +38,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminUsersPage from './pages/AdminUsersPage';
 
 function RootLayout() {
-  const token = localStorage.getItem('token') || '';
+  const { token, logout } = useContext(AuthContext);
   let userRole = '';
   if (token) {
     try {
@@ -51,7 +53,7 @@ function RootLayout() {
   const showBanner = location.pathname === '/';
 
   const handleLogout = () => {
-    localStorage.clear();
+    logout();
     window.location.href = '/';
   };
 
@@ -82,6 +84,9 @@ function RootLayout() {
               <Link to="/register" style={styles.navLink}>Register</Link>
               <Link to="/login" style={styles.navLink}>Login</Link>
             </>
+          )}
+          {token && (
+            <Link to="/dashboard" style={styles.navLink}>Dashboard</Link>
           )}
           {userRole === 'admin' ? (
             <Link to="/admin/dashboard" style={styles.navLink}>Admin</Link>
@@ -147,8 +152,10 @@ export default function App() {
           <Route path="contact" element={<ContactPage />} />
           <Route path="login" element={<LoginPage />} />
          <Route path="register" element={<RegisterPage />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="file/:fileId" element={<FileDetailPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="file/:fileId" element={<FileDetailPage />} />
+          </Route>
 
           {/* Protect: Step1~4 */}
           <Route path="protect">
