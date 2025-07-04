@@ -97,18 +97,36 @@ export default function App() {
 }
 
 const styles = {
-    container: { fontFamily: '"Inter", "Roboto", sans-serif', backgroundColor: '#111827', color: '#E5E7EB', display: 'flex', flexDirection: 'column', minHeight: '100vh' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', backgroundColor: 'rgba(17, 24, 39, 0.8)', borderBottom: '1px solid #374151', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 1000 },
+    container: {
+        fontFamily: 'Inter, sans-serif',
+        backgroundColor: '#0a0f17',
+        color: '#f5faff',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh'
+    },
+    header: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '1rem 2rem',
+        backgroundColor: '#12181f',
+        borderBottom: '1px solid #374151',
+        backdropFilter: 'blur(10px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000
+    },
     headerLeft: { display: 'flex', alignItems: 'center', gap: '2rem' },
     headerCenter: { flexGrow: 1, display: 'flex', justifyContent: 'center' },
     headerRight: { display: 'flex', alignItems: 'center', gap: '1rem' },
-    brandLink: { display: 'flex', alignItems: 'center', textDecoration: 'none', color: '#F3F4F6' },
+    brandLink: { display: 'flex', alignItems: 'center', textDecoration: 'none', color: '#f5faff' },
     logoImg: { height: '40px', marginRight: '0.75rem' },
     brandText: { fontSize: '1.25rem', fontWeight: 'bold', letterSpacing: '0.5px' },
-    navLink: { color: '#D1D5DB', textDecoration: 'none', fontSize: '1rem', padding: '0.5rem 0.75rem', transition: 'color 0.2s ease, background-color 0.2s ease', borderRadius: '6px' },
+    navLink: { color: '#f5faff', textDecoration: 'none', fontSize: '1rem', padding: '0.5rem 0.75rem', transition: 'color 0.2s ease, background-color 0.2s ease', borderRadius: '6px' },
     navButton: { color: '#FFFFFF', textDecoration: 'none', fontSize: '1rem', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #F97316', backgroundColor: 'transparent', transition: 'background-color 0.2s ease, color 0.2s ease', cursor: 'pointer' },
     loginButton: { backgroundColor: '#F97316', color: '#FFFFFF', fontWeight: 'bold', marginLeft: '0.5rem' },
-    logoutButton: { color: '#E5E7EB', textDecoration: 'none', fontSize: '1rem', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #4B5563', backgroundColor: 'transparent', transition: 'background-color 0.2s ease, color 0.2s ease', cursor: 'pointer', fontFamily: 'inherit' },
+    logoutButton: { color: '#f5faff', textDecoration: 'none', fontSize: '1rem', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid #4B5563', backgroundColor: 'transparent', transition: 'background-color 0.2s ease, color 0.2s ease', cursor: 'pointer', fontFamily: 'inherit' },
     mainContent: { flexGrow: 1, padding: '2rem' },
     footer: { textAlign: 'center', padding: '1.5rem', backgroundColor: '#1F2937', borderTop: '1px solid #374151', fontSize: '0.9rem', color: '#9CA3AF' },
 };

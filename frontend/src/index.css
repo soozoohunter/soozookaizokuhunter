@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background-color: #000; /* 深色 */
-  color: #ff1c1c;         /* 紅字 */
+  font-family: 'Inter', sans-serif;
+  background-color: #0a0f17;
+  color: #f5faff;
 }
