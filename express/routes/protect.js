@@ -1,187 +1,108 @@
-// express/routes/protect.js (最終無 Milvus 版本)
+// express/routes/protect.js (架構統一版)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const auth = require('../middleware/auth');
-
-const { User, File, Scan, UsageRecord } = require('../models');
+const auth = require('../middleware/auth'); // 基礎身份驗證
 const checkQuota = require('../middleware/quotaCheck');
-
+const { User, File, Scan, UsageRecord } = require('../models');
 const chain = require('../utils/chain');
 const ipfsService = require('../services/ipfsService');
 const fingerprintService = require('../services/fingerprintService');
-const vectorSearchService = require('../services/vectorSearch');
 const { generateCertificatePDF } = require('../services/pdf.service.js');
 const queueService = require('../services/queue.service');
 
 const router = express.Router();
 
 const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
-const REPORTS_DIR = path.join(UPLOAD_BASE_DIR, 'reports');
 const TEMP_DIR = path.join(UPLOAD_BASE_DIR, 'temp');
 
-[REPORTS_DIR, TEMP_DIR].forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-});
+if (!fs.existsSync(TEMP_DIR)) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
 
-const upload = multer({
-    dest: TEMP_DIR,
-    limits: { fileSize: 100 * 1024 * 1024 }
-});
-
-// [修改] 為 multer 設定一個批次上傳的數量上限，例如一次最多 20 張
 const MAX_BATCH_UPLOAD = 20;
-const batchUpload = multer({
+const upload = multer({
     dest: TEMP_DIR,
     limits: {
         fileSize: 100 * 1024 * 1024,
         files: MAX_BATCH_UPLOAD,
-    }
+    },
 });
 
-router.post('/step1', checkQuota('upload'), upload.single('file'), async (req, res) => {
+// 單一檔案保護路由 (假設已登入)
+router.post('/step1', auth, checkQuota('image_upload'), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: '未提供檔案。' });
     }
 
-    const { realName, birthDate, phone, address, email, title, keywords } = req.body;
+    const userId = req.user.id;
+    const { title, keywords } = req.body;
     const { path: tempPath, originalname, mimetype } = req.file;
-    let fileBuffer;
 
     try {
-        fileBuffer = fs.readFileSync(tempPath);
-
-        let user;
-        if (req.user?.id) {
-            user = await User.findByPk(req.user.id);
-        } else if (email || phone) {
-            const whereConditions = [];
-            if (email) whereConditions.push({ email });
-            if (phone) whereConditions.push({ phone });
-            user = await User.findOne({ where: { [Op.or]: whereConditions } });
-        }
-
-        if (!user) {
-            if (!realName || !email) {
-                fs.unlinkSync(tempPath);
-                return res.status(400).json({ error: '對於新用戶，姓名和電子郵件為必填項。'});
-            }
-            const tempPassword = crypto.randomBytes(16).toString('hex');
-            const hashedPassword = await bcrypt.hash(tempPassword, 10);
-            user = await User.create({
-                realName,
-                birthDate,
-                phone,
-                address,
-                email,
-                password: hashedPassword,
-                plan: 'free_trial',
-                status: 'active',
-                image_upload_limit: 10,
-                scan_limit_monthly: 20,
-                scan_usage_reset_at: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-            });
-            logger.info(`[Step 1] New user created: ${user.email} (ID: ${user.id})`);
-        }
-
+        const fileBuffer = fs.readFileSync(tempPath);
         const fingerprint = fingerprintService.sha256(fileBuffer);
+
         const existingFile = await File.findOne({ where: { fingerprint } });
         if (existingFile) {
-            logger.warn(`[Step 1] Conflict: File with fingerprint ${fingerprint} already exists.`);
-            return res.status(409).json({
-                message: '此圖片先前已被保護。',
-                error: 'Conflict',
-                file: existingFile
-            });
+            return res.status(409).json({ message: '此圖片先前已被保護。', file: existingFile });
         }
 
         const ipfsHash = await ipfsService.saveFile(fileBuffer);
-        if (!ipfsHash) throw new Error('Failed to save file to IPFS.');
-        logger.info(`[Step 1] File saved to IPFS, CID: ${ipfsHash}`);
-
         const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
-        const txHash = txReceipt.transactionHash;
-        logger.info(`[Step 1] Record stored on blockchain, TxHash: ${txHash}`);
 
         const newFile = await File.create({
-            user_id: user.id,
+            user_id: userId,
             filename: originalname,
             title,
             keywords,
             fingerprint,
             ipfs_hash: ipfsHash,
-            tx_hash: txHash,
+            tx_hash: txReceipt.transactionHash,
             status: 'protected',
             mime_type: mimetype,
         });
-        await UsageRecord.create({ user_id: user.id, feature_code: 'image_upload' });
-        logger.info(`[Step 1] File record saved to database, File ID: ${newFile.id}`);
 
-        setImmediate(async () => {
-            // 呼叫已被停用的向量服務，它將只在日誌中留下記錄
-            await vectorSearchService.indexImage(fileBuffer, newFile.id.toString());
-            
-            try {
-                const pdfPath = await generateCertificatePDF({ fileId: newFile.id, user, file: newFile });
-                logger.info(`[Background] Certificate PDF generated for File ID: ${newFile.id} at ${pdfPath}`);
-            } catch (err) {
-                logger.error(`[Background] Certificate PDF generation failed for File ID: ${newFile.id}`, err);
-            }
-        });
+        // 在 UsageRecords 中新增一筆上傳紀錄
+        await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' });
 
+        logger.info(`[Step 1] File ID ${newFile.id} protected successfully for user ${userId}.`);
         res.status(201).json({ message: '檔案保護成功！', file: newFile });
-
     } catch (error) {
-        logger.error('[Step 1] An error occurred during the protection process:', error);
+        logger.error('[Step 1] Error during protection process:', error);
         res.status(500).json({ message: '伺服器內部錯誤', error: error.message });
     } finally {
-        fs.unlink(tempPath, err => {
-            if (err) logger.warn(`[Step 1] Failed to delete temp file ${tempPath}:`, err);
-        });
+        fs.unlink(tempPath, () => {});
     }
 });
 
-// [新增] 批量保護的 API 路由
-router.post('/batch-protect', auth, checkQuota('upload'), batchUpload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
+// 批量保護的 API 路由
+router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
     if (!req.files || req.files.length === 0) {
         return res.status(400).json({ error: '未提供任何檔案。' });
     }
 
     const userId = req.user.id;
-    const user = await User.findByPk(userId);
-    if (!user) {
-        return res.status(404).json({ error: 'User not found.' });
-    }
-
     const results = [];
-    let successfulUploads = 0;
+    const usageRecords = [];
 
-    // 使用 for...of 迴圈來確保異步操作能被正確處理
     for (const file of req.files) {
         const { path: tempPath, originalname, mimetype } = file;
-        let fileBuffer;
         try {
-            fileBuffer = fs.readFileSync(tempPath);
+            const fileBuffer = fs.readFileSync(tempPath);
             const fingerprint = fingerprintService.sha256(fileBuffer);
-
             const existingFile = await File.findOne({ where: { fingerprint } });
+
             if (existingFile) {
                 results.push({ filename: originalname, status: 'failed', reason: 'Conflict: File already protected.' });
-                continue; // 跳過此檔案，繼續處理下一個
+                continue;
             }
 
             const ipfsHash = await ipfsService.saveFile(fileBuffer);
-            if (!ipfsHash) throw new Error('Failed to save to IPFS.');
-
             const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
-            const txHash = txReceipt.transactionHash;
 
             const newFile = await File.create({
                 user_id: userId,
@@ -189,103 +110,75 @@ router.post('/batch-protect', auth, checkQuota('upload'), batchUpload.array('fil
                 title: originalname,
                 fingerprint,
                 ipfs_hash: ipfsHash,
-                tx_hash: txHash,
+                tx_hash: txReceipt.transactionHash,
                 status: 'protected',
                 mime_type: mimetype,
             });
-            
-            successfulUploads++;
+
+            // 準備一筆用量紀錄，稍後一次性寫入
+            usageRecords.push({ user_id: userId, feature_code: 'image_upload' });
             results.push({ filename: originalname, status: 'success', fileId: newFile.id });
 
-            // 為每個成功保護的檔案派發背景任務
-            setImmediate(async () => {
-                await queueService.sendToQueue({
-                    taskId: new Date().getTime(),
-                    fileId: newFile.id,
-                    ipfsHash: newFile.ipfs_hash,
-                    fingerprint: newFile.fingerprint,
-                });
-                logger.info(`[Batch Protect] Scan task dispatched for new File ID: ${newFile.id}`);
-            });
-
+            // 派發背景掃描任務
+            setImmediate(() => queueService.sendToQueue({
+                taskId: `${newFile.id}-${Date.now()}`,
+                fileId: newFile.id,
+                ipfsHash: newFile.ipfs_hash,
+                fingerprint: newFile.fingerprint,
+            }));
         } catch (error) {
             logger.error(`[Batch Protect] Failed to process file ${originalname}:`, error);
             results.push({ filename: originalname, status: 'failed', reason: error.message });
         } finally {
-            fs.unlink(tempPath, err => {
-                if (err) logger.warn(`[Batch Protect] Failed to delete temp file ${tempPath}:`, err);
-            });
+            fs.unlink(tempPath, () => {});
         }
     }
 
-    if (successfulUploads > 0) {
-        await user.increment('image_upload_usage', { by: successfulUploads });
+    if (usageRecords.length > 0) {
+        await UsageRecord.bulkCreate(usageRecords);
+        logger.info(`[Batch Protect] Logged ${usageRecords.length} upload usages for user ${userId}.`);
     }
 
-    logger.info(`[Batch Protect] Completed for user ${userId}. Successful: ${successfulUploads}, Failed: ${req.files.length - successfulUploads}`);
-    res.status(207).json({
-        message: '批量保護任務已完成。',
-        results,
-    });
+    res.status(207).json({ message: '批量保護任務已完成。', results });
 });
 
+// 掃描任務派發路由
 async function dispatchScanTask(req, res) {
     const fileId = req.params.fileId || req.body.fileId;
-    const routeName = `[Scan Dispatch]`;
-
-    logger.info(`${routeName} Received scan request for File ID: ${fileId}`);
-
-    if (!fileId) {
-        return res.status(400).json({ error: 'fileId is required.' });
-    }
-
     try {
         const fileRecord = await File.findByPk(fileId);
         if (!fileRecord) {
             return res.status(404).json({ error: `File with ID ${fileId} not found.` });
         }
+        if (req.user.id !== fileRecord.user_id) {
+            return res.status(403).json({ error: 'Permission denied.' });
+        }
+        const newScan = await Scan.create({ file_id: fileId, status: 'pending' });
+        await UsageRecord.create({ user_id: req.user.id, feature_code: 'scan' });
 
-        const newScan = await Scan.create({
-            file_id: fileId,
-            status: 'pending',
-        });
-        const user = await User.findByPk(fileRecord.user_id);
-        if (user) await UsageRecord.create({ user_id: user.id, feature_code: 'scan' });
-        const taskId = newScan.id;
-        logger.info(`${routeName} Created new scan task in DB with ID: ${taskId}`);
-
-        const taskMessage = {
-            taskId: taskId,
+        await queueService.sendToQueue({
+            taskId: newScan.id,
             fileId: fileId,
             ipfsHash: fileRecord.ipfs_hash,
             fingerprint: fileRecord.fingerprint,
-        };
-
-        await queueService.sendToQueue(taskMessage);
-
-        res.status(202).json({
-            message: '掃描請求已接受，正在背景處理中。',
-            taskId: taskId,
-            fileId: fileId,
         });
-
+        res.status(202).json({ message: '掃描請求已接受，正在背景處理中。', taskId: newScan.id });
     } catch (error) {
-        logger.error(`${routeName} Failed to dispatch scan task for File ID ${fileId}:`, error);
+        logger.error(`[Scan Dispatch] Failed to dispatch scan task for File ID ${fileId}:`, error);
         res.status(500).json({ error: 'Failed to dispatch scan task.' });
     }
 }
 
-router.post('/step2', checkQuota('scan'), async (req, res) => {
-    await dispatchScanTask(req, res);
-});
-router.get('/scan/:fileId', dispatchScanTask);
+router.post('/step2', auth, checkQuota('scan'), dispatchScanTask);
+router.get('/scan/:fileId', auth, checkQuota('scan'), dispatchScanTask);
 
+// 任務狀態與檢視路由保持不變
 router.get('/task/:taskId', async (req, res) => {
     const { taskId } = req.params;
     try {
         const task = await Scan.findByPk(taskId);
         if (!task) {
-            return res.status(404).json({ error: '找不到指定的任務。'});
+            return res.status(404).json({ error: '找不到指定的任務。' });
         }
         res.status(200).json({
             taskId: task.id,
