@@ -1,190 +1,118 @@
-/****************************************************************
- * express/routes/admin.js
- * - Admin Login 修正：支援 (username or phone or email)
- * - 若該帳號 role=admin => 簽發 JWT / 回傳成功
- ****************************************************************/
+// express/routes/admin.js (最終統一架構版)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User, SubscriptionPlan, UserSubscription } = require('../models');
+const { User, SubscriptionPlan, UserSubscription, File, Scan } = require('../models');
+const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
 
 const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
 
-/**
- * Middleware：檢查 JWT & role=admin
- */
-function requireAdmin(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'admin') {
-      return res.status(403).json({ error: 'You are not admin' });
-    }
-    // 可在 req.admin = decoded 中保存 userId, role 供後續使用
-    req.admin = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
-
-/**
- * POST /admin/login
- * 前端送 { username, password }
- * 後端同時以 phone or username or email 查找
- */
+// 管理員登入 API
 router.post('/login', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ error: '缺少帳號或密碼' });
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: '缺少帳號或密碼' });
+        }
+
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [{ email: username }, { phone: username }],
+                role: 'admin' // 直接在查詢時就限定必須是 admin
+            }
+        });
+
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ error: '帳號或密碼錯誤，或非管理員帳號' });
+        }
+
+        const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, {
+            expiresIn: '8h' // 管理員 token 效期 8 小時
+        });
+        return res.json({ message: 'Admin 登入成功', token });
+    } catch (err) {
+        console.error('[AdminLogin Error]', err);
+        return res.status(500).json({ error: '登入過程發生錯誤' });
     }
+});
 
-    // 同時比對 phone / username / email (確保 DB 有 username 欄位)
-    const user = await User.findOne({
-      where: {
-        [Op.or]: [
-          { phone: username },
-          { username: username },
-          { email: username }
-        ]
-      }
-    });
-    if (!user) {
-      // 查無此使用者
-      return res.status(401).json({ error: '帳號或密碼錯誤' });
+// === 以下所有 API 都需要先通過管理員驗證 ===
+router.use(adminAuth);
+
+// 獲取全站營運統計數據
+router.get('/stats', async (req, res) => {
+    try {
+        const [totalUsers, totalAdmins, totalFiles, totalScans] = await Promise.all([
+            User.count(),
+            User.count({ where: { role: 'admin' } }),
+            File.count(),
+            Scan.count()
+        ]);
+        res.json({ totalUsers, totalAdmins, totalFiles, totalScans });
+    } catch (error) {
+        console.error('[Admin Stats API Error]', error);
+        res.status(500).json({ error: 'Failed to retrieve statistics.' });
     }
+});
 
-    // 比對密碼 (bcrypt)
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: '帳號或密碼錯誤' });
+// 獲取所有使用者列表及其當前的有效訂閱方案
+router.get('/users', async (req, res) => {
+    try {
+        const users = await User.findAll({
+            order: [['createdAt', 'DESC']],
+            include: {
+                model: UserSubscription,
+                as: 'subscriptions', // 確保 User 模型關聯中設定了 as: 'subscriptions'
+                where: { status: 'active' },
+                required: false, // 使用 LEFT JOIN，即使沒有訂閱方案的使用者也會被列出
+                include: {
+                    model: SubscriptionPlan,
+                    as: 'plan' // 確保 UserSubscription 模型關聯中設定了 as: 'plan'
+                }
+            }
+        });
+        res.json(users);
+    } catch (err) {
+        console.error('[Admin Users List Error]', err);
+        res.status(500).json({ error: 'Failed to fetch users' });
     }
+});
 
-    // 必須 role=admin 才能登入
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: '非管理員無法登入' });
+// 為使用者指派/更新訂閱方案
+router.put('/users/:userId/subscription', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { planCode, durationInMonths = 12 } = req.body; // 預設給予 12 個月
+
+        const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode } });
+        if (!plan) return res.status(404).json({ error: 'Subscription plan not found' });
+        
+        // 尋找該使用者現有的 active 訂閱，若有則先將其設為 expired
+        await UserSubscription.update(
+            { status: 'expired' },
+            { where: { user_id: userId, status: 'active' } }
+        );
+
+        // 建立新的訂閱紀錄
+        const startedAt = new Date();
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + parseInt(durationInMonths, 10));
+
+        const newSubscription = await UserSubscription.create({
+            user_id: userId,
+            plan_id: plan.id,
+            status: 'active',
+            started_at: startedAt,
+            expires_at: expiresAt
+        });
+
+        res.status(201).json({ message: 'Subscription updated successfully', subscription: newSubscription });
+    } catch (err) {
+        console.error('[Admin Update Subscription Error]', err);
+        res.status(500).json({ error: 'Failed to update subscription' });
     }
-
-    // 簽發 JWT
-    const token = jwt.sign({ userId: user.id, role: 'admin' }, JWT_SECRET, {
-      expiresIn: '1d' // token 有效期 1 天
-    });
-    return res.json({ message: 'Admin登入成功', token });
-  } catch (err) {
-    console.error('[AdminLogin Error]', err);
-    return res.status(500).json({ error: '登入過程發生錯誤' });
-  }
-});
-
-// 其他 Admin API 範例 (需 requireAdmin)
-router.get('/protected', requireAdmin, (req, res) => {
-  return res.json({ message: 'admin protected data' });
-});
-
-// 預設方案額度，可依需求擴充
-const PLAN_PRESETS = {
-  free_trial: { image_upload_limit: 10, scan_limit_monthly: 20 },
-  creator: { image_upload_limit: 500, scan_limit_monthly: 100 },
-  business: { image_upload_limit: 1000, scan_limit_monthly: 500 },
-};
-
-// 更新使用者方案與狀態
-router.post('/users/:userId/plan', requireAdmin, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { plan, status } = req.body;
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const preset = PLAN_PRESETS[plan];
-    if (!preset) return res.status(400).json({ error: 'Invalid plan' });
-
-    user.plan = plan;
-    user.status = status || user.status;
-    user.image_upload_limit = preset.image_upload_limit;
-    user.scan_limit_monthly = preset.scan_limit_monthly;
-    await user.save();
-
-    res.json({ message: 'Plan updated', user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to update plan' });
-  }
-});
-
-// 手動調整額度
-router.post('/users/:userId/quotas', requireAdmin, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { image_upload_limit, scan_limit_monthly } = req.body;
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    if (image_upload_limit !== undefined) user.image_upload_limit = image_upload_limit;
-    if (scan_limit_monthly !== undefined) user.scan_limit_monthly = scan_limit_monthly;
-    await user.save();
-
-    res.json({ message: 'Quotas updated', user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to update quotas' });
-  }
-});
-
-// 取得所有使用者列表
-router.get('/users', requireAdmin, async (req, res) => {
-  try {
-    const users = await User.findAll();
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-// Create a subscription for user
-router.post('/subscriptions', requireAdmin, async (req, res) => {
-  try {
-    const { userId, planCode, durationInMonths } = req.body;
-    const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode } });
-    if (!plan) return res.status(404).json({ error: 'Plan not found' });
-    const startedAt = new Date();
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + (durationInMonths || 1));
-    const sub = await UserSubscription.create({
-      user_id: userId,
-      plan_id: plan.id,
-      status: 'active',
-      started_at: startedAt,
-      expires_at: expiresAt
-    });
-    res.status(201).json(sub);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to create subscription' });
-  }
-});
-
-// Update subscription status or expiry
-router.put('/subscriptions/:subId', requireAdmin, async (req, res) => {
-  try {
-    const sub = await UserSubscription.findByPk(req.params.subId);
-    if (!sub) return res.status(404).json({ error: 'Subscription not found' });
-    const { status, expires_at } = req.body;
-    if (status) sub.status = status;
-    if (expires_at) sub.expires_at = new Date(expires_at);
-    await sub.save();
-    res.json(sub);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to update subscription' });
-  }
 });
 
 module.exports = router;
