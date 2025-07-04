@@ -1,17 +1,17 @@
 /* 全域主題樣式：黑色背景，橘色文字 */
 body {
   margin: 0;
-  background-color: #000;
-  color: #ffa500;  /* 橘色文字 (Hex #FFA500) */
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #0a0f17;
+  color: #f5faff;
+  font-family: 'Inter', sans-serif;
 }
 /* 標題樣式 */
 h1, h2, h3 {
-  color: #ffa500;
+  color: #FF5722;
 }
 /* 連結預設樣式（如需） */
 a {
-  color: #ffa500;
+  color: #ffa270;
   text-decoration: none;
 }
 /* 表單容器置中佈局 */
@@ -43,17 +43,20 @@ label {
 }
 /* 橘色主題按鈕 */
 button {
-  background-color: #ffa500;
-  color: #000;
+  background-color: #f97316;
+  color: #fff;
   border: none;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: bold;
   cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.2s;
 }
 /* 按鈕 hover 效果：稍微變亮 */
 button:hover {
-  background-color: #ffbf33;
+  background-color: #ea580c;
+  transform: scale(1.03);
 }
 /* 提示文字小一點，保持橘色 */
 .hint {
