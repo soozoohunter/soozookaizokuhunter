@@ -32,8 +32,8 @@ module.exports = (sequelize, DataTypes) => {
     TikTok: { type: DataTypes.STRING },
     
     // 額度欄位 (由 Admin 或 Plan 指派時更新)
-    image_upload_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
-    scan_limit_monthly: { type: DataTypes.INTEGER, defaultValue: 0 },
+    image_upload_limit: { type: DataTypes.INTEGER, defaultValue: 5 },
+    scan_limit_monthly: { type: DataTypes.INTEGER, defaultValue: 10 },
     dmca_takedown_limit_monthly: { type: DataTypes.INTEGER, defaultValue: 0 },
 
     // 用量追蹤 (可選，但建議保留以提高查詢效能)
