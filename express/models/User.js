@@ -16,14 +16,14 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   User.init({
+    // ... 您的 User 欄位定義 ...
     username: DataTypes.STRING,
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
     password: { type: DataTypes.STRING, allowNull: false },
     role: { type: DataTypes.STRING, defaultValue: 'user' },
     phone: DataTypes.STRING,
+    status: DataTypes.STRING,
     realName: DataTypes.STRING,
-    // ... 其他您原有的欄位 ...
-    // [修正] 我們將額度相關欄位移到 SubscriptionPlans，這裡可以移除或保留作為手動覆蓋
     image_upload_limit: DataTypes.INTEGER,
     scan_limit_monthly: DataTypes.INTEGER,
     dmca_takedown_limit_monthly: DataTypes.INTEGER
