@@ -77,7 +77,10 @@ module.exports = async function createDefaultAdmin() {
       });
     logger.info(`[AdminSetup] New admin user created successfully with email: ${defaultEmail}`);
 
-  } catch (err) {
-    logger.error('[AdminSetup] An error occurred during the admin setup process:', err);
+  } catch (error) {
+    logger.error('[AdminSetup] Failed to setup default admin user.', {
+      message: error.message,
+      originalError: error.original?.message,
+    });
   }
 };
