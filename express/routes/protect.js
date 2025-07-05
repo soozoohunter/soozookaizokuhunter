@@ -131,14 +131,23 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
             usageRecords.push({ user_id: userId, feature_code: 'image_upload' });
             results.push({ filename: originalname, status: 'success', fileId: newFile.id });
 
-            // 為每個成功保護的檔案派發背景掃描任務
-            setImmediate(() => {
-                queueService.sendToQueue({
-                    taskId: `${newFile.id}-${Date.now()}`,
-                    fileId: newFile.id,
-                    ipfsHash: newFile.ipfs_hash,
-                    fingerprint: newFile.fingerprint,
-                }).catch(err => logger.error(`[Batch Protect] Failed to dispatch scan task for File ID ${newFile.id}`, err));
+            // [BUG FIX] 為每個成功保護的檔案派發背景掃描任務
+            setImmediate(async () => {
+                try {
+                    // 步驟 1: 先在 DB 建立掃描任務以獲取有效 ID
+                    const newScan = await Scan.create({ file_id: newFile.id, status: 'pending' });
+
+                    // 步驟 2: 使用 DB 產生的 newScan.id 作為 taskId
+                    await queueService.sendToQueue({
+                        taskId: newScan.id, // 使用正確的、數字格式的 ID
+                        fileId: newFile.id,
+                        ipfsHash: newFile.ipfs_hash,
+                        fingerprint: newFile.fingerprint,
+                    });
+                    logger.info(`[Batch Protect] Scan task ${newScan.id} dispatched for new File ID: ${newFile.id}`);
+                } catch (dispatchError) {
+                    logger.error(`[Batch Protect] Failed to dispatch scan task for File ID ${newFile.id}`, dispatchError);
+                }
             });
         } catch (error) {
             logger.error(`[Batch Protect] Failed to process file ${originalname}:`, error);
