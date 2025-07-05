@@ -58,9 +58,13 @@ module.exports = {
     ];
 
     // 使用 bulkInsert 寫入資料，並設定如果 plan_code 已存在則忽略，避免重複寫入
+    // PostgreSQL in Sequelize 6.x does not fully support the
+    // `updateOnDuplicate` option for bulkInsert. Using it results in
+    // runtime errors such as "Cannot read properties of undefined".
+    // Instead, rely on `ignoreDuplicates` to skip records that already
+    // exist based on the unique `plan_code` constraint.
     await queryInterface.bulkInsert('SubscriptionPlans', plans, {
-      ignoreDuplicates: true, // 關鍵設定：如果主鍵或唯一鍵衝突，則不執行插入
-      updateOnDuplicate: ['name'] // Or pick a field that can be updated if needed
+      ignoreDuplicates: true
     });
   },
 
