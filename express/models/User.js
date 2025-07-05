@@ -3,7 +3,7 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      // 一個使用者可以有多個訂閱紀錄
+      // 一個使用者可以有多筆訂閱紀錄 (例如歷史紀錄)
       User.hasMany(models.UserSubscription, {
         foreignKey: 'user_id',
         as: 'subscriptions',
@@ -16,17 +16,31 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   User.init({
-    // ... 您的 User 欄位定義 ...
-    username: DataTypes.STRING,
+    // 基礎欄位
+    username: { type: DataTypes.STRING },
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
     password: { type: DataTypes.STRING, allowNull: false },
     role: { type: DataTypes.STRING, defaultValue: 'user' },
-    phone: DataTypes.STRING,
-    status: DataTypes.STRING,
-    realName: DataTypes.STRING,
-    image_upload_limit: DataTypes.INTEGER,
-    scan_limit_monthly: DataTypes.INTEGER,
-    dmca_takedown_limit_monthly: DataTypes.INTEGER
+    phone: { type: DataTypes.STRING, unique: true },
+    realName: { type: DataTypes.STRING },
+    status: { type: DataTypes.STRING, defaultValue: 'active' },
+    
+    // 社交媒體欄位 (從您的遷移中推斷)
+    IG: { type: DataTypes.STRING },
+    FB: { type: DataTypes.STRING },
+    YouTube: { type: DataTypes.STRING },
+    TikTok: { type: DataTypes.STRING },
+    
+    // 額度欄位 (由 Admin 或 Plan 指派時更新)
+    image_upload_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
+    scan_limit_monthly: { type: DataTypes.INTEGER, defaultValue: 0 },
+    dmca_takedown_limit_monthly: { type: DataTypes.INTEGER, defaultValue: 0 },
+
+    // 用量追蹤 (可選，但建議保留以提高查詢效能)
+    image_upload_usage: { type: DataTypes.INTEGER, defaultValue: 0 },
+    scan_usage_monthly: { type: DataTypes.INTEGER, defaultValue: 0 },
+    scan_usage_reset_at: { type: DataTypes.DATE },
+
   }, {
     sequelize,
     modelName: 'User',
