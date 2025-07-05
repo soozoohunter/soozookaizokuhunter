@@ -44,7 +44,7 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && node server.js"
+    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && npx sequelize-cli db:seed:all --config /app/config/database.js && node server.js"
     ports:
       - "3000:3000"
     env_file:
