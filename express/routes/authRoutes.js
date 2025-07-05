@@ -73,14 +73,28 @@ router.post('/register', async (req, res) => {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-    const { identifier, password } = req.body;
+    const { identifier, email, username, password } = req.body;
+    const loginId = identifier || email || username;
+
+    if (!loginId || !password) {
+        return res.status(400).json({ message: 'Email/Phone 與密碼必填' });
+    }
+
     try {
         const user = await User.findOne({
-             where: { [Op.or]: [{ email: identifier }, { username: identifier }] }
+            where: {
+                [Op.or]: [
+                    { email: loginId.toLowerCase() },
+                    { username: loginId },
+                    { phone: loginId }
+                ]
+            }
         });
+
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: '帳號或密碼錯誤' });
         }
+
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
         res.json({ message: '登入成功', token, user: { id: user.id, email: user.email, role: user.role } });
     } catch (error) {
