@@ -80,7 +80,7 @@ async function startServer() {
         logger.info('[Startup] Step 2: Database schema managed by migrations.');
 
         logger.info('[Startup] Step 3: Initializing RabbitMQ connection...');
-        await queueService.init();
+        await queueService.connect();
         logger.info('[Startup] Step 3: RabbitMQ connection successful.');
 
         logger.info('[Startup] Step 4: Setting up default admin user...');
