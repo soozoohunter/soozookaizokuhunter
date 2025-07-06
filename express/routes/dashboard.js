@@ -53,18 +53,21 @@ router.get('/', auth, async (req, res) => {
     ]);
 
     const recentProtectedFiles = await File.findAll({ 
-      where: { user_id: userId }, 
-      order: [['createdAt', 'DESC']], 
-      limit: 5 
+        where: { user_id: userId }, 
+        order: [['createdAt', 'DESC']], 
+        limit: 10 // 可以考慮顯示更多
     });
-    
-    const fileIds = recentProtectedFiles.length > 0 ? recentProtectedFiles.map(f => f.id) : [0]; // 避免 IN () 語法錯誤
-    const recentScans = await Scan.findAll({
-      where: { file_id: { [Op.in]: fileIds } },
-      include: { model: File, as: 'file', attributes: ['filename'] },
-      order: [['createdAt', 'DESC']],
-      limit: 5
-    });
+
+    const fileIds = recentProtectedFiles.map(f => f.id);
+    const scans = await Scan.findAll({ where: { file_id: { [Op.in]: fileIds } } });
+
+    const scansByFileId = scans.reduce((acc, scan) => {
+        if (!acc[scan.file_id]) {
+            acc[scan.file_id] = [];
+        }
+        acc[scan.file_id].push(scan);
+        return acc;
+    }, {});
 
     res.json({
       userInfo: {
@@ -81,18 +84,15 @@ router.get('/', auth, async (req, res) => {
         monthlyScan: { used: scanUsage, limit: plan.scan_limit_monthly ?? 10 },
         monthlyDmca: { used: dmcaUsage, limit: plan.dmca_takedown_limit_monthly ?? 0 },
       },
-      protectedContent: recentProtectedFiles.map(f => ({
-        fileId: f.id,
-        fileName: f.filename,
-        uploadDate: f.createdAt,
-        status: f.status,
-      })),
-      recentScans: recentScans.map(s => ({
-        scanId: s.id,
-        fileId: s.file_id,
-        fileName: s.file?.filename, // 使用可選串連
-        status: s.status,
-        requestDate: s.createdAt,
+      protectedContent: recentProtectedFiles.map(file => ({
+        fileId: file.id,
+        fileName: file.filename,
+        uploadDate: file.createdAt,
+        thumbnailUrl: `${process.env.EXPRESS_BASE_URL}${file.thumbnail_path}`,
+        fingerprint: file.fingerprint,
+        ipfsHash: file.ipfs_hash,
+        txHash: file.tx_hash,
+        scans: scansByFileId[file.id] || []
       }))
     });
 
