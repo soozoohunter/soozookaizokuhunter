@@ -88,7 +88,7 @@ router.get('/', auth, async (req, res) => {
         fileId: file.id,
         fileName: file.filename,
         uploadDate: file.createdAt,
-        thumbnailUrl: `${process.env.EXPRESS_BASE_URL}${file.thumbnail_path}`,
+        thumbnailUrl: `${process.env.PUBLIC_HOST}${file.thumbnail_path}`,
         fingerprint: file.fingerprint,
         ipfsHash: file.ipfs_hash,
         txHash: file.tx_hash,
