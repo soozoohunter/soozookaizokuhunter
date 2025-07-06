@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
 import BulkUploader from '../components/BulkUploader.jsx';
+import FileCard from '../components/FileCard.jsx'; // 引入新元件
 
 // 簡單的卡片樣式元件
 const Card = ({ children, title }) => (
@@ -18,6 +19,13 @@ function DashboardPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showBulkUploader, setShowBulkUploader] = useState(false);
+
+  // 新增：處理重新掃描的函式
+  const handleRescan = async (fileId) => {
+    alert(`請求為檔案 #${fileId} 重新掃描...`);
+    // 在這裡呼叫 POST /api/protect/step2 或 GET /api/scan/:fileId
+    // ...
+  };
 
   useEffect(() => {
     if (!token) {
@@ -69,7 +77,7 @@ function DashboardPage() {
     return null; // 或者顯示一個空狀態
   }
   
-  const { userInfo, planInfo, usage, protectedContent, recentScans } = dashboardData;
+  const { userInfo, planInfo, usage, protectedContent } = dashboardData;
 
   return (
     <div style={styles.pageContainer}>
@@ -91,18 +99,20 @@ function DashboardPage() {
             <p>每月DMCA: {usage.monthlyDmca.used} / {usage.monthlyDmca.limit ?? '無限制'}</p>
         </Card>
         
-        <Card title="已保護內容">
-            {protectedContent.length > 0 ? (
-                <ul>{protectedContent.map(file => <li key={file.fileId}>{file.fileName}</li>)}</ul>
-            ) : <p>您尚未保護任何內容。</p>}
-        </Card>
-
-        <Card title="最近掃描活動">
-            {recentScans.length > 0 ? (
-                 <ul>{recentScans.map(scan => <li key={scan.scanId}>{scan.fileName} - {scan.status}</li>)}</ul>
-            ) : <p>沒有最近的掃描活動。</p>}
-        </Card>
+        {/* 其他卡片可在此繼續擴充 */}
       </div>
+
+      <div style={styles.section}>
+          <h3 style={styles.sectionTitle}>已保護內容</h3>
+          {protectedContent.length > 0 ? (
+              <div style={styles.filesGrid}>
+                  {protectedContent.map(file => (
+                      <FileCard key={file.fileId} file={file} onScan={handleRescan} />
+                  ))}
+              </div>
+          ) : <p>您尚未保護任何內容。</p>}
+      </div>
+
       {showBulkUploader && (
         <div style={styles.modalOverlay}>
           <BulkUploader onClose={() => setShowBulkUploader(false)} />
@@ -135,6 +145,19 @@ const styles = {
         padding: '1.5rem',
         borderRadius: '8px',
         border: '1px solid #374151',
+    },
+    section: {
+        marginTop: '2rem',
+    },
+    sectionTitle: {
+        margin: '0 0 1rem 0',
+        fontSize: '1.25rem',
+        color: '#F3F4F6',
+    },
+    filesGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '1.5rem',
     },
     batchUploadButton: {
         marginBottom: '1rem',
