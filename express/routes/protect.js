@@ -71,13 +71,9 @@ router.post('/step1', auth, checkQuota('image_upload'), upload.single('file'), a
 
         logger.info(`[Step 1] File ID ${newFile.id} protected successfully for user ${userId}.`);
         
-        // 派發背景掃描任務
-        queueService.sendToQueue({
-            taskId: `${newFile.id}-${Date.now()}`,
-            fileId: newFile.id,
-            ipfsHash: newFile.ipfs_hash,
-            fingerprint: newFile.fingerprint,
-        }).catch(err => logger.error(`[Step 1] Failed to dispatch scan task for File ID ${newFile.id}`, err));
+
+        // 舊版本會在完成保護後立即派發掃描任務，
+        // 為了讓流程符合 Step1→Step2 的邏輯，改由後續 API 觸發掃描。
 
 
         res.status(201).json({ message: '檔案保護成功！', file: newFile });
@@ -131,24 +127,9 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
             usageRecords.push({ user_id: userId, feature_code: 'image_upload' });
             results.push({ filename: originalname, status: 'success', fileId: newFile.id });
 
-            // [BUG FIX] 為每個成功保護的檔案派發背景掃描任務
-            setImmediate(async () => {
-                try {
-                    // 步驟 1: 先在 DB 建立掃描任務以獲取有效 ID
-                    const newScan = await Scan.create({ file_id: newFile.id, status: 'pending' });
-
-                    // 步驟 2: 使用 DB 產生的 newScan.id 作為 taskId
-                    await queueService.sendToQueue({
-                        taskId: newScan.id, // 使用正確的、數字格式的 ID
-                        fileId: newFile.id,
-                        ipfsHash: newFile.ipfs_hash,
-                        fingerprint: newFile.fingerprint,
-                    });
-                    logger.info(`[Batch Protect] Scan task ${newScan.id} dispatched for new File ID: ${newFile.id}`);
-                } catch (dispatchError) {
-                    logger.error(`[Batch Protect] Failed to dispatch scan task for File ID ${newFile.id}`, dispatchError);
-                }
-            });
+            // 以往在批次上傳時會立即自動派發掃描任務，
+            // 但為了讓前端能夠在後續步驟中由使用者手動啟動掃描，
+            // 此處僅回傳檔案 ID 供下一步使用。
         } catch (error) {
             logger.error(`[Batch Protect] Failed to process file ${originalname}:`, error);
             results.push({ filename: originalname, status: 'failed', reason: error.message });
