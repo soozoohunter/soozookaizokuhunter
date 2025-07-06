@@ -1,10 +1,11 @@
-// express/server.js (Final Version)
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const { initSocket } = require('./socket');
 const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
-const { connectToDatabase } = require('./models'); // We only need the connection function here
+const { connectToDatabase } = require('./models');
 const { initializeBlockchainService } = require('./utils/chain');
 const createAdmin = require('./createDefaultAdmin');
 const queueService = require('./services/queue.service');
@@ -16,7 +17,6 @@ process.on('uncaughtException', (err) => {
     logger.error('[UncaughtException]', err);
 });
 
-// --- Route Definitions ---
 const authRouter = require('./routes/authRoutes');
 const protectRouter = require('./routes/protect');
 const adminRouter = require('./routes/admin');
@@ -32,21 +32,20 @@ const filesRouter = require('./routes/files');
 const usersRouter = require('./routes/users');
 
 const app = express();
+const server = http.createServer(app);
+const io = initSocket(server);
 
-// --- Middleware ---
 app.use(cors({
-    origin: '*', // For production, restrict this to your frontend URL
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- Static Directory ---
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${path.join(__dirname, '../uploads')}'`);
 
-// --- API Routes ---
 app.use('/api/auth', authRouter);
 app.use('/api/protect', protectRouter);
 app.use('/api/admin', adminRouter);
@@ -61,12 +60,10 @@ app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/dashboard', dashboardRouter);
 
-// --- Health Check Route ---
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// --- Server Startup ---
 const PORT = process.env.EXPRESS_PORT || 3000;
 
 async function startServer() {
@@ -74,9 +71,7 @@ async function startServer() {
         logger.info('[Startup] Step 1: Initializing Database connection...');
         await connectToDatabase();
         logger.info('[Startup] Step 1: Database connection successful.');
-        
-        // Note: Database synchronization via sequelize.sync() is removed.
-        // We rely on migrations for database schema management.
+
         logger.info('[Startup] Step 2: Database schema managed by migrations.');
 
         logger.info('[Startup] Step 3: Initializing RabbitMQ connection...');
@@ -91,8 +86,8 @@ async function startServer() {
         await initializeBlockchainService();
         logger.info('[Startup] Step 5: Blockchain service initialization successful.');
 
-        app.listen(PORT, '0.0.0.0', () => {
-            logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
+        server.listen(PORT, '0.0.0.0', () => {
+            logger.info(`[Express] Server with Socket.IO is ready and running on http://0.0.0.0:${PORT}`);
         });
     } catch (error) {
         logger.error('[Startup] Failed to start server:', error);

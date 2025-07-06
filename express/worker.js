@@ -1,45 +1,39 @@
-// express/worker.js (最終無 Milvus 版本)
 require('dotenv').config();
 const db = require('./models');
 const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
 const ipfsService = require('./services/ipfsService');
-const vectorSearchService = require('./services/vectorSearch');
+const { getIO, initSocket } = require('./socket');
 
 async function processScanTask(task) {
-    const { taskId, fileId } = task;
-    logger.info(`[Worker] Received task ${taskId}: Processing scan for File ID ${fileId}`);
+    const { taskId, fileId, userId } = task;
+    const io = getIO();
 
-    let scanRecord;
+    const emitStatus = (status, message, data = {}) => {
+        io.to(`user_${userId}`).emit('scan_update', { taskId, fileId, status, message, ...data });
+    };
+
+    logger.info(`[Worker] Received task ${taskId}: Processing scan for File ID ${fileId}`);
+    emitStatus('processing', '掃描任務已開始處理...');
+
     try {
-        scanRecord = await db.Scan.findByPk(taskId);
-        if (!scanRecord) throw new Error(`Scan task with ID ${taskId} not found.`);
-        await scanRecord.update({ status: 'processing', started_at: new Date() });
+        await db.Scan.update({ status: 'processing', started_at: new Date() }, { where: { id: taskId } });
 
         const fileRecord = await db.File.findByPk(fileId);
         if (!fileRecord) throw new Error(`File record with ID ${fileId} not found.`);
 
+        emitStatus('processing', '正在從 IPFS 獲取檔案...');
         const imageBuffer = await ipfsService.getFile(fileRecord.ipfs_hash);
         if (!imageBuffer) throw new Error('Failed to retrieve a valid image buffer from IPFS.');
-
-        // --- 步驟 1: 執行外部掃描 ---
-        logger.info(`[Worker] Task ${taskId}: Performing external scan (Google, TinEye, Bing)...`);
+        
+        emitStatus('processing', '正在執行外部反向圖搜...');
         const externalScanResults = await scannerService.performFullScan({
             buffer: imageBuffer,
             originalFingerprint: fileRecord.fingerprint,
         });
 
-        // --- 步驟 2: 執行(已停用的)內部向量掃描 ---
-        logger.info(`[Worker] Task ${taskId}: Performing internal vector search (currently disabled)...`);
-        const internalScanResults = await vectorSearchService.searchLocalImage(imageBuffer);
-
-        // --- 步驟 3: 組合並儲存最終結果 ---
-        const finalResults = {
-            scan: externalScanResults,
-            internalMatches: internalScanResults.matches || [] // 使用來自停用服務的空結果
-        };
-        
+        const finalResults = { scan: externalScanResults, internalMatches: [] };
         const finalStatus = 'completed';
         
         await db.Scan.update({ 
@@ -48,24 +42,15 @@ async function processScanTask(task) {
             result: JSON.stringify(finalResults)
         }, { where: { id: taskId } });
         
-        await db.File.update({ 
-            status: 'scanned',
-            resultJson: JSON.stringify(finalResults)
-        }, { where: { id: fileId } });
-
-        logger.info(`[Worker] Task ${taskId}: Successfully processed task for File ID ${fileId}. Final status: ${finalStatus}`);
+        logger.info(`[Worker] Task ${taskId}: Successfully processed. Final status: ${finalStatus}`);
+        emitStatus('completed', '掃描完成！', { results: finalResults });
         return true;
 
     } catch (error) {
-        logger.error(`[Worker] Task ${taskId}: A CRITICAL error occurred, task will be marked as failed. Error: ${error.message}`);
-        logger.error(error.stack);
-        if (scanRecord) {
-            await db.Scan.update({
-                status: 'failed',
-                completed_at: new Date(),
-                result: JSON.stringify({ error: error.message })
-            }, { where: { id: taskId } });
-        }
+        logger.error(`[Worker] Task ${taskId}: CRITICAL error occurred: ${error.message}`);
+        const finalStatus = 'failed';
+        await db.Scan.update({ status: finalStatus, completed_at: new Date(), result: JSON.stringify({ error: error.message }) }, { where: { id: taskId } });
+        emitStatus('failed', `任務失敗: ${error.message}`);
         return false;
     }
 }
@@ -83,5 +68,11 @@ async function startWorker() {
         process.exit(1);
     }
 }
+
+const express = require('express');
+const http = require('http');
+const app = express();
+const server = http.createServer(app);
+initSocket(server);
 
 startWorker();
