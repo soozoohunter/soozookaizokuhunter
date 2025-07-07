@@ -9,10 +9,10 @@ const pdfService = require('../services/pdfService');
 const videoUtil = require('../utils/videoUtil');
 
 /**
- * GET /scan/:fileId
+ * GET /:fileId
  * 根據檔案ID對已上傳的圖片或影片進行以圖搜圖掃描，生成侵權偵測報告
  */
-router.get('/scan/:fileId', async (req, res) => {
+router.get('/:fileId', async (req, res) => {
   try {
     const fileId = req.params.fileId;
     if (!fileId) {
