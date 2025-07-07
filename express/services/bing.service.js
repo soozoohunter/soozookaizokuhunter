@@ -5,11 +5,11 @@ const { URL } = require('url');
 const logger = require('../utils/logger');
 
 const BING_API_KEY = process.env.BING_API_KEY;
-const BING_API_ENDPOINT = process.env.BING_API_ENDPOINT;
+const BING_ENDPOINT = process.env.BING_ENDPOINT;
 
 async function searchByBuffer(buffer) {
-  if (!BING_API_KEY || !BING_API_ENDPOINT) {
-    logger.warn('[Bing Service] BING_API_KEY or BING_API_ENDPOINT is not configured. Service disabled.');
+  if (!BING_API_KEY || !BING_ENDPOINT) {
+    logger.warn('[Bing Service] BING_API_KEY or BING_ENDPOINT is not configured. Service disabled.');
     return { success: false, links: [], error: 'Bing API key or endpoint not configured.' };
   }
   if (!buffer) {
@@ -19,7 +19,7 @@ async function searchByBuffer(buffer) {
   logger.info(`[Bing Service] Starting search by image buffer (size: ${buffer.length} bytes)...`);
 
   // 直接建構視覺化搜尋的完整 URL
-  const fullUrl = new URL('/bing/v7.0/images/visualsearch', BING_API_ENDPOINT).href;
+  const fullUrl = new URL('/bing/v7.0/images/visualsearch', BING_ENDPOINT).href;
   
   const form = new FormData();
   form.append('image', buffer, { filename: 'upload.jpg' });
@@ -51,7 +51,7 @@ async function searchByBuffer(buffer) {
 
     let userFriendlyError = errorMsg;
     if (status === 404) {
-        userFriendlyError = 'Resource not found. Please verify BING_API_ENDPOINT in your .env file.';
+        userFriendlyError = 'Resource not found. Please verify BING_ENDPOINT in your .env file.';
     } else if (status === 401 || status === 403) {
         userFriendlyError = 'Authentication failed. Please verify BING_API_KEY in your .env file.';
     }
