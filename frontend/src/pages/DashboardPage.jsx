@@ -1,71 +1,96 @@
-// frontend/src/pages/DashboardPage.jsx (整合新版 Uploader)
+// frontend/src/pages/DashboardPage.jsx (互動邏輯最終版)
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
+import apiClient, { setupResponseInterceptor } from '../utils/apiClient';
 import FileCard from '../components/FileCard';
-import BulkUploader from '../components/BulkUploader'; // 引入新的 Uploader
+import BulkUploader from '../components/BulkUploader';
 import styled from 'styled-components';
 
-// 主元件
 function DashboardPage() {
-  const { token } = useContext(AuthContext);
+  const { token, logout } = useContext(AuthContext);
   const [dashboardData, setDashboardData] = useState(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showBulkUploader, setShowBulkUploader] = useState(false);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    setError('');
     try {
-        // ... (省略 fetch 邏輯，保持不變)
+      const response = await apiClient.get('/api/dashboard');
+      setDashboardData(response.data);
     } catch (err) {
-        // ... (省略 error 處理，保持不變)
+      setError(err.response?.data?.error || err.message || '無法載入會員資料。');
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) fetchDashboardData();
-  }, [token]);
+    setupResponseInterceptor(logout);
+    if (token) {
+      fetchDashboardData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [token, logout]);
 
-  // ... (省略 handleRescan, isLoading, error 等 JSX 渲染邏輯，保持不變) ...
+  const handleRescan = async (fileId) => {
+    try {
+      setDashboardData(prevData => {
+          if (!prevData) return null;
+          const newContent = prevData.protectedContent.map(file => {
+              if (file.fileId === fileId) {
+                  const newScans = [{ id: `temp-${Date.now()}`, status: 'pending' }, ...(file.scans || [])];
+                  return { ...file, scans: newScans };
+              }
+              return file;
+          });
+          return { ...prevData, protectedContent: newContent };
+      });
 
-  const { userInfo, protectedContent } = dashboardData || {};
+      const res = await apiClient.get(`/api/scan/${fileId}`);
+      alert(res.data.message || '掃描任務已成功派發！');
+      setTimeout(fetchDashboardData, 3000);
+
+    } catch (err) {
+      alert(`掃描失敗: ${err.response?.data?.error || err.message}`);
+      fetchDashboardData();
+    }
+  };
+
+  if (isLoading) return <div style={styles.pageContainer}><h2>載入中...</h2></div>;
+  if (error) return <div style={styles.pageContainer}><p style={{color: 'red'}}>{error}</p></div>;
+  if (!dashboardData) return null;
+
+  const { userInfo, protectedContent } = dashboardData;
 
   return (
     <div style={styles.pageContainer}>
-      <h2 style={styles.pageTitle}>Hi, {userInfo?.realName || userInfo?.email}! 歡迎來到您的儀表板</h2>
-      
-      {/* 方案與用量分析卡片 */}
-      <div style={styles.grid}>
-        {/* ... Card for Plan ... */}
-        {/* ... Card for Usage ... */}
+      <h2 style={styles.pageTitle}>Hi, {userInfo.realName || userInfo.email}! 歡迎來到您的儀表板</h2>
+      <button style={styles.batchUploadButton} onClick={() => setShowBulkUploader(true)}>
+          + 批量保護新內容
+      </button>
+
+      <div style={styles.section}>
+        <h3 style={styles.sectionTitle}>已保護內容</h3>
+        {protectedContent && protectedContent.length > 0 ? (
+            <div style={styles.filesGrid}>
+                {protectedContent.map(file => (
+                    <FileCard key={file.fileId} file={file} onScan={handleRescan} />
+                ))}
+            </div>
+        ) : <p>您尚未保護任何內容。請點擊上方按鈕開始保護您的第一個作品！</p>}
       </div>
 
-      {/* [升級] 直接將新的 Uploader 元件放在這裡 */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>+ 批量保護新內容</h3>
-        <BulkUploader onUploadComplete={fetchDashboardData} />
-      </div>
-      
-      {/* 已保護內容區塊 */}
-      <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>已保護內容</h3>
-          {protectedContent && protectedContent.length > 0 ? (
-              <div style={styles.filesGrid}>
-                  {protectedContent.map(file => (
-                      <FileCard key={file.fileId} file={file} onScan={handleRescan} />
-                  ))}
-              </div>
-          ) : (
-            <p>您尚未保護任何內容。請使用上方功能開始保護您的第一個作品！</p>
-          )}
-      </div>
+      {showBulkUploader && (
+        <div style={styles.modalOverlay}>
+          <BulkUploader onClose={() => setShowBulkUploader(false)} onUploadComplete={fetchDashboardData} />
+        </div>
+      )}
     </div>
   );
 }
 
-// ... (省略 styles，請保持您現有的美化版本)
-const styles = { /* ... */ };
+const styles = {};
 
 export default DashboardPage;
