@@ -1,4 +1,4 @@
-// frontend/src/components/FileCard.jsx (新功能元件)
+// frontend/src/components/FileCard.jsx (最終版)
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -19,7 +19,7 @@ const Card = styled.div`
 
 const Thumbnail = styled.div`
   width: 100%;
-  padding-top: 75%; /* 4:3 aspect ratio */
+  padding-top: 75%;
   background-color: #374151;
   background-image: url(${props => props.src});
   background-size: cover;
@@ -35,7 +35,7 @@ const CardContent = styled.div`
 `;
 
 const FileName = styled.h4`
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.75rem 0;
   font-size: 1.1rem;
   color: #F3F4F6;
   white-space: nowrap;
@@ -95,36 +95,31 @@ const ScanButton = styled(ActionButton)`
 `;
 
 export default function FileCard({ file, onScan }) {
-  // 從檔案的掃描紀錄中，找出最新的那一筆
   const latestScan = file.scans && file.scans.length > 0 ? file.scans[0] : null;
-  // 決定要顯示的狀態文字
   const scanStatus = latestScan?.status || 'Not Scanned';
-  // 計算已發現的侵權連結數
   const infringementCount = latestScan?.result?.scan?.totalMatches || 0;
 
   const handleScanClick = () => {
-    // 如果正在掃描中，則不執行任何操作
     if (scanStatus === 'pending' || scanStatus === 'processing') return;
     onScan(file.fileId);
   };
 
   return (
     <Card>
+      {/* [修正] 使用 div 的 background-image 來顯示縮圖，容錯性更好 */}
       <Thumbnail src={file.thumbnailUrl} />
       <CardContent>
         <FileName title={file.fileName}>{file.fileName}</FileName>
         <InfoText title={file.fingerprint}><span>SHA256:</span> {file.fingerprint}</InfoText>
         <InfoText title={file.ipfsHash}><span>IPFS:</span> {file.ipfsHash}</InfoText>
         <InfoText>
-          <span>狀態:</span>
-          {/* 根據狀態顯示不同文字 */}
+          <span>狀態:</span> 
           {scanStatus === 'completed' ? ` 掃描完成 - 發現 ${infringementCount} 個潛在侵權` : scanStatus}
         </InfoText>
         <Actions>
           <ScanButton onClick={handleScanClick} disabled={scanStatus === 'pending' || scanStatus === 'processing'}>
             {scanStatus === 'pending' || scanStatus === 'processing' ? '偵測中...' : '發動侵權偵測'}
           </ScanButton>
-          {/* 將詳情按鈕改為真實的連結 */}
           <ActionButton as={Link} to={`/file/${file.fileId}`} style={{textDecoration: 'none', textAlign: 'center', lineHeight: '1.5'}}>
             詳情與申訴
           </ActionButton>
