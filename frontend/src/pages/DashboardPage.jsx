@@ -35,26 +35,30 @@ function DashboardPage() {
   }, [token, logout]);
 
   const handleRescan = async (fileId) => {
-    try {
-      setDashboardData(prevData => {
-          if (!prevData) return null;
-          const newContent = prevData.protectedContent.map(file => {
-              if (file.fileId === fileId) {
-                  const newScans = [{ id: `temp-${Date.now()}`, status: 'pending' }, ...(file.scans || [])];
-                  return { ...file, scans: newScans };
-              }
-              return file;
-          });
-          return { ...prevData, protectedContent: newContent };
+    // 步驟 1: 立即更新前端 UI，顯示為 "偵測中..."
+    setDashboardData(prevData => {
+      if (!prevData) return null;
+      const newContent = prevData.protectedContent.map(file => {
+        if (file.fileId === fileId) {
+          const newScans = [
+            { id: `pending-${Date.now()}`, status: 'pending' },
+            ...(file.scans || [])
+          ];
+          return { ...file, scans: newScans };
+        }
+        return file;
       });
+      return { ...prevData, protectedContent: newContent };
+    });
 
+    try {
+      // 步驟 2: 向後端發送掃描請求
       const res = await apiClient.get(`/api/scan/${fileId}`);
       alert(res.data.message || '掃描任務已成功派發！');
-      setTimeout(fetchDashboardData, 3000);
-
+      // 可以在此處設定一個延遲來刷新，或等待 WebSocket 的自動更新
     } catch (err) {
       alert(`掃描失敗: ${err.response?.data?.error || err.message}`);
-      fetchDashboardData();
+      fetchDashboardData(); // 如果派發失敗，立即刷新以恢復正確狀態
     }
   };
 
@@ -66,7 +70,7 @@ function DashboardPage() {
 
   return (
     <div style={styles.pageContainer}>
-      <h2 style={styles.pageTitle}>Hi, {userInfo.realName || userInfo.email}! 歡迎來到您的儀表板</h2>
+      <h2 style={styles.pageTitle}>Hi, {dashboardData?.userInfo?.realName || dashboardData?.userInfo?.email}! 歡迎來到您的儀表板</h2>
       <button style={styles.batchUploadButton} onClick={() => setShowBulkUploader(true)}>
           + 批量保護新內容
       </button>
@@ -84,7 +88,13 @@ function DashboardPage() {
 
       {showBulkUploader && (
         <div style={styles.modalOverlay}>
-          <BulkUploader onClose={() => setShowBulkUploader(false)} onUploadComplete={fetchDashboardData} />
+          <BulkUploader
+            onClose={() => setShowBulkUploader(false)}
+            onUploadComplete={() => {
+              setShowBulkUploader(false);
+              fetchDashboardData();
+            }}
+          />
         </div>
       )}
     </div>
@@ -132,7 +142,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
+    zIndex: 1001,
   },
 };
 
