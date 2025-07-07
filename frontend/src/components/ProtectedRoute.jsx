@@ -6,7 +6,7 @@ import { AuthContext } from '../AuthContext';
 
 /**
  * @param {Object} props
- * @param {string[]} [props.allowedRoles] - 允許存取此路由的角色陣列, e.g., ['user', 'admin']
+ * @param {string[]} props.allowedRoles - 允許存取此路由的角色陣列, e.g., ['user', 'admin']
  */
 export default function ProtectedRoute({ allowedRoles = [] }) {
   const { token } = useContext(AuthContext);
