@@ -3,7 +3,7 @@
 # 使用 Node.js 20 以獲得最佳效能與相容性
 FROM node:20-slim
 
-# [FIX] 安裝 tini, curl, 以及 Puppeteer 運行所需的所有系統函式庫
+# [FIX] 安裝 Puppeteer 運行所需的所有系統函式庫，並包含 tini 和 curl
 RUN apt-get update \
     && apt-get install -y \
     tini \
@@ -13,7 +13,6 @@ RUN apt-get update \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
-    libgobject-2.0-0 \
     libc6 \
     libcairo2 \
     libcups2 \
