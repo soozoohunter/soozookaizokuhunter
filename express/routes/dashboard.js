@@ -10,21 +10,31 @@ const router = express.Router();
 router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const [user, activeSubscription, imageUsage, scanUsage, dmcaUsage] = await Promise.all([
-        User.findByPk(userId),
-        UserSubscription.findOne({
-            where: { user_id: userId, status: 'active' },
-            include: { model: SubscriptionPlan, as: 'plan' }
-        }),
-        File.count({ where: { user_id: userId } }),
-        Scan.count({
-            where: { '$file.user_id$': userId, createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
-            include: { model: File, as: 'file', attributes: [] }
-        }),
-        UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } })
-    ]);
+    if (!userId) return res.status(400).json({ error: 'User ID not found in token.' });
 
-    let plan = activeSubscription?.plan || { name: 'Free Trial', image_limit: 5, scan_limit_monthly: 10, dmca_takedown_limit_monthly: 0 };
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    const activeSubscription = await UserSubscription.findOne({
+      where: { user_id: userId, status: 'active' },
+      include: { model: SubscriptionPlan, as: 'plan' }
+    });
+
+    let plan = {};
+    if (activeSubscription && activeSubscription.plan) {
+        plan = activeSubscription.plan;
+    } else {
+        logger.warn(`User ${userId} has no active subscription, providing default free plan data.`);
+        plan = { name: 'Free Trial', image_limit: 5, scan_limit_monthly: 10, dmca_takedown_limit_monthly: 0 };
+    }
+
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const [imageUsage, scanUsage, dmcaUsage] = await Promise.all([
+      File.count({ where: { user_id: userId } }),
+      // Use the correct alias name 'file' for joined condition
+      Scan.count({ where: { '$file.user_id$': userId, createdAt: { [Op.gte]: startOfMonth } }, include: { model: File, as: 'file', attributes: [] } }),
+      UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } })
+    ]);
 
     const protectedFiles = await File.findAll({ where: { user_id: userId }, order: [['createdAt', 'DESC']], limit: 50 });
     const fileIds = protectedFiles.map(f => f.id);
@@ -47,6 +57,7 @@ router.get('/', auth, async (req, res) => {
         fileId: file.id,
         fileName: file.filename,
         uploadDate: file.createdAt,
+        // [修正] 使用 .env 中的公開主機位址 (PUBLIC_HOST) 來組合 URL
         thumbnailUrl: file.thumbnail_path ? `${process.env.PUBLIC_HOST}${file.thumbnail_path}` : null,
         fingerprint: file.fingerprint,
         ipfsHash: file.ipfs_hash,
