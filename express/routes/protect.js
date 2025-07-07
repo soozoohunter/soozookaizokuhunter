@@ -5,8 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp'); // 需要 sharp 套件來處理圖片
 const logger = require('../utils/logger');
-const { File, UsageRecord } = require('../models');
-// ... 其他 require 保持不變 ...
+const { File, Scan, UsageRecord, User } = require('../models');
 const auth = require('../middleware/auth');
 const checkQuota = require('../middleware/quotaCheck');
 const chain = require('../utils/chain');
@@ -22,7 +21,8 @@ const THUMBNAIL_DIR = path.join(UPLOAD_BASE_DIR, 'thumbnails');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 if (!fs.existsSync(THUMBNAIL_DIR)) fs.mkdirSync(THUMBNAIL_DIR, { recursive: true });
 
-const upload = multer({ dest: TEMP_DIR, limits: { /* ... */ } });
+const upload = multer({ dest: TEMP_DIR, limits: { fileSize: 100 * 1024 * 1024 } });
+const MAX_BATCH_UPLOAD = 20;
 
 // [FIX] 修正檔名亂碼問題的處理函式
 const handleFileUpload = async (file, userId, body) => {
@@ -63,16 +63,22 @@ const handleFileUpload = async (file, userId, body) => {
         thumbnail_path: `/uploads/thumbnails/${thumbnailFilename}` // 儲存可供前端訪問的相對路徑
     });
 
+    // 紀錄用量
     await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' });
 
-    // 派發背景掃描任務
-    queueService.sendToQueue({
-        taskId: `${newFile.id}-${Date.now()}`,
+    // [新增] 自動派發初次掃描任務
+    const newScan = await Scan.create({ file_id: newFile.id, status: 'pending' });
+    await UsageRecord.create({ user_id: userId, feature_code: 'scan' });
+
+    await queueService.sendToQueue({
+        taskId: newScan.id,
         fileId: newFile.id,
+        userId: userId,
         ipfsHash: newFile.ipfs_hash,
         fingerprint: newFile.fingerprint,
-    }).catch(err => logger.error(`Failed to dispatch scan task for File ID ${newFile.id}`, err));
+    });
 
+    logger.info(`[File Upload] Protected and dispatched scan task ${newScan.id} for file ${newFile.id}`);
     return newFile;
 };
 
@@ -92,7 +98,7 @@ router.post('/step1', auth, checkQuota('image_upload'), upload.single('file'), a
 });
 
 // 批量上傳路由
-router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', 20), async (req, res) => {
+router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: '未提供任何檔案。' });
 
     const results = [];
@@ -103,7 +109,9 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
         } catch (error) {
             results.push({ filename: Buffer.from(file.originalname, 'latin1').toString('utf8'), status: 'failed', reason: error.message });
         } finally {
-            fs.unlink(file.path, () => {});
+            if (file && file.path) {
+                fs.unlink(file.path, () => {});
+            }
         }
     }
     res.status(207).json({ message: '批量保護任務已完成。', results });
