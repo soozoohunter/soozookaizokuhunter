@@ -1,25 +1,39 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
 import FileCard from '../components/FileCard';
+import BulkUploader from '../components/BulkUploader';
 import io from 'socket.io-client';
+import styled from 'styled-components';
 
 function DashboardPage() {
   const { token } = useContext(AuthContext);
   const [dashboardData, setDashboardData] = useState(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [showBulkUploader, setShowBulkUploader] = useState(false);
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/dashboard', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to load');
+      }
+      const data = await res.json();
+      setDashboardData(data);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const res = await fetch('/api/dashboard', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        setDashboardData(data);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-      }
-    };
-
     if (token) fetchDashboardData();
 
     const socket = io(process.env.REACT_APP_EXPRESS_BASE_URL || 'https://suzookaizokuhunter.com', {
@@ -61,8 +75,42 @@ function DashboardPage() {
   }, [token]);
 
   const handleRescan = async (fileId) => {
-    alert(`請求為檔案 #${fileId} 重新掃描...`);
+    setDashboardData(prevData => {
+        if (!prevData) return null;
+        const newContent = prevData.protectedContent.map(file => {
+            if (file.fileId === fileId) {
+                const newScans = [{ id: `temp-${Date.now()}`, status: 'pending' }, ...file.scans];
+                return { ...file, scans: newScans };
+            }
+            return file;
+        });
+        return { ...prevData, protectedContent: newContent };
+    });
+
+    try {
+        const res = await fetch(`/api/scan/${fileId}`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || '派發掃描任務失敗');
+        }
+        const data = await res.json();
+        alert(data.message);
+    } catch (err) {
+        alert(`掃描失敗: ${err.message}`);
+        fetchDashboardData();
+    }
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div style={{ color: 'red' }}>{error}</div>;
+  }
 
   if (!dashboardData) {
     return null;
@@ -72,6 +120,8 @@ function DashboardPage() {
 
   return (
     <div>
+      <button onClick={() => setShowBulkUploader(true)}>批次上傳</button>
+      {showBulkUploader && <BulkUploader onClose={() => setShowBulkUploader(false)} />}
       {protectedContent.map(file => (
         <FileCard key={file.fileId} file={file} onScan={handleRescan} />
       ))}
