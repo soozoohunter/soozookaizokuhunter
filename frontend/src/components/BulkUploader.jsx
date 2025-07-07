@@ -65,6 +65,24 @@ const StatusText = styled.span`
       : '#9CA3AF'};
 `;
 
+const CloseButton = styled.button`
+  background-color: #4B5563;
+  color: #E5E7EB;
+  margin-left: 1rem;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  &:hover {
+    background-color: #6B7280;
+  }
+  &:disabled {
+    background-color: #6B7280;
+    cursor: not-allowed;
+  }
+`;
+
 // --- Main Component ---
 function BulkUploader({ onClose, onUploadComplete }) {
   const [files, setFiles] = useState([]);
@@ -162,9 +180,12 @@ function BulkUploader({ onClose, onUploadComplete }) {
               </FileStatus>
             ))}
           </FileList>
-          <UploadButton onClick={handleUpload} disabled={isUploading} style={{ marginTop: '1.5rem' }}>
-            {isUploading ? '正在處理中...' : `開始上傳 ${files.length} 個檔案`}
-          </UploadButton>
+          <div style={{ marginTop: '1.5rem' }}>
+            <UploadButton onClick={handleUpload} disabled={isUploading}>
+              {isUploading ? '正在處理中...' : `開始上傳 ${files.length} 個檔案`}
+            </UploadButton>
+            <CloseButton onClick={onClose} disabled={isUploading}>關閉</CloseButton>
+          </div>
         </>
       )}
     </UploaderWrapper>

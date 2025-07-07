@@ -44,8 +44,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-logger.info(`[Setup] Static directory served at '/uploads' -> '${path.join(__dirname, '../uploads')}'`);
+// [FIX] Align static path with docker-compose volume mount at /app/uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+logger.info(`[Setup] Static directory served at '/uploads' -> '${path.join(__dirname, 'uploads')}'`);
 
 app.use('/api/auth', authRouter);
 app.use('/api/protect', protectRouter);
