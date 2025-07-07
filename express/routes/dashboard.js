@@ -18,7 +18,7 @@ router.get('/', auth, async (req, res) => {
         }),
         File.count({ where: { user_id: userId } }),
         Scan.count({
-            where: { '$File.user_id$': userId, createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+            where: { '$file.user_id$': userId, createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
             include: { model: File, as: 'file', attributes: [] }
         }),
         UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } })
