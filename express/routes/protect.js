@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp'); // 需要 sharp 套件來處理圖片
 const logger = require('../utils/logger');
-const { File, Scan, UsageRecord, User } = require('../models');
+const { File, Scan, UsageRecord } = require('../models');
 const auth = require('../middleware/auth');
 const checkQuota = require('../middleware/quotaCheck');
 const chain = require('../utils/chain');
@@ -47,7 +47,12 @@ const handleFileUpload = async (file, userId, body) => {
         .jpeg({ quality: 80 })
         .toFile(thumbnailPath);
 
+    // [FIX] 將 Promise.all 改為依序 await，確保先取得 ipfsHash
     const ipfsHash = await ipfsService.saveFile(fileBuffer);
+    if (!ipfsHash) {
+        throw new Error('Failed to save file to IPFS.');
+    }
+
     const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
 
     const newFile = await File.create({
