@@ -65,7 +65,7 @@ TINEYE_API_KEY=your_tineye_api_key
 ```bash
 BING_API_KEY=your-primary-bing-key
 BING_API_KEY2=your-secondary-bing-key   # optional fallback
-BING_API_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
+BING_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
 ```
 
 ## Protect API Endpoints

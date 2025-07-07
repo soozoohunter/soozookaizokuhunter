@@ -1,123 +1,66 @@
-// express/services/scanner.service.js (Final Parallel & Optimized Version)
-const logger = require('../utils/logger');
+// express/services/scanner.service.js (錯誤處理增強版)
 const visionService = require('./vision.service');
-const tinEyeService = require('./tineye.service');
-const bingService = require('./bing.service.js');
-const imageFetcher = require('./imageFetcher');
-const fingerprintService = require('./fingerprintService');
-const axios = require('axios');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const tineyeService = require('./tineye.service');
+const bingService = require('./bing.service');
+const imageFetcher = require('../utils/imageFetcher');
+const logger = require('../utils/logger');
 
-puppeteer.use(StealthPlugin());
+const scanByImage = async (imageBuffer, options = {}) => {
+    logger.info('[Scanner Service] Received scan request with options:', options);
+    let allSources = new Set();
+    let errors = [];
 
-// This is the main orchestration function for scanning.
-async function performFullScan(options) {
-    logger.info('[Scanner Service] Received scan request with options:', { 
-        hasBuffer: !!options.buffer, 
-        bufferLength: options.buffer ? options.buffer.length : 'N/A',
-        originalFingerprint: options.originalFingerprint 
-    });
-
-    // This is the check that was failing. It expects `options.buffer`.
-    if (!options || !options.buffer || !Buffer.isBuffer(options.buffer) || options.buffer.length === 0) {
-        throw new Error('A valid image buffer is required for a full scan.');
-    }
+    logger.info('[Scanner Service] Step 1: Performing reverse image search with Google, TinEye, and Bing...');
     
-    const { buffer, originalFingerprint } = options;
-    if (!originalFingerprint) {
-        throw new Error('Original image fingerprint is required for comparison.');
+    // 使用 Promise.allSettled 來確保所有搜尋都會執行，即使其中一個失敗
+    const results = await Promise.allSettled([
+        visionService.searchByBuffer(imageBuffer),
+        tineyeService.searchByBuffer(imageBuffer),
+        bingService.searchByBuffer(imageBuffer)
+    ]);
+
+    // 處理 Google Vision 結果
+    if (results[0].status === 'fulfilled') {
+        results[0].value.forEach(url => allSources.add(url));
+    } else {
+        errors.push({ source: 'Google Vision', reason: results[0].reason.message });
+        logger.error('[Google Vision Service] Search failed:', results[0].reason);
     }
 
-    const startTime = Date.now();
-    let browser = null;
-
-    try {
-        // --- Stage 1: Fast API-based reverse image search in parallel ---
-        logger.info('[Scanner Service] Step 1: Performing reverse image search with Google, TinEye, and Bing...');
-        const [visionResult, tineyeResult, bingResult] = await Promise.allSettled([
-            visionService.searchByBuffer(buffer),
-            tinEyeService.searchByBuffer(buffer),
-            bingService.searchByBuffer(buffer)
-        ]);
-        
-        // Helper to safely get results from Promise.allSettled
-        const getResult = (promiseResult, key) => (promiseResult.status === 'fulfilled' && promiseResult.value.success) ? promiseResult.value[key] : [];
-
-        const visionLinks = getResult(visionResult, 'links');
-        const tineyeMatches = getResult(tineyeResult, 'matches');
-        const bingLinks = getResult(bingResult, 'links');
-        
-        const tineyeLinks = tineyeMatches.flatMap(m => m.backlinks.length > 0 ? m.backlinks : [m.url]);
-        
-        const uniqueUrls = [...new Set([...visionLinks, ...tineyeLinks, ...bingLinks])];
-        logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
-
-        if (uniqueUrls.length === 0) {
-            logger.info('[Scanner Service] No potential URLs found. Skipping verification step.');
-            return {
-                reverseImageSearch: { 
-                    googleVision: visionResult.value, 
-                    tineye: tineyeResult.value, 
-                    bing: bingResult.value, 
-                    potentialUrlsFound: 0 
-                },
-                verifiedMatches: [],
-            };
-        }
-
-        // --- Stage 2: Parallel verification of potential URLs ---
-        logger.info(`[Scanner Service] Step 2: Verifying ${uniqueUrls.length} matches in parallel...`);
-        
-        browser = await puppeteer.launch({
-            headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-        });
-
-        const verificationPromises = uniqueUrls.slice(0, 30).map(async (url) => {
-            try {
-                const imageUrlOnPage = await imageFetcher.getMainImageUrl(url, browser);
-                if (!imageUrlOnPage) return null;
-
-                const imageResponse = await axios.get(imageUrlOnPage, { responseType: 'arraybuffer', timeout: 15000 });
-                const downloadedImageBuffer = Buffer.from(imageResponse.data);
-                
-                const downloadedImageFingerprint = fingerprintService.sha256(downloadedImageBuffer);
-
-                if (downloadedImageFingerprint === originalFingerprint) {
-                    logger.info(`[Scanner Service] CONFIRMED MATCH! Fingerprint matches at: ${url}`);
-                    return { pageUrl: url, imageUrl: imageUrlOnPage, source: 'Verified Match', fingerprintMatch: true };
-                }
-                return null;
-            } catch (error) {
-                logger.error(`[Scanner Service] Failed to verify URL ${url}: ${error.message}`);
-                return null;
-            }
-        });
-
-        const verificationResults = await Promise.all(verificationPromises);
-        const verifiedMatches = verificationResults.filter(Boolean);
-        
-        const duration = Date.now() - startTime;
-        logger.info(`[Scanner Service] Full scan completed in ${duration}ms. Found ${verifiedMatches.length} verified matches.`);
-        
-        return {
-            reverseImageSearch: { 
-                googleVision: visionResult.value, 
-                tineye: tineyeResult.value, 
-                bing: bingResult.value, 
-                potentialUrlsFound: uniqueUrls.length 
-            },
-            verifiedMatches,
-        };
-    } finally {
-        if (browser) {
-            await browser.close();
-            logger.info('[Scanner Service] Browser instance closed.');
-        }
+    // 處理 TinEye 結果
+    if (results[1].status === 'fulfilled') {
+        results[1].value.forEach(url => allSources.add(url));
+    } else {
+        errors.push({ source: 'TinEye', reason: results[1].reason.message });
+        logger.error('[TinEye Service] Search failed:', results[1].reason);
     }
-}
 
-module.exports = {
-    performFullScan,
+    // 處理 Bing Vision 結果
+    if (results[2].status === 'fulfilled') {
+        results[2].value.forEach(url => allSources.add(url));
+    } else {
+        errors.push({ source: 'Bing Vision', reason: results[2].reason.message });
+        logger.error('[Bing Service] Search failed:', results[2].reason);
+    }
+
+    const uniqueUrls = Array.from(allSources);
+    logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
+
+    logger.info(`[Scanner Service] Step 2: Verifying ${uniqueUrls.length} matches in parallel...`);
+    
+    const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, options.fingerprint);
+    
+    logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
+
+    return {
+        scan: {
+            totalSources: uniqueUrls.length,
+            totalMatches: verificationResults.matches.length,
+            matches: verificationResults.matches,
+        },
+        // [新增] 將 API 錯誤一併回傳，方便記錄
+        errors: errors
+    };
 };
+
+module.exports = { scanByImage };
