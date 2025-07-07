@@ -3,7 +3,7 @@
 # 使用 Node.js 20 以獲得最佳效能與相容性
 FROM node:20-slim
 
-# [FIX] 安裝 Puppeteer 運行所需的所有系統函式庫
+# [FIX] 安裝 tini, curl, 以及 Puppeteer 運行所需的所有系統函式庫
 RUN apt-get update \
     && apt-get install -y \
     tini \
