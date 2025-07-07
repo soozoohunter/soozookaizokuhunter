@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import apiClient from '../utils/apiClient';
 import { AuthContext } from '../AuthContext';
 import FileCard from '../components/FileCard';
 import BulkUploader from '../components/BulkUploader';
@@ -15,15 +16,8 @@ function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/dashboard', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Failed to load');
-      }
-      const data = await res.json();
-      setDashboardData(data);
+      const res = await apiClient.get('/api/dashboard');
+      setDashboardData(res.data);
       setError('');
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -88,16 +82,8 @@ function DashboardPage() {
     });
 
     try {
-        const res = await fetch(`/api/scan/${fileId}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-            const errData = await res.json();
-            throw new Error(errData.error || '派發掃描任務失敗');
-        }
-        const data = await res.json();
-        alert(data.message);
+        const res = await apiClient.get(`/api/scan/${fileId}`);
+        alert(res.data.message);
     } catch (err) {
         alert(`掃描失敗: ${err.message}`);
         fetchDashboardData();
