@@ -6,6 +6,8 @@ FROM node:20-slim
 # [FIX] 安裝 Puppeteer 運行所需的所有系統函式庫
 RUN apt-get update \
     && apt-get install -y \
+    tini \
+    curl \
     ca-certificates \
     fonts-liberation \
     libasound2 \
