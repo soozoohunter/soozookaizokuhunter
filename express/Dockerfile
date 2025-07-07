@@ -4,7 +4,9 @@
 FROM node:20-slim
 
 # 安裝 tini，一個輕量級的 init 系統，用於正確處理信號和殭屍進程
-RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄
 WORKDIR /app
