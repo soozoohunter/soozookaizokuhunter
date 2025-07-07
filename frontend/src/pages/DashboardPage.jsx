@@ -91,6 +91,49 @@ function DashboardPage() {
   );
 }
 
-const styles = {};
+const styles = {
+  pageContainer: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '1rem',
+    color: '#fff',
+  },
+  pageTitle: {
+    fontSize: '1.5rem',
+    marginBottom: '1rem',
+  },
+  batchUploadButton: {
+    marginBottom: '1rem',
+    padding: '0.5rem 1rem',
+    backgroundColor: '#2563EB',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  section: {
+    marginTop: '2rem',
+  },
+  sectionTitle: {
+    marginBottom: '1rem',
+  },
+  filesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: '1rem',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+};
 
 export default DashboardPage;

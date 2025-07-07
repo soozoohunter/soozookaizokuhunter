@@ -28,6 +28,7 @@ const dashboardRouter = require('./routes/dashboard');
 const membershipRouter = require('./routes/membership');
 const paymentRoutes = require('./routes/paymentRoutes');
 const scanRoutes = require('./routes/scans');
+const singleScanRouter = require('./routes/scan');
 const filesRouter = require('./routes/files');
 const usersRouter = require('./routes/users');
 
@@ -56,6 +57,7 @@ app.use('/api/report/dmca', dmcaRouter);
 app.use('/membership', membershipRouter);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/scans', scanRoutes);
+app.use('/api/scan', singleScanRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/dashboard', dashboardRouter);
