@@ -19,11 +19,7 @@ router.post('/login', async (req, res) => {
 
         const user = await User.findOne({
             where: {
-                [Op.or]: [
-                    { email: username },
-                    { phone: username },
-                    { username: username }
-                ],
+                [Op.or]: [{ email: username }, { phone: username }],
                 role: 'admin' // 直接在查詢時就限定必須是 admin
             }
         });
@@ -44,23 +40,6 @@ router.post('/login', async (req, res) => {
 
 // === 以下所有 API 都需要先通過管理員驗證 ===
 router.use(adminAuth);
-
-// 獲取全站營運統計數據
-router.get('/stats', async (req, res) => {
-    try {
-        const [totalUsers, totalAdmins, totalFiles, totalScans] = await Promise.all([
-            User.count(),
-            User.count({ where: { role: 'admin' } }),
-            File.count(),
-            Scan.count()
-        ]);
-        res.json({ totalUsers, totalAdmins, totalFiles, totalScans });
-    } catch (error) {
-        console.error('[Admin Stats API Error]', error);
-        res.status(500).json({ error: 'Failed to retrieve statistics.' });
-    }
-});
-
 
 // 獲取所有使用者列表及其當前的有效訂閱方案
 router.get('/users', async (req, res) => {
@@ -94,7 +73,7 @@ router.put('/users/:userId/subscription', async (req, res) => {
         const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode } });
         if (!plan) return res.status(404).json({ error: 'Subscription plan not found' });
         
-        // 尋找該使用者現有的 active 訂閱，若有則先將其設為 expired
+        // 將該使用者現有的 active 訂閱都設為 expired
         await UserSubscription.update(
             { status: 'expired' },
             { where: { user_id: userId, status: 'active' } }
@@ -113,9 +92,9 @@ router.put('/users/:userId/subscription', async (req, res) => {
             expires_at: expiresAt
         });
 
-        // 當指派新方案時，同時更新 User 表上的額度欄位
+        // 當指派新方案時，同步更新 User 表上的額度欄位，作為快取或快速查詢使用
         const user = await User.findByPk(userId);
-        if (user) {
+        if(user) {
             user.image_upload_limit = plan.image_limit;
             user.scan_limit_monthly = plan.scan_limit_monthly;
             user.dmca_takedown_limit_monthly = plan.dmca_takedown_limit_monthly;
@@ -126,52 +105,6 @@ router.put('/users/:userId/subscription', async (req, res) => {
     } catch (err) {
         console.error('[Admin Update Subscription Error]', err);
         res.status(500).json({ error: 'Failed to update subscription' });
-    }
-});
-
-// [新功能] 手動修改使用者的額度與狀態
-router.put('/users/:userId/overrides', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { image_upload_limit, scan_limit_monthly, status } = req.body;
-
-        const user = await User.findByPk(userId);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        if (image_upload_limit !== undefined) user.image_upload_limit = image_upload_limit;
-        if (scan_limit_monthly !== undefined) user.scan_limit_monthly = scan_limit_monthly;
-        if (status) user.status = status;
-
-        await user.save();
-        res.json({ message: 'User overrides applied successfully.', user });
-
-    } catch (err) {
-        console.error('[Admin Overrides Error]', err);
-        res.status(500).json({ error: 'Failed to apply overrides.' });
-    }
-});
-
-// 查看所有使用者上傳的檔案及其最新掃描結果
-router.get('/files', async (req, res) => {
-    try {
-        const files = await File.findAll({
-            order: [['createdAt', 'DESC']],
-            include: [
-                { model: User, attributes: ['id', 'email', 'username'] },
-                {
-                    model: Scan,
-                    as: 'scans',
-                    attributes: ['id', 'status', 'completed_at'],
-                    separate: true,
-                    limit: 1,
-                    order: [['createdAt', 'DESC']]
-                }
-            ]
-        });
-        res.json(files);
-    } catch (err) {
-        console.error('[Admin Files List Error]', err);
-        res.status(500).json({ error: 'Failed to fetch files' });
     }
 });
 
