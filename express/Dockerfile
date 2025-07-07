@@ -1,70 +1,25 @@
-# express/Dockerfile (優化與修正版 by Gemini)
-# 版本: 2.0
-# 日期: 2025-06-25
-# 描述:
-# 1. 保持所有系統依賴項的安裝。
-# 2. 移除在容器內預先建立主機 volume 掛載點的指令 (mkdir)，這應由 docker-compose volumes 管理。
-# 3. 確保 COPY 指令的簡潔性。
+# express/Dockerfile (Node.js 升級版)
 
-# 使用官方的 Node.js 18 slim 版本作為基礎映像
-FROM node:18-slim
+# [FIX] 將基礎映像從 Node.js 18 升級到 20，以符合依賴套件的建議
+FROM node:20-slim
 
-# 設定環境變數，避免 apt-get 在安裝時出現互動式提問
-ENV DEBIAN_FRONTEND=noninteractive
-
-# 安裝所有必要的系統依賴項
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    # --- For Puppeteer & Headless Chrome ---
-    chromium \
-    fonts-liberation \
-    fonts-noto-cjk \
-    libatk-bridge2.0-0 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxi6 \
-    libxtst6 \
-    libnss3 \
-    libglib2.0-0 \
-    libxrandr2 \
-    libatk1.0-0 \
-    libdrm2 \
-    libgbm1 \
-    libpangocairo-1.0-0 \
-    libasound2 \
-    # --- For Video Processing ---
-    ffmpeg \
-    # --- For Python Scripts ---
-    python3 \
-    python3-opencv \
-    # --- Common Utilities ---
-    iputils-ping \
-    dnsutils \
-    curl \
-    vim \
-    # --- 清理 apt 快取以減小映像檔體積 ---
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# 安裝 tini，一個輕量級的 init 系統
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄
 WORKDIR /app
 
-# 設定 Puppeteer 環境變數，使用系統安裝的 Chromium
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
-# 先複製依賴描述檔，以便利用 Docker 的快取機制
-# 此處的 COPY 是相對於 build context (./express) 的
+# 優先複製 package.json 以利用 Docker 快取
 COPY package*.json ./
 
-# 安裝 Node.js 專案依賴
-RUN npm install
+# 安裝生產環境依賴
+RUN npm install --omit=dev
 
-# 複製應用程式的其餘所有程式碼到工作目錄
+# 複製所有應用程式程式碼
 COPY . .
 
-# 開放應用程式運行的端口
-EXPOSE 3000
+# 將 tini 設置為容器的進入點
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# 設定容器啟動時執行的指令
-CMD [ "node", "server.js" ]
+# 預設執行的指令 (會被 docker-compose.yml 中的 command 覆蓋)
+CMD ["node", "server.js"]
