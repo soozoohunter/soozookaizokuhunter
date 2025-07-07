@@ -1,207 +1,179 @@
-import React, { useState, useContext } from 'react';
+// frontend/src/components/BulkUploader.jsx (功能完整版)
+import React, { useState, useContext, useRef } from 'react';
+import styled from 'styled-components';
 import { AuthContext } from '../AuthContext';
 
-// 從掃描結果物件中萃取潛在連結，與 Step3 的邏輯保持一致
-const extractLinks = (result) => {
-  if (!result || !result.scan || !result.scan.reverseImageSearch) return [];
-  const { googleVision, tineye, bing } = result.scan.reverseImageSearch;
-  const links = [];
-  if (googleVision?.success && Array.isArray(googleVision.links)) {
-    googleVision.links.forEach((url) => links.push({ source: 'Google', url }));
-  }
-  if (tineye?.success && Array.isArray(tineye.matches)) {
-    tineye.matches.forEach((m) => links.push({ source: 'TinEye', url: m.url }));
-  }
-  if (bing?.success && Array.isArray(bing.links)) {
-    bing.links.forEach((url) => links.push({ source: 'Bing', url }));
-  }
-  const unique = new Map();
-  links.forEach((l) => {
-    if (typeof l.url === 'string' && l.url.trim() !== '') {
-      unique.set(l.url, l);
-    }
-  });
-  return Array.from(unique.values());
-};
+// --- Styled Components ---
+const UploaderWrapper = styled.div`
+  background-color: #1F2937;
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid #374151;
+  text-align: center;
+`;
 
-const BulkUploader = ({ onClose }) => {
-  const { token } = useContext(AuthContext);
+const UploadButton = styled.button`
+  background-color: #2563EB;
+  color: white;
+  font-weight: bold;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s ease;
 
-  // uploads 內部包含檔案與後續狀態
-  const [uploads, setUploads] = useState([]);
+  &:hover {
+    background-color: #1D4ED8;
+  }
+
+  &:disabled {
+    background-color: #4B5563;
+    cursor: not-allowed;
+  }
+`;
+
+const FileList = styled.div`
+  margin-top: 1.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  text-align: left;
+  background-color: #111827;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 1rem;
+`;
+
+const FileStatus = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #374151;
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const StatusText = styled.span`
+  font-weight: bold;
+  color: ${props =>
+    props.status === 'success'
+      ? '#34D399'
+      : props.status === 'failed'
+      ? '#F87171'
+      : '#9CA3AF'};
+`;
+
+// --- Main Component ---
+function BulkUploader({ onUploadComplete }) {
+  const [files, setFiles] = useState([]);
+  const [uploadStatus, setUploadStatus] = useState({});
   const [isUploading, setIsUploading] = useState(false);
+  const { token } = useContext(AuthContext);
+  const fileInputRef = useRef(null); // 建立一個 ref 來指向隱藏的 input
 
-  const handleFileChange = (e) => {
-    const selected = Array.from(e.target.files).map((f) => ({
-      file: f,
-      name: f.name,
-      status: 'pending',
-      message: '',
-      fileId: null,
-      taskId: null,
-      scanStatus: '',
-      links: [],
-      takedownStatus: {},
-    }));
-    setUploads(selected);
+  // 觸發隱藏的 file input
+  const handleButtonClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileChange = e => {
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length === 0) return;
+    setFiles(selectedFiles);
+    // 為每個檔案設定初始狀態
+    const initialStatus = {};
+    selectedFiles.forEach(file => {
+      initialStatus[file.name] = { status: '待上傳', message: '' };
+    });
+    setUploadStatus(initialStatus);
   };
 
   const handleUpload = async () => {
-    if (uploads.length === 0) {
-      alert('請先選擇檔案');
-      return;
-    }
+    if (files.length === 0) return;
+
     setIsUploading(true);
     const formData = new FormData();
-    uploads.forEach((u) => formData.append('files', u.file));
+    files.forEach(file => {
+      formData.append('files', file);
+      // 立即更新 UI 狀態
+      setUploadStatus(prev => ({ ...prev, [file.name]: { status: '上傳中...', message: '' } }));
+    });
 
     try {
-      const resp = await fetch('/api/protect/batch-protect', {
+      const response = await fetch('/api/protect/batch-protect', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      const data = await resp.json();
-      const updated = uploads.map((u) => {
-        const r = data.results.find((res) => res.filename === u.name);
-        return r
-          ? { ...u, status: r.status, message: r.reason || '成功', fileId: r.fileId || null }
-          : u;
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '上傳請求失敗');
+      }
+
+      // 根據後端回傳的 results 更新每個檔案的最終狀態
+      setUploadStatus(prev => {
+        const newStatus = { ...prev };
+        data.results.forEach(result => {
+          newStatus[result.filename] = {
+            status: result.status,
+            message: result.reason || '保護成功',
+          };
+        });
+        return newStatus;
       });
-      setUploads(updated);
-    } catch (err) {
-      console.error('Upload failed:', err);
-      alert('上傳失敗，請稍後再試');
+      // 呼叫父元件的回呼函式，通知上傳已完成，可以刷新儀表板資料
+      if (onUploadComplete) onUploadComplete();
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert(`上傳失敗: ${error.message}`);
+      // 將所有檔案狀態設為失敗
+      setUploadStatus(prev => {
+        const newStatus = {};
+        Object.keys(prev).forEach(filename => {
+          newStatus[filename] = { status: 'failed', message: '上傳失敗' };
+        });
+        return newStatus;
+      });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const startScan = async (index) => {
-    const u = uploads[index];
-    if (!u.fileId) return;
-    try {
-      const resp = await fetch('/api/protect/step2', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ fileId: u.fileId }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json();
-        throw new Error(err.error || '啟動掃描失敗');
-      }
-      const data = await resp.json();
-      const updated = [...uploads];
-      updated[index] = { ...u, taskId: data.taskId, scanStatus: 'pending' };
-      setUploads(updated);
-      pollStatus(index, data.taskId);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const pollStatus = (index, taskId) => {
-    const timer = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/scans/status/${taskId}`);
-        const data = await res.json();
-        setUploads((prev) => {
-          const copy = [...prev];
-          const u = { ...copy[index] };
-          if (data.status) u.scanStatus = data.status;
-          if (data.result) {
-            const resultObj = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-            u.links = extractLinks(resultObj);
-          }
-          copy[index] = u;
-          return copy;
-        });
-        if (data.status === 'completed' || data.status === 'failed') {
-          clearInterval(timer);
-        }
-      } catch {
-        clearInterval(timer);
-      }
-    }, 5000);
-  };
-
-  const sendTakedown = async (index, url) => {
-    const u = uploads[index];
-    const updated = [...uploads];
-    updated[index].takedownStatus[url] = 'sending';
-    setUploads(updated);
-
-    try {
-      const resp = await fetch('/api/infringement/takedown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ originalFileId: u.fileId, infringingUrl: url }),
-      });
-      const data = await resp.json();
-      const next = [...uploads];
-      next[index].takedownStatus[url] = resp.ok ? `成功 (ID: ${data.caseId})` : `失敗: ${data.error}`;
-      setUploads(next);
-    } catch {
-      const next = [...uploads];
-      next[index].takedownStatus[url] = '發送失敗';
-      setUploads(next);
-    }
-  };
-
   return (
-    <div style={{ padding: '2rem', backgroundColor: '#374151', borderRadius: '8px', maxHeight: '80vh', overflowY: 'auto' }}>
-      <h4>選擇多個檔案進行保護</h4>
-      <input type="file" multiple onChange={handleFileChange} />
+    <UploaderWrapper>
+      <input
+        type="file"
+        multiple
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        style={{ display: 'none' }} // 關鍵：將原生 input 隱藏
+      />
+      <UploadButton onClick={handleButtonClick} disabled={isUploading}>
+        選擇多個檔案進行保護
+      </UploadButton>
 
-      <button onClick={handleUpload} disabled={isUploading}>
-        {isUploading ? '上傳中...' : `上傳 ${uploads.length} 個檔案`}
-      </button>
-      <button onClick={onClose} style={{ marginLeft: '1rem' }}>關閉</button>
-
-      <div style={{ marginTop: '1rem' }}>
-        {uploads.map((u, idx) => (
-          <div key={u.name} style={{ marginBottom: '1rem', borderBottom: '1px solid #555' }}>
-            <div>
-              <strong>{u.name}</strong>
-              {u.status && (
-                <span style={{ marginLeft: '1rem', color: u.status === 'success' ? 'lightgreen' : 'pink' }}>
-                  - {u.status}: {u.message}
-                </span>
-              )}
-            </div>
-            {u.status === 'success' && !u.taskId && (
-              <button onClick={() => startScan(idx)}>開始侵權偵測</button>
-            )}
-            {u.taskId && (
-              <div style={{ marginTop: '0.5rem' }}>
-                <span>掃描狀態: {u.scanStatus}</span>
-              </div>
-            )}
-            {u.links && u.links.length > 0 && (
-              <ul style={{ listStyle: 'none', padding: 0, marginTop: '0.5rem' }}>
-                {u.links.map((l, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <a href={l.url} target="_blank" rel="noopener noreferrer" style={{ color: '#90caf9', flexGrow: 1 }}>
-                      [{l.source}] {l.url}
-                    </a>
-                    <button onClick={() => sendTakedown(idx, l.url)} disabled={u.takedownStatus[l.url] === 'sending'}>
-                      {u.takedownStatus[l.url] || '發送 DMCA'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+      {files.length > 0 && (
+        <>
+          <FileList>
+            {files.map(file => (
+              <FileStatus key={file.name}>
+                <span>{file.name}</span>
+                <StatusText status={uploadStatus[file.name]?.status}>
+                  {uploadStatus[file.name]?.status}
+                </StatusText>
+              </FileStatus>
+            ))}
+          </FileList>
+          <UploadButton onClick={handleUpload} disabled={isUploading} style={{ marginTop: '1.5rem' }}>
+            {isUploading ? '正在處理中...' : `開始上傳 ${files.length} 個檔案`}
+          </UploadButton>
+        </>
+      )}
+    </UploaderWrapper>
   );
-};
+}
 
 export default BulkUploader;
