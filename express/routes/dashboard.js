@@ -1,4 +1,4 @@
-// express/routes/dashboard.js (縮圖路徑修正版)
+// express/routes/dashboard.js (Sequelize 查詢修正版)
 const express = require('express');
 const { Op } = require('sequelize');
 const { User, UserSubscription, SubscriptionPlan, UsageRecord, File, Scan } = require('../models');
@@ -29,9 +29,15 @@ router.get('/', auth, async (req, res) => {
     }
 
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    
+    // [BUG FIX] 修正 Scan.count 的關聯查詢語法，將 '$File.user_id$' 改為 '$file.user_id$'
+    // 這需要與 Scan 模型中定義的關聯別名 'file' 一致。
     const [imageUsage, scanUsage, dmcaUsage] = await Promise.all([
       File.count({ where: { user_id: userId } }),
-      Scan.count({ where: { '$File.user_id$': userId, createdAt: { [Op.gte]: startOfMonth } }, include: { model: File, as: 'file', attributes: [] } }),
+      Scan.count({ 
+          where: { '$file.user_id$': userId, createdAt: { [Op.gte]: startOfMonth } },
+          include: [{ model: File, as: 'file', attributes: [] }]
+      }),
       UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } })
     ]);
 
@@ -56,7 +62,6 @@ router.get('/', auth, async (req, res) => {
         fileId: file.id,
         fileName: file.filename,
         uploadDate: file.createdAt,
-        // [FIX] 使用 .env 中的公開主機位址 (PUBLIC_HOST) 來組合 URL
         thumbnailUrl: file.thumbnail_path ? `${process.env.PUBLIC_HOST}${file.thumbnail_path}` : null,
         fingerprint: file.fingerprint,
         ipfsHash: file.ipfs_hash,
