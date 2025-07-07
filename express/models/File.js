@@ -38,6 +38,12 @@ module.exports = (sequelize, DataTypes) => {
     },
     ipfs_hash: DataTypes.STRING,
     tx_hash: DataTypes.STRING,
+
+    // 用於前端顯示縮圖的路徑
+    thumbnail_path: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     
     // 狀態與結果
     status: DataTypes.STRING,
