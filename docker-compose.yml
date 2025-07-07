@@ -44,7 +44,12 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    command: sh -c "npx sequelize-cli db:migrate --config /app/config/database.js && npx sequelize-cli db:seed:all --config /app/config/database.js && node server.js"
+    # 安裝依賴並執行遷移、種子後啟動伺服器
+    command: >-
+      sh -c "npm install && \
+      npx sequelize-cli db:migrate --config /app/config/database.js && \
+      npx sequelize-cli db:seed:all --config /app/config/database.js && \
+      node server.js"
     ports:
       - "3000:3000"
     env_file:
@@ -92,7 +97,8 @@ services:
       context: ./express
       dockerfile: Dockerfile
     # [FIX] 移除遷移指令，只啟動主程式。它會等待 express 健康後才啟動。
-    command: node worker.js
+    # 確保容器啟動時已安裝依賴
+    command: sh -c "npm install && node worker.js"
     env_file:
       - .env
     volumes:
