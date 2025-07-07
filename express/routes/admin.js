@@ -19,7 +19,11 @@ router.post('/login', async (req, res) => {
 
         const user = await User.findOne({
             where: {
-                [Op.or]: [{ email: username }, { phone: username }],
+                [Op.or]: [
+                    { email: username },
+                    { phone: username },
+                    { username: username }
+                ],
                 role: 'admin' // 直接在查詢時就限定必須是 admin
             }
         });
