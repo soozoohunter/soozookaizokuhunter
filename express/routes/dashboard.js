@@ -1,4 +1,4 @@
-// express/routes/dashboard.js (Sequelize 查詢修正版)
+// express/routes/dashboard.js (最終功能版)
 const express = require('express');
 const { Op } = require('sequelize');
 const { User, UserSubscription, SubscriptionPlan, UsageRecord, File, Scan } = require('../models');
@@ -10,36 +10,21 @@ const router = express.Router();
 router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    if (!userId) return res.status(400).json({ error: 'User ID not found in token.' });
-
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ error: 'User not found.' });
-
-    const activeSubscription = await UserSubscription.findOne({
-      where: { user_id: userId, status: 'active' },
-      include: { model: SubscriptionPlan, as: 'plan' }
-    });
-
-    let plan = {};
-    if (activeSubscription && activeSubscription.plan) {
-        plan = activeSubscription.plan;
-    } else {
-        logger.warn(`User ${userId} has no active subscription, using default values.`);
-        plan = { name: 'Free Trial', image_limit: 5, scan_limit_monthly: 10, dmca_takedown_limit_monthly: 0 };
-    }
-
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    
-    // [BUG FIX] 修正 Scan.count 的關聯查詢語法，將 '$File.user_id$' 改為 '$file.user_id$'
-    // 這需要與 Scan 模型中定義的關聯別名 'file' 一致。
-    const [imageUsage, scanUsage, dmcaUsage] = await Promise.all([
-      File.count({ where: { user_id: userId } }),
-      Scan.count({ 
-          where: { '$file.user_id$': userId, createdAt: { [Op.gte]: startOfMonth } },
-          include: [{ model: File, as: 'file', attributes: [] }]
-      }),
-      UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } })
+    const [user, activeSubscription, imageUsage, scanUsage, dmcaUsage] = await Promise.all([
+        User.findByPk(userId),
+        UserSubscription.findOne({
+            where: { user_id: userId, status: 'active' },
+            include: { model: SubscriptionPlan, as: 'plan' }
+        }),
+        File.count({ where: { user_id: userId } }),
+        Scan.count({
+            where: { '$File.user_id$': userId, createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } },
+            include: { model: File, as: 'file', attributes: [] }
+        }),
+        UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } })
     ]);
+
+    let plan = activeSubscription?.plan || { name: 'Free Trial', image_limit: 5, scan_limit_monthly: 10, dmca_takedown_limit_monthly: 0 };
 
     const protectedFiles = await File.findAll({ where: { user_id: userId }, order: [['createdAt', 'DESC']], limit: 50 });
     const fileIds = protectedFiles.map(f => f.id);

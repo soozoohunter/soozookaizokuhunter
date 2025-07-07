@@ -2,6 +2,7 @@
 import React, { useState, useContext, useRef } from 'react';
 import styled from 'styled-components';
 import { AuthContext } from '../AuthContext';
+import apiClient from '../utils/apiClient';
 
 // --- Styled Components ---
 const UploaderWrapper = styled.div`
@@ -65,11 +66,11 @@ const StatusText = styled.span`
 `;
 
 // --- Main Component ---
-function BulkUploader({ onUploadComplete }) {
+function BulkUploader({ onClose, onUploadComplete }) {
   const [files, setFiles] = useState([]);
   const [uploadStatus, setUploadStatus] = useState({});
   const [isUploading, setIsUploading] = useState(false);
-  const { token } = useContext(AuthContext);
+  const { token } = useContext(AuthContext); // token is retrieved if needed in future
   const fileInputRef = useRef(null); // 建立一個 ref 來指向隱藏的 input
 
   // 觸發隱藏的 file input
@@ -101,17 +102,9 @@ function BulkUploader({ onUploadComplete }) {
     });
 
     try {
-      const response = await fetch('/api/protect/batch-protect', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const response = await apiClient.post('/api/protect/batch-protect', formData);
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || '上傳請求失敗');
-      }
 
       // 根據後端回傳的 results 更新每個檔案的最終狀態
       setUploadStatus(prev => {
@@ -124,8 +117,10 @@ function BulkUploader({ onUploadComplete }) {
         });
         return newStatus;
       });
-      // 呼叫父元件的回呼函式，通知上傳已完成，可以刷新儀表板資料
-      if (onUploadComplete) onUploadComplete();
+      // [新功能] 如果上傳成功，呼叫父元件傳來的回呼函式
+      if (response.status === 207 && onUploadComplete) {
+        onUploadComplete();
+      }
     } catch (error) {
       console.error('Upload failed:', error);
       alert(`上傳失敗: ${error.message}`);
