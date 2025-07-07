@@ -31,7 +31,14 @@ router.get('/', auth, async (req, res) => {
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const [imageUsage, scanUsage, dmcaUsage] = await Promise.all([
       File.count({ where: { user_id: userId } }),
-      Scan.count({ where: { '$File.user_id$': userId, createdAt: { [Op.gte]: startOfMonth } }, include: { model: File, as: 'file', attributes: [] } }),
+      // 使用 include alias 'file' 以正確關聯 Scan 與 File
+      Scan.count({
+        where: {
+          '$file.user_id$': userId,
+          createdAt: { [Op.gte]: startOfMonth }
+        },
+        include: { model: File, as: 'file', attributes: [] }
+      }),
       UsageRecord.count({ where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonth } } })
     ]);
 
@@ -56,8 +63,10 @@ router.get('/', auth, async (req, res) => {
         fileId: file.id,
         fileName: file.filename,
         uploadDate: file.createdAt,
-        // [修正] 使用 .env 中的公開主機位址 (PUBLIC_HOST) 來組合 URL
-        thumbnailUrl: file.thumbnail_path ? `${process.env.PUBLIC_HOST}${file.thumbnail_path}` : null,
+        // [修正] 使用 .env 中的公開主機位址 (PUBLIC_HOST)，若未設定則退回請求來源
+        thumbnailUrl: file.thumbnail_path
+          ? `${process.env.PUBLIC_HOST || req.protocol + '://' + req.get('host')}${file.thumbnail_path}`
+          : null,
         fingerprint: file.fingerprint,
         ipfsHash: file.ipfs_hash,
         txHash: file.tx_hash,
@@ -65,7 +74,10 @@ router.get('/', auth, async (req, res) => {
       }))
     });
   } catch (err) {
-    logger.error(`[Dashboard API Error] For user ${req.user?.id}:`, err);
+    logger.error(
+      `[Dashboard API Error] For user ${req.user?.id}: ${err.message}`,
+      { stack: err.stack }
+    );
     res.status(500).json({ error: 'Failed to load dashboard data.' });
   }
 });
