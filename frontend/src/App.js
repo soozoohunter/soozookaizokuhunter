@@ -1,9 +1,10 @@
 // frontend/src/App.js (導覽列 UI 還原版)
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthContext } from './AuthContext';
+import { setupResponseInterceptor } from './utils/apiClient';
 
 // --- Pages ---
 import HomePage from './pages/Home';
@@ -114,6 +115,10 @@ const Footer = styled.footer`
 
 function RootLayout() {
   const { token, logout } = useContext(AuthContext);
+
+  useEffect(() => {
+    setupResponseInterceptor(logout);
+  }, [logout]);
   let userRole = '';
   if (token) {
     try {

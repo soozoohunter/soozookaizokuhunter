@@ -1,5 +1,6 @@
 // frontend/src/pages/AdminUsersPage.jsx (最終功能版)
 import React, { useState, useEffect, useContext } from 'react';
+import apiClient from '../utils/apiClient';
 import { AuthContext } from '../AuthContext';
 
 function AdminUsersPage() {
@@ -12,15 +13,8 @@ function AdminUsersPage() {
         if (!token) return;
         setIsLoading(true);
         try {
-            const response = await fetch('/api/admin/users', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to fetch user list.');
-            }
-            const data = await response.json();
-            setUsers(data);
+            const response = await apiClient.get('/api/admin/users');
+            setUsers(response.data);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -37,21 +31,11 @@ function AdminUsersPage() {
         if (!window.confirm(`確定要將使用者 #${userId} 的方案更改為 ${newPlanCode} 嗎？`)) return;
 
         try {
-            const response = await fetch(`/api/admin/users/${userId}/subscription`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ planCode: newPlanCode })
+            await apiClient.put(`/api/admin/users/${userId}/subscription`, {
+                planCode: newPlanCode
             });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to update plan.');
-            }
             alert('方案更新成功！');
-            fetchUsers(); // 重新載入資料以顯示最新狀態
+            fetchUsers();
         } catch (err) {
             alert(`方案更新失敗: ${err.message}`);
         }
@@ -64,18 +48,11 @@ function AdminUsersPage() {
 
         if (newImageLimit === null || newScanLimit === null) return;
 
-        fetch(`/api/admin/users/${userId}/overrides`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                image_upload_limit: parseInt(newImageLimit, 10),
-                scan_limit_monthly: parseInt(newScanLimit, 10),
-            })
+        apiClient.put(`/api/admin/users/${userId}/overrides`, {
+            image_upload_limit: parseInt(newImageLimit, 10),
+            scan_limit_monthly: parseInt(newScanLimit, 10),
         })
-        .then(res => res.ok ? alert('額度更新成功！') : Promise.reject('Update failed'))
+        .then(() => alert('額度更新成功！'))
         .catch(() => alert('額度更新失敗！'));
     };
 

@@ -96,7 +96,16 @@ router.post('/login', async (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-        res.json({ message: '登入成功', token, user: { id: user.id, email: user.email, role: user.role } });
+        res.json({
+            message: '登入成功',
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                realName: user.realName,
+                role: user.role
+            }
+        });
     } catch (error) {
         logger.error('[Login] Error:', error);
         res.status(500).json({ message: '伺服器登入時發生錯誤。'});
