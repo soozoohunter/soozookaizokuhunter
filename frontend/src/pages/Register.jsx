@@ -93,7 +93,7 @@ export default function Register() {
 
   const [form, setForm] = useState({
     email: '',
-    username: '',    // phone
+    phone: '',    // phone number
     password: '',
     confirmPassword: '',
     IG: '',
@@ -116,8 +116,8 @@ export default function Register() {
     e.preventDefault();
     setErrorMsg('');
 
-    // 1) email, username(手機), password, confirmPassword
-    if (!form.email.trim() || !form.username.trim() || !form.password || !form.confirmPassword) {
+    // 1) email, phone, password, confirmPassword
+    if (!form.email.trim() || !form.phone.trim() || !form.password || !form.confirmPassword) {
       return setErrorMsg('必填欄位未填');
     }
     // 2) 密碼一致
@@ -170,12 +170,12 @@ export default function Register() {
             onChange={handleChange}
           />
 
-          <StyledLabel>手機號碼 (Username)</StyledLabel>
+          <StyledLabel>手機號碼 Phone</StyledLabel>
           <StyledInput
-            name="username"
+            name="phone"
             type="text"
             placeholder="09xx-xxx-xxx"
-            value={form.username}
+            value={form.phone}
             onChange={handleChange}
           />
 
