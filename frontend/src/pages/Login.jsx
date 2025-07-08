@@ -92,10 +92,11 @@ export default function Login() {
     setErrorMsg('');
 
     try {
-      // 若含 '@' -> email; 否則 phone= username
-      const payload = identifier.includes('@')
-        ? { email: identifier.trim().toLowerCase(), password }
-        : { username: identifier.trim(), password };
+      // 後端僅接受 identifier 欄位，直接傳遞使用者輸入
+      const payload = {
+        identifier: identifier.trim(),
+        password
+      };
 
       const resp = await fetch('/api/auth/login', {
         method: 'POST',

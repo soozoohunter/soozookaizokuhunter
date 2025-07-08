@@ -24,8 +24,8 @@ export default function AdminLogin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // 注意：這裡用 username 對應您的 User 模型欄位小寫
-          username: usernameOrEmail,
+          // 後端僅接受 identifier 欄位
+          identifier: usernameOrEmail,
           password
         })
       });
