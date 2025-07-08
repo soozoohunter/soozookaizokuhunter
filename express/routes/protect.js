@@ -15,7 +15,8 @@ const queueService = require('../services/queue.service');
 
 const router = express.Router();
 // [FIX] ensure uploads path resolves to '/app/uploads' inside container
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
+// Use project-level uploads directory mounted at /app/uploads
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 const TEMP_DIR = path.join(UPLOAD_BASE_DIR, 'temp');
 const THUMBNAIL_DIR = path.join(UPLOAD_BASE_DIR, 'thumbnails');
 
