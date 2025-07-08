@@ -98,7 +98,7 @@ const MainContent = styled.main`
 const Footer = styled.footer`
   text-align: center;
   padding: 1.5rem;
-  background-color: #1F2937;
+  background-color: '#1F2937';
   border-top: 1px solid #374151;
   font-size: 0.9rem;
   color: #9CA3AF;
@@ -108,7 +108,6 @@ function RootLayout() {
   const { token, logout } = useContext(AuthContext);
   
   useEffect(() => {
-    // 設定全域 API 攔截器，自動處理 401 錯誤
     setupResponseInterceptor(logout);
   }, [logout]);
 
@@ -119,7 +118,6 @@ function RootLayout() {
       userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token decode', e);
-      // 如果 token 無法解析，也執行登出
       logout();
     }
   }
