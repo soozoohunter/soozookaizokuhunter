@@ -7,7 +7,8 @@ const { User, File } = require('../models');
 
 // --- 目錄設定 ---
 // ensure path is resolved relative to /app
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
+// Resolve to project-level uploads directory
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 const CERT_DIR = path.join(UPLOAD_BASE_DIR, 'certificates');
 
 // --- 啟動時檢查並建立目錄 ---
