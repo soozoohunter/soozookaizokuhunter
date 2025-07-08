@@ -1,9 +1,10 @@
 // frontend/src/pages/AdminLogin.jsx
 import React, { useState } from 'react';
+import apiClient from '../utils/apiClient';
 
 export default function AdminLogin() {
   // 預設空值或測試帳號都可
-  const [usernameOrEmail, setUsernameOrEmail] = useState('zacyao1005');
+  const [identifier, setIdentifier] = useState('zacyao1005');
   const [password, setPassword] = useState('Zack967988');
   const [error, setError] = useState('');
 
@@ -13,32 +14,20 @@ export default function AdminLogin() {
     setError(''); // 先清除錯誤
 
     // 基本檢查：帳號+密碼不可空
-    if (!usernameOrEmail.trim() || !password.trim()) {
-      setError('請輸入帳號與密碼'); 
+    if (!identifier.trim() || !password.trim()) {
+      setError('請輸入帳號與密碼');
       return;
     }
 
     try {
       // 送到後端 /api/admin/login
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // 後端僅接受 identifier 欄位
-          identifier: usernameOrEmail,
-          password
-        })
+      const res = await apiClient.post('/api/admin/login', {
+        identifier: identifier.trim(),
+        password,
       });
 
-      // 若非 2xx，嘗試解析後端錯誤訊息
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || '無法連線，請稍後再試');
-      }
-
-      // 成功 => 後端應回傳 token
-      const result = await res.json();
-      const { token } = result;
+      // 解析回傳結果
+      const { token } = res.data || {};
       if (!token) {
         throw new Error('登入回傳資訊不完整(缺少 token)');
       }
@@ -49,7 +38,8 @@ export default function AdminLogin() {
       // 前往後台首頁（ex: /admin 或 /admin/dashboard）
       window.location.href = '/admin';
     } catch (err) {
-      setError(err.message || '登入失敗，請稍後再試');
+      const message = err.response?.data?.error || err.message || '登入失敗，請稍後再試';
+      setError(message);
     }
   };
 
@@ -58,11 +48,7 @@ export default function AdminLogin() {
       <div style={styles.loginBox}>
         <h2 style={styles.title}>Admin Login 管理員登入</h2>
 
-        {error && (
-          <p style={styles.errorMsg}>
-            {error}
-          </p>
-        )}
+        {error && <p style={styles.errorMsg}>{error}</p>}
 
         <form onSubmit={handleLogin} style={styles.form}>
           <label style={styles.label}>帳號 (Username 或 Email)</label>
@@ -70,8 +56,8 @@ export default function AdminLogin() {
             style={styles.input}
             type="text"
             placeholder="e.g. admin"
-            value={usernameOrEmail}
-            onChange={(e) => setUsernameOrEmail(e.target.value)}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
           />
 
           <label style={styles.label}>密碼 / Password</label>
@@ -101,7 +87,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    fontFamily: 'Inter, sans-serif'
+    fontFamily: 'Inter, sans-serif',
   },
   loginBox: {
     backgroundColor: '#1e1e1e',
@@ -111,26 +97,26 @@ const styles = {
     width: '100%',
     maxWidth: '380px',
     boxShadow: '0 0 10px rgba(0,0,0,0.5)',
-    textAlign: 'center'
+    textAlign: 'center',
   },
   title: {
     fontSize: '1.6rem',
     marginBottom: '1rem',
-    color: '#FFD700'
+    color: '#FFD700',
   },
   errorMsg: {
     color: 'red',
-    marginBottom: '1rem'
+    marginBottom: '1rem',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    textAlign: 'left'
+    textAlign: 'left',
   },
   label: {
     margin: '0.5rem 0 0.25rem',
     fontSize: '0.9rem',
-    color: '#ffa500'
+    color: '#ffa500',
   },
   input: {
     padding: '0.5rem',
@@ -139,7 +125,7 @@ const styles = {
     backgroundColor: '#2c2c2c',
     border: '1px solid #444',
     borderRadius: '4px',
-    color: '#fff'
+    color: '#fff',
   },
   loginBtn: {
     backgroundColor: '#f97316',
@@ -149,6 +135,6 @@ const styles = {
     padding: '0.6rem 1.2rem',
     border: 'none',
     borderRadius: '4px',
-    cursor: 'pointer'
-  }
+    cursor: 'pointer',
+  },
 };
