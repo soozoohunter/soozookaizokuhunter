@@ -3,7 +3,7 @@ const path = require('path');
 const { convertAndUpload: baseConvertAndUpload } = require('../utils/convertAndUpload');
 
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
 const PUBLIC_IMAGES_DIR = path.join(UPLOAD_BASE_DIR, 'publicImages');
 
 function createPublicImageLink(fileId) {

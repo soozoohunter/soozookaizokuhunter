@@ -14,7 +14,8 @@ const fingerprintService = require('../services/fingerprintService');
 const queueService = require('../services/queue.service');
 
 const router = express.Router();
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+// [FIX] ensure uploads path resolves to '/app/uploads' inside container
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
 const TEMP_DIR = path.join(UPLOAD_BASE_DIR, 'temp');
 const THUMBNAIL_DIR = path.join(UPLOAD_BASE_DIR, 'thumbnails');
 
