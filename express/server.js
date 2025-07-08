@@ -55,7 +55,10 @@ async function startServer() {
     // ... (保留您原有的 startServer 函式內容)
     try {
         logger.info('[Startup] Step 1: Initializing Database connection...');
-        await db.sequelize.authenticate();
+        await db.connectToDatabase(
+            process.env.DB_CONNECT_RETRIES || 10,
+            process.env.DB_CONNECT_RETRY_DELAY || 5000
+        );
         logger.info('[Startup] Step 1: Database connection successful.');
 
         // ...其他啟動步驟...
@@ -65,6 +68,7 @@ async function startServer() {
         });
     } catch (error) {
         logger.error('[Startup] Failed to start Express server:', error);
+        console.error(error);
         process.exit(1);
     }
 }
