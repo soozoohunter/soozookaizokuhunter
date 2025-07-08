@@ -66,7 +66,10 @@ async function processScanTask(task) {
 async function startWorker() {
     try {
         logger.info('[Worker] Starting up...');
-        await db.sequelize.authenticate();
+        await db.connectToDatabase(
+            process.env.DB_CONNECT_RETRIES || 10,
+            process.env.DB_CONNECT_RETRY_DELAY || 5000
+        );
         logger.info('[Worker] Database connection established.');
         
         await queueService.connect();
@@ -78,6 +81,7 @@ async function startWorker() {
         });
     } catch (error) {
         logger.error('[Worker] Failed to start:', error);
+        console.error(error);
         process.exit(1);
     }
 }
