@@ -1,4 +1,4 @@
-// express/worker.js (最終啟動邏輯修正版)
+// express/worker.js (語法修正版)
 require('dotenv').config();
 const db = require('./models');
 const logger = require('../utils/logger');
@@ -9,12 +9,10 @@ const { getIO, initSocket } = require('./socket');
 const express = require('express');
 const http = require('http');
 
-// 輕量級的 Express Server，僅用於初始化 Socket.IO
 const app = express();
 const server = http.createServer(app);
 initSocket(server);
 
-// port for lightweight HTTP server to keep the worker alive
 const WORKER_PORT = process.env.WORKER_PORT || 3001;
 
 async function processScanTask(task) {
@@ -44,6 +42,7 @@ async function processScanTask(task) {
             fingerprint: fileRecord.fingerprint,
         });
         
+        // [修正] 移除重複的宣告
         const finalStatus = (scanResult.errors && scanResult.errors.length > 0) ? 'failed' : 'completed';
         
         await db.Scan.update({ 
@@ -58,7 +57,7 @@ async function processScanTask(task) {
 
     } catch (error) {
         logger.error(`[Worker] Task ${taskId}: CRITICAL error occurred: ${error.message}`);
-        await db.Scan.update({ status: 'failed', completed_at: new Date(), result: JSON.stringify({ error: error.message }) }, { where: { id: taskId } });
+        await db.Scan.update({ status: 'failed', completed_at: new Date(), result: JSON.stringify({ error: error.message, stack: error.stack }) }, { where: { id: taskId } });
         emitStatus('failed', `任務失敗: ${error.message}`);
         return false;
     }
@@ -70,10 +69,9 @@ async function startWorker() {
         await db.sequelize.authenticate();
         logger.info('[Worker] Database connection established.');
         
-        // [FIX] 確保 RabbitMQ 連線成功後，再設定消費者
         await queueService.connect();
         await queueService.consumeTasks(processScanTask);
-
+        
         server.listen(WORKER_PORT, () => {
             logger.info(`[Worker] Socket.IO server listening on port ${WORKER_PORT}.`);
             logger.info('[Worker] Worker is now ready and waiting for tasks.');
