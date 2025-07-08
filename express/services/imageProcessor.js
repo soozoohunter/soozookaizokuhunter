@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const { convertAndUpload: baseConvertAndUpload } = require('../utils/convertAndUpload');
 
-const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
+// Default to localhost for development if PUBLIC_HOST not specified
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'http://localhost:3000';
 // Resolve to project-level uploads directory
 const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 const PUBLIC_IMAGES_DIR = path.join(UPLOAD_BASE_DIR, 'publicImages');
