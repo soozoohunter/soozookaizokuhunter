@@ -4,8 +4,24 @@ import { AuthContext } from '../AuthContext';
 import apiClient from '../utils/apiClient';
 import styled from 'styled-components';
 
+const styles = {
+    container: { maxWidth: '1200px', margin: '2rem auto', color: '#E5E7EB' },
+    pageTitle: { fontSize: '2rem', color: '#FFFFFF', marginBottom: '2rem' },
+    table: { width: '100%', borderCollapse: 'collapse', backgroundColor: '#1F2937' },
+    th: { padding: '1rem', textAlign: 'left', borderBottom: '2px solid #4B5563', backgroundColor: '#374151', fontWeight: 'bold' },
+    td: { padding: '1rem', textAlign: 'left', borderBottom: '1px solid #374151' },
+    select: {
+        backgroundColor: '#4B5563',
+        color: 'white',
+        border: '1px solid #6B7280',
+        borderRadius: '4px',
+        padding: '0.25rem 0.5rem',
+        cursor: 'pointer'
+    }
+};
+
 function AdminUsersPage() {
-    const { token } = useContext(AuthContext); // token 現在由 apiClient 自動處理，此處保留用於觸發 effect
+    const { token } = useContext(AuthContext);
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -23,8 +39,10 @@ function AdminUsersPage() {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (token) {
+            fetchUsers();
+        }
+    }, [token]);
 
     const handlePlanChange = async (userId, newPlanCode) => {
         if (!newPlanCode) return;
@@ -32,8 +50,7 @@ function AdminUsersPage() {
 
         try {
             await apiClient.put(`/api/admin/users/${userId}/subscription`, {
-                planCode: newPlanCode,
-                durationInMonths: 12 // 可選，預設為12個月
+                planCode: newPlanCode
             });
             alert('方案更新成功！');
             fetchUsers(); // 重新載入資料以顯示最新狀態
@@ -85,21 +102,5 @@ function AdminUsersPage() {
         </div>
     );
 }
-
-const styles = {
-    container: { maxWidth: '1200px', margin: '2rem auto', color: '#E5E7EB' },
-    pageTitle: { fontSize: '2rem', color: '#FFFFFF', marginBottom: '2rem' },
-    table: { width: '100%', borderCollapse: 'collapse', backgroundColor: '#1F2937' },
-    th: { padding: '1rem', textAlign: 'left', borderBottom: '2px solid #4B5563', backgroundColor: '#374151', fontWeight: 'bold' },
-    td: { padding: '1rem', textAlign: 'left', borderBottom: '1px solid #374151' },
-    select: {
-        backgroundColor: '#4B5563',
-        color: 'white',
-        border: '1px solid #6B7280',
-        borderRadius: '4px',
-        padding: '0.25rem 0.5rem',
-        cursor: 'pointer'
-    }
-};
 
 export default AdminUsersPage;
