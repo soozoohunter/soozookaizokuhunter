@@ -22,7 +22,8 @@ const sharp = require('sharp');
  * - PUBLIC_HOST: 自訂主機名，如 https://suzookaizokuhunter.com
  */
 const USE_S3_UPLOAD = (process.env.USE_S3_UPLOAD === 'true');
-const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
+// Default to localhost for development if PUBLIC_HOST not specified
+const PUBLIC_HOST = process.env.PUBLIC_HOST || 'http://localhost:3000';
 
 // 本地模式預設的 uploads/publicImages 路徑
 const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');

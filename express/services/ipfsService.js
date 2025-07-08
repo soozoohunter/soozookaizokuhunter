@@ -35,8 +35,9 @@ class IpfsService {
     try {
       logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
       const { cid } = await this.client.add(buffer);
-      logger.info('[ipfsService.saveFile] => CID=', cid.toString());
-      return cid.toString();
+      const cidStr = cid.toString();
+      logger.info(`[ipfsService.saveFile] => CID=${cidStr}`);
+      return cidStr;
     } catch (error) {
       logger.error('[ipfsService.saveFile] Error saving file to IPFS:', error);
       return null;
