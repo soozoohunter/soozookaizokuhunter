@@ -9,6 +9,14 @@ const { getIO, initSocket } = require('./socket');
 const express = require('express');
 const http = require('http');
 
+// Prevent worker from exiting silently on unexpected errors
+process.on('uncaughtException', err => {
+    logger.error('[Worker Uncaught Exception]', err);
+});
+process.on('unhandledRejection', err => {
+    logger.error('[Worker Unhandled Rejection]', err);
+});
+
 const app = express();
 const server = http.createServer(app);
 initSocket(server);
