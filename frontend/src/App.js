@@ -17,6 +17,7 @@ import FileDetailPage from './pages/FileDetailPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import ProtectStep1 from './pages/ProtectStep1';
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
@@ -98,7 +99,7 @@ const MainContent = styled.main`
 const Footer = styled.footer`
   text-align: center;
   padding: 1.5rem;
-  background-color: '#1F2937';
+  background-color: #1F2937;
   border-top: 1px solid #374151;
   font-size: 0.9rem;
   color: #9CA3AF;
@@ -176,6 +177,7 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="file/:fileId" element={<FileDetailPage />} />
+            <Route path="protect/step1" element={<ProtectStep1 />} />
           </Route>
 
           {/* --- 受保護的管理員路由 (僅限管理員訪問) --- */}
