@@ -143,7 +143,11 @@ export default function Register() {
       const data = await resp.json();
 
       if (!resp.ok) {
-        setErrorMsg(data.message || '註冊失敗');
+        if (resp.status === 409) {
+          setErrorMsg(data.message || '此電子郵件或手機號碼已被註冊。');
+        } else {
+          setErrorMsg(data.message || '註冊失敗');
+        }
       } else {
         alert(data.message || '註冊成功');
         navigate('/login');

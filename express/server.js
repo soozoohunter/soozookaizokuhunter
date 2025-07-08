@@ -45,8 +45,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // [FIX] Align static path with docker-compose volume mount at /app/uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-logger.info(`[Setup] Static directory served at '/uploads' -> '${path.join(__dirname, 'uploads')}'`);
+// Serve files from the project-level 'uploads' directory
+const UPLOAD_DIR = path.resolve(__dirname, '../uploads');
+app.use('/uploads', express.static(UPLOAD_DIR));
+logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 
 app.use('/api/auth', authRouter);
 app.use('/api/protect', protectRouter);

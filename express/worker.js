@@ -14,6 +14,9 @@ const app = express();
 const server = http.createServer(app);
 initSocket(server);
 
+// port for lightweight HTTP server to keep the worker alive
+const WORKER_PORT = process.env.WORKER_PORT || 3001;
+
 async function processScanTask(task) {
     const { taskId, fileId, userId } = task;
     const io = getIO();
@@ -41,7 +44,7 @@ async function processScanTask(task) {
             fingerprint: fileRecord.fingerprint,
         });
         
-        const finalStatus = scanResult.errors.length > 0 ? 'failed' : 'completed';
+        const finalStatus = (scanResult.errors && scanResult.errors.length > 0) ? 'failed' : 'completed';
         
         await db.Scan.update({ 
             status: finalStatus, 
@@ -70,8 +73,11 @@ async function startWorker() {
         // [FIX] 確保 RabbitMQ 連線成功後，再設定消費者
         await queueService.connect();
         await queueService.consumeTasks(processScanTask);
-        
-        logger.info('[Worker] Ready and waiting for tasks.');
+
+        server.listen(WORKER_PORT, () => {
+            logger.info(`[Worker] Socket.IO server listening on port ${WORKER_PORT}.`);
+            logger.info('[Worker] Worker is now ready and waiting for tasks.');
+        });
     } catch (error) {
         logger.error('[Worker] Failed to start:', error);
         process.exit(1);
