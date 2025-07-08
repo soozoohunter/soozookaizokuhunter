@@ -17,7 +17,6 @@ import FileDetailPage from './pages/FileDetailPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
-import ProtectStep1 from './pages/ProtectStep1';
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
@@ -177,7 +176,6 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="file/:fileId" element={<FileDetailPage />} />
-            <Route path="protect/step1" element={<ProtectStep1 />} />
           </Route>
 
           {/* --- 受保護的管理員路由 (僅限管理員訪問) --- */}
