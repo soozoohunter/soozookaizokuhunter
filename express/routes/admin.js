@@ -6,35 +6,44 @@ const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User, SubscriptionPlan, UserSubscription, File, Scan } = require('../models');
 const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
+const logger = require('../utils/logger');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'SomeSuperSecretKey';
+const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 
 // 管理員登入 API
 router.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(400).json({ error: '缺少帳號或密碼' });
-        }
+    const { identifier, password } = req.body;
 
+    if (!identifier || !password) {
+        return res.status(400).json({ message: '缺少帳號或密碼' });
+    }
+
+    try {
         const user = await User.findOne({
             where: {
-                [Op.or]: [{ email: username }, { phone: username }],
-                role: 'admin' // 直接在查詢時就限定必須是 admin
+                [Op.or]: [
+                    { email: identifier },
+                    { phone: identifier }
+                ],
+                role: 'admin'
             }
         });
 
         if (!user || !(await bcrypt.compare(password, user.password))) {
-            return res.status(401).json({ error: '帳號或密碼錯誤，或非管理員帳號' });
+            return res.status(401).json({ message: '帳號或密碼錯誤，或非管理員帳號' });
         }
 
-        const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, {
-            expiresIn: '8h' // 管理員 token 效期 8 小時
-        });
-        return res.json({ message: 'Admin 登入成功', token });
+        const token = jwt.sign(
+            { id: user.id, role: user.role, email: user.email },
+            JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+
+        res.json({ message: 'Admin 登入成功', token });
+
     } catch (err) {
-        console.error('[AdminLogin Error]', err);
-        return res.status(500).json({ error: '登入過程發生錯誤' });
+        logger.error('[AdminLogin Error]', err);
+        res.status(500).json({ message: '登入過程發生錯誤' });
     }
 });
 
