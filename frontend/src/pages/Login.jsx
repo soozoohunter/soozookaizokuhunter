@@ -1,4 +1,4 @@
-// frontend/src/pages/Login.jsx (最終修正版)
+// frontend/src/pages/Login.jsx (最終版)
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
@@ -6,54 +6,47 @@ import apiClient from '../utils/apiClient';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
-  min-height: calc(100vh - 140px); // 減去 header 和 footer 的大致高度
+  min-height: calc(100vh - 140px);
   display: flex;
   align-items: center;
   justify-content: center;
 `;
-
 const FormContainer = styled.div`
   background-color: #1e1e1e;
   padding: 2rem 2.5rem;
   border-radius: 8px;
   width: 100%;
   max-width: 420px;
-  border: 1px solid #f97316;
+  border: 1px solid #F97316;
   color: #ffffff;
   box-shadow: 0 0 25px rgba(249, 115, 22, 0.2);
 `;
-
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #ffd700;
+  color: #FFD700;
 `;
-
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
 `;
-
 const StyledLabel = styled.label`
   margin-bottom: 0.5rem;
 `;
-
 const StyledInput = styled.input`
   padding: 0.75rem;
   margin-bottom: 1rem;
   border-radius: 4px;
-  border: 1px solid #4b5563;
+  border: 1px solid #4B5563;
   background-color: #374151;
-  color: #ffffff;
+  color: #FFFFFF;
   font-size: 1rem;
 `;
-
 const ErrorMsg = styled.p`
-  color: #f87171;
+  color: #F87171;
   text-align: center;
   margin-bottom: 1rem;
 `;
-
 const SubmitButton = styled.button`
   padding: 0.75rem;
   background-color: #f97316;
@@ -67,7 +60,6 @@ const SubmitButton = styled.button`
     background-color: #ea580c;
   }
 `;
-
 const SwitchPrompt = styled.p`
   margin-top: 1.5rem;
   font-size: 0.9rem;
@@ -88,23 +80,18 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-
     try {
-      // [FIX] 確保發送給後端的請求主體中，欄位名稱為 'identifier'
       const payload = {
         identifier: identifier.trim(),
         password: password,
       };
-
       const response = await apiClient.post('/api/auth/login', payload);
-
       login(response.data.token);
       alert(response.data.message || '登入成功');
       navigate('/dashboard');
     } catch (err) {
       const message = err.response?.data?.message || '伺服器登入時發生錯誤。';
       setErrorMsg(message);
-      console.error(err);
     }
   };
 
