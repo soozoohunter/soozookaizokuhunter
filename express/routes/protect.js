@@ -27,7 +27,6 @@ const MAX_BATCH_UPLOAD = 20;
 // [核心] 抽取出的、可重用的單一檔案處理函式
 const handleFileUpload = async (file, userId, body) => {
     const { path: tempPath, mimetype } = file;
-    // 修正中文等檔名亂碼問題
     const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const { title, keywords } = body;
     
@@ -39,12 +38,11 @@ const handleFileUpload = async (file, userId, body) => {
         throw { status: 409, message: '此圖片先前已被保護。', file: existingFile };
     }
 
-    // 產生縮圖
     const thumbnailFilename = `${fingerprint}_thumb.jpg`;
     const thumbnailPath = path.join(THUMBNAIL_DIR, thumbnailFilename);
     await sharp(fileBuffer).resize(300, 300, { fit: 'inside' }).jpeg({ quality: 80 }).toFile(thumbnailPath);
 
-    // [FIX] 將並行操作改為依序操作，確保先取得 ipfsHash
+    // [FIX] 將並行操作改為依序 await，確保先取得 ipfsHash
     const ipfsHash = await ipfsService.saveFile(fileBuffer);
     if (!ipfsHash) {
         throw new Error('Failed to save file to IPFS.');
@@ -65,10 +63,8 @@ const handleFileUpload = async (file, userId, body) => {
         thumbnail_path: `/uploads/thumbnails/${thumbnailFilename}`
     });
 
-    // 記錄用量
     await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' });
     
-    // 自動派發初次掃描任務
     const newScan = await Scan.create({ file_id: newFile.id, status: 'pending' });
     await UsageRecord.create({ user_id: userId, feature_code: 'scan' });
     
@@ -83,21 +79,6 @@ const handleFileUpload = async (file, userId, body) => {
     logger.info(`[File Upload] Protected and dispatched scan task ${newScan.id} for file ${newFile.id}`);
     return newFile;
 };
-
-// 單一檔案上傳路由
-router.post('/step1', auth, checkQuota('image_upload'), upload.single('file'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: '未提供檔案。' });
-
-    try {
-        const newFile = await handleFileUpload(req.file, req.user.id, req.body);
-        res.status(201).json({ message: '檔案保護成功！', file: newFile });
-    } catch (error) {
-        logger.error('[Step 1] Error:', error);
-        res.status(error.status || 500).json({ message: error.message, file: error.file });
-    } finally {
-        if (req.file) fs.unlink(req.file.path, () => {});
-    }
-});
 
 // 批量上傳路由
 router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
@@ -121,7 +102,6 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
     }
     res.status(207).json({ message: '批量保護任務已完成。', results });
 });
-
 
 // 手動觸發掃描的路由
 async function dispatchScanTask(req, res) {
