@@ -17,7 +17,7 @@ async function loginExpress(retries = 5, delay = 5000) {
     try {
       // 將原本 "http://express:3000" 改為 "http://suzoo_express:3000"
       const response = await axios.post('http://suzoo_express:3000/api/auth/login', {
-        username: EXPRESS_LOGIN_USER,
+        identifier: EXPRESS_LOGIN_USER,
         password: EXPRESS_LOGIN_PASS
       });
       return response.data.token;
