@@ -1,4 +1,4 @@
-// express/routes/authRoutes.js (最終修正版)
+// express/routes/authRoutes.js (最終版)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -7,11 +7,11 @@ const { Op } = require('sequelize');
 const { User, SubscriptionPlan, UserSubscription } = require('../models');
 const logger = require('../utils/logger');
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 
-// POST /api/auth/register (註冊邏輯)
+// POST /api/auth/register
 router.post('/register', async (req, res) => {
-    const { email, password, username, realName, phone } = req.body;
+    const { email, password, phone } = req.body;
 
     if (!email || !password || !phone) {
         return res.status(400).json({ message: 'Email、密碼和手機號碼為必填項。' });
@@ -30,12 +30,13 @@ router.post('/register', async (req, res) => {
         const freePlan = await SubscriptionPlan.findOne({ where: { plan_code: 'free_trial' } });
 
         if (!freePlan) {
-            logger.error('[Register] CRITICAL: free_trial plan not found. Cannot register new users.');
+            logger.error('[Register] CRITICAL: free_trial plan not found in database.');
             return res.status(500).json({ message: '伺服器設定錯誤：找不到預設方案。' });
         }
 
         const newUser = await User.create({
             ...req.body,
+            username: phone, // 使用手機作為預設 username
             password: hashedPassword,
             role: 'user',
             status: 'active',
@@ -45,7 +46,7 @@ router.post('/register', async (req, res) => {
         });
 
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
+        expiresAt.setDate(expiresAt.getDate() + 30); // 預設試用30天
 
         await UserSubscription.create({
             user_id: newUser.id,
@@ -55,16 +56,16 @@ router.post('/register', async (req, res) => {
             expires_at: expiresAt,
         });
         
+        logger.info(`[Register] New user registered successfully: ${newUser.email}`);
         res.status(201).json({ message: '註冊成功！請前往登入。' });
 
     } catch (error) {
-        logger.error('[Register] Error during registration:', error);
+        logger.error('[Register] Error:', { message: error.message, original: error.original?.message });
         res.status(500).json({ message: '伺服器註冊時發生錯誤。' });
     }
 });
 
-
-// POST /api/auth/login (登入邏輯)
+// POST /api/auth/login
 router.post('/login', async (req, res) => {
     const { identifier, password } = req.body;
     
