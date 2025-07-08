@@ -25,7 +25,7 @@ const USE_S3_UPLOAD = (process.env.USE_S3_UPLOAD === 'true');
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
 
 // 本地模式預設的 uploads/publicImages 路徑
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');
 const PUBLIC_IMAGES_DIR = path.join(UPLOAD_BASE_DIR, 'publicImages');
 
 // 建立本地目錄（若不存在）

@@ -6,7 +6,8 @@ const logger = require('../utils/logger');
 const { User, File } = require('../models');
 
 // --- 目錄設定 ---
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '../../uploads');
+// ensure path is resolved relative to /app
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
 const CERT_DIR = path.join(UPLOAD_BASE_DIR, 'certificates');
 
 // --- 啟動時檢查並建立目錄 ---
