@@ -81,6 +81,28 @@ const handleFileUpload = async (file, userId, body) => {
     return newFile;
 };
 
+// 單檔上傳 (Step1)
+router.post('/step1', auth, checkQuota('image_upload'), upload.single('file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: '未提供檔案。' });
+    }
+
+    try {
+        const newFile = await handleFileUpload(req.file, req.user.id, req.body);
+        res.status(201).json({ file: newFile });
+    } catch (error) {
+        if (error.status) {
+            return res.status(error.status).json({ error: error.message, file: error.file });
+        }
+        logger.error('[Protect Step1] Failed to process file:', error);
+        res.status(500).json({ error: 'Failed to process file.' });
+    } finally {
+        if (req.file && req.file.path) {
+            fs.unlink(req.file.path, () => {});
+        }
+    }
+});
+
 // 批量上傳路由
 router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
     if (!req.files || !req.files.length) {
@@ -102,6 +124,16 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
         }
     }
     res.status(207).json({ message: '批量保護任務已完成。', results });
+});
+
+// 單檔掃描 (Step2)
+router.post('/step2', auth, checkQuota('scan'), async (req, res) => {
+    const { fileId } = req.body;
+    if (!fileId) {
+        return res.status(400).json({ error: 'fileId is required.' });
+    }
+    req.params.fileId = fileId;
+    await dispatchScanTask(req, res);
 });
 
 // 手動觸發掃描的路由
