@@ -12,6 +12,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   const { token, logout } = useContext(AuthContext);
 
   if (!token) {
+    // 根據目標路由決定要跳轉到哪個登入頁
     const isAdminOnlyRoute = allowedRoles.includes('admin') && !allowedRoles.includes('user');
     const redirectPath = isAdminOnlyRoute ? '/admin/login' : '/login';
     return <Navigate to={redirectPath} replace />;
@@ -19,8 +20,8 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
 
   try {
     const decoded = jwt_decode(token);
+    // 如果路由有權限限制，且使用者的角色不在允許清單內，則導向首頁
     if (allowedRoles.length > 0 && !allowedRoles.includes(decoded.role)) {
-      // 權限不符，可以導向首頁或是一個「禁止存取」的頁面
       return <Navigate to="/" replace />;
     }
   } catch (err) {
@@ -30,5 +31,6 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     return <Navigate to="/login" replace />;
   }
 
+  // 驗證通過，渲染子路由
   return <Outlet />;
 }
