@@ -1,89 +1,15 @@
-// frontend/src/pages/AdminLogin.jsx
-import React, { useState } from 'react';
+// frontend/src/pages/AdminLogin.jsx (最終版)
+import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../AuthContext';
 import apiClient from '../utils/apiClient';
+import styled from 'styled-components';
 
-export default function AdminLogin() {
-  // 預設空值或測試帳號都可
-  const [identifier, setIdentifier] = useState('zacyao1005');
-  const [password, setPassword] = useState('Zack967988');
-  const [error, setError] = useState('');
-
-  // 點擊登入
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError(''); // 先清除錯誤
-
-    // 基本檢查：帳號+密碼不可空
-    if (!identifier.trim() || !password.trim()) {
-      setError('請輸入帳號與密碼');
-      return;
-    }
-
-    try {
-      // 送到後端 /api/admin/login
-      const res = await apiClient.post('/api/admin/login', {
-        identifier: identifier.trim(),
-        password,
-      });
-
-      // 解析回傳結果
-      const { token } = res.data || {};
-      if (!token) {
-        throw new Error('登入回傳資訊不完整(缺少 token)');
-      }
-
-      // 寫入 localStorage，以後要帶 Token
-      localStorage.setItem('token', token);
-
-      // 前往後台首頁（ex: /admin 或 /admin/dashboard）
-      window.location.href = '/admin';
-    } catch (err) {
-      const message = err.response?.data?.error || err.message || '登入失敗，請稍後再試';
-      setError(message);
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <div style={styles.loginBox}>
-        <h2 style={styles.title}>Admin Login 管理員登入</h2>
-
-        {error && <p style={styles.errorMsg}>{error}</p>}
-
-        <form onSubmit={handleLogin} style={styles.form}>
-          <label style={styles.label}>帳號 (Username 或 Email)</label>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="e.g. admin"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-          />
-
-          <label style={styles.label}>密碼 / Password</label>
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          <button type="submit" style={styles.loginBtn}>
-            登入 / Login
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/** ========== STYLE ========== */
 const styles = {
   container: {
     backgroundColor: '#0a0f17',
     color: '#f5faff',
-    minHeight: '100vh',
+    minHeight: 'calc(100vh - 140px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -105,7 +31,7 @@ const styles = {
     color: '#FFD700',
   },
   errorMsg: {
-    color: 'red',
+    color: '#F87171',
     marginBottom: '1rem',
   },
   form: {
@@ -119,9 +45,9 @@ const styles = {
     color: '#ffa500',
   },
   input: {
-    padding: '0.5rem',
+    padding: '0.75rem',
     marginBottom: '1rem',
-    fontSize: '0.95rem',
+    fontSize: '1rem',
     backgroundColor: '#2c2c2c',
     border: '1px solid #444',
     borderRadius: '4px',
@@ -132,9 +58,72 @@ const styles = {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: '1rem',
-    padding: '0.6rem 1.2rem',
+    padding: '0.75rem 1.2rem',
     border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
   },
 };
+
+
+export default function AdminLogin() {
+  const navigate = useNavigate();
+  const { login } = useContext(AuthContext);
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!identifier.trim() || !password.trim()) {
+      setError('請輸入帳號與密碼');
+      return;
+    }
+
+    try {
+      const response = await apiClient.post('/api/admin/login', {
+        identifier: identifier.trim(),
+        password,
+      });
+      login(response.data.token);
+      alert(response.data.message || 'Admin 登入成功');
+      navigate('/admin/dashboard');
+    } catch (err) {
+      const message = err.response?.data?.message || '登入失敗，請檢查帳號密碼或權限。';
+      setError(message);
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.loginBox}>
+        <h2 style={styles.title}>Admin Login 管理員登入</h2>
+        {error && <p style={styles.errorMsg}>{error}</p>}
+        <form onSubmit={handleLogin} style={styles.form}>
+          <label style={styles.label}>帳號 (手機號碼 或 Email)</label>
+          <input
+            style={styles.input}
+            type="text"
+            placeholder="e.g. admin@example.com"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+          />
+          <label style={styles.label}>密碼 / Password</label>
+          <input
+            style={styles.input}
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button type="submit" style={styles.loginBtn}>
+            登入 / Login
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
