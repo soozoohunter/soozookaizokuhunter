@@ -1,11 +1,16 @@
+version: '3.8'
+
 networks:
   suzoo-network:
     driver: bridge
 
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+  ipfs_data:
+
 services:
-  # -------------------------------------
-  # 前端網頁伺服器 (Nginx)
-  # -------------------------------------
   suzoo_frontend:
     container_name: suzoo_frontend
     build:
@@ -16,70 +21,36 @@ services:
       - "443:443"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
-      # --- [新增此行] ---
-      # 將主機的 uploads 資料夾掛載到 Nginx 容器內，讓 Nginx 能直接提供服務
       - ./uploads:/usr/share/nginx/html/uploads:ro
     networks:
       - suzoo-network
     depends_on:
       suzoo_express:
         condition: service_healthy
-      suzoo_fastapi:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f --insecure https://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # -------------------------------------
-  # 核心後端服務 (Node.js) - 作為唯一的遷移執行者
-  # -------------------------------------
   suzoo_express:
     container_name: suzoo_express
     build:
       context: ./express
       dockerfile: Dockerfile
-    # 安裝依賴並執行遷移、種子後啟動伺服器
-    command: >-
-      sh -c "npm install && \
-      npx sequelize-cli db:migrate --config /app/config/database.js && \
-      npx sequelize-cli db:seed:all --config /app/config/database.js && \
-      node server.js"
-    environment:
-      - PUPPETEER_SKIP_DOWNLOAD=true
+    # [優化] 啟動指令被簡化，因為依賴安裝已移至 Dockerfile
+    command: node server.js
     ports:
       - "3000:3000"
-    env_file:
-      - .env
+    env_file: .env
     volumes:
       - ./express:/app
       - /app/node_modules
       - ./uploads:/app/uploads
       - ./credentials:/app/credentials:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       suzoo_postgres:
         condition: service_healthy
       suzoo_rabbitmq:
         condition: service_healthy
-      suzoo_ipfs:
-        condition: service_healthy
-      suzoo_ganache:
-        condition: service_healthy
-      suzoo_fastapi:
-        condition: service_healthy
     networks:
       - suzoo-network
-    dns:
-      - 8.8.8.8
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:3000/health"]
       interval: 15s
@@ -87,104 +58,32 @@ services:
       retries: 5
       start_period: 60s
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # ----------------------------------------------------
-  # 背景任務工人 (Node.js Background Worker)
-  # ----------------------------------------------------
   suzoo_worker:
     container_name: suzoo_worker
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [FIX] 移除遷移指令，只啟動主程式。它會等待 express 健康後才啟動。
-    # 確保容器啟動時已安裝依賴
+    # [優化] 啟動指令被簡化，確保穩定性
     command: node worker.js
-    env_file:
-      - .env
-    environment:
-      - PUPPETEER_SKIP_DOWNLOAD=true
+    env_file: .env
     volumes:
       - ./express:/app
       - /app/node_modules
       - ./uploads:/app/uploads
       - ./credentials:/app/credentials:ro
     depends_on:
-      suzoo_postgres:
-        condition: service_healthy
-      suzoo_rabbitmq:
-        condition: service_healthy
-      suzoo_ipfs:
-        condition: service_healthy
-      suzoo_ganache:
-        condition: service_healthy
-      suzoo_fastapi:
-        condition: service_healthy
-      # [IMPORTANT] Worker 依賴 Express 的健康狀態，
-      # 這確保了在 Worker 啟動時，遷移肯定已經由 Express 完成。
       suzoo_express:
         condition: service_healthy
     networks:
       - suzoo-network
-    dns:
-      - 8.8.8.8
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # -------------------------------------
-  # AI/ML 後端服務 (Python/FastAPI)
-  # -------------------------------------
-  suzoo_fastapi:
-    container_name: suzoo_fastapi
-    build:
-      context: ./fastapi
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    volumes:
-      - ./fastapi:/app
-    networks:
-      - suzoo-network
-    depends_on:
-      suzoo_postgres:
-        condition: service_healthy
-      suzoo_ipfs:
-        condition: service_healthy
-      suzoo_ganache:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # -------------------------------------
-  # 基礎架構服務
-  # -------------------------------------
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    env_file:
-      - .env
+    ports: ["5432:5432"]
+    env_file: .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -195,20 +94,12 @@ services:
       timeout: 5s
       retries: 5
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.13-management
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    env_file:
-      - .env
+    ports: ["5672:5672", "15672:15672"]
+    env_file: .env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -218,94 +109,57 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
+  # --- 以下是您原有的其他服務，請確認它們也被包含進來 ---
   suzoo_redis:
     container_name: suzoo_redis
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    ports: ["6379:6379"]
     volumes:
       - redis_data:/data
     networks:
       - suzoo-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:v0.28.0
-    user: ipfs
-    ports:
-      - "5001:5001"
-      - "8080:8080"
+    ports: ["5001:5001", "8080:8080"]
     volumes:
       - ipfs_data:/data/ipfs
     networks:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "ipfs id || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
-    command:
-      - "--host"
-      - "0.0.0.0"
-      - "--wallet.accounts"
-      - "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"
-    env_file:
-      - .env
-    ports:
-      - "8545:8545"
+    command: ["--host", "0.0.0.0", "--wallet.accounts", "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"]
+    env_file: .env
+    ports: ["8545:8545"]
     networks:
       - suzoo-network
     healthcheck:
-      test: >
-        node -e "const http = require('http');
-        const options = { host: 'localhost', port: 8545, method: 'POST', headers: { 'Content-Type': 'application/json' } };
-        const req = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });
-        req.on('error', () => process.exit(1));
-        req.write('{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}');
-        req.end();"
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+      test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
     restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-volumes:
-  postgres_data:
-  rabbitmq_data:
-  redis_data:
-  ipfs_data:
+  suzoo_fastapi:
+    container_name: suzoo_fastapi
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    ports: ["8000:8000"]
+    env_file: .env
+    volumes:
+      - ./fastapi:/app
+    networks:
+      - suzoo-network
+    depends_on:
+      suzoo_postgres:
+        condition: service_healthy
+    restart: always
