@@ -1,3 +1,6 @@
+# docker-compose.yml (最終黃金版 - 包含所有服務)
+version: '3.8'
+
 networks:
   suzoo-network:
     driver: bridge
@@ -9,6 +12,7 @@ volumes:
   ipfs_data:
 
 services:
+  # 1. 前端網頁伺服器 (Nginx)
   suzoo_frontend:
     container_name: suzoo_frontend
     build:
@@ -25,14 +29,20 @@ services:
     depends_on:
       suzoo_express:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: always
 
+  # 2. 核心後端服務 (Node.js)
   suzoo_express:
     container_name: suzoo_express
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [優化] 啟動指令被簡化，因為依賴安裝已移至 Dockerfile
     command: node server.js
     ports:
       - "3000:3000"
@@ -57,12 +67,12 @@ services:
       start_period: 60s
     restart: always
 
+  # 3. 背景任務工人 (Node.js Worker)
   suzoo_worker:
     container_name: suzoo_worker
     build:
       context: ./express
       dockerfile: Dockerfile
-    # [優化] 啟動指令被簡化，確保穩定性
     command: node worker.js
     env_file: .env
     volumes:
@@ -77,6 +87,7 @@ services:
       - suzoo-network
     restart: always
 
+  # 4. 資料庫 (PostgreSQL)
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -93,6 +104,7 @@ services:
       retries: 5
     restart: always
 
+  # 5. 訊息佇列 (RabbitMQ)
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.13-management
@@ -109,7 +121,7 @@ services:
       retries: 3
     restart: always
 
-  # --- 以下是您原有的其他服務，請確認它們也被包含進來 ---
+  # 6. 快取資料庫 (Redis)
   suzoo_redis:
     container_name: suzoo_redis
     image: redis:7-alpine
@@ -120,8 +132,12 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: always
 
+  # 7. 星際檔案系統 (IPFS)
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:v0.28.0
@@ -132,8 +148,12 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "ipfs id || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
 
+  # 8. 本地區塊鏈 (Ganache)
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
@@ -144,8 +164,12 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: always
 
+  # 9. AI/ML 後端服務 (Python/FastAPI)
   suzoo_fastapi:
     container_name: suzoo_fastapi
     build:
@@ -160,4 +184,9 @@ services:
     depends_on:
       suzoo_postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
