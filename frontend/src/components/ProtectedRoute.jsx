@@ -1,7 +1,7 @@
 // frontend/src/components/ProtectedRoute.jsx (最終版)
 import React, { useContext } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
+import jwtDecode from 'jwt-decode';
 import { AuthContext } from '../AuthContext';
 
 /**

@@ -1,7 +1,7 @@
 // frontend/src/App.js (最終版)
 import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
+import jwtDecode from 'jwt-decode';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthContext } from './AuthContext';
 import { setupResponseInterceptor } from './utils/apiClient';
