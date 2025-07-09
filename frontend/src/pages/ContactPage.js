@@ -1,4 +1,4 @@
-// frontend/src/pages/ContactUsPage.js
+// frontend/src/pages/ContactPage.js
 import React, { useState } from 'react';
 
 export default function ContactUsPage() {
