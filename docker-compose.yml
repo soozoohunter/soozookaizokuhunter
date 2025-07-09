@@ -1,4 +1,4 @@
-# docker-compose.yml (最終黃金版 - 包含所有服務)
+# docker-compose.yml (最終生產版)
 version: '3.8'
 
 networks:
@@ -12,7 +12,6 @@ volumes:
   ipfs_data:
 
 services:
-  # 1. 前端網頁伺服器 (Nginx)
   suzoo_frontend:
     container_name: suzoo_frontend
     build:
@@ -37,7 +36,6 @@ services:
       start_period: 30s
     restart: always
 
-  # 2. 核心後端服務 (Node.js)
   suzoo_express:
     container_name: suzoo_express
     build:
@@ -67,7 +65,6 @@ services:
       start_period: 60s
     restart: always
 
-  # 3. 背景任務工人 (Node.js Worker)
   suzoo_worker:
     container_name: suzoo_worker
     build:
@@ -87,7 +84,7 @@ services:
       - suzoo-network
     restart: always
 
-  # 4. 資料庫 (PostgreSQL)
+  # --- 其他服務 ---
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
@@ -99,12 +96,8 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: always
 
-  # 5. 訊息佇列 (RabbitMQ)
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.13-management
@@ -116,12 +109,8 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "status"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     restart: always
 
-  # 6. 快取資料庫 (Redis)
   suzoo_redis:
     container_name: suzoo_redis
     image: redis:7-alpine
@@ -132,12 +121,8 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
     restart: always
 
-  # 7. 星際檔案系統 (IPFS)
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:v0.28.0
@@ -148,12 +133,8 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "ipfs id || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: always
 
-  # 8. 本地區塊鏈 (Ganache)
   suzoo_ganache:
     container_name: suzoo_ganache
     image: trufflesuite/ganache:latest
@@ -164,12 +145,8 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
     restart: always
 
-  # 9. AI/ML 後端服務 (Python/FastAPI)
   suzoo_fastapi:
     container_name: suzoo_fastapi
     build:
@@ -186,7 +163,4 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: always
