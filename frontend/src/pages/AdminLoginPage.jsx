@@ -1,4 +1,4 @@
-// frontend/src/pages/AdminLogin.jsx (最終版)
+// frontend/src/pages/AdminLoginPage.jsx (最終版)
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';

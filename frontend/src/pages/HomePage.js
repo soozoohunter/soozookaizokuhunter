@@ -1,4 +1,4 @@
-// frontend/src/pages/Home.js
+// frontend/src/pages/HomePage.js
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
