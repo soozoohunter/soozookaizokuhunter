@@ -40,7 +40,7 @@ router.post(
       //    假設此檔案位於: express/routes/uploadRoutes.js
       //    跳兩層回到專案根，再進到 uploads/
       //    => /app/uploads
-      const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
+      const uploadsDir = path.resolve(__dirname, '..', 'uploads');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
