@@ -5,7 +5,7 @@ const { convertAndUpload: baseConvertAndUpload } = require('../utils/convertAndU
 // Default to localhost for development if PUBLIC_HOST not specified
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'http://localhost:3000';
 // Resolve to project-level uploads directory
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
+const UPLOAD_BASE_DIR = '/app/uploads';
 const PUBLIC_IMAGES_DIR = path.join(UPLOAD_BASE_DIR, 'publicImages');
 
 function createPublicImageLink(fileId) {

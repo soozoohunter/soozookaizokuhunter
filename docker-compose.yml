@@ -100,7 +100,7 @@ services:
       dockerfile: Dockerfile
     # [FIX] 移除遷移指令，只啟動主程式。它會等待 express 健康後才啟動。
     # 確保容器啟動時已安裝依賴
-    command: sh -c "npm install && node worker.js"
+    command: node worker.js
     env_file:
       - .env
     environment:
