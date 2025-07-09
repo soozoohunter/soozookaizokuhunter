@@ -12,7 +12,7 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', '..', 'uploads');
+const UPLOAD_BASE_DIR = path.resolve(__dirname, '..', 'uploads');
 
 /**
  * 將總秒數格式化為 HH:MM:SS.mmm 格式
