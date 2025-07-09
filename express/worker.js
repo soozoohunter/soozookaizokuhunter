@@ -1,24 +1,28 @@
-// express/worker.js (最終生產版)
+// express/worker.js (終極偵錯版 - 完整程式碼)
+console.log('[Worker-Tracer] File start. Loading dotenv...');
 require('dotenv').config();
+console.log('[Worker-Tracer] dotenv loaded.');
 
-// 全域錯誤捕獲
+// 全域錯誤捕獲，強迫任何未處理的錯誤現形
 process.on('uncaughtException', (err, origin) => {
-    console.error(`[Worker] FATAL: Uncaught Exception. Origin: ${origin}, Error:`, err);
+    console.error(`[Worker-Tracer] FATAL: Uncaught Exception. Origin: ${origin}, Error:`, err);
     process.exit(1);
 });
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[Worker] FATAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('[Worker-Tracer] FATAL: Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
 });
 
+console.log('[Worker-Tracer] Loading modules...');
 const http = require('http');
 const express = require('express');
 const db = require('./models');
-const logger = require('../utils/logger');
+const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
 const scannerService = require('./services/scanner.service');
 const ipfsService = require('./services/ipfsService');
 const { initSocket, getIO } = require('./socket');
+console.log('[Worker-Tracer] All modules loaded.');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +30,10 @@ initSocket(server);
 
 const WORKER_PORT = process.env.WORKER_PORT || 3001;
 
+/**
+ * 處理單一掃描任務的完整函式
+ * @param {object} task - 從 RabbitMQ 接收的任務物件
+ */
 async function processScanTask(task) {
     const { taskId, fileId, userId } = task;
     const io = getIO();
@@ -40,11 +48,15 @@ async function processScanTask(task) {
         emitStatus('processing', '掃描任務已開始...');
 
         const fileRecord = await db.File.findByPk(fileId);
-        if (!fileRecord) throw new Error(`File record ${fileId} not found for task ${taskId}.`);
+        if (!fileRecord) {
+            throw new Error(`File record ${fileId} not found for task ${taskId}.`);
+        }
 
         emitStatus('processing', '正在從 IPFS 獲取檔案...');
         const imageBuffer = await ipfsService.getFile(fileRecord.ipfs_hash);
-        if (!imageBuffer) throw new Error(`Failed to get file from IPFS with hash ${fileRecord.ipfs_hash}.`);
+        if (!imageBuffer) {
+            throw new Error(`Failed to get file from IPFS with hash ${fileRecord.ipfs_hash}.`);
+        }
         
         emitStatus('processing', '正在執行全網路反向圖搜...');
         const scanResult = await scannerService.scanByImage(imageBuffer, { fingerprint: fileRecord.fingerprint });
@@ -71,27 +83,29 @@ async function processScanTask(task) {
     }
 }
 
-async function start() {
+// 使用 IIFE (立即調用函式表達式) 來啟動，並在每一步都加上追蹤日誌
+(async () => {
     try {
-        logger.info('[Worker] Service starting...');
+        logger.info('[Worker-Tracer] Startup sequence initiated.');
+
         await db.sequelize.authenticate();
-        logger.info('[Worker] Database connection verified.');
+        logger.info('[Worker-Tracer] >>> STEP 1/4: Database connection verified.');
         
         ipfsService.init();
-        logger.info('[Worker] IPFS client initialized.');
+        logger.info('[Worker-Tracer] >>> STEP 2/4: IPFS client initialized.');
 
         await queueService.connect();
+        logger.info('[Worker-Tracer] >>> STEP 3/4: RabbitMQ connected.');
+        
         await queueService.consumeTasks(processScanTask);
-        logger.info('[Worker] Now consuming tasks from queue.');
+        logger.info('[Worker-Tracer] >>> STEP 4/4: Task consumer is ready.');
 
         server.listen(WORKER_PORT, () => {
-            logger.info(`[Worker] Service is fully operational. Listening on port ${WORKER_PORT}.`);
+            logger.info(`[Worker-Tracer] FINAL: Service is fully operational on port ${WORKER_PORT}.`);
         });
 
     } catch (error) {
-        logger.error('[Worker] Fatal startup error:', error);
+        logger.error('[Worker-Tracer] FATAL STARTUP ERROR:', error);
         process.exit(1);
     }
-}
-
-start();
+})();
