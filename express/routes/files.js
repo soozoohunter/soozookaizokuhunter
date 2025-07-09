@@ -26,7 +26,8 @@ router.get('/:id', auth, async (req, res) => {
 
         const fileData = file.toJSON();
         if (fileData.thumbnail_path) {
-            fileData.thumbnailUrl = `${process.env.PUBLIC_HOST}${file.thumbnail_path}`;
+            const baseUrl = process.env.PUBLIC_HOST || req.protocol + '://' + req.get('host');
+            fileData.thumbnailUrl = `${baseUrl}${file.thumbnail_path}`;
         }
 
         res.json(fileData);

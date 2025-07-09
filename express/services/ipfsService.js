@@ -34,8 +34,19 @@ class IpfsService {
     }
     try {
       logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
-      const { cid } = await this.client.add(buffer);
-      const cidStr = cid.toString();
+      const result = await this.client.add(buffer);
+      logger.debug(`[ipfsService.saveFile] raw add result: ${JSON.stringify(result)}`);
+      let cidStr = '';
+      if (result.cid) {
+        cidStr = result.cid.toString ? result.cid.toString() : String(result.cid);
+      } else if (result.Hash) {
+        cidStr = result.Hash;
+      } else if (result.path) {
+        cidStr = result.path;
+      }
+      if (!cidStr) {
+        throw new Error('IPFS add returned empty CID');
+      }
       logger.info(`[ipfsService.saveFile] => CID=${cidStr}`);
       return cidStr;
     } catch (error) {
