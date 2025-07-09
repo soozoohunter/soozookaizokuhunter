@@ -16,6 +16,9 @@ services:
       - "443:443"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      # --- [新增此行] ---
+      # 將主機的 uploads 資料夾掛載到 Nginx 容器內，讓 Nginx 能直接提供服務
+      - ./uploads:/usr/share/nginx/html/uploads:ro
     networks:
       - suzoo-network
     depends_on:
