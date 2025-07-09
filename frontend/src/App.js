@@ -1,7 +1,7 @@
 // frontend/src/App.js (最終版)
 import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet } from 'react-router-dom';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthContext } from './AuthContext';
 import { setupResponseInterceptor } from './utils/apiClient';
@@ -114,7 +114,7 @@ function RootLayout() {
   let userRole = '';
   if (token) {
     try {
-      const decoded = jwt_decode(token);
+      const decoded = jwtDecode(token);
       userRole = decoded.role || '';
     } catch (e) {
       console.error('Invalid token decode', e);

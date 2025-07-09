@@ -1,7 +1,7 @@
 // frontend/src/components/ProtectedRoute.jsx (最終版)
 import React, { useContext } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import jwt_decode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import { AuthContext } from '../AuthContext';
 
 /**
@@ -19,7 +19,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   }
 
   try {
-    const decoded = jwt_decode(token);
+    const decoded = jwtDecode(token);
     // 如果路由有權限限制，且使用者的角色不在允許清單內，則導向首頁
     if (allowedRoles.length > 0 && !allowedRoles.includes(decoded.role)) {
       return <Navigate to="/" replace />;
