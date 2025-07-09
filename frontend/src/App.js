@@ -1,35 +1,44 @@
-// frontend/src/App.js (最終版)
+// frontend/src/App.js (最終黃金版)
 import React, { useContext, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Outlet, useNavigate } from 'react-router-dom';
 import jwtDecode from 'jwt-decode';
 import styled, { createGlobalStyle } from 'styled-components';
-import { AuthContext } from './AuthContext';
+import { AuthProvider, AuthContext } from './AuthContext';
 import { setupResponseInterceptor } from './utils/apiClient';
 
 // --- Pages ---
-import HomePage from './pages/Home';
-import PricingPage from './pages/PricingPage';
-import ContactPage from './pages/Contact';
-import LoginPage from './pages/Login';
-import RegisterPage from './pages/Register';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import FileDetailPage from './pages/FileDetailPage';
-import AdminLogin from './pages/AdminLogin';
+import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import PricingPage from './pages/PricingPage';
+import ContactPage from './pages/ContactPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
 
-const GlobalStyle = styled.div`
-  font-family: 'Inter', 'Roboto', sans-serif;
-  background-color: #111827;
-  color: #E5E7EB;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+// --- 全域樣式 ---
+const GlobalStyle = createGlobalStyle`
+  body {
+    margin: 0;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    background-color: #111827;
+    color: #E5E7EB;
+  }
 `;
 
+const AppWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+`;
+
+// --- 佈局元件 (Layout Components) ---
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -54,6 +63,9 @@ const BrandLink = styled(Link)`
   align-items: center;
   text-decoration: none;
   color: #F3F4F6;
+  gap: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: bold;
 `;
 
 const NavLink = styled(Link)`
@@ -71,23 +83,11 @@ const NavLink = styled(Link)`
   }
 `;
 
-const LogoutButton = styled.button`
-  color: #D1D5DB;
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 500;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  transition: color 0.2s ease, background-color 0.2s ease;
+const LogoutButton = styled(NavLink).attrs({ as: 'button' })`
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
-
-  &:hover {
-    color: #FFFFFF;
-    background-color: #374151;
-  }
 `;
 
 const MainContent = styled.main`
@@ -104,87 +104,91 @@ const Footer = styled.footer`
   color: #9CA3AF;
 `;
 
+// --- 主佈局 (Root Layout) ---
 function RootLayout() {
-  const { token, logout } = useContext(AuthContext);
-  
-  useEffect(() => {
-    setupResponseInterceptor(logout);
-  }, [logout]);
+  const { token, user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-  let userRole = '';
-  if (token) {
-    try {
-      const decoded = jwtDecode(token);
-      userRole = decoded.role || '';
-    } catch (e) {
-      console.error('Invalid token decode', e);
-      logout();
-    }
-  }
+  useEffect(() => {
+    // 設定 Axios 攔截器，在 token 失效時自動登出
+    setupResponseInterceptor(() => logout(navigate));
+  }, [logout, navigate]);
 
   return (
-    <GlobalStyle>
+    <AppWrapper>
       <Header>
         <NavSection>
-            <NavLink to="/pricing">Pricing</NavLink>
-            <NavLink to="/contact">Contact Us</NavLink>
+          <NavLink to="/pricing">Pricing</NavLink>
+          <NavLink to="/contact">Contact Us</NavLink>
         </NavSection>
         <BrandLink to="/">
-            <img src="/logo0.jpg" alt="Logo" style={{ height: '40px', marginRight: '0.75rem' }} />
-            <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>SUZOO IP Guard</span>
+          <img src="/logo0.jpg" alt="Logo" style={{ height: '40px' }} />
+          <span>SUZOO IP Guard</span>
         </BrandLink>
         <NavSection>
-            {!token ? (
-                <>
-                    <NavLink to="/register">Register</NavLink>
-                    <NavLink to="/login">Login</NavLink>
-                    <NavLink to="/admin/login">Admin</NavLink>
-                </>
-            ) : (
-                <>
-                    <NavLink to="/dashboard">Dashboard</NavLink>
-                    {userRole === 'admin' && (
-                        <NavLink to="/admin/dashboard">Admin Panel</NavLink>
-                    )}
-                    <LogoutButton onClick={logout}>Logout</LogoutButton>
-                </>
-            )}
+          {!token ? (
+            <>
+              <NavLink to="/register">Register</NavLink>
+              <NavLink to="/login">Login</NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink to="/dashboard">Dashboard</NavLink>
+              {user?.role === 'admin' && (
+                <NavLink to="/admin/dashboard">Admin Panel</NavLink>
+              )}
+              <LogoutButton onClick={() => logout(navigate)}>Logout</LogoutButton>
+            </>
+          )}
         </NavSection>
       </Header>
-      <MainContent><Outlet /></MainContent>
+      <MainContent>
+        <Outlet />
+      </MainContent>
       <Footer>
-          <div>為紀念我最深愛的 曾李素珠 阿嬤<br /><span style={{ fontSize: '0.8rem', opacity: 0.85 }}>In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br />by KaiKaiShield 凱盾</span></div>
+        <div>為紀念我最深愛的 曾李素珠 阿嬤<br /><span style={{ fontSize: '0.8rem', opacity: 0.85 }}>In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br />by KaiKaiShield 凱盾</span></div>
       </Footer>
-    </GlobalStyle>
+    </AppWrapper>
   );
 }
 
-export default function App() {
+// --- App 主元件 ---
+function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<RootLayout />}>
-          {/* --- 公開路由 --- */}
-          <Route index element={<HomePage />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="pricing" element={<PricingPage />} />
-          <Route path="contact" element={<ContactPage />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
+    <>
+      <GlobalStyle />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<RootLayout />}>
+              {/* 公開路由 */}
+              <Route index element={<HomePage />} />
+              <Route path="login" element={<LoginPage />} />
+              <Route path="register" element={<RegisterPage />} />
+              <Route path="pricing" element={<PricingPage />} />
+              <Route path="contact" element={<ContactPage />} />
+              <Route path="admin/login" element={<AdminLoginPage />} />
 
-          {/* --- 受保護的會員路由 (會員和管理員皆可訪問) --- */}
-          <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="file/:fileId" element={<FileDetailPage />} />
-          </Route>
+              {/* 受保護的會員路由 */}
+              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}> 
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="file/:fileId" element={<FileDetailPage />} />
+              </Route>
 
-          {/* --- 受保護的管理員路由 (僅限管理員訪問) --- */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-          </Route>
-        </Route>
-      </Routes>
-    </BrowserRouter>
+              {/* 受保護的管理員路由 */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}> 
+                <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="admin/users" element={<AdminUsersPage />} />
+              </Route>
+              
+              {/* 404 頁面 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </>
   );
 }
+
+export default App;
