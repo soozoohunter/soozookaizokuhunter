@@ -1,6 +1,5 @@
-# docker-compose.yml (最終生產版)
-version: '3.8'
-
+# docker-compose.yml (終極偵錯版)
+# 移除了 version: '3.8' 以消除警告
 networks:
   suzoo-network:
     driver: bridge
@@ -70,7 +69,11 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
-    command: node worker.js
+    # [終極偵錯] 這個指令會在 worker 腳本執行前後都打印日誌，並顯示結束代碼
+    command: >
+      sh -c "echo '[Worker-Launcher] Starting worker process...' &&
+             node worker.js &&
+             echo '[Worker-Launcher] Worker process exited with code $$?.'"
     env_file: .env
     volumes:
       - ./express:/app
@@ -84,7 +87,7 @@ services:
       - suzoo-network
     restart: always
 
-  # --- 其他服務 ---
+  # --- 其他服務 (保留您原有的 postgres, rabbitmq, redis, ipfs, ganache, fastapi) ---
   suzoo_postgres:
     container_name: suzoo_postgres
     image: postgres:15-alpine
