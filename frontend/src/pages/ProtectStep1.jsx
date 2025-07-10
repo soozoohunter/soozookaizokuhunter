@@ -1,13 +1,9 @@
-// frontend/src/pages/ProtectStep1.jsx (v2.0 - 穩健性修正版)
-// 描述:
-// 1. [核心修正] 在 handleSubmit 函式中，對 fetch 的回傳值進行嚴格的防禦性檢查，防止因後端回傳格式不符預期而導致的前端崩潰。
-// 2. 修正表單中 agreePolicy checkbox 的值未能正確傳遞的 bug。
-// 3. 改善 handleClearFile 函式，使其能真正清空檔案選擇器。
+// frontend/src/pages/ProtectStep1.jsx (v2.1 - 樣式與影片支援修正)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-/* === 動畫與樣式定義 (維持原樣) === */
+/* === 動畫與樣式定義 === */
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -121,6 +117,12 @@ const CheckboxRow = styled.div`
   align-items: center;
   color: #ffa500;
   margin-top: 0.5rem;
+
+  /* [樣式修正] 讓 label 自動填滿剩餘空間，避免文字過長時換行 */
+  label {
+    flex: 1;
+    margin-left: 0.5rem;
+  }
 `;
 const SubmitButton = styled.button`
   grid-column: 1 / 3;
@@ -159,7 +161,6 @@ const Spinner = styled.div`
   vertical-align: middle;
 `;
 
-
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
@@ -183,7 +184,6 @@ export default function ProtectStep1() {
 
   const handleClearFile = () => {
     setFile(null);
-    // 同時清空 input 的值，這樣使用者才能重新選擇同一個檔案
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
         fileInput.value = '';
@@ -215,7 +215,6 @@ export default function ProtectStep1() {
       formData.append('email', email);
       formData.append('title', title);
       formData.append('keywords', keywords);
-      // [修正] 確保傳遞正確的布林值字串
       formData.append('agreePolicy', String(agreePolicy));
       formData.append('enableProtection', String(enableProtection));
 
@@ -230,19 +229,15 @@ export default function ProtectStep1() {
         throw new Error(data.message || data.error || `上傳失敗，狀態碼: ${resp.status}`);
       }
       
-      // [核心修正] 進行防禦性檢查，確保後端回傳資料結構符合預期
       if (!data || !data.file || !data.file.id) {
         console.error('Server response OK, but data format is unexpected:', data);
         throw new Error('從伺服器收到的回應格式不正確，無法繼續。');
       }
 
-      // 將後端回傳的完整資料(包含 file 與 user)保存
       localStorage.setItem('protectStep1', JSON.stringify(data));
-      // 同時透過 state 傳遞給下一步，避免 localStorage 延遲問題
       navigate('/protect/step2', { state: { step1Data: data } });
 
     } catch (err) {
-      // 確保 err 是一個有 message 屬性的物件
       const errorMessage = (err instanceof Error) ? err.message : String(err);
       setError(errorMessage || '上傳失敗，請檢查網路連線或稍後再試');
     } finally {
@@ -364,7 +359,6 @@ export default function ProtectStep1() {
               id="agreePolicy"
               checked={agreePolicy}
               onChange={e => setAgreePolicy(e.target.checked)}
-              style={{ marginRight: '0.5rem' }}
             />
             <label htmlFor="agreePolicy">我已閱讀並同意隱私權政策與使用條款</label>
           </CheckboxRow>
@@ -375,7 +369,6 @@ export default function ProtectStep1() {
               id="enableProtection"
               checked={enableProtection}
               onChange={e => setEnableProtection(e.target.checked)}
-              style={{ marginRight: '0.5rem' }}
             />
             <label htmlFor="enableProtection">啟用防側錄 (對抗擾動 + 高頻閃爍)</label>
           </CheckboxRow>
