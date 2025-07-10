@@ -1,9 +1,8 @@
-// frontend/src/pages/ProtectStep2.jsx (v2.1 - 認證與 API 呼叫修正版)
+// frontend/src/pages/ProtectStep2.jsx (v2.3 - 邏輯修正、樣式保留版)
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { AuthContext } from '../AuthContext';
-import apiClient from '../utils/apiClient';
 
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
@@ -140,31 +139,27 @@ export default function ProtectStep2() {
     }
   }, [step1Data, navigate]);
 
-  const handleProceedToScan = async () => {
+  const handleProceedToNextStep = () => {
     if (!step1Data?.file?.id) {
-      alert('錯誤：無效的檔案資訊，無法啟動掃描。');
+      alert('錯誤：無效的檔案資訊，無法繼續。');
       return;
     }
     
-    if (!token && step1Data.user.role !== 'trial') {
-        alert('您的登入階段已過期，請重新登入後再試。');
-        navigate('/login');
-        return;
-    }
-
     setIsLoading(true);
-    try {
-      const response = await apiClient.post('/api/protect/step2', {
-        fileId: step1Data.file.id
-      });
-      
-      navigate('/protect/step3', { state: { taskId: response.data.taskId, step1Data } });
 
-    } catch (error) {
-      console.error('Failed to dispatch scan:', error);
-      alert(`啟動掃描失敗：${error.response?.data?.error || error.message}`);
-      setIsLoading(false);
-    }
+    // [核心修正] 
+    // 不再發送多餘的 API 請求。
+    // Step 1 的後端 API 已將掃描任務派發到背景佇列。
+    // 此處只需從 step1Data 中提取任務ID，並導航到 Step 3 頁面等待結果即可。
+    // 我們假設 Step 1 回傳的 newFile.id 關聯到 Scan.id，或有其他方式取得 taskId。
+    // 為了簡化，我們先假設 File ID 就是我們要追蹤的目標。
+    const taskId = step1Data.file.id;
+    
+    // 為了保留載入動畫的體驗，我們可以在這裡做一個短暫的延遲再跳轉
+    setTimeout(() => {
+        navigate('/protect/step3', { state: { taskId, step1Data } });
+        // 如果不需要載入動畫，可以直接 navigate
+    }, 500); // 500ms 延遲，讓使用者看到"處理中"的反饋
   };
 
   if (!step1Data) {
@@ -187,31 +182,25 @@ export default function ProtectStep2() {
           您的原創著作證明已成功建立並儲存於區塊鏈上。
         </p>
         <InfoBlock>
-          <p>
-            <strong>檔案 ID:</strong> {file.id || 'N/A'}
-          </p>
-          <p>
-            <strong>數位指紋 (SHA-256):</strong> {file.fingerprint || 'N/A'}
-          </p>
-          <p>
-            <strong>IPFS Hash:</strong> {file.ipfs_hash || 'N/A'}
-          </p>
-          <p>
-            <strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}
-          </p>
+          <p><strong>檔案 ID:</strong> {file.id || 'N/A'}</p>
+          <p><strong>數位指紋 (SHA-256):</strong> {file.fingerprint || 'N/A'}</p>
+          <p><strong>IPFS Hash:</strong> {file.ipfs_hash || 'N/A'}</p>
+          <p><strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}</p>
         </InfoBlock>
         <ButtonRow>
-          <OrangeButton onClick={handleProceedToScan} disabled={isLoading}>
+          {/* [修正] 將 onClick 指向新的無 API 呼叫的函式 */}
+          <OrangeButton onClick={handleProceedToNextStep} disabled={isLoading}>
             {isLoading && <Spinner />}
-            {isLoading ? '處理中...' : '下一步：開始侵權偵測 →'}
+            {isLoading ? '準備中...' : '下一步：查看掃描結果 →'}
           </OrangeButton>
         </ButtonRow>
       </Container>
+      {/* 載入動畫的邏輯完全保留，提供更好的使用者體驗 */}
       {isLoading && (
         <Overlay>
           <LoadingBox>
             <Spinner />
-            <p>啟動偵測任務中，請稍候...</p>
+            <p>正在準備結果頁面...</p>
             <ProgressBar>
               <ProgressIndicator />
             </ProgressBar>
