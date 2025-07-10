@@ -49,6 +49,7 @@ const scanByImage = async (imageBuffer, options = {}) => {
     processResult(results[promiseIndex++], 'Google Vision');
     processResult(results[promiseIndex++], 'TinEye');
     processResult(results[promiseIndex++], 'Bing Vision');
+    
     if (keywords) {
         processResult(results[promiseIndex++], 'YouTube');
         processResult(results[promiseIndex++], 'Global Image Search');
@@ -57,18 +58,24 @@ const scanByImage = async (imageBuffer, options = {}) => {
     const uniqueUrls = Array.from(allSources);
     logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
 
-    // [穩定性修正] 暫時先不進行二次驗證，直接回傳 API 找到的結果
-    // 這樣可以避免因下載外部圖片失敗而導致整個任務失敗
+    // [穩定性修正] 為了確保您能看到初步的 API 掃描結果，我們先暫時註解掉二次驗證。
+    // 這個步驟會去下載所有找到的圖片來比對，如果外部連結失效，可能會增加失敗率。
+    // logger.info(`[Scanner Service] Step 2: Verifying ${uniqueUrls.length} matches in parallel...`);
     // const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, fingerprint);
     // logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
-
-    const matches = uniqueUrls.map(url => ({ url, similarity: 'N/A', source: 'API Search' }));
     
+    // 直接將 API 找到的連結作為初步結果回傳
+    const preliminaryMatches = uniqueUrls.map(url => ({
+        url: url,
+        similarity: 'N/A (Verification Skipped)',
+        source: 'API Search'
+    }));
+
     return {
         scan: {
             totalSources: uniqueUrls.length,
-            totalMatches: matches.length,
-            matches: matches,
+            totalMatches: preliminaryMatches.length,
+            matches: preliminaryMatches,
         },
         errors: errors
     };
