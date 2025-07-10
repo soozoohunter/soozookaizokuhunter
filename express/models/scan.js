@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'pending'
     },
-    // [核心修正] 將 result 欄位類型改為 JSONB
+    // [核心修正] 將 result 欄位類型改為 JSONB，以正確儲存複雜的掃描結果物件
     result: {
       type: DataTypes.JSONB,
       allowNull: true
