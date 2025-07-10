@@ -1,4 +1,3 @@
-// frontend/src/pages/ProtectStep1.jsx (v2.4 - 最終樣式修正)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
@@ -69,12 +68,12 @@ const FullLabel = styled.label`
   grid-column: 1 / 3;
   font-size: 0.9rem;
   color: #ffa500;
-  margin-bottom: -0.5rem; /* 微調 */
+  margin-bottom: -0.5rem;
 `;
 const HalfLabel = styled.label`
   font-size: 0.9rem;
   color: #ffa500;
-  margin-bottom: -0.5rem; /* 微調 */
+  margin-bottom: -0.5rem;
 `;
 const StyledInput = styled.input`
   background: #2c2c2c;
@@ -149,7 +148,6 @@ const Spinner = styled.div`
   vertical-align: middle;
 `;
 
-// [樣式修正] 採用新的樣式元件，確保佈局正確
 const CheckboxWrapper = styled.div`
   grid-column: 1 / 3;
   display: flex;
@@ -162,13 +160,13 @@ const CheckboxWrapper = styled.div`
     width: 1.3em;
     height: 1.3em;
     margin-right: 0.8em;
-    flex-shrink: 0; /* 防止 checkbox 本身被壓縮 */
+    flex-shrink: 0; 
     cursor: pointer;
   }
 
   label {
     cursor: pointer;
-    line-height: 1.2; /* 調整行高，避免文字擁擠 */
+    line-height: 1.2;
   }
 `;
 
