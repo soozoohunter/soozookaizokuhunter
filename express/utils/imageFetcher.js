@@ -3,11 +3,11 @@ const axios = require('axios');
 const fingerprintService = require('../services/fingerprintService');
 const logger = require('./logger');
 
-const TIMEOUT = 10000; // 10 秒超時
+const TIMEOUT = 15000; // 15 秒超時
 
 /**
- * 下載給定 URL 的圖片並回傳其 Buffer
- * @param {string} url - 圖片的 URL
+ * 下載單一圖片並回傳其 buffer
+ * @param {string} url - 圖片 URL
  * @returns {Promise<Buffer|null>}
  */
 const downloadImage = async (url) => {
@@ -16,7 +16,8 @@ const downloadImage = async (url) => {
             responseType: 'arraybuffer',
             timeout: TIMEOUT,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
             }
         });
         return Buffer.from(response.data, 'binary');
@@ -37,7 +38,10 @@ const verifyMatches = async (originalImageBuffer, urlsToVerify, originalFingerpr
     const matches = [];
     const errors = [];
     
-    // 使用 Promise.allSettled 來並行處理所有驗證
+    if (!originalFingerprint) {
+        originalFingerprint = fingerprintService.sha256(originalImageBuffer);
+    }
+    
     const verificationPromises = urlsToVerify.map(async (url) => {
         const downloadedBuffer = await downloadImage(url);
         if (downloadedBuffer) {
@@ -55,11 +59,11 @@ const verifyMatches = async (originalImageBuffer, urlsToVerify, originalFingerpr
         if (result.status === 'fulfilled' && result.value.status === 'matched') {
             matches.push({
                 url: result.value.url,
-                similarity: '100%', // 既然指紋相同，相似度就是 100%
-                source: 'Fingerprint Match'
+                similarity: '100%',
+                source: 'Verified Match'
             });
         } else if (result.status === 'rejected') {
-            errors.push({ url: 'unknown', reason: result.reason });
+            errors.push({ url: 'unknown', reason: result.reason.message });
         }
     });
 
