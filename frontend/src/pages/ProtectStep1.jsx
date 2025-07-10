@@ -1,9 +1,9 @@
-// frontend/src/pages/ProtectStep1.jsx (v2.1 - 樣式與影片支援修正)
+// frontend/src/pages/ProtectStep1.jsx (v2.2 - 樣式與影片支援修正)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-/* === 動畫與樣式定義 === */
+// ... (動畫與其他樣式元件保持不變) ...
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -111,19 +111,6 @@ const ClearButton = styled.button`
 const FullRow = styled.div`
   grid-column: 1 / 3;
 `;
-const CheckboxRow = styled.div`
-  grid-column: 1 / 3;
-  display: flex;
-  align-items: center;
-  color: #ffa500;
-  margin-top: 0.5rem;
-
-  /* [樣式修正] 讓 label 自動填滿剩餘空間，避免文字過長時換行 */
-  label {
-    flex: 1;
-    margin-left: 0.5rem;
-  }
-`;
 const SubmitButton = styled.button`
   grid-column: 1 / 3;
   background-color: #f97316;
@@ -161,6 +148,28 @@ const Spinner = styled.div`
   vertical-align: middle;
 `;
 
+// [樣式修正] 採用新的樣式元件，確保佈局正確
+const CheckboxWrapper = styled.div`
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  color: #ffa500;
+  margin-top: 0.5rem;
+  
+  input[type="checkbox"] {
+    width: 1.2em;
+    height: 1.2em;
+    margin-right: 0.6em;
+  }
+
+  label {
+    flex: 1;
+    cursor: pointer;
+  }
+`;
+
+// ... (其他元件) ...
+
 export default function ProtectStep1() {
   const navigate = useNavigate();
 
@@ -178,6 +187,7 @@ export default function ProtectStep1() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ... (所有 handle... 函式保持不變) ...
   const handleFileChange = e => {
     setFile(e.target.files?.[0] || null);
   };
@@ -226,7 +236,7 @@ export default function ProtectStep1() {
       const data = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(data.message || data.error || `上傳失敗，狀態碼: ${resp.status}`);
+        throw new Error(data.error || `上傳失敗，狀態碼: ${resp.status}`);
       }
       
       if (!data || !data.file || !data.file.id) {
@@ -257,7 +267,8 @@ export default function ProtectStep1() {
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleSubmit} noValidate>
-          <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
+            {/* ... 其他表單欄位 ... */}
+             <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
           <FullRow>
             {!file ? (
               <StyledInput
@@ -353,7 +364,7 @@ export default function ProtectStep1() {
             </details>
           </FullRow>
 
-          <CheckboxRow>
+          <CheckboxWrapper>
             <input
               type="checkbox"
               id="agreePolicy"
@@ -361,9 +372,9 @@ export default function ProtectStep1() {
               onChange={e => setAgreePolicy(e.target.checked)}
             />
             <label htmlFor="agreePolicy">我已閱讀並同意隱私權政策與使用條款</label>
-          </CheckboxRow>
+          </CheckboxWrapper>
 
-          <CheckboxRow>
+          <CheckboxWrapper>
             <input
               type="checkbox"
               id="enableProtection"
@@ -371,7 +382,7 @@ export default function ProtectStep1() {
               onChange={e => setEnableProtection(e.target.checked)}
             />
             <label htmlFor="enableProtection">啟用防側錄 (對抗擾動 + 高頻閃爍)</label>
-          </CheckboxRow>
+          </CheckboxWrapper>
 
           <SubmitButton type="submit" disabled={loading}>
             {loading && <Spinner />}
