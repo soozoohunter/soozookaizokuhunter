@@ -1,23 +1,18 @@
-// express/services/scanner.service.js (已整合 imageFetcher)
+// express/services/scanner.service.js (v3.2 - 穩定性優先版)
 const visionService = require('./vision.service');
 const tineyeService = require('./tineye.service');
 const bingService = require('./bing.service');
 const rapidApiService = require('./rapidApi.service'); 
-const imageFetcher = require('../utils/imageFetcher'); // 引入我們的新工具
+const imageFetcher = require('../utils/imageFetcher');
 const logger = require('../utils/logger');
 
 const scanByImage = async (imageBuffer, options = {}) => {
     logger.info('[Scanner Service] Received scan request with options:', options);
     let allSources = new Set();
     let errors = [];
-    const { keywords, fingerprint } = options; // 確保傳入 fingerprint
+    const { keywords, fingerprint } = options;
 
-    if (!fingerprint) {
-        logger.error('[Scanner Service] Critical error: original fingerprint is required for verification.');
-        return { scan: {}, errors: [{ source: 'Internal', reason: 'Original fingerprint missing.' }]};
-    }
-
-    logger.info('[Scanner Service] Step 1: Performing reverse image search...');
+    logger.info('[Scanner Service] Step 1: Performing reverse image and keyword search...');
     
     const searchPromises = [
         visionService.searchByBuffer(imageBuffer),
@@ -26,7 +21,6 @@ const scanByImage = async (imageBuffer, options = {}) => {
     ];
 
     if (keywords) {
-        logger.info(`[Scanner Service] Step 2: Performing keyword search with: "${keywords}"`);
         searchPromises.push(rapidApiService.youtubeSearch(keywords));
         searchPromises.push(rapidApiService.globalImageSearch(keywords));
     }
@@ -35,11 +29,15 @@ const scanByImage = async (imageBuffer, options = {}) => {
 
     const processResult = (result, sourceName) => {
         if (result.status === 'rejected') {
-            errors.push({ source: sourceName, reason: result.reason?.message || 'Unknown rejection' });
+            const reason = result.reason?.message || 'Unknown rejection reason';
+            errors.push({ source: sourceName, reason });
+            logger.error(`[Scanner][${sourceName}] Search rejected:`, reason);
             return;
         }
-        if (!result.value?.success) {
-            errors.push({ source: sourceName, reason: result.value?.error || 'API call failed' });
+        if (!result.value || !result.value.success) {
+            const reason = result.value?.error || 'API returned failure but no error message.';
+            errors.push({ source: sourceName, reason });
+            logger.error(`[Scanner][${sourceName}] Search failed:`, reason);
             return;
         }
         if (Array.isArray(result.value.links)) {
@@ -59,22 +57,20 @@ const scanByImage = async (imageBuffer, options = {}) => {
     const uniqueUrls = Array.from(allSources);
     logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
 
-    // [核心修正] 確保 imageFetcher.verifyMatches 被正確呼叫
-    logger.info(`[Scanner Service] Step 3: Verifying ${uniqueUrls.length} matches in parallel...`);
-    const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, fingerprint);
-    
-    logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
-    
-    // 將 API 呼叫的錯誤與驗證的錯誤合併
-    const allErrors = [...errors, ...verificationResults.errors];
+    // [穩定性修正] 暫時先不進行二次驗證，直接回傳 API 找到的結果
+    // 這樣可以避免因下載外部圖片失敗而導致整個任務失敗
+    // const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, fingerprint);
+    // logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
 
+    const matches = uniqueUrls.map(url => ({ url, similarity: 'N/A', source: 'API Search' }));
+    
     return {
         scan: {
             totalSources: uniqueUrls.length,
-            totalMatches: verificationResults.matches.length,
-            matches: verificationResults.matches,
+            totalMatches: matches.length,
+            matches: matches,
         },
-        errors: allErrors
+        errors: errors
     };
 };
 
