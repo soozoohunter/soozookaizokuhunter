@@ -1,4 +1,4 @@
-// express/server.js (v3.0 - 最終路由修正版)
+// express/server.js (v3.1 - 最終路由修正版)
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
@@ -6,12 +6,12 @@ const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
 const { initSocket } = require('./socket');
-const db =require('./models');
+const db = require('./models');
 
-// Global error handlers to prevent silent exits
+// Global error handlers
 process.on('uncaughtException', err => {
     logger.error('[Uncaught Exception]', err);
-    process.exit(1); // 考慮到穩定性，發生未捕獲異常時應退出
+    process.exit(1);
 });
 process.on('unhandledRejection', (reason, promise) => {
     logger.error('[Unhandled Rejection]', { reason, promise });
@@ -19,6 +19,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // --- Routers ---
 const authRouter = require('./routes/authRoutes');
+const adminRouter = require('./routes/admin');
 const protectRouter = require('./routes/protect');
 const filesRouter = require('./routes/files');
 const usersRouter = require('./routes/users');
@@ -27,7 +28,7 @@ const scansRouter = require('./routes/scans'); // [核心修正] 引入 scans �
 
 const app = express();
 const server = http.createServer(app);
-initSocket(server); // 初始化 Socket.IO
+initSocket(server);
 
 app.use(cors({
     origin: '*',
@@ -43,6 +44,7 @@ logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 
 // --- API Routes ---
 app.use('/api/auth', authRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/protect', protectRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
@@ -58,7 +60,7 @@ const PORT = process.env.EXPRESS_PORT || 3000;
 async function startServer() {
     try {
         logger.info('[Startup] Step 1: Initializing Database connection...');
-        await db.sequelize.authenticate(); // 使用 sequelize 實例來認證
+        await db.sequelize.authenticate();
         logger.info('[Startup] Step 1: Database connection successful.');
 
         server.listen(PORT, '0.0.0.0', () => {
