@@ -1,37 +1,71 @@
 // express/utils/imageFetcher.js
 const axios = require('axios');
+const fingerprintService = require('../services/fingerprintService');
 const logger = require('./logger');
 
+const TIMEOUT = 10000; // 10 秒超時
+
 /**
- * 從給定的 URL 下載圖片並回傳其 Buffer。
- * @param {string} imageUrl - 要下載的圖片 URL。
- * @returns {Promise<Buffer|null>} 成功則回傳圖片的 Buffer，失敗則回傳 null。
+ * 下載給定 URL 的圖片並回傳其 Buffer
+ * @param {string} url - 圖片的 URL
+ * @returns {Promise<Buffer|null>}
  */
-async function fetchImageAsBuffer(imageUrl) {
-  try {
-    logger.info(`[ImageFetcher] Fetching image from URL: ${imageUrl}`);
-    const response = await axios({
-      method: 'get',
-      url: imageUrl,
-      responseType: 'arraybuffer', // 關鍵：確保回傳的是二進制數據
+const downloadImage = async (url) => {
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: TIMEOUT,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+        return Buffer.from(response.data, 'binary');
+    } catch (error) {
+        logger.warn(`[ImageFetcher] Failed to download image from ${url}. Reason: ${error.message}`);
+        return null;
+    }
+};
+
+/**
+ * 驗證找到的圖片是否與原圖匹配
+ * @param {Buffer} originalImageBuffer - 原圖的 Buffer
+ * @param {string[]} urlsToVerify - 待驗證的圖片 URL 列表
+ * @param {string} originalFingerprint - 原圖的 SHA256 指紋
+ * @returns {Promise<object>}
+ */
+const verifyMatches = async (originalImageBuffer, urlsToVerify, originalFingerprint) => {
+    const matches = [];
+    const errors = [];
+    
+    // 使用 Promise.allSettled 來並行處理所有驗證
+    const verificationPromises = urlsToVerify.map(async (url) => {
+        const downloadedBuffer = await downloadImage(url);
+        if (downloadedBuffer) {
+            const downloadedFingerprint = fingerprintService.sha256(downloadedBuffer);
+            if (downloadedFingerprint === originalFingerprint) {
+                return { url, status: 'matched' };
+            }
+        }
+        return { url, status: 'unmatched' };
     });
 
-    if (response.status !== 200) {
-      logger.error(`[ImageFetcher] Failed to fetch image. Status: ${response.status}, URL: ${imageUrl}`);
-      return null;
-    }
+    const results = await Promise.allSettled(verificationPromises);
+    
+    results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.status === 'matched') {
+            matches.push({
+                url: result.value.url,
+                similarity: '100%', // 既然指紋相同，相似度就是 100%
+                source: 'Fingerprint Match'
+            });
+        } else if (result.status === 'rejected') {
+            errors.push({ url: 'unknown', reason: result.reason });
+        }
+    });
 
-    // 將回傳的數據轉換為 Buffer
-    const imageBuffer = Buffer.from(response.data, 'binary');
-    logger.info(`[ImageFetcher] Successfully fetched image. Buffer size: ${imageBuffer.length} bytes.`);
-    return imageBuffer;
-
-  } catch (error) {
-    logger.error(`[ImageFetcher] Error fetching image from ${imageUrl}:`, error);
-    return null;
-  }
-}
+    return { matches, errors };
+};
 
 module.exports = {
-  fetchImageAsBuffer,
+    verifyMatches,
 };
