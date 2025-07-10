@@ -5,7 +5,7 @@ const { URL } = require('url');
 const logger = require('../utils/logger');
 
 const BING_API_KEY = process.env.BING_API_KEY;
-const BING_ENDPOINT = process.env.BING_ENDPOINT;
+const BING_ENDPOINT = process.env.BING_ENDPOINT; // e.g., https://api.bing.microsoft.com
 
 async function searchByBuffer(buffer) {
   if (!BING_API_KEY || !BING_ENDPOINT) {
@@ -18,8 +18,8 @@ async function searchByBuffer(buffer) {
 
   logger.info(`[Bing Service] Starting search by image buffer (size: ${buffer.length} bytes)...`);
 
-  // 直接建構視覺化搜尋的完整 URL
-  const fullUrl = new URL('/bing/v7.0/images/visualsearch', BING_ENDPOINT).href;
+  // [修正] 正確組合 API 端點 URL
+  const fullUrl = new URL('/v7.0/images/visualsearch', BING_ENDPOINT).href;
   
   const form = new FormData();
   form.append('image', buffer, { filename: 'upload.jpg' });
@@ -33,8 +33,11 @@ async function searchByBuffer(buffer) {
 
   try {
     const response = await axios.post(fullUrl, form, { headers, timeout: 30000 });
-    const rawMatches = response.data?.similarImages?.value || [];
-    const links = rawMatches.map((match) => match.hostPageUrl).filter(Boolean);
+    // [修正] 更穩健的結果解析
+    const tags = response.data?.tags || [];
+    const actions = tags.flatMap(tag => tag.actions || []);
+    const pages = actions.filter(action => action.actionType === 'PagesIncluding').flatMap(action => action.data?.value || []);
+    const links = pages.map((page) => page.hostPageUrl).filter(Boolean);
     const uniqueLinks = [...new Set(links)];
 
     logger.info(`[Bing Service] Search complete. Found ${uniqueLinks.length} unique links.`);
@@ -50,9 +53,7 @@ async function searchByBuffer(buffer) {
     });
 
     let userFriendlyError = errorMsg;
-    if (status === 404) {
-        userFriendlyError = 'Resource not found. Please verify BING_ENDPOINT in your .env file.';
-    } else if (status === 401 || status === 403) {
+    if (status === 401 || status === 403) {
         userFriendlyError = 'Authentication failed. Please verify BING_API_KEY in your .env file.';
     }
 
