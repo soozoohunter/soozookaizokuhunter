@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users', // 確保這裡指向 Users 表
+        model: 'Users',
         key: 'id'
       }
     },
@@ -26,12 +26,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    // Sequelize 會自動處理 createdAt 和 updatedAt
   }, {
     sequelize,
     modelName: 'UsageRecord',
     tableName: 'UsageRecords',
-    underscored: true, // 使用底線命名法 (user_id, feature_code)
+    underscored: true,
   });
   return UsageRecord;
 };
