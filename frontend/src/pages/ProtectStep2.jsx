@@ -1,9 +1,12 @@
-// frontend/src/pages/ProtectStep2.jsx (v2.3 - 邏輯修正、樣式保留版)
+// frontend/src/pages/ProtectStep2.jsx (v3.0 - 邏輯修正、樣式完整保留版)
 import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { AuthContext } from '../AuthContext';
 
+// ==================================================================
+// 您的所有 styled-components 定義，我已完整保留，一行未刪。
+// ==================================================================
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -147,19 +150,16 @@ export default function ProtectStep2() {
     
     setIsLoading(true);
 
-    // [核心修正] 
-    // 不再發送多餘的 API 請求。
-    // Step 1 的後端 API 已將掃描任務派發到背景佇列。
-    // 此處只需從 step1Data 中提取任務ID，並導航到 Step 3 頁面等待結果即可。
-    // 我們假設 Step 1 回傳的 newFile.id 關聯到 Scan.id，或有其他方式取得 taskId。
-    // 為了簡化，我們先假設 File ID 就是我們要追蹤的目標。
+    // [核心修正]
+    // 移除多餘的 API 請求。
+    // Step 1 已派發掃描任務，此處只需導航至 Step 3 等待結果。
     const taskId = step1Data.file.id;
     
-    // 為了保留載入動畫的體驗，我們可以在這裡做一個短暫的延遲再跳轉
+    // 使用短暫延遲來顯示載入動畫，提升使用者體驗
     setTimeout(() => {
         navigate('/protect/step3', { state: { taskId, step1Data } });
-        // 如果不需要載入動畫，可以直接 navigate
-    }, 500); // 500ms 延遲，讓使用者看到"處理中"的反饋
+        // 注意：這裡不再需要 setIsLoading(false)，因為頁面已跳轉
+    }, 500);
   };
 
   if (!step1Data) {
@@ -188,14 +188,12 @@ export default function ProtectStep2() {
           <p><strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}</p>
         </InfoBlock>
         <ButtonRow>
-          {/* [修正] 將 onClick 指向新的無 API 呼叫的函式 */}
           <OrangeButton onClick={handleProceedToNextStep} disabled={isLoading}>
             {isLoading && <Spinner />}
             {isLoading ? '準備中...' : '下一步：查看掃描結果 →'}
           </OrangeButton>
         </ButtonRow>
       </Container>
-      {/* 載入動畫的邏輯完全保留，提供更好的使用者體驗 */}
       {isLoading && (
         <Overlay>
           <LoadingBox>
