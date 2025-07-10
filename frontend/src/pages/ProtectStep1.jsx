@@ -1,9 +1,8 @@
-// frontend/src/pages/ProtectStep1.jsx (v2.2 - 樣式與影片支援修正)
+// frontend/src/pages/ProtectStep1.jsx (v2.4 - 最終樣式修正)
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 
-// ... (動畫與其他樣式元件保持不變) ...
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -26,6 +25,7 @@ const PageWrapper = styled.div`
   align-items: center;
   justify-content: center;
   color: #fff;
+  padding: 2rem 0;
 `;
 const FormContainer = styled.div`
   background-color: rgba(20, 20, 20, 0.8);
@@ -62,34 +62,35 @@ const ErrorMsg = styled.div`
 const StyledForm = styled.form`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  column-gap: 1rem;
+  column-gap: 1.5rem;
   row-gap: 1rem;
 `;
 const FullLabel = styled.label`
   grid-column: 1 / 3;
   font-size: 0.9rem;
   color: #ffa500;
-  margin-bottom: 0.25rem;
+  margin-bottom: -0.5rem; /* 微調 */
 `;
 const HalfLabel = styled.label`
   font-size: 0.9rem;
   color: #ffa500;
-  margin-bottom: 0.25rem;
+  margin-bottom: -0.5rem; /* 微調 */
 `;
 const StyledInput = styled.input`
   background: #2c2c2c;
   border: 1px solid #444;
   border-radius: 4px;
   color: #fff;
-  padding: 0.55rem 0.75rem;
-  font-size: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.95rem;
   width: 100%;
+  box-sizing: border-box;
 `;
 const FileRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
 `;
 const FileName = styled.span`
   font-size: 0.85rem;
@@ -118,7 +119,7 @@ const SubmitButton = styled.button`
   border: 2px solid transparent;
   padding: 0.75rem 1.2rem;
   font-size: 1rem;
-  font-weight: bold;
+  font-weight: 700;
   border-radius: 8px;
   margin-top: 0.75rem;
   cursor: pointer;
@@ -152,23 +153,24 @@ const Spinner = styled.div`
 const CheckboxWrapper = styled.div`
   grid-column: 1 / 3;
   display: flex;
+  flex-direction: row;
   align-items: center;
   color: #ffa500;
   margin-top: 0.5rem;
   
   input[type="checkbox"] {
-    width: 1.2em;
-    height: 1.2em;
-    margin-right: 0.6em;
+    width: 1.3em;
+    height: 1.3em;
+    margin-right: 0.8em;
+    flex-shrink: 0; /* 防止 checkbox 本身被壓縮 */
+    cursor: pointer;
   }
 
   label {
-    flex: 1;
     cursor: pointer;
+    line-height: 1.2; /* 調整行高，避免文字擁擠 */
   }
 `;
-
-// ... (其他元件) ...
 
 export default function ProtectStep1() {
   const navigate = useNavigate();
@@ -187,7 +189,6 @@ export default function ProtectStep1() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ... (所有 handle... 函式保持不變) ...
   const handleFileChange = e => {
     setFile(e.target.files?.[0] || null);
   };
@@ -248,8 +249,7 @@ export default function ProtectStep1() {
       navigate('/protect/step2', { state: { step1Data: data } });
 
     } catch (err) {
-      const errorMessage = (err instanceof Error) ? err.message : String(err);
-      setError(errorMessage || '上傳失敗，請檢查網路連線或稍後再試');
+      setError(err.message || '上傳失敗，請檢查網路連線或稍後再試');
     } finally {
       setLoading(false);
     }
@@ -267,8 +267,7 @@ export default function ProtectStep1() {
         {error && <ErrorMsg>{error}</ErrorMsg>}
 
         <StyledForm onSubmit={handleSubmit} noValidate>
-            {/* ... 其他表單欄位 ... */}
-             <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
+          <FullLabel>上傳作品檔案 (Upload File)</FullLabel>
           <FullRow>
             {!file ? (
               <StyledInput
@@ -355,7 +354,7 @@ export default function ProtectStep1() {
               >
                 閱讀隱私權與服務條款 (點此展開)
               </summary>
-              <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', lineHeight: '1.5' }}>
+              <div style={{ fontSize: '.85rem', marginTop: '.5rem', lineHeight: '1.5' }}>
                 <p>本公司「凱盾全球國際股份有限公司」隱私權保護政策…</p>
                 <p>1. 您需年滿18歲…</p>
                 <p>2. 蒐集與使用個人資料之目的…</p>
