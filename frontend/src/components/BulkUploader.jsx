@@ -1,16 +1,17 @@
-// frontend/src/components/BulkUploader.jsx (功能完整版)
-import React, { useState, useContext, useRef } from 'react';
+// frontend/src/components/BulkUploader.jsx (功能強化與錯誤處理修正)
+import React, { useState, useRef } from 'react';
 import styled from 'styled-components';
-import { AuthContext } from '../AuthContext';
 import apiClient from '../utils/apiClient';
 
-// --- Styled Components ---
+// --- Styled Components (保持不變) ---
 const UploaderWrapper = styled.div`
   background-color: #1F2937;
   padding: 2rem;
   border-radius: 12px;
   border: 1px solid #374151;
   text-align: center;
+  width: 90%;
+  max-width: 700px;
 `;
 
 const UploadButton = styled.button`
@@ -48,6 +49,7 @@ const FileList = styled.div`
 const FileStatus = styled.div`
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid #374151;
   &:last-child {
@@ -59,10 +61,10 @@ const StatusText = styled.span`
   font-weight: bold;
   color: ${props =>
     props.status === 'success'
-      ? '#34D399'
+      ? '#34D399' // 綠色
       : props.status === 'failed'
-      ? '#F87171'
-      : '#9CA3AF'};
+      ? '#F87171' // 紅色
+      : '#9CA3AF'}; // 灰色
 `;
 
 const CloseButton = styled.button`
@@ -77,21 +79,15 @@ const CloseButton = styled.button`
   &:hover {
     background-color: #6B7280;
   }
-  &:disabled {
-    background-color: #6B7280;
-    cursor: not-allowed;
-  }
 `;
 
-// --- Main Component ---
+// --- 主元件 ---
 function BulkUploader({ onClose, onUploadComplete }) {
   const [files, setFiles] = useState([]);
   const [uploadStatus, setUploadStatus] = useState({});
   const [isUploading, setIsUploading] = useState(false);
-  const { token } = useContext(AuthContext); // token is retrieved if needed in future
-  const fileInputRef = useRef(null); // 建立一個 ref 來指向隱藏的 input
+  const fileInputRef = useRef(null);
 
-  // 觸發隱藏的 file input
   const handleButtonClick = () => {
     fileInputRef.current.click();
   };
@@ -100,7 +96,7 @@ function BulkUploader({ onClose, onUploadComplete }) {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length === 0) return;
     setFiles(selectedFiles);
-    // 為每個檔案設定初始狀態
+    
     const initialStatus = {};
     selectedFiles.forEach(file => {
       initialStatus[file.name] = { status: '待上傳', message: '' };
@@ -115,43 +111,51 @@ function BulkUploader({ onClose, onUploadComplete }) {
     const formData = new FormData();
     files.forEach(file => {
       formData.append('files', file);
-      // 立即更新 UI 狀態
       setUploadStatus(prev => ({ ...prev, [file.name]: { status: '上傳中...', message: '' } }));
     });
 
     try {
+      // [核心修正] 直接使用 apiClient，它會自動處理 token 和 headers
       const response = await apiClient.post('/api/protect/batch-protect', formData);
+      
       const data = response.data;
-
-
-      // 根據後端回傳的 results 更新每個檔案的最終狀態
+      
+      // 更新每個檔案的最終狀態
       setUploadStatus(prev => {
         const newStatus = { ...prev };
         data.results.forEach(result => {
-          newStatus[result.filename] = {
-            status: result.status,
-            message: result.reason || '保護成功',
-          };
+          if (newStatus[result.filename]) {
+             newStatus[result.filename] = {
+                status: result.status,
+                message: result.reason || '保護成功',
+             };
+          }
         });
         return newStatus;
       });
-      // [新功能] 如果上傳成功，呼叫父元件傳來的回呼函式
-      if (response.status === 207 && onUploadComplete) {
-        onUploadComplete();
-      }
+      
     } catch (error) {
-      console.error('Upload failed:', error);
-      alert(`上傳失敗: ${error.message}`);
-      // 將所有檔案狀態設為失敗
+      // [核心修正] 提供更詳細的錯誤訊息
+      const errorMsg = error.response?.data?.error || error.message || '未知上傳錯誤';
+      alert(`上傳失敗: ${errorMsg}`);
+      console.error('Upload failed:', error.response || error);
+
+      // 將所有還在處理中的檔案狀態設為失敗
       setUploadStatus(prev => {
-        const newStatus = {};
-        Object.keys(prev).forEach(filename => {
-          newStatus[filename] = { status: 'failed', message: '上傳失敗' };
+        const newStatus = {...prev};
+        Object.keys(newStatus).forEach(filename => {
+            if(newStatus[filename].status === '上傳中...') {
+                newStatus[filename] = { status: 'failed', message: errorMsg };
+            }
         });
         return newStatus;
       });
     } finally {
       setIsUploading(false);
+      // 延遲一段時間後自動刷新 Dashboard，確保新資料載入
+      setTimeout(() => {
+        onUploadComplete();
+      }, 1500);
     }
   };
 
@@ -162,10 +166,11 @@ function BulkUploader({ onClose, onUploadComplete }) {
         multiple
         ref={fileInputRef}
         onChange={handleFileChange}
-        style={{ display: 'none' }} // 關鍵：將原生 input 隱藏
+        style={{ display: 'none' }}
+        accept="image/*,video/*" // 限制檔案類型
       />
       <UploadButton onClick={handleButtonClick} disabled={isUploading}>
-        選擇多個檔案進行保護
+        選擇多個檔案進行保護 (圖片/影片)
       </UploadButton>
 
       {files.length > 0 && (
@@ -182,7 +187,7 @@ function BulkUploader({ onClose, onUploadComplete }) {
           </FileList>
           <div style={{ marginTop: '1.5rem' }}>
             <UploadButton onClick={handleUpload} disabled={isUploading}>
-              {isUploading ? '正在處理中...' : `開始上傳 ${files.length} 個檔案`}
+              {isUploading ? '正在處理中...' : `開始保護 ${files.length} 個內容`}
             </UploadButton>
             <CloseButton onClick={onClose} disabled={isUploading}>關閉</CloseButton>
           </div>
