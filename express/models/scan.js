@@ -3,42 +3,49 @@ const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Scan extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
-      // define association here
-      Scan.belongsTo(models.File, {
-        foreignKey: 'file_id',
-        as: 'file'
-      });
+      Scan.belongsTo(models.File, { foreignKey: 'file_id', as: 'file' });
+      Scan.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
     }
   }
   Scan.init({
     id: {
-      type: DataTypes.INTEGER,
+      allowNull: false,
+      autoIncrement: true,
       primaryKey: true,
-      autoIncrement: true
+      type: DataTypes.INTEGER
     },
     file_id: {
       type: DataTypes.INTEGER,
-      allowNull: false
+      allowNull: false,
+      references: { model: 'Files', key: 'id' }
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'Users', key: 'id' }
     },
     status: {
-      type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed'),
-      defaultValue: 'pending',
-      allowNull: false
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'pending'
     },
+    // [核心修正] 將 result 欄位類型改為 JSONB
     result: {
-      type: DataTypes.JSONB
+      type: DataTypes.JSONB,
+      allowNull: true
     },
-    started_at: DataTypes.DATE,
-    completed_at: DataTypes.DATE
+    started_at: {
+      type: DataTypes.DATE
+    },
+    completed_at: {
+      type: DataTypes.DATE
+    }
   }, {
     sequelize,
     modelName: 'Scan',
+    tableName: 'Scans',
+    underscored: true,
   });
   return Scan;
 };
