@@ -1,4 +1,4 @@
-# docker-compose.yml (最終生產版)
+# docker-compose.yml (最終生產強化版)
 networks:
   suzoo-network:
     driver: bridge
@@ -80,6 +80,13 @@ services:
         condition: service_healthy
     networks:
       - suzoo-network
+    # [新增] 為 Worker 增加健康檢查，確保其不僅啟動，而且能正常回應
+    healthcheck:
+        test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+        start_period: 60s
     restart: always
 
   # --- 其他服務 ---
@@ -143,6 +150,11 @@ services:
       - suzoo-network
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8545 || exit 1"]
+      # [修正] 增加啟動寬限期，防止因啟動慢而被標記為 unhealthy
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     restart: always
 
   suzoo_fastapi:
