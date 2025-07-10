@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 const auth = require('../middleware/auth');
-const checkQuota = require('../middleware/quotaCheck'); // 使用我們新建的標準化中介層
+const checkQuota = require('../middleware/quotaCheck');
 const { File, Scan, UsageRecord, User, sequelize } = require('../models');
 const chain = require('../services/blockchainService');
 const ipfsService = require('../services/ipfsService');
@@ -36,7 +36,6 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     
     const existingFile = await File.findOne({ where: { fingerprint }, transaction });
     if (existingFile) {
-        fs.unlinkSync(tempPath);
         throw { status: 409, message: `此檔案 (${originalname}) 先前已被保護。` };
     }
 
@@ -64,13 +63,13 @@ const handleFileUpload = async (file, userId, body, transaction) => {
         keywords,
         fingerprint,
         ipfs_hash: ipfsHash,
-        tx_hash: txReceipt?.transactionHash || null, // 確保 txReceipt 存在
+        tx_hash: txReceipt?.transactionHash || null,
         status: 'protected',
         mime_type: mimetype,
         thumbnail_path: thumbnailUrl
     }, { transaction });
 
-    // [核心修正] 使用正確的 feature_code，並在交易中執行
+    // [核心修正] 使用正確的 feature_code
     await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
     
     const newScan = await Scan.create({ file_id: newFile.id, user_id: userId, status: 'pending' }, { transaction });
