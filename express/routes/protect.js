@@ -1,4 +1,4 @@
-// express/routes/protect.js (v3.0 - 原子性操作與錯誤修正)
+// express/routes/protect.js (v3.1 - 最終邏輯修正)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
@@ -69,7 +69,6 @@ const handleFileUpload = async (file, userId, body, transaction) => {
         thumbnail_path: thumbnailUrl
     }, { transaction });
 
-    // [核心修正] 使用正確的 feature_code
     await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
     
     const newScan = await Scan.create({ file_id: newFile.id, user_id: userId, status: 'pending' }, { transaction });
@@ -86,7 +85,6 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     return newFile;
 };
 
-// 免費試用流程
 router.post('/step1', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '未提供檔案。' });
     
@@ -117,7 +115,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
 });
 
-// 已登入會員的批量上傳
 router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
     if (!req.files?.length) return res.status(400).json({ error: '未提供任何檔案。' });
 
