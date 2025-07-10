@@ -23,10 +23,10 @@ async function getApiToken() {
     return apiToken.token;
   }
 
-  logger.info('[DMCA Service] API token expired or missing. Requesting new token...');
+  logger.info('[DMCA Service] Requesting new API token...');
   const loginUrl = `${DMCA_API_URL}/login`;
   
-  // [FIX] DMCA API 的登入也可能需要 JSON 格式
+  // [修正] DMCA API 的登入需要 JSON 格式
   const loginData = {
     email: DMCA_EMAIL,
     password: DMCA_PASSWORD,
@@ -37,13 +37,12 @@ async function getApiToken() {
         headers: { 'Content-Type': 'application/json' }
     });
     
-    // API 回應的 Token 可能直接是字串，也可能在物件裡
-    const receivedToken = response.data.Token || (typeof response.data === 'string' ? response.data.replace(/"/g, '') : null);
+    const receivedToken = response.data?.Token || response.data?.token;
 
     if (receivedToken) {
       apiToken = {
         token: receivedToken,
-        expiresAt: Date.now() + 50 * 60 * 1000,
+        expiresAt: Date.now() + 50 * 60 * 1000, // 緩存 50 分鐘
       };
       logger.info('[DMCA Service] Successfully logged in and cached new API token.');
       return apiToken.token;
@@ -60,28 +59,27 @@ async function getApiToken() {
   }
 }
 
-async function createTakedownCase(takedownDetails) {
+async function sendTakedownRequest(takedownDetails) {
   if (!isDmcaEnabled) {
     return { success: false, message: 'DMCA Takedown request failed: Service is not configured.', data: null };
   }
 
-  const { infringingUrl, originalUrl, subject, description } = takedownDetails;
+  const { infringingUrl, originalUrl, description } = takedownDetails;
 
-  if (!infringingUrl || !originalUrl || !subject || !description) {
-    throw new Error('Infringing URL, Original URL, Subject, and Description are required.');
+  if (!infringingUrl || !originalUrl) {
+    throw new Error('Infringing URL and Original URL are required.');
   }
 
   try {
     const token = await getApiToken();
     const createCaseUrl = `${DMCA_API_URL}/createCase`;
 
-    // [FIX] 將請求資料改為 JSON 物件
+    // [修正] 將請求資料改為 JSON 物件
     const caseData = {
         Token: token,
-        Subject: subject,
-        Description: description,
-        'Copied From URL': originalUrl,
         'Infringing URL': infringingUrl,
+        'Copied From URL': originalUrl,
+        Description: description || `Automated takedown for copyrighted work. Original located at ${originalUrl}`,
     };
 
     logger.info(`[DMCA Service] Creating takedown case for: ${infringingUrl}`);
@@ -89,15 +87,13 @@ async function createTakedownCase(takedownDetails) {
         headers: { 'Content-Type': 'application/json' }
     });
     
-    if (response.status === 200 && response.data) {
-       const caseId = response.data.caseId || 'N/A';
-       const message = response.data.message || 'Case created successfully.';
-       logger.info(`[DMCA Service] Takedown case creation successful for ${infringingUrl}. Case ID: ${caseId}`);
-       return { success: true, message, data: response.data };
+    if (response.status === 200 && response.data?.caseID) {
+        logger.info(`[DMCA Service] Takedown case creation successful. Case ID: ${response.data.caseID}`);
+        return { success: true, message: response.data.message || 'Case created successfully.', data: response.data };
     }
     
-    logger.error(`[DMCA Service] Takedown case creation failed with non-200 status: ${response.status}`, response.data);
-    return { success: false, message: `DMCA API returned status ${response.status}`, data: response.data };
+    logger.error(`[DMCA Service] Takedown case creation failed`, response.data);
+    return { success: false, message: response.data?.message || `DMCA API returned status ${response.status}`, data: response.data };
 
   } catch (error) {
     const status = error.response?.status;
@@ -108,14 +104,6 @@ async function createTakedownCase(takedownDetails) {
     });
     return { success: false, message: `An exception occurred: ${error.message}`, data: rawData };
   }
-}
-
-async function sendTakedownRequest(takedownDetails) {
-    return createTakedownCase({
-        ...takedownDetails,
-        subject: takedownDetails.subject || `Takedown Notice for Infringing Content at ${takedownDetails.infringingUrl}`,
-        description: takedownDetails.description || `This content infringes upon my original work located at ${takedownDetails.originalUrl}. Please process this takedown notice immediately.`,
-    });
 }
 
 module.exports = {
