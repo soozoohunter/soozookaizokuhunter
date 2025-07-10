@@ -1,12 +1,8 @@
 // frontend/src/pages/ProtectStep2.jsx (v3.0 - 邏輯修正、樣式完整保留版)
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { AuthContext } from '../AuthContext';
 
-// ==================================================================
-// 您的所有 styled-components 定義，我已完整保留，一行未刪。
-// ==================================================================
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -125,8 +121,6 @@ const ProgressIndicator = styled.div`
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = useContext(AuthContext);
-
   const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -150,15 +144,11 @@ export default function ProtectStep2() {
     
     setIsLoading(true);
 
-    // [核心修正]
-    // 移除多餘的 API 請求。
-    // Step 1 已派發掃描任務，此處只需導航至 Step 3 等待結果。
     const taskId = step1Data.file.id;
     
-    // 使用短暫延遲來顯示載入動畫，提升使用者體驗
+    // 為了保留載入動畫的體驗，我們可以在這裡做一個短暫的延遲再跳轉
     setTimeout(() => {
         navigate('/protect/step3', { state: { taskId, step1Data } });
-        // 注意：這裡不再需要 setIsLoading(false)，因為頁面已跳轉
     }, 500);
   };
 
