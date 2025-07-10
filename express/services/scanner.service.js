@@ -1,8 +1,8 @@
-// express/services/scanner.service.js (錯誤處理與日誌增強版)
+// express/services/scanner.service.js (已整合 Global Image Search)
 const visionService = require('./vision.service');
 const tineyeService = require('./tineye.service');
 const bingService = require('./bing.service');
-const rapidApiService = require('./rapidApi.service');
+const rapidApiService = require('./rapidApi.service'); 
 const imageFetcher = require('../utils/imageFetcher');
 const logger = require('../utils/logger');
 
@@ -10,7 +10,7 @@ const scanByImage = async (imageBuffer, options = {}) => {
     logger.info('[Scanner Service] Received scan request with options:', options);
     let allSources = new Set();
     let errors = [];
-    const { keywords } = options;
+    const { keywords } = options; 
 
     logger.info('[Scanner Service] Step 1: Performing reverse image search...');
     
@@ -21,17 +21,14 @@ const scanByImage = async (imageBuffer, options = {}) => {
     ];
 
     if (keywords) {
-        logger.info(`[Scanner Service] Step 2: Performing keyword search on social media with: "${keywords}"`);
+        logger.info(`[Scanner Service] Step 2: Performing keyword search with: "${keywords}"`);
         searchPromises.push(rapidApiService.youtubeSearch(keywords));
-        searchPromises.push(rapidApiService.tiktokSearch(keywords));
-        searchPromises.push(rapidApiService.instagramSearch(keywords));
+        searchPromises.push(rapidApiService.globalImageSearch(keywords));
     }
 
     const results = await Promise.allSettled(searchPromises);
 
-    // [核心修正] 重新設計的、更穩健的結果處理函式
     const processResult = (result, sourceName) => {
-        // 情況 1: Promise 被拒絕 (例如網路超時)
         if (result.status === 'rejected') {
             const reason = result.reason?.message || 'Unknown rejection reason';
             errors.push({ source: sourceName, reason });
@@ -39,7 +36,6 @@ const scanByImage = async (imageBuffer, options = {}) => {
             return;
         }
         
-        // 情況 2: Promise 已完成，但 API 回傳失敗
         if (!result.value || !result.value.success) {
             const reason = result.value?.error || 'API returned failure but no error message.';
             errors.push({ source: sourceName, reason });
@@ -47,7 +43,6 @@ const scanByImage = async (imageBuffer, options = {}) => {
             return;
         }
         
-        // 情況 3: 成功
         if (Array.isArray(result.value.links)) {
             result.value.links.forEach(url => allSources.add(url));
         }
@@ -56,10 +51,11 @@ const scanByImage = async (imageBuffer, options = {}) => {
     processResult(results[0], 'Google Vision');
     processResult(results[1], 'TinEye');
     processResult(results[2], 'Bing Vision');
+    
+    let promiseIndex = 3;
     if (keywords) {
-        processResult(results[3], 'YouTube');
-        processResult(results[4], 'TikTok');
-        processResult(results[5], 'Instagram');
+        processResult(results[promiseIndex++], 'YouTube');
+        processResult(results[promiseIndex++], 'Global Image Search');
     }
 
     const uniqueUrls = Array.from(allSources);
