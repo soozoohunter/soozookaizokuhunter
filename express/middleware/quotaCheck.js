@@ -54,6 +54,7 @@ const checkQuota = (featureCode) => async (req, res, next) => {
                 break;
         }
 
+        // limit 為 null 或 undefined 代表無限制
         if (limit != null && (usage + requestedAmount > limit)) {
             const remaining = limit - usage > 0 ? limit - usage : 0;
             return res.status(403).json({ 
