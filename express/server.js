@@ -1,4 +1,4 @@
-// express/server.js (路徑修正版)
+// express/server.js (v3.0 - 最終路由修正版)
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
@@ -6,28 +6,28 @@ const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
 const { initSocket } = require('./socket');
-const db = require('./models');
+const db =require('./models');
 
 // Global error handlers to prevent silent exits
 process.on('uncaughtException', err => {
     logger.error('[Uncaught Exception]', err);
+    process.exit(1); // 考慮到穩定性，發生未捕獲異常時應退出
 });
-process.on('unhandledRejection', err => {
-    logger.error('[Unhandled Rejection]', err);
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error('[Unhandled Rejection]', { reason, promise });
 });
 
 // --- Routers ---
 const authRouter = require('./routes/authRoutes');
 const protectRouter = require('./routes/protect');
-// ... (保留您其他的 router require) ...
 const filesRouter = require('./routes/files');
 const usersRouter = require('./routes/users');
 const dashboardRouter = require('./routes/dashboard');
-
+const scansRouter = require('./routes/scans'); // [核心修正] 引入 scans 路由
 
 const app = express();
 const server = http.createServer(app);
-const io = initSocket(server);
+initSocket(server); // 初始化 Socket.IO
 
 app.use(cors({
     origin: '*',
@@ -37,9 +37,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- [修正] 使用單一、明確的路徑來提供靜態檔案服務 ---
-// 根據 Docker 的結構，專案根目錄會是 /app
-// 因此，實體路徑應該是 /app/uploads
 const UPLOAD_DIR = path.resolve('/app/uploads');
 app.use('/uploads', express.static(UPLOAD_DIR));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
@@ -47,11 +44,10 @@ logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 // --- API Routes ---
 app.use('/api/auth', authRouter);
 app.use('/api/protect', protectRouter);
-// ... (保留您其他的 app.use for routers) ...
 app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/dashboard', dashboardRouter);
-
+app.use('/api/scans', scansRouter); // [核心修正] 啟用 scans 路由
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -60,23 +56,16 @@ app.get('/health', (req, res) => {
 const PORT = process.env.EXPRESS_PORT || 3000;
 
 async function startServer() {
-    // ... (保留您原有的 startServer 函式內容)
     try {
         logger.info('[Startup] Step 1: Initializing Database connection...');
-        await db.connectToDatabase(
-            process.env.DB_CONNECT_RETRIES || 10,
-            process.env.DB_CONNECT_RETRY_DELAY || 5000
-        );
+        await db.sequelize.authenticate(); // 使用 sequelize 實例來認證
         logger.info('[Startup] Step 1: Database connection successful.');
 
-        // ...其他啟動步驟...
-
-        server.listen(PORT, () => {
+        server.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server with Socket.IO is ready and running on http://0.0.0.0:${PORT}`);
         });
     } catch (error) {
         logger.error('[Startup] Failed to start Express server:', error);
-        console.error(error);
         process.exit(1);
     }
 }
