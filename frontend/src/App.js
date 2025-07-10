@@ -1,7 +1,6 @@
-// frontend/src/App.js (最終黃金版)
+// frontend/src/App.js (統一路由與邏輯)
 import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet, useNavigate } from 'react-router-dom';
-import jwtDecode from 'jwt-decode';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthProvider, AuthContext } from './AuthContext';
 import { setupResponseInterceptor } from './utils/apiClient';
@@ -18,6 +17,12 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import PricingPage from './pages/PricingPage';
 import ContactPage from './pages/ContactPage';
 import NotFoundPage from './pages/NotFoundPage';
+// --- 新增試用流程頁面 ---
+import ProtectStep1 from './pages/ProtectStep1';
+import ProtectStep2 from './pages/ProtectStep2';
+import ProtectStep3 from './pages/ProtectStep3';
+import ProtectStep4 from './pages/ProtectStep4';
+
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
@@ -161,27 +166,33 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route element={<RootLayout />}>
-              {/* 公開路由 */}
+              {/* --- 公開路由 --- */}
               <Route index element={<HomePage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
               <Route path="pricing" element={<PricingPage />} />
               <Route path="contact" element={<ContactPage />} />
               <Route path="admin/login" element={<AdminLoginPage />} />
+              
+              {/* --- 試用流程路由 (公開) --- */}
+              <Route path="protect/step1" element={<ProtectStep1 />} />
+              <Route path="protect/step2" element={<ProtectStep2 />} />
+              <Route path="protect/step3" element={<ProtectStep3 />} />
+              <Route path="protect/step4" element={<ProtectStep4 />} />
 
-              {/* 受保護的會員路由 */}
+              {/* --- 受保護的會員路由 --- */}
               <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}> 
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="file/:fileId" element={<FileDetailPage />} />
               </Route>
 
-              {/* 受保護的管理員路由 */}
+              {/* --- 受保護的管理員路由 --- */}
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}> 
                 <Route path="admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="admin/users" element={<AdminUsersPage />} />
               </Route>
               
-              {/* 404 頁面 */}
+              {/* --- 404 頁面 --- */}
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
