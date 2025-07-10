@@ -1,7 +1,8 @@
-// express/services/scanner.service.js (錯誤處理增強版)
+// express/services/scanner.service.js (錯誤處理與日誌增強版)
 const visionService = require('./vision.service');
 const tineyeService = require('./tineye.service');
 const bingService = require('./bing.service');
+const rapidApiService = require('./rapidApi.service'); // 引入 RapidAPI 服務
 const imageFetcher = require('../utils/imageFetcher');
 const logger = require('../utils/logger');
 
@@ -9,47 +10,65 @@ const scanByImage = async (imageBuffer, options = {}) => {
     logger.info('[Scanner Service] Received scan request with options:', options);
     let allSources = new Set();
     let errors = [];
+    const { keywords } = options; // 假設 options 中會傳入關鍵字
 
-    logger.info('[Scanner Service] Step 1: Performing reverse image search with Google, TinEye, and Bing...');
+    logger.info('[Scanner Service] Step 1: Performing reverse image search...');
     
     // 使用 Promise.allSettled 來確保所有搜尋都會執行，即使其中一個失敗
-    const results = await Promise.allSettled([
+    const imageSearchPromises = [
         visionService.searchByBuffer(imageBuffer),
         tineyeService.searchByBuffer(imageBuffer),
         bingService.searchByBuffer(imageBuffer)
-    ]);
+    ];
 
-    // 處理 Google Vision 結果
-    if (results[0].status === 'fulfilled') {
-        results[0].value.forEach(url => allSources.add(url));
-    } else {
-        errors.push({ source: 'Google Vision', reason: results[0].reason.message });
-        logger.error('[Google Vision Service] Search failed:', results[0].reason);
+    // 如果有關鍵字，才執行 RapidAPI 搜尋
+    if (keywords) {
+        logger.info(`[Scanner Service] Step 2: Performing keyword search on social media with: "${keywords}"`);
+        imageSearchPromises.push(rapidApiService.youtubeSearch(keywords));
+        imageSearchPromises.push(rapidApiService.tiktokSearch(keywords));
+        imageSearchPromises.push(rapidApiService.instagramSearch(keywords));
+        // Facebook API 可能限制較多，可選擇性啟用
+        // imageSearchPromises.push(rapidApiService.facebookSearch(keywords));
     }
 
-    // 處理 TinEye 結果
-    if (results[1].status === 'fulfilled') {
-        results[1].value.forEach(url => allSources.add(url));
-    } else {
-        errors.push({ source: 'TinEye', reason: results[1].reason.message });
-        logger.error('[TinEye Service] Search failed:', results[1].reason);
-    }
+    const results = await Promise.allSettled(imageSearchPromises);
 
-    // 處理 Bing Vision 結果
-    if (results[2].status === 'fulfilled') {
-        results[2].value.forEach(url => allSources.add(url));
-    } else {
-        errors.push({ source: 'Bing Vision', reason: results[2].reason.message });
-        logger.error('[Bing Service] Search failed:', results[2].reason);
+    const processResult = (result, sourceName) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+            result.value.links.forEach(url => allSources.add(url));
+        } else {
+            const reason = result.reason?.message || result.value?.error || 'Unknown error';
+            errors.push({ source: sourceName, reason });
+            logger.error(`[Scanner][${sourceName}] Search failed:`, reason);
+        }
+    };
+
+    processResult(results[0], 'Google Vision');
+    processResult(results[1], 'TinEye');
+    processResult(results[2], 'Bing Vision');
+    if (keywords) {
+        processResult(results[3], 'YouTube');
+        processResult(results[4], 'TikTok');
+        processResult(results[5], 'Instagram');
     }
 
     const uniqueUrls = Array.from(allSources);
     logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
 
-    logger.info(`[Scanner Service] Step 2: Verifying ${uniqueUrls.length} matches in parallel...`);
-    
+    // [可選] 如果不需要對每個連結進行二次驗證，可以直接回傳結果
+    // logger.info(`[Scanner Service] Full scan completed.`);
+    // return {
+    //     scan: {
+    //         totalSources: uniqueUrls.length,
+    //         totalMatches: uniqueUrls.length,
+    //         matches: uniqueUrls.map(url => ({ url, similarity: 'N/A', source: 'API Search' })),
+    //     },
+    //     errors: errors
+    // };
+
+    // 如果需要二次驗證 (例如比對圖片相似度)
+    logger.info(`[Scanner Service] Step 3: Verifying ${uniqueUrls.length} matches in parallel...`);
     const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, options.fingerprint);
-    
     logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
 
     return {
@@ -58,7 +77,6 @@ const scanByImage = async (imageBuffer, options = {}) => {
             totalMatches: verificationResults.matches.length,
             matches: verificationResults.matches,
         },
-        // [新增] 將 API 錯誤一併回傳，方便記錄
         errors: errors
     };
 };
