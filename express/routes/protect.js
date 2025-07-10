@@ -1,10 +1,11 @@
-// express/routes/protect.js (v3.1 - 最終邏輯修正)
+// express/routes/protect.js (v3.2 - TypeError 修正與邏輯強化)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize'); // [核心修正] 直接從 sequelize 函式庫引入 Op
 const logger = require('../utils/logger');
 const auth = require('../middleware/auth');
 const checkQuota = require('../middleware/quotaCheck');
@@ -93,7 +94,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     const transaction = await sequelize.transaction();
     try {
-        let user = await User.findOne({ where: { [sequelize.Op.or]: [{ email }, { phone }] }, transaction });
+        // [核心修正] 使用 Op.or 而非 sequelize.Op.or
+        let user = await User.findOne({ where: { [Op.or]: [{ email }, { phone }] }, transaction });
         
         if (!user) {
             const tempPassword = generateTempPassword();
