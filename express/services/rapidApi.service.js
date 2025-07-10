@@ -1,4 +1,4 @@
-// express/services/rapidApi.service.js (合併並強化的最終版本)
+// express/services/rapidApi.service.js (已整合 Global Image Search)
 const axios = require('axios');
 const logger = require('../utils/logger');
 
@@ -7,10 +7,10 @@ const {
     RAPIDAPI_YOUTUBE_URL,
     RAPIDAPI_TIKTOK_URL,
     RAPIDAPI_INSTAGRAM_URL,
-    RAPIDAPI_FACEBOOK_URL
+    RAPIDAPI_FACEBOOK_URL,
+    RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL // 讀取新的設定
 } = process.env;
 
-// 從完整的 URL 中提取 host
 const getHostFromUrl = (url) => {
     try {
         if (!url) return null;
@@ -21,59 +21,60 @@ const getHostFromUrl = (url) => {
     }
 };
 
-// 統一的 API 設定
 const API_CONFIGS = {
     YouTube: {
+        method: 'GET',
         url: RAPIDAPI_YOUTUBE_URL,
         host: getHostFromUrl(RAPIDAPI_YOUTUBE_URL),
-        params: (keyword) => ({ q: keyword, hl: 'en', gl: 'US' }),
-        // 解析 YouTube 回應的函式
-        parse: (data) => data?.contents?.map(item => item.video?.videoId ? `https://www.youtube.com/watch?v=$${item.video.videoId}` : null)
+        params: (keyword) => ({ keyword: keyword }),
+        parse: (data) => {
+            if (typeof data === 'object' && data !== null) {
+                return Object.values(data).map(videoId => 
+                    typeof videoId === 'string' ? `https://www.youtube.com/watch?v=$${videoId}` : null
+                );
+            }
+            return [];
+        }
     },
-    TikTok: {
-        url: RAPIDAPI_TIKTOK_URL,
-        host: getHostFromUrl(RAPIDAPI_TIKTOK_URL),
-        params: (keyword) => ({ keywords: keyword, count: 20 }),
-        // 解析 TikTok 回應的函式
-        parse: (data) => data?.data?.videos?.map(item => item.play)
+    GlobalImageSearch: {
+        method: 'POST',
+        url: RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL,
+        host: getHostFromUrl(RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL),
+        data: (keyword) => ({ keywords: keyword, count: "20" }),
+        parse: (data) => data?.results?.map(item => item.url)
     },
-    Instagram: {
-        url: RAPIDAPI_INSTAGRAM_URL,
-        host: getHostFromUrl(RAPIDAPI_INSTAGRAM_URL),
-        params: (keyword) => ({ query: keyword }),
-        // 解析 Instagram 回應的函式
-        parse: (data) => data?.data?.map(item => item.post_url)
-    },
-    Facebook: {
-        url: RAPIDAPI_FACEBOOK_URL,
-        host: getHostFromUrl(RAPIDAPI_FACEBOOK_URL),
-        params: (keyword) => ({ q: keyword }),
-        // 解析 Facebook 回應的函式
-        parse: (data) => data?.videos?.map(item => item.url)
-    }
+    TikTok: { method: 'GET', url: RAPIDAPI_TIKTOK_URL, host: getHostFromUrl(RAPIDAPI_TIKTOK_URL), params: (keyword) => ({ keywords: keyword }), parse: (data) => data?.data?.videos?.map(item => item.play) },
+    Instagram: { method: 'GET', url: RAPIDAPI_INSTAGRAM_URL, host: getHostFromUrl(RAPIDAPI_INSTAGRAM_URL), params: (keyword) => ({ query: keyword }), parse: (data) => data?.data?.map(item => item.post_url) },
+    Facebook: { method: 'GET', url: RAPIDAPI_FACEBOOK_URL, host: getHostFromUrl(RAPIDAPI_FACEBOOK_URL), params: (keyword) => ({ q: keyword }), parse: (data) => data?.videos?.map(item => item.url) }
 };
 
-// 可重用的請求函式
 async function makeRequest(platform, keyword) {
     const config = API_CONFIGS[platform];
     if (!RAPIDAPI_KEY || !config?.url || !config?.host) {
-        const errorMsg = `[RapidAPI][${platform}] Service is disabled. Check RAPIDAPI_KEY and ${platform.toUpperCase()}_URL in .env.`;
-        logger.warn(errorMsg);
-        return { success: false, links: [], error: errorMsg };
+        const warningMsg = `[RapidAPI][${platform}] Search skipped. API Key or URL for this platform is not configured in .env.`;
+        logger.warn(warningMsg);
+        return { success: true, links: [], error: `Service not configured for ${platform}` };
     }
 
     logger.info(`[RapidAPI][${platform}] Searching with keyword: "${keyword}"`);
 
     try {
-        const response = await axios.request({
-            method: 'GET',
+        const requestOptions = {
+            method: config.method,
             url: config.url,
-            params: config.params(keyword),
             headers: { 'X-RapidAPI-Key': RAPIDAPI_KEY, 'X-RapidAPI-Host': config.host },
-            timeout: 20000 // 增加超時時間
-        });
+            timeout: 20000 
+        };
 
-        // 使用對應的解析函式
+        if (config.method === 'GET') {
+            requestOptions.params = config.params(keyword);
+        } else if (config.method === 'POST') {
+            requestOptions.headers['Content-Type'] = 'application/json';
+            requestOptions.data = config.data(keyword);
+        }
+
+        const response = await axios.request(requestOptions);
+
         const links = config.parse(response.data)?.filter(Boolean) || [];
         const uniqueLinks = [...new Set(links)];
         
@@ -88,8 +89,9 @@ async function makeRequest(platform, keyword) {
 }
 
 module.exports = {
-    tiktokSearch: (keyword) => makeRequest('TikTok', keyword),
     youtubeSearch: (keyword) => makeRequest('YouTube', keyword),
+    tiktokSearch: (keyword) => makeRequest('TikTok', keyword),
     instagramSearch: (keyword) => makeRequest('Instagram', keyword),
-    facebookSearch: (keyword) => makeRequest('Facebook', keyword)
+    facebookSearch: (keyword) => makeRequest('Facebook', keyword),
+    globalImageSearch: (keyword) => makeRequest('GlobalImageSearch', keyword)
 };
