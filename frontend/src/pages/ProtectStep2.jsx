@@ -1,9 +1,10 @@
-// frontend/src/pages/ProtectStep2.jsx (Final Version)
-import React, { useEffect, useState } from 'react';
+// frontend/src/pages/ProtectStep2.jsx (v2.1 - 認證與 API 呼叫修正版)
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
+import { AuthContext } from '../AuthContext';
+import apiClient from '../utils/apiClient';
 
-// Reuse animations and styles from Step1 for visual consistency
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -54,6 +55,7 @@ const InfoBlock = styled.div`
   padding: 1rem;
   margin-bottom: 1.5rem;
   line-height: 1.6;
+  word-break: break-all;
 `;
 const ButtonRow = styled.div`
   text-align: center;
@@ -83,6 +85,7 @@ const Spinner = styled.div`
   border-radius: 50%;
   margin-right: 0.5rem;
   animation: ${spin} 0.8s linear infinite;
+  vertical-align: middle;
 `;
 const Overlay = styled.div`
   position: fixed;
@@ -120,21 +123,17 @@ const ProgressIndicator = styled.div`
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { token } = useContext(AuthContext);
 
-  // 優先從 location.state 獲取數據，其次才從 localStorage 獲取
-  const [step1Data, setStep1Data] = useState(
-    location.state && location.state.step1Data ? location.state.step1Data : null
-  );
+  const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // 如果 state 中沒有數據 (例如使用者重新整理了此頁面)，則嘗試從 localStorage 回復
     if (!step1Data) {
       const storedData = localStorage.getItem('protectStep1');
       if (storedData) {
         setStep1Data(JSON.parse(storedData));
       } else {
-        // 如果無任何資料，返回第一步
         alert('找不到上一步的資料，請重新上傳。');
         navigate('/protect/step1');
       }
@@ -142,31 +141,28 @@ export default function ProtectStep2() {
   }, [step1Data, navigate]);
 
   const handleProceedToScan = async () => {
-    if (!(step1Data && step1Data.file && step1Data.file.id)) {
+    if (!step1Data?.file?.id) {
       alert('錯誤：無效的檔案資訊，無法啟動掃描。');
       return;
     }
+    
+    if (!token && step1Data.user.role !== 'trial') {
+        alert('您的登入階段已過期，請重新登入後再試。');
+        navigate('/login');
+        return;
+    }
+
     setIsLoading(true);
-
     try {
-      const response = await fetch('/api/protect/step2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: step1Data.file.id }),
+      const response = await apiClient.post('/api/protect/step2', {
+        fileId: step1Data.file.id
       });
+      
+      navigate('/protect/step3', { state: { taskId: response.data.taskId, step1Data } });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '啟動掃描任務失敗。');
-      }
-
-      const data = await response.json();
-
-      // 關鍵: 將 taskId 和完整的 step1Data 傳遞給下一個頁面
-      navigate('/protect/step3', { state: { taskId: data.taskId, step1Data } });
     } catch (error) {
       console.error('Failed to dispatch scan:', error);
-      alert(`啟動掃描失敗：${error.message}`);
+      alert(`啟動掃描失敗：${error.response?.data?.error || error.message}`);
       setIsLoading(false);
     }
   };
