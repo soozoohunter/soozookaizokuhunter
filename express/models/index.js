@@ -25,7 +25,8 @@ db.Scan = require('./scan.js')(sequelize, Sequelize.DataTypes); // 根據您的�
 db.UsageRecord = require('./usagerecord.js')(sequelize, Sequelize.DataTypes); // 根據您的檔案結構，此檔名為小寫
 // 修正路徑名稱，確保在區分大小寫的系統上能正確載入
 db.SubscriptionPlan = require('./subscriptionPlan.js')(sequelize, Sequelize.DataTypes);
-db.UserSubscription = require('./usersubscription.js')(sequelize, Sequelize.DataTypes); // 根據您的檔案結構，此檔名為小寫
+// 修正檔名大小寫，確保在區分大小寫的系統上能正確載入
+db.UserSubscription = require('./UserSubscription.js')(sequelize, Sequelize.DataTypes);
 db.InfringementReport = require('./infringementreport.js')(sequelize, Sequelize.DataTypes); // 根據您的檔案結構，此檔名為小寫
 db.DMCARequest = require('./dmcarequest.js')(sequelize, Sequelize.DataTypes); // 根據您的檔案結構，此檔名為小寫
 
