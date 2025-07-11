@@ -1,4 +1,4 @@
-// express/models/index.js (v7.0 - The Final Stand)
+// express/models/index.js (v7.1 - Final Case-Sensitive Hotfix)
 'use strict';
 
 const fs = require('fs');
@@ -22,9 +22,10 @@ if (config.use_env_variable) {
 }
 
 try {
-    // [核心修正] 根據您的伺服器檔案結構，明確指定所有模型的大小寫檔名
-    db.User = require('./user.js')(sequelize, Sequelize.DataTypes);
-    db.File = require('./file.js')(sequelize, Sequelize.DataTypes);
+    // [核心修正] 根據日誌和您的檔案結構，明確指定所有模型的大小寫檔名
+    // User.js 和 File.js 使用大寫開頭，其餘使用小寫
+    db.User = require('./User.js')(sequelize, Sequelize.DataTypes);
+    db.File = require('./File.js')(sequelize, Sequelize.DataTypes);
     db.Scan = require('./scan.js')(sequelize, Sequelize.DataTypes);
     db.UsageRecord = require('./usagerecord.js')(sequelize, Sequelize.DataTypes);
     db.SubscriptionPlan = require('./subscriptionplan.js')(sequelize, Sequelize.DataTypes);
@@ -32,14 +33,14 @@ try {
     db.InfringementReport = require('./infringementreport.js')(sequelize, Sequelize.DataTypes);
     db.DMCARequest = require('./dmcarequest.js')(sequelize, Sequelize.DataTypes);
 
-    // 檢查並載入其他可能存在的模型
-    if (fs.existsSync(path.join(__dirname, 'manualreport.js'))) {
-        db.ManualReport = require('./manualreport.js')(sequelize, Sequelize.DataTypes);
+    // 檢查並載入其他可能存在的模型 (保持大寫慣例)
+    if (fs.existsSync(path.join(__dirname, 'ManualReport.js'))) {
+        db.ManualReport = require('./ManualReport.js')(sequelize, Sequelize.DataTypes);
     }
-    if (fs.existsSync(path.join(__dirname, 'payment.js'))) {
-        db.Payment = require('./payment.js')(sequelize, Sequelize.DataTypes);
+    if (fs.existsSync(path.join(__dirname, 'Payment.js'))) {
+        db.Payment = require('./Payment.js')(sequelize, Sequelize.DataTypes);
     }
-     if (fs.existsSync(path.join(__dirname, 'ScanTask.js'))) {
+    if (fs.existsSync(path.join(__dirname, 'ScanTask.js'))) {
         db.ScanTask = require('./ScanTask.js')(sequelize, Sequelize.DataTypes);
     }
 
@@ -47,7 +48,6 @@ try {
 
 } catch (error) {
     logger.error(`[Database] FATAL: A critical model failed to load. Please check filenames and their content. Error:`, error);
-    // 啟動失敗時，直接拋出錯誤，避免容器無限重啟
     throw error;
 }
 
