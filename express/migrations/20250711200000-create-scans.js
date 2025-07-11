@@ -13,7 +13,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Files', // 關聯到 Files 表
+          model: 'Files',
           key: 'id',
         },
         onUpdate: 'CASCADE',
@@ -23,7 +23,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'users', // 關聯到 users 表
+          model: 'Users',
           key: 'id',
         },
         onUpdate: 'CASCADE',
@@ -44,6 +44,7 @@ module.exports = {
       completed_at: {
         type: Sequelize.DATE
       },
+      // [核心修正] 補上缺失的 created_at 和 updated_at 欄位
       created_at: {
         allowNull: false,
         type: Sequelize.DATE
