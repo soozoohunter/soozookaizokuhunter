@@ -110,7 +110,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
-        logger.error('[Protect Step1] Failed:', error);
+        logger.error('[Protect Step1] Failed:', { message: error.message, stack: error.stack });
         res.status(error.status || 500).json({ error: error.message || '處理試用檔案時發生內部錯誤。' });
     } finally {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
