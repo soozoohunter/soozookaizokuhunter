@@ -1,7 +1,6 @@
 // express/models/scan.js (v2.0 - 補全關聯)
 'use strict';
 const { Model } = require('sequelize');
-
 module.exports = (sequelize, DataTypes) => {
   class Scan extends Model {
     static associate(models) {

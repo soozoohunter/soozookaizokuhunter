@@ -1,7 +1,6 @@
 // express/models/dmcarequest.js
 'use strict';
 const { Model } = require('sequelize');
-
 module.exports = (sequelize, DataTypes) => {
   class DMCARequest extends Model {
     static associate(models) {
