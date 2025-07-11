@@ -1,13 +1,10 @@
-// express/models/index.js (v2.0 - Finalized)
+// express/models/index.js (v3.0 - Final, Stabilized Version)
 'use strict';
-const fs = require('fs');
-const path = require('path');
-const Sequelize = require('sequelize');
-const process = require('process');
-const basename = path.basename(__filename);
+
+const { Sequelize, DataTypes } = require('sequelize');
+const logger = require('../utils/logger');
 const env = process.env.NODE_ENV || 'development';
 const config = require(__dirname + '/../config/database.js')[env];
-const logger = require('../utils/logger');
 const db = {};
 
 let sequelize;
@@ -17,32 +14,31 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-// 動態讀取當前目錄下的所有模型檔案，排除 index.js 本身
-fs
-  .readdirSync(__dirname)
-  .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
-    );
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-    logger.info(`[Database] Model loaded: ${model.name}`);
-  });
+// [核心修正] 移除動態讀取檔案的邏輯，改為手動、明確地載入每一個模型。
+// 這種方式雖然較為繁瑣，但極度穩定，且在出現問題時能提供清晰的錯誤堆疊。
+db.User = require('./user.js')(sequelize, DataTypes);
+db.SubscriptionPlan = require('./subscriptionplan.js')(sequelize, DataTypes);
+db.UserSubscription = require('./usersubscription.js')(sequelize, DataTypes);
+db.File = require('./file.js')(sequelize, DataTypes);
+db.Scan = require('./scan.js')(sequelize, DataTypes);
+db.UsageRecord = require('./usagerecord.js')(sequelize, DataTypes);
+db.InfringementReport = require('./infringementreport.js')(sequelize, DataTypes);
+db.DMCARequest = require('./dmcarequest.js')(sequelize, DataTypes);
 
-logger.info('[Database] All models loaded successfully.');
+// 假設您還有 ManualReport 和 Payment 模型，如果沒有請將其註解或刪除
+// db.ManualReport = require('./manualreport.js')(sequelize, DataTypes);
+// db.Payment = require('./payment.js')(sequelize, DataTypes);
 
+logger.info('[Database] All models have been loaded explicitly.');
+
+// 執行模型之間的關聯設定
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-logger.info('[Database] Model associations configured.');
+logger.info('[Database] Model associations have been configured.');
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
