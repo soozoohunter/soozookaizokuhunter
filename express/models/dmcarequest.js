@@ -1,4 +1,7 @@
+// express/models/dmcarequest.js
+'use strict';
 const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   class DMCARequest extends Model {
     static associate(models) {
@@ -8,7 +11,11 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   DMCARequest.init({
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    id: { 
+      type: DataTypes.INTEGER, 
+      primaryKey: true, 
+      autoIncrement: true 
+    },
     user_id: DataTypes.INTEGER,
     scan_id: DataTypes.INTEGER,
     report_id: DataTypes.INTEGER,
@@ -19,7 +26,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'DMCARequest',
-    tableName: 'DMCARequests'
+    tableName: 'DMCARequests',
+    underscored: true,
   });
   return DMCARequest;
 };
