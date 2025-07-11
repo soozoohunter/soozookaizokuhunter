@@ -13,18 +13,17 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Files',
+          model: 'Files', // 關聯到 Files 表
           key: 'id',
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
       },
-      // [核心修正] 補上缺失的 user_id 欄位與其外部索引鍵設定
       user_id: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Users',
+          model: 'Users', // 關聯到 Users 表
           key: 'id',
         },
         onUpdate: 'CASCADE',
