@@ -1,4 +1,3 @@
-// express/server.js (v3.1 - 最終路由修正版)
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
@@ -8,33 +7,22 @@ const logger = require('./utils/logger');
 const { initSocket } = require('./socket');
 const db = require('./models');
 
-// Global error handlers
-process.on('uncaughtException', err => {
-    logger.error('[Uncaught Exception]', err);
-    process.exit(1);
-});
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('[Unhandled Rejection]', { reason, promise });
-});
+process.on('uncaughtException', err => { logger.error('[Uncaught Exception]', err); process.exit(1); });
+process.on('unhandledRejection', (reason, promise) => { logger.error('[Unhandled Rejection]', { reason, promise }); process.exit(1); });
 
-// --- Routers ---
 const authRouter = require('./routes/authRoutes');
 const adminRouter = require('./routes/admin');
 const protectRouter = require('./routes/protect');
 const filesRouter = require('./routes/files');
 const usersRouter = require('./routes/users');
 const dashboardRouter = require('./routes/dashboard');
-const scansRouter = require('./routes/scans'); // [核心修正] 引入 scans 路由
+const scansRouter = require('./routes/scans');
 
 const app = express();
 const server = http.createServer(app);
 initSocket(server);
 
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-}));
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], credentials: true, }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -42,32 +30,43 @@ const UPLOAD_DIR = path.resolve('/app/uploads');
 app.use('/uploads', express.static(UPLOAD_DIR));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 
-// --- API Routes ---
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/protect', protectRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/dashboard', dashboardRouter);
-app.use('/api/scans', scansRouter); // [核心修正] 啟用 scans 路由
+app.use('/api/scans', scansRouter);
 
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
 const PORT = process.env.EXPRESS_PORT || 3000;
 
+const connectWithRetry = async (retries = 10, delay = 5000) => {
+    for (let i = 1; i <= retries; i++) {
+        try {
+            await db.sequelize.authenticate();
+            logger.info('[Database] Connection has been established successfully.');
+            return;
+        } catch (error) {
+            logger.error(`[Database] Connection failed. Attempt ${i}/${retries}. Retrying in ${delay / 1000}s...`, { error: error.message });
+            if (i === retries) {
+                logger.error('[Database] All connection attempts have failed.');
+                throw error;
+            }
+            await new Promise(res => setTimeout(res, delay));
+        }
+    }
+};
+
 async function startServer() {
     try {
-        logger.info('[Startup] Step 1: Initializing Database connection...');
-        await db.sequelize.authenticate();
-        logger.info('[Startup] Step 1: Database connection successful.');
-
+        await connectWithRetry();
         server.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server with Socket.IO is ready and running on http://0.0.0.0:${PORT}`);
         });
     } catch (error) {
-        logger.error('[Startup] Failed to start Express server:', error);
+        logger.error('[Startup] Failed to start Express server due to DB connection failure.', error);
         process.exit(1);
     }
 }

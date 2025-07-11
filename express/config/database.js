@@ -1,15 +1,27 @@
+// express/config/database.js
 require('dotenv').config();
+
 module.exports = {
   development: {
-    url: process.env.DATABASE_URL,
+    username: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.POSTGRES_DB,
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT,
     dialect: 'postgres',
-  },
-  test: {
-    url: process.env.DATABASE_URL,
-    dialect: 'postgres',
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? { require: true, rejectUnauthorized: false } : false
+    }
   },
   production: {
-    url: process.env.DATABASE_URL,
+    username: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.POSTGRES_DB,
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT,
     dialect: 'postgres',
-  },
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? { require: true, rejectUnauthorized: false } : false
+    }
+  }
 };
