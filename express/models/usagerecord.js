@@ -18,19 +18,30 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'Users',
+        model: 'users', // table name referenced in migrations
         key: 'id'
       }
     },
     feature_code: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM('image_upload', 'scan', 'dmca_takedown'),
       allowNull: false
     },
+    usage_count: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1
+    },
+    period_start: DataTypes.DATE,
+    period_end: DataTypes.DATE,
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
   }, {
     sequelize,
     modelName: 'UsageRecord',
     tableName: 'UsageRecords',
     underscored: true,
+    timestamps: false
   });
   return UsageRecord;
 };
