@@ -23,7 +23,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Users', // 關聯到 Users 表
+          model: 'users', // 關聯到 users 表
           key: 'id',
         },
         onUpdate: 'CASCADE',
