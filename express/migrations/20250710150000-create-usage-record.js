@@ -13,7 +13,7 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Users', // 確保與 User 表的表名一致
+          model: 'users', // 需與 users 表名稱一致
           key: 'id',
         },
         onUpdate: 'CASCADE',

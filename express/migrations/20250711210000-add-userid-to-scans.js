@@ -7,9 +7,9 @@ module.exports = {
     await queryInterface.addColumn('Scans', 'user_id', {
       type: Sequelize.INTEGER,
       allowNull: false,
-      // 建立與 Users 表的外部索引鍵關聯
+      // 建立與 users 表的外部索引鍵關聯
       references: {
-        model: 'Users', // 確認您的使用者資料表名稱為 'Users'
+        model: 'users', // 表格名稱應與 User model 的 tableName 相同
         key: 'id',
       },
       onUpdate: 'CASCADE',
