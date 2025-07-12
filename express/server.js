@@ -1,58 +1,65 @@
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
+const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
+const { initSocket } = require('./socket');
 const db = require('./models');
 
+// 全局错误处理
 process.on('uncaughtException', (err) => {
   logger.error('[Uncaught Exception]', err);
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('[Unhandled Rejection]', { reason, promise });
+process.on('unhandledRejection', (reason) => {
+  logger.error('[Unhandled Rejection]', reason);
   process.exit(1);
 });
 
 const app = express();
 const server = http.createServer(app);
+initSocket(server);
 
+// 中间件
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 静态文件服务
 const UPLOAD_DIR = path.resolve('/app/uploads');
 app.use('/uploads', express.static(UPLOAD_DIR));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 
-const authRouter = require('./routes/authRoutes');
-const protectRouter = require('./routes/protect');
-const filesRouter = require('./routes/files');
+// 路由
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/protect', require('./routes/protect'));
+app.use('/api/files', require('./routes/files'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/scans', require('./routes/scans'));
 
-app.use('/api/auth', authRouter);
-app.use('/api/protect', protectRouter);
-app.use('/api/files', filesRouter);
-
+// 健康检查
 app.get('/health', (req, res) => {
-  const dbStatus = db.sequelize && db.sequelize.authenticated ? 'connected' : 'disconnected';
   res.status(200).json({
     status: 'OK',
-    db: dbStatus,
-    services: ['express', 'postgres'],
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 const PORT = process.env.EXPRESS_PORT || 3000;
 
+// 核心修复：数据库连接重试逻辑
 const connectWithRetry = async (retries = 5, delay = 5000) => {
   for (let i = 1; i <= retries; i++) {
     try {
       await db.sequelize.authenticate();
       logger.info('[Database] Connection established successfully.');
-      return true;
+      return;
     } catch (error) {
-      logger.error(`[Database] Connection failed (Attempt ${i}/${retries}). Retrying in ${delay/1000}s...`, error);
+      logger.error(`[Database] Connection failed (Attempt ${i}/${retries}). Retrying in ${delay/1000}s...`);
       if (i === retries) throw error;
       await new Promise(res => setTimeout(res, delay));
     }
@@ -64,19 +71,17 @@ async function startServer() {
     logger.info('[Startup] Initializing database connection...');
     await connectWithRetry();
 
-    logger.info('[Startup] Starting HTTP server...');
+    // 核心修复：僅同步模型，不強制重建
+    await db.sequelize.sync({ alter: true });
+    logger.info('[Database] Models synchronized successfully.');
+    
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
-      setTimeout(() => {
-        logger.info('[Startup] Service status check: OK');
-      }, 5000);
     });
   } catch (error) {
-    logger.error('[Startup] Could not connect to the database after multiple retries. Exiting.', error);
+    logger.error('[Startup] Fatal error during initialization:', error);
     process.exit(1);
   }
 }
 
-setTimeout(() => {
-  startServer();
-}, 10000);
+startServer();

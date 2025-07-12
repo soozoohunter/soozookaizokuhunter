@@ -1,7 +1,9 @@
+// controllers/userController.js
 const { ValidationError } = require('sequelize');
 const User = require('../models/user.model');
 const logger = require('../utils/logger');
 
+// 驗證並解析 userId
 const validateUserId = (userId) => {
   if (!userId || isNaN(userId)) {
     throw new Error('無效的用戶ID');
@@ -10,6 +12,9 @@ const validateUserId = (userId) => {
 };
 
 const UserController = {
+  /**
+   * 取得目前登入用戶的個人資料
+   */
   getProfile: async (req, res, next) => {
     try {
       const userId = validateUserId(req.user.userId);
@@ -44,6 +49,9 @@ const UserController = {
     }
   },
 
+  /**
+   * 更新個人資料
+   */
   updateProfile: async (req, res, next) => {
     try {
       const userId = validateUserId(req.user.userId);
