@@ -31,7 +31,7 @@ module.exports = (sequelize) => {
       defaultValue: 'PENDING'
     }
   }, {
-    tableName: 'payments',
+    tableName: 'Payments',
     timestamps: true
   });
   return Payment;

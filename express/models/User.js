@@ -4,17 +4,44 @@ module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
       User.hasMany(models.File, { foreignKey: 'user_id', as: 'files' });
+      User.hasMany(models.Scan, { foreignKey: 'user_id', as: 'scans' });
     }
   }
+  
   User.init({
-    email: { type: DataTypes.STRING, unique: true, allowNull: false },
-    phone: { type: DataTypes.STRING, unique: true, allowNull: false },
-    password: { type: DataTypes.STRING, allowNull: false },
-    // ... 其他欄位
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.STRING,
+      defaultValue: 'user'
+    },
+    phone: {
+      type: DataTypes.STRING,
+      unique: true
+    },
+    realName: DataTypes.STRING,
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: 'active'
+    }
   }, {
     sequelize,
     modelName: 'User',
-    tableName: 'User', // [核心修正] 表名固定為單數 User
+    tableName: 'Users',
+    underscored: true
   });
+  
   return User;
 };

@@ -18,7 +18,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'users', // table name referenced in migrations
+        model: 'Users',
         key: 'id'
       }
     },
@@ -39,7 +39,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'UsageRecord',
-    tableName: 'usage_records',
+    tableName: 'UsageRecords',
     underscored: true,
     timestamps: false
   });

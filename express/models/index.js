@@ -1,72 +1,67 @@
 'use strict';
 
-const { Sequelize, DataTypes, Model } = require('sequelize');
+const fs = require('fs');
+const path = require('path');
+const { Sequelize, DataTypes } = require('sequelize');
 const logger = require('../utils/logger');
 const env = process.env.NODE_ENV || 'development';
 const config = require(__dirname + '/../config/database.js')[env];
+const db = {};
 
-// 创建 sequelize 实例 - 简化配置
-const sequelize = new Sequelize({
-  database: config.database,
-  username: config.username,
-  password: config.password,
-  host: config.host,
-  port: config.port,
-  dialect: 'postgres',
-  logging: msg => logger.debug(`[Sequelize] ${msg}`),
-  define: {
-    underscored: true,
-    freezeTableName: true,
-    timestamps: true
+const sequelize = new Sequelize(
+  config.database,
+  config.username,
+  config.password,
+  {
+    host: config.host,
+    port: config.port,
+    dialect: config.dialect,
+    dialectOptions: config.dialectOptions,
+    logging: msg => logger.debug(`[Sequelize] ${msg}`),
+    define: {
+      underscored: true,
+      freezeTableName: false
+    }
+  }
+);
+
+const modelFiles = [
+  'User.js',
+  'File.js',
+  'scan.js',
+  'usagerecord.js',
+  'subscriptionplan.js',
+  'usersubscription.js',
+  'infringementreport.js',
+  'dmcarequest.js',
+  'ManualReport.js',
+  'Payment.js',
+  'ScanTask.js'
+];
+
+modelFiles.forEach(file => {
+  const modelPath = path.join(__dirname, file);
+  if (fs.existsSync(modelPath)) {
+    try {
+      const model = require(modelPath)(sequelize, DataTypes);
+      db[model.name] = model;
+      logger.info(`[Database] Loaded model: ${model.name}`);
+    } catch (error) {
+      logger.error(`[Database] Failed to load model ${file}:`, error);
+      throw error;
+    }
   }
 });
 
-// 模型定义 - 仅包含核心模型
-class User extends Model {}
-User.init({
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  email: { type: DataTypes.STRING, allowNull: false, unique: true },
-  password: { type: DataTypes.STRING, allowNull: false },
-  role: { type: DataTypes.STRING, defaultValue: 'user' }
-}, { sequelize, modelName: 'User', tableName: 'users' });
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
-class File extends Model {}
-File.init({
-  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  user_id: { type: DataTypes.INTEGER, allowNull: false },
-  filename: DataTypes.STRING,
-  fingerprint: { type: DataTypes.STRING, unique: true }
-}, { sequelize, modelName: 'File', tableName: 'files' });
+logger.info('[Database] Model associations configured.');
 
-// 关联关系
-User.hasMany(File, { foreignKey: 'user_id' });
-File.belongsTo(User, { foreignKey: 'user_id' });
-
-// 导出对象
-const db = {
-  sequelize,
-  Sequelize,
-  User,
-  File
-};
-
-// 简化同步逻辑
-sequelize.authenticate()
-  .then(() => {
-    logger.info('[Database] Connection established');
-    return Promise.all([
-      User.sync({ alter: true }),
-      File.sync({ alter: true })
-    ]);
-  })
-  .then(() => {
-    logger.info('[Database] Core tables synchronized');
-  })
-  .catch(err => {
-    logger.error('[Database] Fatal initialization error:', err);
-    if (process.env.NODE_ENV !== 'production') {
-      process.exit(1);
-    }
-  });
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
 module.exports = db;
