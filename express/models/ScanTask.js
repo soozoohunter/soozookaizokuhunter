@@ -9,8 +9,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        // **FIX**: 確保參考的資料表名稱是 'Files' (首字母大寫的複數形式)
-        model: 'Files',
+        // use consistent lowercase table name
+        model: 'files',
         key: 'id',
       },
     },
