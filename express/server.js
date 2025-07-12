@@ -49,11 +49,8 @@ const connectWithRetry = async (retries = 10, delay = 5000) => {
             logger.info('[Database] Connection has been established successfully.');
             return;
         } catch (error) {
-            logger.error(`[Database] Connection failed. Attempt ${i}/${retries}. Retrying in ${delay / 1000}s...`, { error: error.message });
-            if (i === retries) {
-                logger.error('[Database] All connection attempts have failed.');
-                throw error;
-            }
+            logger.error(`[Database] Connection failed. Attempt ${i}/${retries}. Retrying in ${delay / 1000}s...`);
+            if (i === retries) throw error;
             await new Promise(res => setTimeout(res, delay));
         }
     }
@@ -62,8 +59,8 @@ const connectWithRetry = async (retries = 10, delay = 5000) => {
 async function startServer() {
     try {
         await connectWithRetry();
-        server.listen(PORT, '0.0.0.0', () => {
-            logger.info(`[Express] Server with Socket.IO is ready and running on http://0.0.0.0:${PORT}`);
+        server.listen(PORT, () => {
+            logger.info(`Server is ready on port ${PORT}`);
         });
     } catch (error) {
         logger.error('[Startup] Failed to start Express server due to DB connection failure.', error);
