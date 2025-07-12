@@ -35,7 +35,22 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     const fileBuffer = fs.readFileSync(tempPath);
     const fingerprint = fingerprintService.sha256(fileBuffer);
 
-    const existingFile = await File.findOne({ where: { fingerprint }, transaction });
+    // Check if file already exists
+    let existingFile;
+    try {
+        existingFile = await File.findOne({
+            where: { fingerprint },
+            transaction,
+            tableName: 'files'
+        });
+    } catch (findError) {
+        logger.error('[File Find Error]', {
+            error: findError.message,
+            sql: findError.sql,
+            fingerprint
+        });
+        throw findError;
+    }
     if (existingFile) {
         throw { status: 409, message: `此檔案 (${originalname}) 先前已被保護。` };
     }
@@ -94,7 +109,8 @@ const handleFileUpload = async (file, userId, body, transaction) => {
             error: scanError.message,
             stack: scanError.stack,
             fileId: newFile.id,
-            userId: userId
+            userId: userId,
+            sql: scanError.sql
         });
         throw scanError;
     }
@@ -110,27 +126,31 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     const transaction = await sequelize.transaction();
     try {
-        let user = await User.findOne({ 
-            where: { 
+        let user = await User.findOne({
+            where: {
                 [Op.or]: [
-                    { email: email.trim().toLowerCase() }, 
+                    { email: email.trim().toLowerCase() },
                     { phone: phone.trim() }
-                ] 
-            }, 
-            transaction 
+                ]
+            },
+            transaction,
+            tableName: 'users'
         });
 
         if (!user) {
             const tempPassword = generateTempPassword();
             const hashedPassword = await bcrypt.hash(tempPassword, 10);
-            user = await User.create({ 
+            user = await User.create({
                 email: email.trim().toLowerCase(),
                 phone: phone.trim(),
                 realName: realName.trim(),
-                password: hashedPassword, 
-                role: 'trial', 
-                status: 'active' 
-            }, { transaction });
+                password: hashedPassword,
+                role: 'trial',
+                status: 'active'
+            }, {
+                transaction,
+                tableName: 'users'
+            });
             logger.info(`Created a new trial user ${email}.`);
         }
 
@@ -140,7 +160,15 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
-        let errorDetails = { message: error.message };
+
+        // Build detailed error object
+        let errorDetails = {
+            message: error.message,
+            stack: error.stack,
+        };
+        if (error.sql) {
+            errorDetails.sql = error.sql;
+        }
         if (error.errors) {
             errorDetails.validationErrors = error.errors.map(e => ({
                 field: e.path,
@@ -149,11 +177,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
             }));
         }
 
-        logger.error('[Protect Step1] Failed:', {
-            error: error.message,
-            stack: error.stack,
-            ...errorDetails
-        });
+        logger.error('[Protect Step1] Failed:', errorDetails);
+
         res.status(error.status || 500).json({
             error: error.message || '處理試用檔案時發生內部錯誤。',
             details: errorDetails
@@ -176,7 +201,16 @@ router.post('/batch-protect', auth, checkQuota('image_upload'), upload.array('fi
         } catch (error) {
             await transaction.rollback();
             const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
-            results.push({ filename: originalname, status: 'failed', reason: error.message });
+            let errorDetails = { message: error.message };
+            if (error.sql) {
+                errorDetails.sql = error.sql;
+            }
+            results.push({ 
+                filename: originalname, 
+                status: 'failed', 
+                reason: error.message,
+                details: errorDetails
+            });
         } finally {
             if (file?.path) fs.unlink(file.path, () => {});
         }

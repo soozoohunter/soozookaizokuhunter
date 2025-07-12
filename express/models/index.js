@@ -17,6 +17,11 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, {
     ...config,
     logging: (msg) => logger.debug(`[Sequelize] ${msg}`),
+    // Ensure consistent table naming
+    define: {
+      underscored: true,
+      freezeTableName: true,
+    },
   });
 }
 
@@ -60,5 +65,12 @@ logger.info('[Database] Model associations configured.');
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
+
+// Automatically sync database in non-production environments
+if (process.env.NODE_ENV !== 'production') {
+  sequelize.sync({ alter: true })
+    .then(() => logger.info('Database tables synchronized'))
+    .catch(err => logger.error('Database sync error:', err));
+}
 
 module.exports = db;
