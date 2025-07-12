@@ -9,8 +9,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        // use consistent lowercase table name
-        model: 'files',
+        model: 'Files',
         key: 'id',
       },
     },
@@ -28,7 +27,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     }
   }, {
-    tableName: 'scan_tasks',
+    tableName: 'ScanTasks',
     timestamps: true,
   });
 
