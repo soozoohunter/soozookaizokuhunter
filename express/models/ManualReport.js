@@ -28,7 +28,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     response: DataTypes.TEXT
   }, {
-    tableName: 'ManualReports'
+    tableName: 'manual_reports'
   });
 
   return ManualReport;

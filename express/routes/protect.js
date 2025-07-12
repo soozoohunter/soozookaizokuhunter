@@ -149,8 +149,12 @@ router.post('/step1', upload.single('file'), async (req, res) => {
             }));
         }
 
-        logger.error('[Protect Step1] Failed:', errorDetails);
-        res.status(error.status || 500).json({ 
+        logger.error('[Protect Step1] Failed:', {
+            error: error.message,
+            stack: error.stack,
+            ...errorDetails
+        });
+        res.status(error.status || 500).json({
             error: error.message || '處理試用檔案時發生內部錯誤。',
             details: errorDetails
         });
