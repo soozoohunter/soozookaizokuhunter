@@ -8,7 +8,11 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   File.init({
-    user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' } },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' }
+    },
     fingerprint: { type: DataTypes.STRING, unique: true },
     // ... 其他欄位
   }, {

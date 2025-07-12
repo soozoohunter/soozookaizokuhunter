@@ -9,7 +9,11 @@ module.exports = (sequelize, DataTypes) => {
   }
   UserSubscription.init({
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    user_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Users', key: 'id' } },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'users', key: 'id' }
+    },
     plan_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'SubscriptionPlans', key: 'id' } },
     status: DataTypes.STRING,
     started_at: DataTypes.DATE,

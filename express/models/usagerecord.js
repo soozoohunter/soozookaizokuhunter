@@ -17,10 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: {
-        model: 'Users',
-        key: 'id'
-      }
+      references: { model: 'users', key: 'id' }
     },
     feature_code: {
       type: DataTypes.ENUM('image_upload', 'scan', 'dmca_takedown'),
