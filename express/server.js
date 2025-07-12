@@ -1,71 +1,50 @@
 require('dotenv').config();
-const http = require('http');
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
-const { initSocket } = require('./socket');
 const db = require('./models');
 
-process.on('uncaughtException', err => { logger.error('[Uncaught Exception]', err); process.exit(1); });
-process.on('unhandledRejection', (reason, promise) => { logger.error('[Unhandled Rejection]', { reason, promise }); process.exit(1); });
-
-const authRouter = require('./routes/authRoutes');
-const adminRouter = require('./routes/admin');
-const protectRouter = require('./routes/protect');
-const filesRouter = require('./routes/files');
-const usersRouter = require('./routes/users');
-const dashboardRouter = require('./routes/dashboard');
-const scansRouter = require('./routes/scans');
-
 const app = express();
-const server = http.createServer(app);
-initSocket(server);
+const server = require('http').createServer(app);
 
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], credentials: true, }));
+// 中间件
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const UPLOAD_DIR = path.resolve('/app/uploads');
-app.use('/uploads', express.static(UPLOAD_DIR));
-logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
+// 健康检查路由
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    db: db.sequelize.authenticated ? 'connected' : 'disconnected'
+  });
+});
 
-app.use('/api/auth', authRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/protect', protectRouter);
-app.use('/api/files', filesRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/scans', scansRouter);
-
-app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
-
+// 启动服务器
 const PORT = process.env.EXPRESS_PORT || 3000;
 
-const connectWithRetry = async (retries = 10, delay = 5000) => {
-    for (let i = 1; i <= retries; i++) {
-        try {
-            await db.sequelize.authenticate();
-            logger.info('[Database] Connection has been established successfully.');
-            return;
-        } catch (error) {
-            logger.error(`[Database] Connection failed. Attempt ${i}/${retries}. Retrying in ${delay / 1000}s...`);
-            if (i === retries) throw error;
-            await new Promise(res => setTimeout(res, delay));
-        }
-    }
-};
-
 async function startServer() {
-    try {
-        await connectWithRetry();
-        server.listen(PORT, () => {
-            logger.info(`Server is ready on port ${PORT}`);
-        });
-    } catch (error) {
-        logger.error('[Startup] Failed to start Express server due to DB connection failure.', error);
-        process.exit(1);
-    }
+  try {
+    // 等待数据库连接
+    await db.sequelize.authenticate();
+    logger.info('[Database] Connection established');
+
+    // 同步核心表
+    await Promise.all([
+      db.User.sync(),
+      db.File.sync()
+    ]);
+
+    server.listen(PORT, '0.0.0.0', () => {
+      logger.info(`[Express] Server running on http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    logger.error('[Startup] Fatal error during initialization:', error);
+    process.exit(1);
+  }
 }
 
-startServer();
+// 延迟启动以等待数据库
+setTimeout(() => {
+  startServer();
+}, 10000);
+
