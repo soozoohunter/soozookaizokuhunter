@@ -57,7 +57,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'File',
-    tableName: 'Files', // 明確指定表格名稱
+    tableName: 'files', // 明確指定表格名稱
     timestamps: true // 自動管理 createdAt 和 updatedAt
   });
 

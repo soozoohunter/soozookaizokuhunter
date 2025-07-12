@@ -31,10 +31,10 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     const { path: tempPath, mimetype } = file;
     const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const { title, keywords } = body;
-    
+
     const fileBuffer = fs.readFileSync(tempPath);
     const fingerprint = fingerprintService.sha256(fileBuffer);
-    
+
     const existingFile = await File.findOne({ where: { fingerprint }, transaction });
     if (existingFile) {
         throw { status: 409, message: `此檔案 (${originalname}) 先前已被保護。` };
@@ -54,9 +54,9 @@ const handleFileUpload = async (file, userId, body, transaction) => {
 
     const ipfsHash = await ipfsService.saveFile(fileBuffer);
     if (!ipfsHash) throw new Error('Failed to save file to IPFS.');
-    
+
     const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
-    
+
     const newFile = await File.create({
         user_id: userId,
         filename: originalname,
@@ -71,36 +71,66 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     }, { transaction });
 
     await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
-    
-    const newScan = await Scan.create({ file_id: newFile.id, user_id: userId, status: 'pending' }, { transaction });
-    await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
-    
-    await queueService.sendToQueue({
-        taskId: newScan.id,
-        fileId: newFile.id,
-        userId: userId,
-        keywords: newFile.keywords,
-    });
-    
-    logger.info(`[File Upload] Protected and dispatched scan task ${newScan.id} for file ${newFile.id}`);
+
+    try {
+        const newScan = await Scan.create({ 
+            file_id: newFile.id, 
+            user_id: userId, 
+            status: 'pending' 
+        }, { transaction });
+
+        await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
+
+        await queueService.sendToQueue({
+            taskId: newScan.id,
+            fileId: newFile.id,
+            userId: userId,
+            keywords: newFile.keywords,
+        });
+
+        logger.info(`[File Upload] Protected and dispatched scan task ${newScan.id} for file ${newFile.id}`);
+    } catch (scanError) {
+        logger.error('[Scan Creation Failed]', {
+            error: scanError.message,
+            stack: scanError.stack,
+            fileId: newFile.id,
+            userId: userId
+        });
+        throw scanError;
+    }
+
     return newFile;
 };
 
 router.post('/step1', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: '未提供檔案。' });
-    
+
     const { email, phone, realName } = req.body;
     if (!email || !phone || !realName) return res.status(400).json({ error: '姓名、電話、Email 為必填項。' });
 
     const transaction = await sequelize.transaction();
     try {
-        // [核心修正] 使用 Op.or 而非 sequelize.Op.or
-        let user = await User.findOne({ where: { [Op.or]: [{ email }, { phone }] }, transaction });
-        
+        let user = await User.findOne({ 
+            where: { 
+                [Op.or]: [
+                    { email: email.trim().toLowerCase() }, 
+                    { phone: phone.trim() }
+                ] 
+            }, 
+            transaction 
+        });
+
         if (!user) {
             const tempPassword = generateTempPassword();
             const hashedPassword = await bcrypt.hash(tempPassword, 10);
-            user = await User.create({ ...req.body, password: hashedPassword, role: 'trial', status: 'pending' }, { transaction });
+            user = await User.create({ 
+                email: email.trim().toLowerCase(),
+                phone: phone.trim(),
+                realName: realName.trim(),
+                password: hashedPassword, 
+                role: 'trial', 
+                status: 'active' 
+            }, { transaction });
             logger.info(`Created a new trial user ${email}.`);
         }
 
@@ -110,8 +140,20 @@ router.post('/step1', upload.single('file'), async (req, res) => {
 
     } catch (error) {
         await transaction.rollback();
-        logger.error('[Protect Step1] Failed:', { message: error.message, stack: error.stack });
-        res.status(error.status || 500).json({ error: error.message || '處理試用檔案時發生內部錯誤。' });
+        let errorDetails = { message: error.message };
+        if (error.errors) {
+            errorDetails.validationErrors = error.errors.map(e => ({
+                field: e.path,
+                message: e.message,
+                value: e.value
+            }));
+        }
+
+        logger.error('[Protect Step1] Failed:', errorDetails);
+        res.status(error.status || 500).json({ 
+            error: error.message || '處理試用檔案時發生內部錯誤。',
+            details: errorDetails
+        });
     } finally {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
     }
