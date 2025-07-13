@@ -59,10 +59,54 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn("SubscriptionPlans", "annual_price");
-    await queryInterface.removeColumn("SubscriptionPlans", "video_limit");
-    await queryInterface.removeColumn("SubscriptionPlans", "image_limit");
-    await queryInterface.removeColumn("SubscriptionPlans", "scan_frequency");
-    await queryInterface.removeColumn("SubscriptionPlans", "dmca_free");
+    const transaction = await queryInterface.sequelize.transaction();
+    try {
+      const columns = await queryInterface.describeTable("SubscriptionPlans");
+
+      if (columns.annual_price) {
+        await queryInterface.removeColumn(
+          "SubscriptionPlans",
+          "annual_price",
+          { transaction }
+        );
+      }
+
+      if (columns.video_limit) {
+        await queryInterface.removeColumn(
+          "SubscriptionPlans",
+          "video_limit",
+          { transaction }
+        );
+      }
+
+      if (columns.image_limit) {
+        await queryInterface.removeColumn(
+          "SubscriptionPlans",
+          "image_limit",
+          { transaction }
+        );
+      }
+
+      if (columns.scan_frequency) {
+        await queryInterface.removeColumn(
+          "SubscriptionPlans",
+          "scan_frequency",
+          { transaction }
+        );
+      }
+
+      if (columns.dmca_free) {
+        await queryInterface.removeColumn(
+          "SubscriptionPlans",
+          "dmca_free",
+          { transaction }
+        );
+      }
+
+      await transaction.commit();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   },
 };
