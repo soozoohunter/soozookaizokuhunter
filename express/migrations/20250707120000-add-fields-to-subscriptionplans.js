@@ -59,10 +59,30 @@ module.exports = {
   },
 
   async down(queryInterface) {
-    await queryInterface.removeColumn("SubscriptionPlans", "annual_price");
-    await queryInterface.removeColumn("SubscriptionPlans", "video_limit");
-    await queryInterface.removeColumn("SubscriptionPlans", "image_limit");
-    await queryInterface.removeColumn("SubscriptionPlans", "scan_frequency");
-    await queryInterface.removeColumn("SubscriptionPlans", "dmca_free");
+    const transaction = await queryInterface.sequelize.transaction();
+    try {
+      const columns = await queryInterface.describeTable("SubscriptionPlans");
+
+      const removeIfExists = async (column) => {
+        if (columns[column]) {
+          await queryInterface.removeColumn(
+            "SubscriptionPlans",
+            column,
+            { transaction }
+          );
+        }
+      };
+
+      await removeIfExists("annual_price");
+      await removeIfExists("video_limit");
+      await removeIfExists("image_limit");
+      await removeIfExists("scan_frequency");
+      await removeIfExists("dmca_free");
+
+      await transaction.commit();
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   },
 };
