@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const logger = require('./utils/logger');
+const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
 
@@ -74,6 +75,15 @@ async function startServer() {
     // 核心修复：僅同步模型，不強制重建
     await db.sequelize.sync({ alter: true });
     logger.info('[Database] Models synchronized successfully.');
+
+    // 初始化區塊鏈服務
+    try {
+      logger.info('[Startup] Initializing blockchain service...');
+      await chain.initializeBlockchainService();
+      logger.info('[Startup] Blockchain service ready.');
+    } catch (chainErr) {
+      logger.error('[Startup] Failed to initialize blockchain service:', chainErr);
+    }
     
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
