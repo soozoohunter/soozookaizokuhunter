@@ -1,5 +1,8 @@
+// frontend/src/AuthContext.jsx
+
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { jwtDecode } from 'jwt-decode';
+// FIX: Changed from "import { jwtDecode } from 'jwt-decode';" to a default import
+import jwtDecode from 'jwt-decode';
 
 export const AuthContext = createContext(null);
 
@@ -12,18 +15,20 @@ export function AuthProvider({ children }) {
     if (token) {
       try {
         const decodedUser = jwtDecode(token);
+        // Check if token is expired
         if (decodedUser.exp * 1000 > Date.now()) {
           setUser(decodedUser);
           setIsAuthenticated(true);
         } else {
+          // Token is expired, log the user out
           logout();
         }
       } catch (error) {
-        console.error('Failed to decode token on initial load', error);
+        console.error('Failed to decode token on initial load, logging out.', error);
         logout();
       }
     }
-  }, [token]);
+  }, [token]); // Dependency on token ensures this runs when token changes
 
   const login = useCallback((newToken) => {
     try {
@@ -32,11 +37,12 @@ export function AuthProvider({ children }) {
       setToken(newToken);
       setUser(decodedUser);
       setIsAuthenticated(true);
-    } catch (error) {
+    } catch (error)      {
       console.error('Failed to decode token on login', error);
+      // If login fails with a bad token, ensure user is logged out
       logout();
     }
-  }, []);
+  }, []); // Empty dependency array because it doesn't depend on component state
 
   const logout = useCallback((navigate) => {
     localStorage.removeItem('authToken');
@@ -46,7 +52,7 @@ export function AuthProvider({ children }) {
     if (navigate) {
       navigate('/login');
     }
-  }, []);
+  }, []); // Empty dependency array
 
   const value = {
     token,
