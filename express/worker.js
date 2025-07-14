@@ -11,7 +11,13 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const http = require('http');
 const express = require('express');
-const io = require('socket.io-client');
+let io;
+try {
+    io = require('socket.io-client');
+} catch (err) {
+    console.error('[Worker] socket.io-client not installed:', err);
+    process.exit(1);
+}
 const db = require('./models');
 const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
