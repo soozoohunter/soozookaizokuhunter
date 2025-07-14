@@ -41,12 +41,12 @@ module.exports = (sequelize, DataTypes) => {
     file_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'Files', key: 'id' }
+      references: { model: 'files', key: 'id' }
     },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'Users', key: 'id' }
+      references: { model: 'users', key: 'id' }
     },
     status: {
       type: DataTypes.STRING,
@@ -66,7 +66,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Scan',
-    tableName: 'Scans',
+    tableName: 'scans',
     underscored: true,
   });
   return Scan;

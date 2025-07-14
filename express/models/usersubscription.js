@@ -12,16 +12,16 @@ module.exports = (sequelize, DataTypes) => {
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'Users', key: 'id' }
+      references: { model: 'users', key: 'id' }
     },
-    plan_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'SubscriptionPlans', key: 'id' } },
+    plan_id: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'subscription_plans', key: 'id' } },
     status: DataTypes.STRING,
     started_at: DataTypes.DATE,
     expires_at: DataTypes.DATE,
   }, {
     sequelize,
     modelName: 'UserSubscription',
-    tableName: 'UserSubscriptions',
+    tableName: 'user_subscriptions',
     underscored: true,
   });
   return UserSubscription;
