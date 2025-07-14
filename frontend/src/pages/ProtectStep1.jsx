@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
+import apiClient from '../utils/apiClient';
 
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }
@@ -175,9 +176,7 @@ export default function ProtectStep1() {
 
   const [file, setFile] = useState(null);
   const [realName, setRealName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [title, setTitle] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -195,7 +194,7 @@ export default function ProtectStep1() {
     setFile(null);
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
-        fileInput.value = '';
+      fileInput.value = '';
     }
   };
 
@@ -205,12 +204,9 @@ export default function ProtectStep1() {
 
     if (!file) return setError('請先上傳檔案');
     if (!realName.trim()) return setError('姓名必填');
-    if (!birthDate.trim()) return setError('生日必填');
     if (!phone.trim()) return setError('電話必填');
-    if (!address.trim()) return setError('地址必填');
     if (!email.trim()) return setError('Email 必填');
     if (!title.trim()) return setError('作品標題必填');
-    if (!keywords.trim()) return setError('關鍵字必填');
     if (!agreePolicy) return setError('請同意隱私權政策與使用條款');
 
     setLoading(true);
@@ -218,36 +214,34 @@ export default function ProtectStep1() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('realName', realName);
-      formData.append('birthDate', birthDate);
       formData.append('phone', phone);
-      formData.append('address', address);
       formData.append('email', email);
       formData.append('title', title);
       formData.append('keywords', keywords);
       formData.append('agreePolicy', String(agreePolicy));
-      formData.append('enableProtection', String(enableProtection));
 
-      const resp = await fetch('/api/protect/step1', {
-        method: 'POST',
-        body: formData,
+      const response = await apiClient.post('/protect/step1', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      const data = await resp.json();
+      const data = response.data;
 
-      if (!resp.ok) {
-        throw new Error(data.error || `上傳失敗，狀態碼: ${resp.status}`);
-      }
-      
-      if (!data || !data.file || !data.file.id) {
+      if (!data || !data.file || !data.file.id || !data.scanId) {
         console.error('Server response OK, but data format is unexpected:', data);
         throw new Error('從伺服器收到的回應格式不正確，無法繼續。');
       }
 
-      localStorage.setItem('protectStep1', JSON.stringify(data));
-      navigate('/protect/step2', { state: { step1Data: data } });
+      const step1Result = {
+        file: data.file,
+        user: data.user,
+        scanId: data.scanId
+      };
+      localStorage.setItem('protectStep1', JSON.stringify(step1Result));
+      navigate('/protect/step2', { state: { step1Data: step1Result } });
 
     } catch (err) {
-      setError(err.message || '上傳失敗，請檢查網路連線或稍後再試');
+      const errorMessage = err.response?.data?.error || err.message || '上傳失敗，請檢查網路連線或稍後再試';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -284,32 +278,18 @@ export default function ProtectStep1() {
           </FullRow>
 
           <HalfLabel>真實姓名 (RealName)</HalfLabel>
-          <HalfLabel>生日 (BirthDate)</HalfLabel>
+          <HalfLabel>手機 (Phone)</HalfLabel>
           <StyledInput
             type="text"
             placeholder="王小明 / John Wang"
             value={realName}
             onChange={e => setRealName(e.target.value)}
           />
-          <StyledInput
-            type="date"
-            value={birthDate}
-            onChange={e => setBirthDate(e.target.value)}
-          />
-
-          <HalfLabel>手機 (Phone)</HalfLabel>
-          <HalfLabel>地址 (Address)</HalfLabel>
-          <StyledInput
+           <StyledInput
             type="tel"
             placeholder="0900296168"
             value={phone}
             onChange={e => setPhone(e.target.value)}
-          />
-          <StyledInput
-            type="text"
-            placeholder="台北市大安區..."
-            value={address}
-            onChange={e => setAddress(e.target.value)}
           />
 
           <FullLabel>Email</FullLabel>
@@ -323,7 +303,7 @@ export default function ProtectStep1() {
           </FullRow>
 
           <HalfLabel>作品標題 (Title)</HalfLabel>
-          <HalfLabel>關鍵字 (Keywords)</HalfLabel>
+          <HalfLabel>搜尋關鍵字 (Keywords)</HalfLabel>
           <StyledInput
             type="text"
             placeholder="My Artwork"
@@ -332,7 +312,7 @@ export default function ProtectStep1() {
           />
           <StyledInput
             type="text"
-            placeholder="art; painting; cat"
+            placeholder="用於社群平台搜尋 (選填)"
             value={keywords}
             onChange={e => setKeywords(e.target.value)}
           />
@@ -369,16 +349,6 @@ export default function ProtectStep1() {
               onChange={e => setAgreePolicy(e.target.checked)}
             />
             <label htmlFor="agreePolicy">我已閱讀並同意隱私權政策與使用條款</label>
-          </CheckboxWrapper>
-
-          <CheckboxWrapper>
-            <input
-              type="checkbox"
-              id="enableProtection"
-              checked={enableProtection}
-              onChange={e => setEnableProtection(e.target.checked)}
-            />
-            <label htmlFor="enableProtection">啟用防側錄 (對抗擾動 + 高頻閃爍)</label>
           </CheckboxWrapper>
 
           <SubmitButton type="submit" disabled={loading}>

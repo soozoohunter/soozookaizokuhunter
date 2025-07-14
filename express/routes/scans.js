@@ -15,19 +15,24 @@ router.get('/status/:taskId', async (req, res) => {
     }
 
     try {
-        const scan = await db.Scan.findByPk(taskId);
+        const scan = await db.Scan.findByPk(taskId, {
+            attributes: ['id','status','result','createdAt','completed_at','file_id']
+        });
 
         if (!scan) {
             return res.status(404).json({ error: `Scan task with ID ${taskId} not found.` });
         }
 
+        let result = scan.result;
+        if (typeof result === 'string') {
+            try { result = JSON.parse(result); } catch (e) { result = { error: 'Result format invalid' }; }
+        }
         res.status(200).json({
-            taskId: scan.id,
-            fileId: scan.file_id,
+            id: scan.id,
             status: scan.status,
-            result: scan.result,
+            result,
             createdAt: scan.createdAt,
-            completedAt: scan.completed_at,
+            completed_at: scan.completed_at
         });
 
     } catch (error) {

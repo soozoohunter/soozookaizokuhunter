@@ -1,83 +1,68 @@
-// express/services/scanner.service.js (v3.2 - 穩定性優先版)
 const visionService = require('./vision.service');
 const tineyeService = require('./tineye.service');
 const bingService = require('./bing.service');
-const rapidApiService = require('./rapidApi.service'); 
-const imageFetcher = require('../utils/imageFetcher');
+const { searchPlatform } = require('./rapidApi.service');
 const logger = require('../utils/logger');
 
 const scanByImage = async (imageBuffer, options = {}) => {
     logger.info('[Scanner Service] Received scan request with options:', options);
-    let allSources = new Set();
-    let errors = [];
+    const results = {};
+    const errors = [];
     const { keywords, fingerprint } = options;
 
-    logger.info('[Scanner Service] Step 1: Performing reverse image and keyword search...');
-    
-    const searchPromises = [
-        visionService.searchByBuffer(imageBuffer),
-        tineyeService.searchByBuffer(imageBuffer),
-        bingService.searchByBuffer(imageBuffer)
+    const reverseImageSearchPromises = [
+        visionService.searchByBuffer(imageBuffer).then(res => ({ source: 'vision', data: res })),
+        tineyeService.searchByBuffer(imageBuffer).then(res => ({ source: 'tineye', data: res })),
+        bingService.searchByBuffer(imageBuffer).then(res => ({ source: 'bing', data: res }))
     ];
 
-    if (keywords) {
-        searchPromises.push(rapidApiService.youtubeSearch(keywords));
-        searchPromises.push(rapidApiService.globalImageSearch(keywords));
+    const searchResults = await Promise.allSettled(reverseImageSearchPromises);
+
+    searchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+            const { source, data } = result.value;
+            if (data.success) {
+                if (source === 'tineye') {
+                    results[source] = data.matches?.map(m => m.url) || [];
+                } else {
+                    results[source] = data.links || [];
+                }
+            } else {
+                errors.push({ source, reason: data.error || 'API returned failure.' });
+            }
+        } else {
+            errors.push({ source: 'unknown', reason: result.reason?.message || 'A search promise was rejected.' });
+        }
+    });
+
+    if (keywords && keywords.trim() !== '') {
+        logger.info(`[Scanner Service] Performing keyword searches for: "${keywords}"`);
+        const keywordSearchPlatforms = ['youtube', 'globalImage', 'tiktok', 'instagram', 'facebook'];
+        const keywordSearchPromises = keywordSearchPlatforms.map(platform => 
+            searchPlatform(platform, keywords)
+                .then(links => ({ source: platform, links }))
+                .catch(err => ({ source: platform, error: err }))
+        );
+
+        const keywordResults = await Promise.all(keywordSearchPromises);
+
+        keywordResults.forEach(result => {
+            if (result.error) {
+                errors.push({ source: result.source, reason: result.error.message });
+            } else if (result.links && result.links.length > 0) {
+                results[result.source] = result.links;
+            }
+        });
     }
 
-    const results = await Promise.allSettled(searchPromises);
-
-    const processResult = (result, sourceName) => {
-        if (result.status === 'rejected') {
-            const reason = result.reason?.message || 'Unknown rejection reason';
-            errors.push({ source: sourceName, reason });
-            logger.error(`[Scanner][${sourceName}] Search rejected:`, reason);
-            return;
-        }
-        if (!result.value || !result.value.success) {
-            const reason = result.value?.error || 'API returned failure but no error message.';
-            errors.push({ source: sourceName, reason });
-            logger.error(`[Scanner][${sourceName}] Search failed:`, reason);
-            return;
-        }
-        if (Array.isArray(result.value.links)) {
-            result.value.links.forEach(url => allSources.add(url));
-        }
-    };
-
-    let promiseIndex = 0;
-    processResult(results[promiseIndex++], 'Google Vision');
-    processResult(results[promiseIndex++], 'TinEye');
-    processResult(results[promiseIndex++], 'Bing Vision');
-    
-    if (keywords) {
-        processResult(results[promiseIndex++], 'YouTube');
-        processResult(results[promiseIndex++], 'Global Image Search');
+    logger.info(`[Scanner Service] Full scan completed. Found results from ${Object.keys(results).length} sources.`);
+    if (errors.length > 0) {
+        logger.warn('[Scanner Service] Some APIs failed during scan:', errors);
     }
-
-    const uniqueUrls = Array.from(allSources);
-    logger.info(`[Scanner Service] Found ${uniqueUrls.length} unique potential URLs from all sources.`);
-
-    // [穩定性修正] 為了確保您能看到初步的 API 掃描結果，我們先暫時註解掉二次驗證。
-    // 這個步驟會去下載所有找到的圖片來比對，如果外部連結失效，可能會增加失敗率。
-    // logger.info(`[Scanner Service] Step 2: Verifying ${uniqueUrls.length} matches in parallel...`);
-    // const verificationResults = await imageFetcher.verifyMatches(imageBuffer, uniqueUrls, fingerprint);
-    // logger.info(`[Scanner Service] Full scan completed. Found ${verificationResults.matches.length} verified matches.`);
     
-    // 直接將 API 找到的連結作為初步結果回傳
-    const preliminaryMatches = uniqueUrls.map(url => ({
-        url: url,
-        similarity: 'N/A (Verification Skipped)',
-        source: 'API Search'
-    }));
-
     return {
-        scan: {
-            totalSources: uniqueUrls.length,
-            totalMatches: preliminaryMatches.length,
-            matches: preliminaryMatches,
-        },
-        errors: errors
+        results,
+        errors,
     };
 };
 
