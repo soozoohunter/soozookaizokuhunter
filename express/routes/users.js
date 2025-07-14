@@ -31,7 +31,8 @@ router.get('/:userId', async (req, res) => {
     }
     res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve user' });
+    console.error(`Failed to retrieve user ${userId}:`, error);
+    res.status(500).json({ error: 'Failed to retrieve user', details: error.message });
   }
 });
 
