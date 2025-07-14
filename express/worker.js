@@ -11,7 +11,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const http = require('http');
 const express = require('express');
-const { default: ioClient } = require('socket.io-client');
+const io = require('socket.io-client');
 const db = require('./models');
 const logger = require('./utils/logger');
 const queueService = require('./services/queue.service');
@@ -24,7 +24,7 @@ const server = http.createServer(app);
 
 const WORKER_PORT = process.env.WORKER_PORT || 3001;
 const SOCKET_URL = process.env.SOCKET_IO_URL || process.env.EXPRESS_BASE_URL || 'http://suzoo_express:3000';
-const socket = ioClient(SOCKET_URL, { transports: ['websocket'] });
+const socket = io(SOCKET_URL, { transports: ['websocket'] });
 
 socket.on('connect', () => logger.info('[Worker] Connected to Socket.IO server'));
 socket.on('disconnect', () => logger.warn('[Worker] Disconnected from Socket.IO server'));
