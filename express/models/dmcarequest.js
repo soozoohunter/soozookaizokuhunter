@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'DMCARequest',
-    tableName: 'DMCARequests',
+    tableName: 'dmca_requests',
     underscored: true,
   });
   return DMCARequest;
