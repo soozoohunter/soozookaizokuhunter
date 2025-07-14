@@ -105,7 +105,7 @@ const ProgressBar = styled.div`
   margin-top: 1rem;
 `;
 const ProgressIndicator = styled.div`
-  width: 50%;
+  width: ${props => props.progress || 0}%;
   height: 100%;
   background: linear-gradient(90deg, #f97316, #ffce00);
   background-size: 200% 100%;
@@ -185,6 +185,7 @@ export default function ProtectStep3() {
     const [error, setError] = useState('');
     const [scanData, setScanData] = useState(null);
     const [taskStatus, setTaskStatus] = useState('pending');
+    const [progress, setProgress] = useState(0);
     const [confirmedLinks, setConfirmedLinks] = useState([]);
 
     useEffect(() => {
@@ -197,9 +198,12 @@ export default function ProtectStep3() {
         const poll = async () => {
             try {
                 const res = await apiClient.get(`/scans/status/${scanId}`);
-                const data = res.data;
+               const data = res.data;
 
                 setTaskStatus(data.status);
+                if (typeof data.progress === 'number') {
+                    setProgress(data.progress);
+                }
 
                 if (data.result) {
                     const resultData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
@@ -261,8 +265,8 @@ export default function ProtectStep3() {
             return (
                 <div style={{textAlign: 'center', padding: '2rem'}}>
                     <Spinner />
-                    <p>{STATUS_MESSAGES[taskStatus]}</p>
-                    <ProgressBar><ProgressIndicator /></ProgressBar>
+                    <p>{STATUS_MESSAGES[taskStatus]} ({progress}%)</p>
+                    <ProgressBar><ProgressIndicator progress={progress} /></ProgressBar>
                 </div>
             );
         }

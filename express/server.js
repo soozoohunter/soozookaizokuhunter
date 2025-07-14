@@ -7,6 +7,7 @@ const logger = require('./utils/logger');
 const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
+const { monitorStuckTasks } = require('./services/taskMonitor');
 
 // 全局错误处理
 process.on('uncaughtException', (err) => {
@@ -88,6 +89,8 @@ async function startServer() {
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
     });
+
+    setInterval(monitorStuckTasks, 10 * 60 * 1000);
   } catch (error) {
     logger.error('[Startup] Fatal error during initialization:', error);
     if (error.original) {
