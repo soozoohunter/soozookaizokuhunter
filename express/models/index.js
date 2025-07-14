@@ -37,12 +37,7 @@ fs.readdirSync(__dirname)
     const isNotThisFile = file !== basename;
     const isJsFile = file.slice(-3) === '.js';
     
-    // [★★ 關鍵修正 ★★]
-    // 過濾掉有問題的 scantask.js 模型檔案。
-    // 這可以防止它被 Sequelize 載入，從而避免資料庫同步時發生崩潰。
-    const isNotProblematicModel = file.toLowerCase() !== 'scantask.js';
-
-    return isVisibleFile && isNotThisFile && isJsFile && isNotProblematicModel;
+    return isVisibleFile && isNotThisFile && isJsFile;
   })
   .forEach(file => {
     try {
