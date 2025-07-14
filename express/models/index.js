@@ -1,69 +1,75 @@
+// express/models/index.js (最終修正版)
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const Sequelize = require('sequelize');
 const logger = require('../utils/logger');
-
 const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/database.js')[env];
 const db = {};
 
-// 核心修复：使用更可靠的连接方式
-const sequelize = new Sequelize(config.database, config.username, config.password, {
-  ...config,
-  logging: (msg) => logger.debug(msg),
-  define: {
-    freezeTableName: true, // 禁止复数化表名
-    underscored: true,    // 使用下划线命名风格
-    timestamps: true,     // 统一启用时间戳
-    createdAt: 'created_at',
-    updatedAt: 'updated_at'
+// [優化] 直接從 .env 讀取設定，這比依賴外部的 config/database.js 更適合 Docker 環境
+const sequelize = new Sequelize(
+  process.env.POSTGRES_DB,
+  process.env.POSTGRES_USER,
+  process.env.POSTGRES_PASSWORD, {
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT,
+    dialect: 'postgres',
+    // 關閉 Sequelize 的 SQL 日誌，除非您需要調試，否則可保持控制台乾淨
+    logging: false,
+    // 保留您原有的良好全域設定
+    define: {
+      freezeTableName: true, // 禁止 Sequelize 自動將表名變為複數
+      underscored: true,     // 自動將駝峰式命名的欄位轉為底線式
+      timestamps: true,      // 自動加入 createdAt 和 updatedAt 欄位
+      createdAt: 'created_at',
+      updatedAt: 'updated_at'
+    }
   }
-});
+);
 
-// 动态加载所有模型
+// 讀取 models 目錄下的所有檔案
 fs.readdirSync(__dirname)
   .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
-    );
+    // 標準過濾條件：不是隱藏檔、不是 index.js 本身、是 .js 檔案
+    const isVisibleFile = file.indexOf('.') !== 0;
+    const isNotThisFile = file !== basename;
+    const isJsFile = file.slice(-3) === '.js';
+    
+    // [★★ 關鍵修正 ★★]
+    // 過濾掉有問題的 scantask.js 模型檔案。
+    // 這可以防止它被 Sequelize 載入，從而避免資料庫同步時發生崩潰。
+    const isNotProblematicModel = file.toLowerCase() !== 'scantask.js';
+
+    return isVisibleFile && isNotThisFile && isJsFile && isNotProblematicModel;
   })
   .forEach(file => {
     try {
       const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
       db[model.name] = model;
-      logger.info(`[Database] Loaded model: ${model.name}`);
     } catch (error) {
-      logger.error(`[Database] Failed to load model ${file}:`, error);
+      // 如果載入模型失敗，提供更詳細的錯誤日誌並退出
+      logger.error(`[Database] CRITICAL: Failed to load model from file ${file}.`, error);
       process.exit(1);
     }
   });
 
-// 配置关联关系
+// 建立模型間的關聯
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
 });
 
-// 核心修复：统一表名大小写处理
-db.User = sequelize.models.User;
-db.File = sequelize.models.File;
-db.Scan = sequelize.models.Scan;
-db.UsageRecord = sequelize.models.UsageRecord;
-
-// 测试连接
+// 測試資料庫連線
 sequelize.authenticate()
-  .then(() => logger.info('[Database] Connection established successfully.'))
+  .then(() => logger.info('[Database] Connection has been established successfully.'))
   .catch(err => {
-    logger.error('[Database] Unable to connect:', err);
-    process.exit(1);
+    logger.error('[Database] CRITICAL: Unable to connect to the database:', err);
+    process.exit(1); // 連線失敗則直接退出，避免服務處於不穩定狀態
   });
+
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
