@@ -17,7 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'users', key: 'id' },
+      // 避免表名大小寫不一致導致外鍵失敗
+      references: { model: 'Users', key: 'id' },
     },
     filename: DataTypes.STRING,
     title: DataTypes.STRING,
@@ -33,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'File',
-    tableName: 'files',
+    tableName: 'Files',
     underscored: true,
   });
   return File;

@@ -17,7 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'users', key: 'id' }
+      // 與遷移檔案保持一致
+      references: { model: 'Users', key: 'id' }
     },
     feature_code: {
       type: DataTypes.ENUM('image_upload', 'scan', 'dmca_takedown'),
