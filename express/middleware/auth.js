@@ -1,25 +1,53 @@
-// express/middleware/auth.js (基礎登入驗證)
+// express/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_JWT_SECRET_KEY';
+const { User } = require('../models');
+const logger = require('../utils/logger'); // 引入 logger
 
-module.exports = function auth(req, res, next) {
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  const token = authHeader ? authHeader.replace(/^Bearer\s+/, '') : '';
-
-  console.log('Auth Middleware - Token:', token);
-
-  if (!token) {
-    console.log('No token provided');
-    return res.status(401).json({ error: '未登入' });
-  }
-
+const auth = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log('Decoded token:', decoded);
-    req.user = decoded;
+    const authHeader = req.header('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logger.warn('[Auth Middleware] Missing or invalid Authorization header.');
+      return res.status(401).send({ error: 'Authentication required: No token provided or invalid format.' });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // 根據您 JWT payload 的實際結構來判斷，通常是 decoded.id 或 decoded.userId
+    // 這裡使用 Op.or 嘗試兩種可能性，增加健壯性
+    const user = await User.findOne({
+      where: {
+        [require('sequelize').Op.or]: [
+          { id: decoded.id },
+          { id: decoded.userId } // 有些 JWT 可能把 ID 放在 userId 欄位
+        ]
+      }
+    });
+
+    if (!user) {
+      logger.warn(`[Auth Middleware] User not found for decoded ID: ${decoded.id || decoded.userId}`);
+      throw new Error('User not found.'); // 這會被 catch 捕獲
+    }
+
+    // 確保 req.user 包含所有需要的用戶資訊，並統一 user ID 的命名
+    req.token = token;
+    req.user = {
+      ...user.toJSON(), // 將 Sequelize 實例轉換為純物件
+      userId: user.id, // 確保有一個統一的 userId 屬性
+    }; 
     next();
   } catch (e) {
-    console.error('Token verification error:', e.message);
-    return res.status(401).json({ error: 'Token 無效或已過期' });
+    logger.error(`[Auth Middleware] Token verification error: ${e.message}`, { error: e.name, message: e.message, stack: e.stack });
+    if (e.name === 'TokenExpiredError') {
+      return res.status(401).send({ error: 'Unauthorized: Token has expired.' });
+    }
+    if (e.name === 'JsonWebTokenError') {
+      return res.status(401).send({ error: 'Unauthorized: Invalid token.' });
+    }
+    res.status(401).send({ error: 'Authentication failed.' });
   }
 };
+
+module.exports = auth;
