@@ -8,17 +8,12 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   File.init({
-    id: {
-      allowNull: false,
-      autoIncrement: true,
-      primaryKey: true,
-      type: DataTypes.INTEGER,
-    },
+    id: { allowNull: false, autoIncrement: true, primaryKey: true, type: DataTypes.INTEGER },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      // 避免表名大小寫不一致導致外鍵失敗
-      references: { model: 'Users', key: 'id' },
+      // [修正] 外鍵引用改為小寫 snake_case
+      references: { model: 'users', key: 'id' },
     },
     filename: DataTypes.STRING,
     title: DataTypes.STRING,
@@ -34,7 +29,8 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'File',
-    tableName: 'Files',
+    // [修正] 將資料表名稱改為小寫 snake_case
+    tableName: 'files',
     underscored: true,
   });
   return File;
