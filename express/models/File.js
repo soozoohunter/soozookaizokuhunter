@@ -8,17 +8,33 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   File.init({
+    id: {
+      allowNull: false,
+      autoIncrement: true,
+      primaryKey: true,
+      type: DataTypes.INTEGER,
+    },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'users', key: 'id' }
+      references: { model: 'Users', key: 'id' },
     },
+    filename: DataTypes.STRING,
+    title: DataTypes.STRING,
+    keywords: DataTypes.TEXT,
+    mime_type: DataTypes.STRING,
     fingerprint: { type: DataTypes.STRING, unique: true },
-    // ... 其他欄位
+    ipfs_hash: DataTypes.STRING,
+    tx_hash: DataTypes.STRING,
+    thumbnail_path: DataTypes.STRING,
+    status: DataTypes.STRING,
+    report_url: DataTypes.STRING,
+    resultJson: DataTypes.JSONB,
   }, {
     sequelize,
     modelName: 'File',
     tableName: 'Files',
+    underscored: true,
   });
   return File;
 };

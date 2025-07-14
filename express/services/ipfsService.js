@@ -60,6 +60,10 @@ class IpfsService {
       logger.error('[ipfsService.getFile] IPFS client not initialized.');
       return null;
     }
+    if (!cid) {
+      logger.error('[ipfsService.getFile] CID is missing or undefined.');
+      return null;
+    }
     logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
     try {
       const chunks = [];
