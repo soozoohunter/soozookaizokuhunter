@@ -121,8 +121,9 @@ const handleFileUpload = async (file, userId, body, transaction) => {
 
   await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
 
+  let newScan;
   try {
-    const newScan = await Scan.create({
+    newScan = await Scan.create({
       file_id: newFile.id,
       user_id: userId,
       status: 'pending'
@@ -137,7 +138,7 @@ const handleFileUpload = async (file, userId, body, transaction) => {
       keywords: newFile.keywords,
     });
 
-    logger.info(`[File Upload] Protected and dispatched scan task ${newScan.id} for file ${newFile.id}`);
+    logger.info(`[File Upload] Protected file ${newFile.id} and dispatched scan task ${newScan.id}.`);
   } catch (scanError) {
     logger.error('[Scan Creation Failed]', {
       error: scanError.message,
@@ -149,7 +150,7 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     throw scanError;
   }
 
-  return newFile;
+  return { newFile, scanId: newScan.id };
 };
 
 router.post('/step1', upload.single('file'), async (req, res) => {
@@ -164,22 +165,26 @@ router.post('/step1', upload.single('file'), async (req, res) => {
   
   try {
     const user = await findOrCreateUser(email, phone, realName, transaction);
-    const newFile = await handleFileUpload(req.file, user.id, req.body, transaction);
+    const { newFile, scanId } = await handleFileUpload(req.file, user.id, req.body, transaction);
     
     await transaction.commit();
     
     res.status(201).json({
-      message: '試用憑證已生成',
+      message: '試用憑證已生成，掃描任務已派發',
       file: {
         id: newFile.id,
         filename: newFile.filename,
-        thumbnail_path: newFile.thumbnail_path
+        thumbnail_path: newFile.thumbnail_path,
+        fingerprint: newFile.fingerprint,
+        ipfs_hash: newFile.ipfs_hash,
+        tx_hash: newFile.tx_hash,
       },
       user: {
         id: user.id,
         email: user.email,
         role: user.role
-      }
+      },
+      scanId: scanId
     });
   } catch (error) {
     await transaction.rollback();

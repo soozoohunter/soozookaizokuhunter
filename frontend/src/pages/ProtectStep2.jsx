@@ -1,4 +1,3 @@
-// frontend/src/pages/ProtectStep2.jsx (v3.0 - 邏輯修正、樣式完整保留版)
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
@@ -137,18 +136,16 @@ export default function ProtectStep2() {
   }, [step1Data, navigate]);
 
   const handleProceedToNextStep = () => {
-    if (!step1Data?.file?.id) {
-      alert('錯誤：無效的檔案資訊，無法繼續。');
+    if (!step1Data?.scanId) {
+      alert('錯誤：無效的掃描任務資訊，無法繼續。');
+      navigate('/protect/step1');
       return;
     }
-    
+
     setIsLoading(true);
 
-    const taskId = step1Data.file.id;
-    
-    // 為了保留載入動畫的體驗，我們可以在這裡做一個短暫的延遲再跳轉
     setTimeout(() => {
-        navigate('/protect/step3', { state: { taskId, step1Data } });
+      navigate('/protect/step3', { state: { scanId: step1Data.scanId, step1Data } });
     }, 500);
   };
 
@@ -162,7 +159,7 @@ export default function ProtectStep2() {
     );
   }
 
-  const { file } = step1Data;
+  const { file, scanId } = step1Data;
 
   return (
     <PageWrapper>
@@ -172,15 +169,16 @@ export default function ProtectStep2() {
           您的原創著作證明已成功建立並儲存於區塊鏈上。
         </p>
         <InfoBlock>
-          <p><strong>檔案 ID:</strong> {file.id || 'N/A'}</p>
-          <p><strong>數位指紋 (SHA-256):</strong> {file.fingerprint || 'N/A'}</p>
-          <p><strong>IPFS Hash:</strong> {file.ipfs_hash || 'N/A'}</p>
-          <p><strong>區塊鏈交易 Hash:</strong> {file.tx_hash || 'N/A'}</p>
+          <p><strong>檔案 ID:</strong> {file?.id || 'N/A'}</p>
+          <p><strong>掃描任務 ID:</strong> {scanId || 'N/A'}</p>
+          <p><strong>數位指紋 (SHA-256):</strong> {file?.fingerprint || 'N/A'}</p>
+          <p><strong>IPFS Hash:</strong> {file?.ipfs_hash || 'N/A'}</p>
+          <p><strong>區塊鏈交易 Hash:</strong> {file?.tx_hash || 'N/A'}</p>
         </InfoBlock>
         <ButtonRow>
           <OrangeButton onClick={handleProceedToNextStep} disabled={isLoading}>
             {isLoading && <Spinner />}
-            {isLoading ? '準備中...' : '下一步：查看掃描結果 →'}
+            {isLoading ? '準備中...' : '下一步：啟動 AI 全網掃描 →'}
           </OrangeButton>
         </ButtonRow>
       </Container>
@@ -188,7 +186,7 @@ export default function ProtectStep2() {
         <Overlay>
           <LoadingBox>
             <Spinner />
-            <p>正在準備結果頁面...</p>
+            <p>正在準備掃描儀表板...</p>
             <ProgressBar>
               <ProgressIndicator />
             </ProgressBar>

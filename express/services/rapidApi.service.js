@@ -1,34 +1,64 @@
-// express/services/rapidApi.service.js (v3.0 - Direct Request)
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const { RAPIDAPI_KEY, RAPIDAPI_YOUTUBE_URL, RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL } = process.env;
-
-const getHostFromUrl = (url) => {
-    try { return url ? new URL(url).hostname : null; } catch (e) { return null; }
-};
+const { 
+    RAPIDAPI_KEY, 
+    RAPIDAPI_YOUTUBE_URL, RAPIDAPI_YOUTUBE_HOST,
+    RAPIDAPI_TIKTOK_URL, RAPIDAPI_TIKTOK_HOST,
+    RAPIDAPI_INSTAGRAM_URL, RAPIDAPI_INSTAGRAM_HOST,
+    RAPIDAPI_FACEBOOK_URL, RAPIDAPI_FACEBOOK_HOST,
+    RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL, RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST
+} = process.env;
 
 const API_CONFIGS = {
-    YouTube: {
+    youtube: {
+        enabled: !!(RAPIDAPI_YOUTUBE_URL && RAPIDAPI_YOUTUBE_HOST),
         method: 'GET',
         url: RAPIDAPI_YOUTUBE_URL,
-        host: getHostFromUrl(RAPIDAPI_YOUTUBE_URL),
-        params: (keyword) => ({ keyword }),
-        parse: (data) => (typeof data === 'object' && data !== null) ? Object.values(data).map(id => `http://googleusercontent.com/youtube.com/3{id}`) : []
+        host: RAPIDAPI_YOUTUBE_HOST,
+        params: (keyword) => ({ q: keyword, part: 'snippet', maxResults: '25' }),
+        parse: (data) => data?.items?.map(item => `https://www.youtube.com/watch?v=${item.id.videoId}`).filter(Boolean) || []
     },
-    GlobalImageSearch: {
-        method: 'POST',
+    tiktok: {
+        enabled: !!(RAPIDAPI_TIKTOK_URL && RAPIDAPI_TIKTOK_HOST),
+        method: 'GET',
+        url: RAPIDAPI_TIKTOK_URL,
+        host: RAPIDAPI_TIKTOK_HOST,
+        params: (keyword) => ({ keywords: keyword, count: 20 }),
+        parse: (data) => data?.videos?.map(item => item.video_url).filter(Boolean) || []
+    },
+    instagram: {
+        enabled: !!(RAPIDAPI_INSTAGRAM_URL && RAPIDAPI_INSTAGRAM_HOST),
+        method: 'GET',
+        url: RAPIDAPI_INSTAGRAM_URL,
+        host: RAPIDAPI_INSTAGRAM_HOST,
+        params: (keyword) => ({ query: keyword }),
+        parse: (data) => data?.posts?.map(item => item.post_url).filter(Boolean) || []
+    },
+    facebook: {
+        enabled: !!(RAPIDAPI_FACEBOOK_URL && RAPIDAPI_FACEBOOK_HOST),
+        method: 'GET',
+        url: RAPIDAPI_FACEBOOK_URL,
+        host: RAPIDAPI_FACEBOOK_HOST,
+        params: (keyword) => ({ q: keyword }),
+        parse: (data) => data?.results?.map(item => item.url).filter(Boolean) || []
+    },
+    globalImage: {
+        enabled: !!(RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL && RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST),
+        method: 'GET',
         url: RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL,
-        host: getHostFromUrl(RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL),
-        data: (keyword) => ({ keywords: keyword, count: "30" }),
-        parse: (data) => data?.results?.map(item => item.url)
+        host: RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST,
+        params: (keyword) => ({ keywords: keyword, count: "30" }),
+        parse: (data) => data?.results?.map(item => item.url).filter(Boolean) || []
     }
 };
 
-async function makeRequest(platform, keyword) {
+async function searchPlatform(platform, keyword) {
     const config = API_CONFIGS[platform];
-    if (!RAPIDAPI_KEY || !config?.url || !config?.host) {
-        return { success: true, links: [], error: `Service not configured for ${platform}` };
+
+    if (!RAPIDAPI_KEY || !config || !config.enabled) {
+        logger.info(`[RapidAPI][${platform}] Service is disabled or not configured in .env`);
+        return [];
     }
 
     logger.info(`[RapidAPI][${platform}] Searching with keyword: "${keyword}"`);
@@ -41,23 +71,25 @@ async function makeRequest(platform, keyword) {
             timeout: 25000
         };
 
-        if (config.method === 'GET') requestOptions.params = config.params(keyword);
-        else if (config.method === 'POST') requestOptions.data = config.data(keyword);
+        if (config.method === 'GET' && config.params) {
+            requestOptions.params = config.params(keyword);
+        } else if (config.method === 'POST' && config.data) {
+            requestOptions.data = config.data(keyword);
+        }
         
         const response = await axios.request(requestOptions);
-        const links = config.parse(response.data)?.filter(Boolean) || [];
+        const links = config.parse(response.data) || [];
         
-        logger.info(`[RapidAPI][${platform}] Search successful, found ${links.length} unique links.`);
-        return { success: true, links: [...new Set(links)], error: null };
+        logger.info(`[RapidAPI][${platform}] Search successful, found ${links.length} potential links.`);
+        return [...new Set(links)];
 
     } catch (err) {
         const errorMsg = err.response?.data?.message || err.message;
         logger.error(`[RapidAPI][${platform}] Request failed: ${errorMsg}`);
-        return { success: false, links: [], error: errorMsg };
+        throw new Error(`[${platform}] ${errorMsg}`);
     }
 }
 
 module.exports = {
-    youtubeSearch: (keyword) => makeRequest('YouTube', keyword),
-    globalImageSearch: (keyword) => makeRequest('GlobalImageSearch', keyword)
+    searchPlatform,
 };
