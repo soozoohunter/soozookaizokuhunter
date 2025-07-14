@@ -78,6 +78,10 @@ services:
     depends_on:
       suzoo_express:
         condition: service_healthy
+      suzoo_rabbitmq:
+        condition: service_healthy
+      suzoo_redis:
+        condition: service_healthy
     networks:
       - suzoo-network
     # [新增] 為 Worker 增加健康檢查，確保其不僅啟動，而且能正常回應
