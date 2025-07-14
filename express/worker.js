@@ -28,24 +28,31 @@ async function processScanTask(task) {
     logger.info(`[Worker] Received task ${taskId}: Processing scan for File ID ${fileId}`);
 
     try {
-        await db.Scan.update({ status: 'processing', started_at: new Date() }, { where: { id: taskId } });
+        await db.Scan.update({ status: 'processing', progress: 10, started_at: new Date() }, { where: { id: taskId } });
 
         const fileRecord = await db.File.findByPk(fileId);
         if (!fileRecord) throw new Error(`File record ${fileId} not found in DB.`);
 
+        await db.Scan.update({ progress: 20 }, { where: { id: taskId } });
+
         const imageBuffer = await ipfsService.getFile(fileRecord.ipfs_hash);
         if (!imageBuffer) throw new Error(`Failed to get file from IPFS with hash ${fileRecord.ipfs_hash}.`);
 
-        const scanResult = await scannerService.scanByImage(imageBuffer, { 
+        await db.Scan.update({ progress: 40 }, { where: { id: taskId } });
+
+        const scanResult = await scannerService.scanByImage(imageBuffer, {
             fingerprint: fileRecord.fingerprint,
             keywords: fileRecord.keywords,
         });
 
+        await db.Scan.update({ progress: 80 }, { where: { id: taskId } });
+
         const finalStatus = 'completed';
 
-        await db.Scan.update({ 
-            status: finalStatus, 
+        await db.Scan.update({
+            status: finalStatus,
             completed_at: new Date(),
+            progress: 100,
             result: {
                 results: scanResult.results || {},
                 errors: scanResult.errors || []
@@ -57,12 +64,13 @@ async function processScanTask(task) {
 
     } catch (error) {
         logger.error(`[Worker] Task ${taskId} CRITICAL error:`, { message: error.message, stack: error.stack });
-        await db.Scan.update({ 
-            status: 'failed', 
-            completed_at: new Date(), 
-            result: { error: error.message } 
+        await db.Scan.update({
+            status: 'failed',
+            completed_at: new Date(),
+            progress: 100,
+            result: { error: error.message }
         }, { where: { id: taskId } });
-        return true; 
+        return true;
     }
 }
 

@@ -21,7 +21,7 @@ router.get('/status/:scanId', async (req, res) => {
     try {
         // 使用 snake_case 查詢資料庫，確保欄位名與 DB schema 一致
         const scan = await db.Scan.findByPk(scanId, {
-            attributes: ['id', 'status', 'result', 'created_at', 'completed_at', 'file_id']
+            attributes: ['id', 'status', 'progress', 'result', 'created_at', 'completed_at', 'file_id']
         });
 
         if (!scan) {
@@ -44,6 +44,7 @@ router.get('/status/:scanId', async (req, res) => {
             id: scan.id,
             fileId: scan.file_id,
             status: scan.status,
+            progress: scan.progress,
             result: result || {}, // 確保 result 即使為 null 也回傳空物件
             createdAt: scan.created_at,
             completedAt: scan.completed_at
