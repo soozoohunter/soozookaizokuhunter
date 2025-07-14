@@ -16,7 +16,8 @@ router.get('/status/:taskId', async (req, res) => {
 
     try {
         const scan = await db.Scan.findByPk(taskId, {
-            attributes: ['id','status','result','createdAt','completed_at','file_id']
+            // use snake_case column names to avoid issues with underscored models
+            attributes: ['id', 'status', 'result', 'created_at', 'completed_at', 'file_id']
         });
 
         if (!scan) {
@@ -31,8 +32,9 @@ router.get('/status/:taskId', async (req, res) => {
             id: scan.id,
             status: scan.status,
             result,
-            createdAt: scan.createdAt,
-            completed_at: scan.completed_at
+            createdAt: scan.created_at,
+            completed_at: scan.completed_at,
+            file_id: scan.file_id
         });
 
     } catch (error) {
