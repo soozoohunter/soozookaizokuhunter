@@ -1,3 +1,4 @@
+// express/routes/protect.js (完整修正版)
 const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
@@ -7,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const { File, Scan, UsageRecord, User, sequelize } = require('../models');
-const generateTempPassword = require('../utils/helpers').generateTempPassword;
+const { generateTempPassword } = require('../utils/helpers');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
@@ -29,22 +30,19 @@ const upload = multer({
 });
 const MAX_BATCH_UPLOAD = 20;
 
-// 核心修复：统一用户处理逻辑
+// 统一用户处理逻辑
 const findOrCreateUser = async (email, phone, realName, transaction) => {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPhone = phone.trim();
   
   let user = await User.findOne({
-    where: {
-      [Op.or]: [
-        { email: normalizedEmail },
-        { phone: normalizedPhone }
-      ]
-    },
+    where: { [Op.or]: [{ email: normalizedEmail }, { phone: normalizedPhone }] },
     transaction
   });
 
-  if (!user) {
+  if (user) {
+      logger.info(`[User] Found existing user: ${user.email} (ID: ${user.id})`);
+  } else {
     const tempPassword = generateTempPassword();
     user = await User.create({
       email: normalizedEmail,
@@ -55,13 +53,13 @@ const findOrCreateUser = async (email, phone, realName, transaction) => {
       status: 'active'
     }, { transaction });
     
-    logger.info(`[User] Created new trial user: ${normalizedEmail}`);
+    logger.info(`[User] Created new trial user: ${normalizedEmail} (ID: ${user.id})`);
   }
   
   return user;
 };
 
-// 文件处理逻辑（保持不变）
+// 檔案處理邏輯
 const handleFileUpload = async (file, userId, body, transaction) => {
   const { path: tempPath, mimetype } = file;
   const originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
@@ -70,23 +68,9 @@ const handleFileUpload = async (file, userId, body, transaction) => {
   const fileBuffer = fs.readFileSync(tempPath);
   const fingerprint = fingerprintService.sha256(fileBuffer);
 
-  // Check if file already exists
-  let existingFile;
-  try {
-    existingFile = await File.findOne({
-      where: { fingerprint },
-      transaction
-    });
-  } catch (findError) {
-    logger.error('[File Find Error]', {
-      error: findError.message,
-      sql: findError.sql,
-      fingerprint
-    });
-    throw findError;
-  }
+  const existingFile = await File.findOne({ where: { fingerprint }, transaction });
   if (existingFile) {
-    throw { status: 409, message: `此檔案 (${originalname}) 先前已被保護。` };
+    throw { status: 409, message: `此檔案 (${originalname}) 先前已被保護 (ID: ${existingFile.id})。` };
   }
 
   const publicHost = process.env.PUBLIC_HOST || 'https://suzookaizokuhunter.com';
@@ -121,38 +105,30 @@ const handleFileUpload = async (file, userId, body, transaction) => {
 
   await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
 
-  let newScan;
-  try {
-    newScan = await Scan.create({
-      file_id: newFile.id,
-      user_id: userId,
-      status: 'pending'
-    }, { transaction });
+  const newScan = await Scan.create({
+    file_id: newFile.id,
+    user_id: userId,
+    status: 'pending'
+  }, { transaction });
 
-    await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
+  await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
 
-    await queueService.sendToQueue({
-      taskId: newScan.id,
-      fileId: newFile.id,
-      userId: userId,
-      keywords: newFile.keywords,
-    });
+  // [關鍵修正] 將 ipfsHash 和 fingerprint 加入到任務訊息中
+  await queueService.sendToQueue({
+    taskId: newScan.id,
+    fileId: newFile.id,
+    userId: userId,
+    ipfsHash: newFile.ipfs_hash,
+    fingerprint: newFile.fingerprint,
+    keywords: newFile.keywords
+  });
 
-    logger.info(`[File Upload] Protected file ${newFile.id} and dispatched scan task ${newScan.id}.`);
-  } catch (scanError) {
-    logger.error('[Scan Creation Failed]', {
-      error: scanError.message,
-      stack: scanError.stack,
-      fileId: newFile.id,
-      userId: userId,
-      sql: scanError.sql
-    });
-    throw scanError;
-  }
-
+  logger.info(`[File Upload] Protected file ${newFile.id} and dispatched scan task ${newScan.id}.`);
+  
   return { newFile, scanId: newScan.id };
 };
 
+// 核心路由: Step 1
 router.post('/step1', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未提供檔案。' });
   
@@ -189,24 +165,10 @@ router.post('/step1', upload.single('file'), async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     
-    // 增强错误日志
-    const errorDetails = {
-      message: error.message,
-      stack: error.stack,
-      ...(error.sql && { sql: error.sql }),
-      ...(error.errors && {
-        validationErrors: error.errors.map(e => ({
-          field: e.path,
-          message: e.message,
-          value: e.value
-        }))
-      })
-    };
-    
-    logger.error('[Protect Step1] Failed:', errorDetails);
-    
     const status = error.status || 500;
     const message = error.message || '處理試用檔案時發生內部錯誤。';
+    
+    logger.error('[Protect Step1] Failed:', { status, message, stack: error.stack });
     
     res.status(status).json({ error: message });
   } finally {
@@ -218,19 +180,27 @@ router.post('/step1', upload.single('file'), async (req, res) => {
   }
 });
 
-// 批量保護路由
+// [功能還原] 批量保護路由
 router.post('/batch-protect', upload.array('files', MAX_BATCH_UPLOAD), async (req, res) => {
   if (!req.files?.length) return res.status(400).json({ error: '未提供任何檔案。' });
+
+  // 假設批量上傳的使用者已經登入，從 req.user 獲取 ID
+  const userId = req.user?.id;
+  if (!userId) {
+      return res.status(401).json({ error: '用戶未認證，無法進行批量上傳。' });
+  }
 
   const results = [];
 
   for (const file of req.files) {
     const transaction = await sequelize.transaction();
     try {
-      const newFile = await handleFileUpload(file, req.user.id, {
+      // [修正] handleFileUpload 現在回傳一個物件，我們需要解構它
+      const { newFile } = await handleFileUpload(file, userId, {
         title: file.originalname,
         keywords: ''
       }, transaction);
+      
       await transaction.commit();
       results.push({
         filename: newFile.filename,
@@ -247,7 +217,11 @@ router.post('/batch-protect', upload.array('files', MAX_BATCH_UPLOAD), async (re
         reason: error.message
       });
     } finally {
-      if (file?.path) fs.unlink(file.path, () => {});
+      if (file?.path) {
+          fs.unlink(file.path, (err) => {
+            if (err) logger.error(`[Cleanup Batch] Failed to delete temp file: ${file.path}`, err);
+          });
+      }
     }
   }
 
