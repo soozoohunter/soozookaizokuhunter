@@ -90,6 +90,14 @@ async function startServer() {
     });
   } catch (error) {
     logger.error('[Startup] Fatal error during initialization:', error);
+    if (error.original) {
+      logger.error('[Startup] DB error details:', {
+        code: error.original.code,
+        detail: error.original.detail,
+        table: error.original.table,
+        column: error.original.column,
+      });
+    }
     process.exit(1);
   }
 }
