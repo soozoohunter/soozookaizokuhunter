@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
-const { File, Scan, UsageRecord, User, sequelize } = require('../models');
+const { File, Scan, ScanTask, UsageRecord, User, sequelize } = require('../models');
 const { generateTempPassword } = require('../utils/helpers');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
@@ -111,11 +111,17 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     status: 'pending'
   }, { transaction });
 
+  const newTask = await ScanTask.create({
+    file_id: newFile.id,
+    status: 'PENDING'
+  }, { transaction });
+
   await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
 
   // [關鍵修正] 將 ipfsHash 和 fingerprint 加入到任務訊息中
   await queueService.sendToQueue({
-    taskId: newScan.id,
+    taskId: newTask.id,
+    scanId: newScan.id,
     fileId: newFile.id,
     userId: userId,
     ipfsHash: newFile.ipfs_hash,
@@ -123,9 +129,9 @@ const handleFileUpload = async (file, userId, body, transaction) => {
     keywords: newFile.keywords
   });
 
-  logger.info(`[File Upload] Protected file ${newFile.id} and dispatched scan task ${newScan.id}.`);
-  
-  return { newFile, scanId: newScan.id };
+  logger.info(`[File Upload] Protected file ${newFile.id} and dispatched scan task ${newTask.id}.`);
+
+  return { newFile, scanId: newScan.id, taskId: newTask.id };
 };
 
 // 核心路由: Step 1
@@ -141,7 +147,7 @@ router.post('/step1', upload.single('file'), async (req, res) => {
   
   try {
     const user = await findOrCreateUser(email, phone, realName, transaction);
-    const { newFile, scanId } = await handleFileUpload(req.file, user.id, req.body, transaction);
+    const { newFile, scanId, taskId } = await handleFileUpload(req.file, user.id, req.body, transaction);
     
     await transaction.commit();
     
@@ -160,7 +166,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         email: user.email,
         role: user.role
       },
-      scanId: scanId
+      scanId: scanId,
+      taskId: taskId
     });
   } catch (error) {
     await transaction.rollback();
