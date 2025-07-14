@@ -2,6 +2,7 @@ const visionService = require('./vision.service');
 const tineyeService = require('./tineye.service');
 const bingService = require('./bing.service');
 const { searchPlatform } = require('./rapidApi.service');
+const { verifyMatches } = require('../utils/imageFetcher');
 const logger = require('../utils/logger');
 
 const scanByImage = async (imageBuffer, options = {}) => {
@@ -59,10 +60,23 @@ const scanByImage = async (imageBuffer, options = {}) => {
     if (errors.length > 0) {
         logger.warn('[Scanner Service] Some APIs failed during scan:', errors);
     }
-    
+
+    const allLinks = Object.values(results).flat();
+    const uniqueLinks = [...new Set(allLinks)];
+    let verification = { matches: [], errors: [] };
+    if (uniqueLinks.length > 0) {
+        try {
+            verification = await verifyMatches(imageBuffer, uniqueLinks, fingerprint);
+        } catch (err) {
+            logger.error('[Scanner Service] Verification step failed:', err);
+            errors.push({ source: 'verify', reason: err.message });
+        }
+    }
+
     return {
         results,
         errors,
+        verification,
     };
 };
 
