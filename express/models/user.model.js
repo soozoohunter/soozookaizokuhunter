@@ -53,7 +53,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 10
     }
   }, {
-    tableName: 'users',
+    tableName: 'Users',
     indexes: [
       { unique: true, fields: ['email'] },
       { unique: true, fields: ['phone'] }
