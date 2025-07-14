@@ -15,7 +15,7 @@ let io;
 try {
     io = require('socket.io-client');
 } catch (err) {
-    console.error('[Worker] socket.io-client not installed:', err);
+    console.error('[Worker] FATAL: socket.io-client missing. Verify Docker image build or run `npm install`.', err);
     process.exit(1);
 }
 const db = require('./models');
