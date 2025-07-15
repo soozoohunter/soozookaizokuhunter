@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
         navigate('/login');
     }, [navigate]);
 
+    // 負責在應用程式加載時初始化用戶狀態
     const initializeAuth = useCallback(() => {
         const token = localStorage.getItem('token');
         if (token) {
@@ -26,7 +27,7 @@ export const AuthProvider = ({ children }) => {
                 const currentTime = Date.now() / 1000;
 
                 if (decodedToken.exp > currentTime) {
-                    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    // apiClient 的攔截器會自動處理 header，這裡無需手動設定
                     setUser({
                         id: decodedToken.id,
                         email: decodedToken.email,
@@ -48,11 +49,12 @@ export const AuthProvider = ({ children }) => {
         initializeAuth();
     }, [initializeAuth]);
 
+    // 登入邏輯
     const login = (token) => {
         try {
             const decodedToken = jwtDecode(token);
             localStorage.setItem('token', token);
-            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            // apiClient 的攔截器會自動處理後續請求的 header
             setUser({
                 id: decodedToken.id,
                 email: decodedToken.email,

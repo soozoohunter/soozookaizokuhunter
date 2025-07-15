@@ -26,8 +26,8 @@ FROM nginx:alpine
 # 將 React build 產物放進 Nginx 預設靜態目錄
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# 複製我們為生產環境準備的「黃金版」設定檔
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+# 使用自定義的 nginx.conf 以啟用 API 代理
+COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
 
