@@ -8,7 +8,7 @@ import styled from 'styled-components';
 
 function DashboardPage() {
   const { token, logout } = useContext(AuthContext);
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState({ userInfo: null, protectedContent: [] });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showBulkUploader, setShowBulkUploader] = useState(false);
@@ -64,7 +64,7 @@ function DashboardPage() {
 
   if (isLoading) return <div style={styles.pageContainer}><h2>載入中...</h2></div>;
   if (error) return <div style={styles.pageContainer}><p style={{color: 'red'}}>{error}</p></div>;
-  if (!dashboardData) return null;
+  if (!dashboardData.userInfo) return null;
 
   const { userInfo, protectedContent } = dashboardData;
 
