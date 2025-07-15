@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import apiClient from '../utils/apiClient';
+import apiClient from '../services/apiClient';
 
 const gradientFlow = keyframes`
   0% { background-position: 0% 50%; }

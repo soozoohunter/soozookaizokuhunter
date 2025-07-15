@@ -1,7 +1,7 @@
 // frontend/src/pages/DashboardPage.jsx (互動邏輯最終版)
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
-import apiClient, { setupResponseInterceptor } from '../utils/apiClient';
+import apiClient, { setupResponseInterceptor } from '../services/apiClient';
 import FileCard from '../components/FileCard';
 import BulkUploader from '../components/BulkUploader';
 import styled from 'styled-components';

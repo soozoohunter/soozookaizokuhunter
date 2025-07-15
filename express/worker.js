@@ -44,12 +44,11 @@ function emitUpdate(scanId, payload) {
 }
 
 async function processScanTask(task) {
-    const { taskId, scanId, fileId, userId } = task;
-    logger.info(`[Worker] Received task ${taskId}: Processing scan for File ID ${fileId}`);
+    const { scanId, fileId, userId } = task;
+    logger.info(`[Worker] Received task for scan ${scanId}: Processing scan for File ID ${fileId}`);
 
     try {
         await db.Scan.update({ status: 'processing', progress: 10, started_at: new Date() }, { where: { id: scanId } });
-        await db.ScanTask.update({ status: 'PROCESSING' }, { where: { id: taskId } });
         emitUpdate(scanId, { status: 'processing', progress: 10 });
 
         const fileRecord = await db.File.findByPk(fileId);
@@ -83,21 +82,19 @@ async function processScanTask(task) {
                 errors: scanResult.errors || []
             }
         }, { where: { id: scanId } });
-        await db.ScanTask.update({ status: 'COMPLETED', result_json: scanResult }, { where: { id: taskId } });
         emitUpdate(scanId, { status: 'completed', progress: 100, result: scanResult });
 
-        logger.info(`[Worker] Task ${taskId} completed successfully.`);
+        logger.info(`[Worker] Scan ${scanId} completed successfully.`);
         return true;
 
     } catch (error) {
-        logger.error(`[Worker] Task ${taskId} CRITICAL error:`, { message: error.message, stack: error.stack });
+        logger.error(`[Worker] Scan ${scanId} CRITICAL error:`, { message: error.message, stack: error.stack });
         await db.Scan.update({
             status: 'failed',
             completed_at: new Date(),
             progress: 100,
             result: { error: error.message }
         }, { where: { id: scanId } });
-        await db.ScanTask.update({ status: 'FAILED', error_message: error.message }, { where: { id: taskId } });
         emitUpdate(scanId, { status: 'failed', progress: 100, error: error.message });
         return true;
     }
