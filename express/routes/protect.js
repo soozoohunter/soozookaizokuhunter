@@ -100,9 +100,9 @@ const handleFileUpload = async (file, userId, body, transaction) => {
 
   await UsageRecord.create({ user_id: userId, feature_code: 'scan' }, { transaction });
 
-  // [關鍵修正] 簡化佇列訊息，只傳遞 newScan.id (作為 taskId)
+  // [關鍵修正] 簡化佇列訊息，只傳遞 newScan.id (作為 scanId)
   await queueService.sendToQueue({
-    taskId: newScan.id, // Worker 將使用此 ID 來更新 Scan 紀錄
+    scanId: newScan.id, // Worker 將使用此 ID 來更新 Scan 紀錄
     fileId: newFile.id,
     userId: userId,
     ipfsHash: newFile.ipfs_hash,

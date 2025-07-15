@@ -3,7 +3,7 @@ import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet, useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthProvider, AuthContext } from './AuthContext';
-import { setupResponseInterceptor } from './utils/apiClient';
+import { setupResponseInterceptor } from './services/apiClient';
 
 // --- Pages ---
 import HomePage from './pages/HomePage';

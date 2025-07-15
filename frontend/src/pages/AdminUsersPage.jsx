@@ -1,7 +1,7 @@
 // frontend/src/pages/AdminUsersPage.jsx (最終功能版)
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../AuthContext';
-import apiClient from '../utils/apiClient';
+import apiClient from '../services/apiClient';
 import styled from 'styled-components';
 
 const styles = {
