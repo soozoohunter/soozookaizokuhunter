@@ -13,8 +13,9 @@ RUN npm install --package-lock-only && \
 # 再複製其餘原始碼
 COPY . .
 
-# 將後端 API 位址在建置期注入；預設為 dev 值
-ARG REACT_APP_API_URL=http://localhost:3000
+# 將後端 API 位址在建置期注入；預設為空字串，
+# 使前端在正式環境透過相對路徑呼叫 API
+ARG REACT_APP_API_URL=
 ENV REACT_APP_API_URL=${REACT_APP_API_URL}
 
 # 產生正式版靜態檔
