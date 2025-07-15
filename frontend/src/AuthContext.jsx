@@ -1,8 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 // [關鍵修正] 確保使用 jwt-decode v4+ 的正確具名引入方式
-import { jwtDecode } from 'jwt-decode';
-import apiClient from './services/apiClient';
+import jwtDecode from 'jwt-decode';
+import apiClient from './utils/apiClient';
 
 export const AuthContext = createContext(null);
 
