@@ -179,6 +179,22 @@ export default function ProtectStep3() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    if (!location.state) {
+        return (
+            <PageWrapper>
+                <Container>
+                    <Title>錯誤</Title>
+                    <p>缺少必要的狀態數據，請返回上一步。</p>
+                    <ButtonRow>
+                        <NavButton onClick={() => navigate('/protect/step1')}>
+                            返回第一步
+                        </NavButton>
+                    </ButtonRow>
+                </Container>
+            </PageWrapper>
+        );
+    }
+
     const { scanId, step1Data } = location.state || {};
     
     const [loading, setLoading] = useState(true);

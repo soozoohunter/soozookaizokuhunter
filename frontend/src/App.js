@@ -26,6 +26,7 @@ import ProtectStep4 from './pages/ProtectStep4';
 
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './ErrorBoundary';
 
 // --- 全域樣式 ---
 const GlobalStyle = createGlobalStyle`
@@ -164,8 +165,9 @@ function App() {
       <GlobalStyle />
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            <Route element={<RootLayout />}>
+          <ErrorBoundary>
+            <Routes>
+              <Route element={<RootLayout />}>
               {/* --- 公開路由 --- */}
               <Route index element={<HomePage />} />
               <Route path="login" element={<LoginPage />} />
@@ -195,7 +197,8 @@ function App() {
               {/* --- 404 頁面 --- */}
               <Route path="*" element={<NotFoundPage />} />
             </Route>
-          </Routes>
+            </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </AuthProvider>
     </>
