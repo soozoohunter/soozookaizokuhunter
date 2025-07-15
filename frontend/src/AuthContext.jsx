@@ -1,8 +1,8 @@
 // frontend/src/AuthContext.jsx
 
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-// FIX: Changed from "import { jwtDecode } from 'jwt-decode';" to a default import
-import jwtDecode from 'jwt-decode';
+// Updated import for jwt-decode v4+
+import { jwtDecode } from 'jwt-decode';
 
 export const AuthContext = createContext(null);
 
