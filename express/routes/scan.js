@@ -19,14 +19,14 @@ router.get('/:fileId', auth, async (req, res) => {
         await UsageRecord.create({ user_id: file.user_id, feature_code: 'scan' });
 
         await queueService.sendToQueue({
-            taskId: scan.id,
+            scanId: scan.id,
             fileId: file.id,
             userId: file.user_id,
             ipfsHash: file.ipfs_hash,
             fingerprint: file.fingerprint,
         });
 
-        res.status(202).json({ message: '掃描任務已派發', taskId: scan.id });
+        res.status(202).json({ message: '掃描任務已派發', scanId: scan.id });
     } catch (err) {
         logger.error('[Scan API] Failed to dispatch scan task:', err);
         res.status(500).json({ error: '無法派發掃描任務' });

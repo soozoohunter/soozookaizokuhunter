@@ -1,7 +1,7 @@
 // frontend/src/pages/FileDetailPage.jsx (最終顯示增強版)
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import apiClient from '../utils/apiClient';
+import apiClient from '../services/apiClient';
 import styled from 'styled-components';
 
 const PageContainer = styled.div``;

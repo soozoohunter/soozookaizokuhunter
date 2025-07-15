@@ -82,16 +82,10 @@ router.post('/:fileId', auth, async (req, res) => {
             status: 'pending'
         });
 
-        const task = await db.ScanTask.create({
-            file_id: file.id,
-            status: 'PENDING'
-        });
-
         await db.UsageRecord.create({ user_id: userId, feature_code: 'scan' });
 
         // 將所有需要的資訊都發送到佇列
         await queueService.sendToQueue({
-            taskId: task.id,
             scanId: scan.id,
             fileId: file.id,
             userId: userId,
@@ -100,7 +94,7 @@ router.post('/:fileId', auth, async (req, res) => {
             keywords: file.keywords,
         });
 
-        res.status(202).json({ message: '掃描任務已重新派發', scanId: scan.id, taskId: task.id });
+        res.status(202).json({ message: '掃描任務已重新派發', scanId: scan.id });
     } catch (err) {
         logger.error(`[Scan API] Failed to re-dispatch scan task for file ${fileId}:`, err);
         res.status(500).json({ error: '無法派發掃描任務' });

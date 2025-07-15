@@ -1,7 +1,7 @@
 // frontend/src/components/BulkUploader.jsx (功能強化與錯誤處理修正)
 import React, { useState, useRef } from 'react';
 import styled from 'styled-components';
-import apiClient from '../utils/apiClient';
+import apiClient from '../services/apiClient';
 
 // --- Styled Components (保持不變) ---
 const UploaderWrapper = styled.div`
