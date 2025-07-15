@@ -6,7 +6,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-# 使用 ci 可以確保依賴版本的一致性
+# 安裝依賴
 RUN npm ci --legacy-peer-deps
 
 COPY . .
@@ -25,10 +25,10 @@ FROM nginx:alpine
 # 將 React build 產物放進 Nginx 預設靜態目錄
 COPY --from=builder /app/build /usr/share/nginx/html
 
-# 使用自定義的 nginx.conf 覆蓋預設設定檔
-COPY frontend/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# [★★ 關鍵修正 ★★] 修正 Nginx 設定檔的複製路徑
+# Docker build 的 context 是 ./frontend，所以路徑要從 nginx/ 開始
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
 
-# 使用 Nginx 的標準啟動方式
 CMD ["nginx", "-g", "daemon off;"]
