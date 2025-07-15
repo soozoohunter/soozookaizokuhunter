@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
             }
         }
         setLoading(false);
+        // 設定全域的 401 錯誤處理
         setupResponseInterceptor(logout);
     }, [logout]);
 
@@ -45,16 +46,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const authContextValue = {
-        user,
-        login,
-        logout,
-        isAuthenticated: !!user,
-        loading
-    };
+    const value = { user, login, logout, isAuthenticated: !!user, loading };
 
     return (
-        <AuthContext.Provider value={authContextValue}>
+        <AuthContext.Provider value={value}>
             {!loading && children}
         </AuthContext.Provider>
     );

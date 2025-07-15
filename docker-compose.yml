@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   suzoo-network:
     driver: bridge
@@ -54,7 +52,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 30s
     restart: unless-stopped
 
   suzoo_worker:
@@ -73,7 +71,6 @@ services:
     depends_on:
       - suzoo_express
       - suzoo_rabbitmq
-      - suzoo_redis
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
       interval: 30s
@@ -91,7 +88,7 @@ services:
     networks:
       - suzoo-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -100,8 +97,7 @@ services:
   suzoo_rabbitmq:
     container_name: suzoo_rabbitmq
     image: rabbitmq:3.13-management
-    ports:
-      - "15672:15672"
+    ports: ["15672:15672"]
     env_file: .env
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -133,18 +129,11 @@ services:
   suzoo_ipfs:
     container_name: suzoo_ipfs
     image: ipfs/kubo:v0.28.0
-    ports:
-      - "5001:5001"
+    ports: ["5001:5001"]
     volumes:
       - ipfs_data:/data/ipfs
     networks:
       - suzoo-network
-    healthcheck:
-      test: ["CMD-SHELL", "ipfs id || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
     restart: unless-stopped
 
   suzoo_ganache:
@@ -152,6 +141,7 @@ services:
     image: trufflesuite/ganache:latest
     command: ["--host", "0.0.0.0", "--wallet.accounts", "${BLOCKCHAIN_PRIVATE_KEY},1000000000000000000000"]
     env_file: .env
+    ports: ["8545:8545"]
     networks:
       - suzoo-network
     restart: unless-stopped
@@ -164,15 +154,9 @@ services:
     env_file: .env
     volumes:
       - ./fastapi:/app
-      - ./credentials:/app/credentials:ro
     networks:
       - suzoo-network
     depends_on:
-      - suzoo_postgres
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      suzoo_postgres:
+        condition: service_healthy
     restart: unless-stopped
