@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
-import apiClient, { setupResponseInterceptor } from './services/apiClient';
+import jwtDecode from 'jwt-decode'; // [關鍵修正] 使用默認導入
+import apiClient from './services/apiClient';
 
 export const AuthContext = createContext(null);
 
@@ -15,41 +15,67 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         navigate('/login');
     }, [navigate]);
-    
-    useEffect(() => {
+
+    // 負責在應用程式加載時初始化用戶狀態
+    const initializeAuth = useCallback(() => {
         const token = localStorage.getItem('token');
         if (token) {
             try {
                 const decodedToken = jwtDecode(token);
-                if (decodedToken.exp * 1000 > Date.now()) {
-                    setUser({ id: decodedToken.id, email: decodedToken.email, role: decodedToken.role });
+                const currentTime = Date.now() / 1000;
+
+                if (decodedToken.exp > currentTime) {
+                    // apiClient 的攔截器會自動處理 header，這裡無需手動設定
+                    setUser({
+                        id: decodedToken.id,
+                        email: decodedToken.email,
+                        role: decodedToken.role,
+                    });
                 } else {
+                    console.log("Token expired, logging out.");
                     logout();
                 }
-            } catch (e) {
+            } catch (error) {
+                console.error("Invalid token, logging out.", error);
                 logout();
             }
         }
         setLoading(false);
-        // 設定全域的 401 錯誤處理
-        setupResponseInterceptor(logout);
     }, [logout]);
 
+    useEffect(() => {
+        initializeAuth();
+    }, [initializeAuth]);
+
+    // 登入邏輯
     const login = (token) => {
         try {
             const decodedToken = jwtDecode(token);
             localStorage.setItem('token', token);
-            setUser({ id: decodedToken.id, email: decodedToken.email, role: decodedToken.role });
+            // apiClient 的攔截器會自動處理後續請求的 header
+            setUser({
+                id: decodedToken.id,
+                email: decodedToken.email,
+                role: decodedToken.role,
+            });
             navigate('/dashboard');
         } catch (error) {
+            console.error("Failed to decode token on login:", error);
+            // Clear any potentially bad token
             logout();
         }
     };
 
-    const value = { user, login, logout, isAuthenticated: !!user, loading };
+    const authContextValue = {
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        loading
+    };
 
     return (
-        <AuthContext.Provider value={value}>
+        <AuthContext.Provider value={authContextValue}>
             {!loading && children}
         </AuthContext.Provider>
     );
