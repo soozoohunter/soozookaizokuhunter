@@ -1,66 +1,82 @@
-// frontend/src/AuthContext.jsx
-
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-// Updated import for jwt-decode v4+
+import { useNavigate } from 'react-router-dom';
+// [關鍵修正] 確保使用 jwt-decode v4+ 的正確具名引入方式
 import { jwtDecode } from 'jwt-decode';
+import apiClient from './services/apiClient';
 
 export const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [token, setToken] = useState(localStorage.getItem('authToken') || null);
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export const AuthProvider = ({ children }) => {
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    if (token) {
-      try {
-        const decodedUser = jwtDecode(token);
-        // Check if token is expired
-        if (decodedUser.exp * 1000 > Date.now()) {
-          setUser(decodedUser);
-          setIsAuthenticated(true);
-        } else {
-          // Token is expired, log the user out
-          logout();
+    const logout = useCallback(() => {
+        localStorage.removeItem('token');
+        delete apiClient.defaults.headers.common['Authorization'];
+        setUser(null);
+        navigate('/login');
+    }, [navigate]);
+
+    const initializeAuth = useCallback(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const decodedToken = jwtDecode(token);
+                const currentTime = Date.now() / 1000;
+
+                if (decodedToken.exp > currentTime) {
+                    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    setUser({
+                        id: decodedToken.id,
+                        email: decodedToken.email,
+                        role: decodedToken.role,
+                    });
+                } else {
+                    console.log("Token expired, logging out.");
+                    logout();
+                }
+            } catch (error) {
+                console.error("Invalid token, logging out.", error);
+                logout();
+            }
         }
-      } catch (error) {
-        console.error('Failed to decode token on initial load, logging out.', error);
-        logout();
-      }
-    }
-  }, [token]); // Dependency on token ensures this runs when token changes
+        setLoading(false);
+    }, [logout]);
 
-  const login = useCallback((newToken) => {
-    try {
-      const decodedUser = jwtDecode(newToken);
-      localStorage.setItem('authToken', newToken);
-      setToken(newToken);
-      setUser(decodedUser);
-      setIsAuthenticated(true);
-    } catch (error)      {
-      console.error('Failed to decode token on login', error);
-      // If login fails with a bad token, ensure user is logged out
-      logout();
-    }
-  }, []); // Empty dependency array because it doesn't depend on component state
+    useEffect(() => {
+        initializeAuth();
+    }, [initializeAuth]);
 
-  const logout = useCallback((navigate) => {
-    localStorage.removeItem('authToken');
-    setToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
-    if (navigate) {
-      navigate('/login');
-    }
-  }, []); // Empty dependency array
+    const login = (token) => {
+        try {
+            const decodedToken = jwtDecode(token);
+            localStorage.setItem('token', token);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setUser({
+                id: decodedToken.id,
+                email: decodedToken.email,
+                role: decodedToken.role,
+            });
+            navigate('/dashboard');
+        } catch (error) {
+            console.error("Failed to decode token on login:", error);
+            // Clear any potentially bad token
+            logout();
+        }
+    };
 
-  const value = {
-    token,
-    user,
-    isAuthenticated,
-    login,
-    logout,
-  };
+    const authContextValue = {
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        loading
+    };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+    return (
+        <AuthContext.Provider value={authContextValue}>
+            {!loading && children}
+        </AuthContext.Provider>
+    );
+};
