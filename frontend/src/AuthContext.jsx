@@ -1,8 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-// [關鍵修正] 確保使用 jwt-decode v4+ 的正確具名引入方式
-import jwtDecode from 'jwt-decode';
-import apiClient from './utils/apiClient';
+import { jwtDecode } from 'jwt-decode';
+import apiClient, { setupResponseInterceptor } from './services/apiClient';
 
 export const AuthContext = createContext(null);
 
@@ -13,57 +12,35 @@ export const AuthProvider = ({ children }) => {
 
     const logout = useCallback(() => {
         localStorage.removeItem('token');
-        delete apiClient.defaults.headers.common['Authorization'];
         setUser(null);
         navigate('/login');
     }, [navigate]);
-
-    // 負責在應用程式加載時初始化用戶狀態
-    const initializeAuth = useCallback(() => {
+    
+    useEffect(() => {
         const token = localStorage.getItem('token');
         if (token) {
             try {
                 const decodedToken = jwtDecode(token);
-                const currentTime = Date.now() / 1000;
-
-                if (decodedToken.exp > currentTime) {
-                    // apiClient 的攔截器會自動處理 header，這裡無需手動設定
-                    setUser({
-                        id: decodedToken.id,
-                        email: decodedToken.email,
-                        role: decodedToken.role,
-                    });
+                if (decodedToken.exp * 1000 > Date.now()) {
+                    setUser({ id: decodedToken.id, email: decodedToken.email, role: decodedToken.role });
                 } else {
-                    console.log("Token expired, logging out.");
                     logout();
                 }
-            } catch (error) {
-                console.error("Invalid token, logging out.", error);
+            } catch (e) {
                 logout();
             }
         }
         setLoading(false);
+        setupResponseInterceptor(logout);
     }, [logout]);
 
-    useEffect(() => {
-        initializeAuth();
-    }, [initializeAuth]);
-
-    // 登入邏輯
     const login = (token) => {
         try {
             const decodedToken = jwtDecode(token);
             localStorage.setItem('token', token);
-            // apiClient 的攔截器會自動處理後續請求的 header
-            setUser({
-                id: decodedToken.id,
-                email: decodedToken.email,
-                role: decodedToken.role,
-            });
+            setUser({ id: decodedToken.id, email: decodedToken.email, role: decodedToken.role });
             navigate('/dashboard');
         } catch (error) {
-            console.error("Failed to decode token on login:", error);
-            // Clear any potentially bad token
             logout();
         }
     };
