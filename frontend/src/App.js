@@ -33,7 +33,7 @@ const GlobalStyle = createGlobalStyle`
   }
 `;
 
-const AppWrapper = styled.div`
+const AppContainer = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -125,7 +125,7 @@ function RootLayout() {
   };
 
   return (
-    <AppWrapper>
+    <AppContainer>
       <Header>
         <NavSection>
           <NavLink to="/pricing">Pricing</NavLink>
@@ -158,7 +158,7 @@ function RootLayout() {
       <Footer>
         <div>為紀念我最深愛的 曾李素珠 阿嬤<br /><span style={{ fontSize: '0.8rem', opacity: 0.85 }}>In loving memory of my beloved grandmother, Tseng Li Su-Chu.<br />by KaiKaiShield 凱盾</span></div>
       </Footer>
-    </AppWrapper>
+    </AppContainer>
   );
 }
 
