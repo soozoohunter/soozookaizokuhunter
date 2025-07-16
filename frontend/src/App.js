@@ -120,8 +120,8 @@ function RootLayout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout(); // Clear state
-    navigate('/login'); // Then navigate
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -162,81 +162,80 @@ function RootLayout() {
   );
 }
 
-// [★★ 關鍵修正 ★★] 建立一個 AuthManager 來處理攔截器
-const AuthManager = ({ children }) => {
-  const { logout } = useContext(AuthContext);
+// --- 關鍵修正：合併攔截器到 App 主元件 ---
+function App() {
   const navigate = useNavigate();
+  const { logout } = useContext(AuthContext);
 
+  // 在 App 層級設定攔截器
   useEffect(() => {
     const interceptor = apiClient.interceptors.response.use(
       response => response,
       error => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-          console.log('Interceptor: Unauthorized or Forbidden. Logging out.');
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log('Interceptor triggered: Unauthorized access');
           logout();
-          navigate('/login', { replace: true });
+          navigate('/login');
         }
         return Promise.reject(error);
       }
     );
-    // 元件卸載時清除攔截器
+
     return () => {
       apiClient.interceptors.response.eject(interceptor);
     };
   }, [logout, navigate]);
 
-  return children;
-};
+  return (
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<RootLayout />}>
+          {/* Public Routes */}
+          <Route index element={<HomePage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="pricing" element={<PricingPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="admin/login" element={<AdminLoginPage />} />
 
+          {/* Trial Flow Routes */}
+          <Route path="protect/step1" element={<ProtectStep1 />} />
+          <Route path="protect/step2" element={<ProtectStep2 />} />
+          <Route path="protect/step3" element={<ProtectStep3 />} />
+          <Route path="protect/step4" element={<ProtectStep4 />} />
 
-// --- App Main Component ---
-function App() {
+          {/* Protected User Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="file/:fileId" element={<FileDetailPage />} />
+          </Route>
+
+          {/* Protected Admin Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="admin/users" element={<AdminUsersPage />} />
+          </Route>
+
+          {/* Not Found Route */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </ErrorBoundary>
+  );
+}
+
+// --- 包裹層 ---
+function AppWrapper() {
   return (
     <>
       <GlobalStyle />
       <BrowserRouter>
         <AuthProvider>
-          {/* AuthManager 需要放在 AuthProvider 和 BrowserRouter 內部 */}
-          <AuthManager>
-            <ErrorBoundary>
-              <Routes>
-                <Route path="/" element={<RootLayout />}>
-                  {/* Public Routes */}
-                  <Route index element={<HomePage />} />
-                  <Route path="login" element={<LoginPage />} />
-                  <Route path="register" element={<RegisterPage />} />
-                  <Route path="pricing" element={<PricingPage />} />
-                  <Route path="contact" element={<ContactPage />} />
-                  <Route path="admin/login" element={<AdminLoginPage />} />
-
-                  {/* Trial Flow Routes */}
-                  <Route path="protect/step1" element={<ProtectStep1 />} />
-                  <Route path="protect/step2" element={<ProtectStep2 />} />
-                  <Route path="protect/step3" element={<ProtectStep3 />} />
-                  <Route path="protect/step4" element={<ProtectStep4 />} />
-
-                  {/* Protected User Routes */}
-                  <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="file/:fileId" element={<FileDetailPage />} />
-                  </Route>
-
-                  {/* Protected Admin Routes */}
-                  <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                    <Route path="admin/dashboard" element={<AdminDashboardPage />} />
-                    <Route path="admin/users" element={<AdminUsersPage />} />
-                  </Route>
-
-                  {/* Not Found Route */}
-                  <Route path="*" element={<NotFoundPage />} />
-                </Route>
-              </Routes>
-            </ErrorBoundary>
-          </AuthManager>
+          <App />
         </AuthProvider>
       </BrowserRouter>
     </>
   );
 }
 
-export default App;
+export default AppWrapper;
