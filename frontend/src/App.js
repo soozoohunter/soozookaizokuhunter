@@ -1,9 +1,8 @@
-// frontend/src/App.js (統一路由與邏輯)
 import React, { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Outlet, useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AuthProvider, AuthContext } from './AuthContext';
-import { setupResponseInterceptor } from './services/apiClient';
+import apiClient from './services/apiClient';
 
 // --- Pages ---
 import HomePage from './pages/HomePage';
@@ -17,18 +16,16 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import PricingPage from './pages/PricingPage';
 import ContactPage from './pages/ContactPage';
 import NotFoundPage from './pages/NotFoundPage';
-// --- 新增試用流程頁面 ---
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4 from './pages/ProtectStep4';
 
-
 // --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
 
-// --- 全域樣式 ---
+// --- Global Styles ---
 const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
@@ -44,7 +41,6 @@ const AppWrapper = styled.div`
   min-height: 100vh;
 `;
 
-// --- 佈局元件 (Layout Components) ---
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -110,15 +106,9 @@ const Footer = styled.footer`
   color: #9CA3AF;
 `;
 
-// --- 主佈局 (Root Layout) ---
 function RootLayout() {
-  const { token, user, logout } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // 設定 Axios 攔截器，在 token 失效時自動登出
-    setupResponseInterceptor(() => logout(navigate));
-  }, [logout, navigate]);
 
   return (
     <AppWrapper>
@@ -132,7 +122,7 @@ function RootLayout() {
           <span>SUZOO IP Guard</span>
         </BrandLink>
         <NavSection>
-          {!token ? (
+          {!user ? (
             <>
               <NavLink to="/register">Register</NavLink>
               <NavLink to="/login">Login</NavLink>
@@ -158,49 +148,62 @@ function RootLayout() {
   );
 }
 
-// --- App 主元件 ---
+const AppRoutes = () => {
+  const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const { eject } = apiClient.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          console.log('Interceptor: Unauthorized or Forbidden. Logging out.');
+          logout(navigate);
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => eject();
+  }, [logout, navigate]);
+
+  return (
+    <Routes>
+      <Route element={<RootLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="register" element={<RegisterPage />} />
+        <Route path="pricing" element={<PricingPage />} />
+        <Route path="contact" element={<ContactPage />} />
+        <Route path="admin/login" element={<AdminLoginPage />} />
+        <Route path="protect/step1" element={<ProtectStep1 />} />
+        <Route path="protect/step2" element={<ProtectStep2 />} />
+        <Route path="protect/step3" element={<ProtectStep3 />} />
+        <Route path="protect/step4" element={<ProtectStep4 />} />
+        <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="file/:fileId" element={<FileDetailPage />} />
+        </Route>
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="admin/users" element={<AdminUsersPage />} />
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  );
+};
+
 function App() {
   return (
     <>
       <GlobalStyle />
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <ErrorBoundary>
-            <Routes>
-              <Route element={<RootLayout />}>
-              {/* --- 公開路由 --- */}
-              <Route index element={<HomePage />} />
-              <Route path="login" element={<LoginPage />} />
-              <Route path="register" element={<RegisterPage />} />
-              <Route path="pricing" element={<PricingPage />} />
-              <Route path="contact" element={<ContactPage />} />
-              <Route path="admin/login" element={<AdminLoginPage />} />
-              
-              {/* --- 試用流程路由 (公開) --- */}
-              <Route path="protect/step1" element={<ProtectStep1 />} />
-              <Route path="protect/step2" element={<ProtectStep2 />} />
-              <Route path="protect/step3" element={<ProtectStep3 />} />
-              <Route path="protect/step4" element={<ProtectStep4 />} />
-
-              {/* --- 受保護的會員路由 --- */}
-              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}> 
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="file/:fileId" element={<FileDetailPage />} />
-              </Route>
-
-              {/* --- 受保護的管理員路由 --- */}
-              <Route element={<ProtectedRoute allowedRoles={['admin']} />}> 
-                <Route path="admin/dashboard" element={<AdminDashboardPage />} />
-                <Route path="admin/users" element={<AdminUsersPage />} />
-              </Route>
-              
-              {/* --- 404 頁面 --- */}
-              <Route path="*" element={<NotFoundPage />} />
-            </Route>
-            </Routes>
+            <AppRoutes />
           </ErrorBoundary>
-        </BrowserRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </>
   );
 }
