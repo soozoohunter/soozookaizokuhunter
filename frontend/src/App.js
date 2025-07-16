@@ -4,7 +4,7 @@ import styled, { createGlobalStyle } from 'styled-components';
 import { AuthProvider, AuthContext } from './AuthContext';
 import apiClient from './services/apiClient';
 
-// --- Pages ---
+// --- Pages & Components ---
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -20,8 +20,6 @@ import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4 from './pages/ProtectStep4';
-
-// --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -78,18 +76,28 @@ const NavLink = styled(Link)`
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   transition: color 0.2s ease, background-color 0.2s ease;
-
   &:hover {
     color: #FFFFFF;
     background-color: #374151;
   }
 `;
 
-const LogoutButton = styled(NavLink).attrs({ as: 'button' })`
+const LogoutButton = styled.button`
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
+  color: #D1D5DB;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  &:hover {
+    color: #FFFFFF;
+    background-color: #374151;
+  }
 `;
 
 const MainContent = styled.main`
@@ -110,6 +118,11 @@ const Footer = styled.footer`
 function RootLayout() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout(); // Clear state
+    navigate('/login'); // Then navigate
+  };
 
   return (
     <AppWrapper>
@@ -134,7 +147,7 @@ function RootLayout() {
               {user?.role === 'admin' && (
                 <NavLink to="/admin/dashboard">Admin Panel</NavLink>
               )}
-              <LogoutButton onClick={() => logout(navigate)}>Logout</LogoutButton>
+              <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
             </>
           )}
         </NavSection>
@@ -149,47 +162,77 @@ function RootLayout() {
   );
 }
 
-// --- App Component ---
+// [★★ 關鍵修正 ★★] 建立一個 AuthManager 來處理攔截器
+const AuthManager = ({ children }) => {
+  const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const interceptor = apiClient.interceptors.response.use(
+      response => response,
+      error => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+          console.log('Interceptor: Unauthorized or Forbidden. Logging out.');
+          logout();
+          navigate('/login', { replace: true });
+        }
+        return Promise.reject(error);
+      }
+    );
+    // 元件卸載時清除攔截器
+    return () => {
+      apiClient.interceptors.response.eject(interceptor);
+    };
+  }, [logout, navigate]);
+
+  return children;
+};
+
+
+// --- App Main Component ---
 function App() {
   return (
     <>
       <GlobalStyle />
       <BrowserRouter>
         <AuthProvider>
-          <ErrorBoundary>
-            <Routes>
-              <Route path="/" element={<RootLayout />}>
-                {/* Public Routes */}
-                <Route index element={<HomePage />} />
-                <Route path="login" element={<LoginPage />} />
-                <Route path="register" element={<RegisterPage />} />
-                <Route path="pricing" element={<PricingPage />} />
-                <Route path="contact" element={<ContactPage />} />
-                <Route path="admin/login" element={<AdminLoginPage />} />
+          {/* AuthManager 需要放在 AuthProvider 和 BrowserRouter 內部 */}
+          <AuthManager>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<RootLayout />}>
+                  {/* Public Routes */}
+                  <Route index element={<HomePage />} />
+                  <Route path="login" element={<LoginPage />} />
+                  <Route path="register" element={<RegisterPage />} />
+                  <Route path="pricing" element={<PricingPage />} />
+                  <Route path="contact" element={<ContactPage />} />
+                  <Route path="admin/login" element={<AdminLoginPage />} />
 
-                {/* Trial Flow Routes */}
-                <Route path="protect/step1" element={<ProtectStep1 />} />
-                <Route path="protect/step2" element={<ProtectStep2 />} />
-                <Route path="protect/step3" element={<ProtectStep3 />} />
-                <Route path="protect/step4" element={<ProtectStep4 />} />
+                  {/* Trial Flow Routes */}
+                  <Route path="protect/step1" element={<ProtectStep1 />} />
+                  <Route path="protect/step2" element={<ProtectStep2 />} />
+                  <Route path="protect/step3" element={<ProtectStep3 />} />
+                  <Route path="protect/step4" element={<ProtectStep4 />} />
 
-                {/* Protected User Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="file/:fileId" element={<FileDetailPage />} />
+                  {/* Protected User Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+                    <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="file/:fileId" element={<FileDetailPage />} />
+                  </Route>
+
+                  {/* Protected Admin Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                    <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+                    <Route path="admin/users" element={<AdminUsersPage />} />
+                  </Route>
+
+                  {/* Not Found Route */}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
-
-                {/* Protected Admin Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                  <Route path="admin/dashboard" element={<AdminDashboardPage />} />
-                  <Route path="admin/users" element={<AdminUsersPage />} />
-                </Route>
-
-                {/* Not Found Route */}
-                <Route path="*" element={<NotFoundPage />} />
-              </Route>
-            </Routes>
-          </ErrorBoundary>
+              </Routes>
+            </ErrorBoundary>
+          </AuthManager>
         </AuthProvider>
       </BrowserRouter>
     </>
