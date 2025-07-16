@@ -47,6 +47,8 @@ services:
         condition: service_healthy
       suzoo_rabbitmq:
         condition: service_healthy
+      suzoo_ganache:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 30s
@@ -144,6 +146,11 @@ services:
     ports: ["8545:8545"]
     networks:
       - suzoo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8545"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   suzoo_fastapi:

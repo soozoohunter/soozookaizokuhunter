@@ -3,6 +3,10 @@ const Web3 = require('web3');
 const { getABI } = require('./contract');
 const logger = require('./logger');
 
+// Retry configuration for blockchain connection
+const MAX_RETRIES = 15;  // Increased from 5
+const RETRY_DELAY = 5000; // 5 seconds
+
 const rpcUrl = process.env.BLOCKCHAIN_RPC_URL;
 const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY;
 const contractAddress = process.env.CONTRACT_ADDRESS;
@@ -12,7 +16,7 @@ let contract;
 let account;
 let isInitialized = false;
 
-async function initializeBlockchainService(retries = 5, delay = 5000) {
+async function initializeBlockchainService(retries = MAX_RETRIES, delay = RETRY_DELAY) {
     if (isInitialized) return;
 
     if (!privateKey || !contractAddress || !rpcUrl) {
