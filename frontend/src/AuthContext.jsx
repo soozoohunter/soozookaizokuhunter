@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import jwtDecode from 'jwt-decode'; // [關鍵修正] 使用默認導入
-import apiClient from './services/apiClient';
+import { jwtDecode } from 'jwt-decode';
+import apiClient, { setupResponseInterceptor } from './services/apiClient';
 
 export const AuthContext = createContext(null);
 
