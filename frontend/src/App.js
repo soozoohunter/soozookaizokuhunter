@@ -33,6 +33,7 @@ const GlobalStyle = createGlobalStyle`
   }
 `;
 
+// [★★ 命名衝突修正 ★★] AppWrapper 作為樣式元件名稱
 const AppWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -121,8 +122,28 @@ function RootLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
+
+  // Set up the axios interceptor right here, inside a component that has access to the router context
+  useEffect(() => {
+    const interceptor = apiClient.interceptors.response.use(
+        response => response,
+        error => {
+            if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                console.log('Interceptor: Unauthorized or Forbidden. Logging out.');
+                handleLogout();
+            }
+            return Promise.reject(error);
+        }
+    );
+
+    return () => {
+        apiClient.interceptors.response.eject(interceptor);
+    };
+  // handleLogout is memoized by useCallback in its definition
+  }, [logout, navigate]);
+
 
   return (
     <AppWrapper>
@@ -162,80 +183,42 @@ function RootLayout() {
   );
 }
 
-// --- 關鍵修正：合併攔截器到 App 主元件 ---
+// --- App Main Component ---
 function App() {
-  const navigate = useNavigate();
-  const { logout } = useContext(AuthContext);
-
-  // 在 App 層級設定攔截器
-  useEffect(() => {
-    const interceptor = apiClient.interceptors.response.use(
-      response => response,
-      error => {
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.log('Interceptor triggered: Unauthorized access');
-          logout();
-          navigate('/login');
-        }
-        return Promise.reject(error);
-      }
-    );
-
-    return () => {
-      apiClient.interceptors.response.eject(interceptor);
-    };
-  }, [logout, navigate]);
-
-  return (
-    <ErrorBoundary>
-      <Routes>
-        <Route path="/" element={<RootLayout />}>
-          {/* Public Routes */}
-          <Route index element={<HomePage />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="pricing" element={<PricingPage />} />
-          <Route path="contact" element={<ContactPage />} />
-          <Route path="admin/login" element={<AdminLoginPage />} />
-
-          {/* Trial Flow Routes */}
-          <Route path="protect/step1" element={<ProtectStep1 />} />
-          <Route path="protect/step2" element={<ProtectStep2 />} />
-          <Route path="protect/step3" element={<ProtectStep3 />} />
-          <Route path="protect/step4" element={<ProtectStep4 />} />
-
-          {/* Protected User Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="file/:fileId" element={<FileDetailPage />} />
-          </Route>
-
-          {/* Protected Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="admin/users" element={<AdminUsersPage />} />
-          </Route>
-
-          {/* Not Found Route */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </ErrorBoundary>
-  );
-}
-
-// --- 包裹層 ---
-function AppWrapper() {
   return (
     <>
       <GlobalStyle />
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<RootLayout />}>
+                <Route index element={<HomePage />} />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="register" element={<RegisterPage />} />
+                <Route path="pricing" element={<PricingPage />} />
+                <Route path="contact" element={<ContactPage />} />
+                <Route path="admin/login" element={<AdminLoginPage />} />
+                <Route path="protect/step1" element={<ProtectStep1 />} />
+                <Route path="protect/step2" element={<ProtectStep2 />} />
+                <Route path="protect/step3" element={<ProtectStep3 />} />
+                <Route path="protect/step4" element={<ProtectStep4 />} />
+                <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+                  <Route path="dashboard" element={<DashboardPage />} />
+                  <Route path="file/:fileId" element={<FileDetailPage />} />
+                </Route>
+                <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                  <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+                  <Route path="admin/users" element={<AdminUsersPage />} />
+                </Route>
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
+            </Routes>
+          </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </>
   );
 }
 
-export default AppWrapper;
+export default App;

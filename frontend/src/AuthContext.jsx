@@ -12,57 +12,59 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     }, []);
 
-    const initializeAuth = useCallback(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            setLoading(false);
-            return;
-        }
-
-        try {
-            const decodedToken = jwtDecode(token);
-            const currentTime = Date.now() / 1000;
-
-            if (decodedToken.exp < currentTime) {
-                console.log("Token expired");
-                logout();
-            } else {
-                setUser({
-                    id: decodedToken.id,
-                    email: decodedToken.email,
-                    role: decodedToken.role,
-                });
-            }
-        } catch (error) {
-            console.error("Invalid token", error);
-            logout();
-        } finally {
-            setLoading(false);
-        }
-    }, [logout]);
-
     useEffect(() => {
-        initializeAuth();
-    }, [initializeAuth]);
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const decodedToken = jwtDecode(token);
+                // Check if the token is expired
+                if (decodedToken.exp * 1000 > Date.now()) {
+                    setUser({
+                        id: decodedToken.id,
+                        email: decodedToken.email,
+                        role: decodedToken.role,
+                    });
+                } else {
+                    // Token is expired, remove it
+                    localStorage.removeItem('token');
+                }
+            } catch (error) {
+                console.error("Invalid token found during initial load:", error);
+                localStorage.removeItem('token'); // Clean up invalid token
+            }
+        }
+        setLoading(false); // Finish loading once token check is complete
+    }, [logout]); // logout is stable due to useCallback with empty dependencies
 
     const login = (token) => {
         try {
-            const decodedToken = jwtDecode(token);
             localStorage.setItem('token', token);
+            const decodedToken = jwtDecode(token);
             setUser({
                 id: decodedToken.id,
                 email: decodedToken.email,
                 role: decodedToken.role,
             });
         } catch (error) {
-            console.error("Failed to decode token:", error);
-            logout();
+            console.error("Failed to decode token on login:", error);
+            // If login fails, ensure everything is cleared
+            localStorage.removeItem('token');
+            setUser(null);
         }
     };
 
+    const authContextValue = {
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+        loading,
+    };
+
+    // Render children only when not loading
     return (
-        <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading }}>
-            {children}
+        <AuthContext.Provider value={authContextValue}>
+            {!loading && children}
         </AuthContext.Provider>
     );
 };
