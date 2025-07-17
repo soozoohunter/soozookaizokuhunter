@@ -86,7 +86,8 @@ async function startServer() {
     logger.info('[Startup] Initializing database connection...');
     await connectWithRetry();
 
-    await db.syncDatabase({ alter: true });
+    // Synchronize database models
+    await db.sequelize.sync({ alter: true });
     
     // 直接呼叫 seeder，它會自己處理模型的載入
     await seedDatabase();
