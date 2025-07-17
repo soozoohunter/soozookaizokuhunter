@@ -1,60 +1,60 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const {
-    RAPIDAPI_KEY, 
-    RAPIDAPI_YOUTUBE_URL, RAPIDAPI_YOUTUBE_HOST,
-    RAPIDAPI_TIKTOK_URL, RAPIDAPI_TIKTOK_HOST,
-    RAPIDAPI_INSTAGRAM_URL, RAPIDAPI_INSTAGRAM_HOST,
-    RAPIDAPI_FACEBOOK_URL, RAPIDAPI_FACEBOOK_HOST,
-    RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL, RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST
-} = process.env;
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+
+// [新增] 配置所有 API 端點
+const RAPIDAPI_YOUTUBE_URL = 'https://youtube-search-and-download.p.rapidapi.com';
+const RAPIDAPI_TIKTOK_URL = 'https://tiktok-video-no-watermark2.p.rapidapi.com';
+const RAPIDAPI_INSTAGRAM_URL = 'https://instagram-scraper-api2.p.rapidapi.com/v1';
+const RAPIDAPI_FACEBOOK_URL = 'https://facebook-scraper-api.p.rapidapi.com/v1';
+const RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL = 'https://contextualwebsearch-websearch-v1.p.rapidapi.com/api/Search/ImageSearchAPI';
 
 function isInitialized() {
     return !!RAPIDAPI_KEY;
 }
 
 const API_CONFIGS = {
-    youtube: {
-        enabled: !!(RAPIDAPI_YOUTUBE_URL && RAPIDAPI_YOUTUBE_HOST),
-        method: 'GET',
-        url: RAPIDAPI_YOUTUBE_URL,
-        host: RAPIDAPI_YOUTUBE_HOST,
-        params: (keyword) => ({ q: keyword, part: 'snippet', maxResults: '25' }),
-        parse: (data) => data?.items?.map(item => `https://www.youtube.com/watch?v=${item.id.videoId}`).filter(Boolean) || []
-    },
-    tiktok: {
-        enabled: !!(RAPIDAPI_TIKTOK_URL && RAPIDAPI_TIKTOK_HOST),
-        method: 'GET',
-        url: RAPIDAPI_TIKTOK_URL,
-        host: RAPIDAPI_TIKTOK_HOST,
-        params: (keyword) => ({ keywords: keyword, count: 20 }),
-        parse: (data) => data?.videos?.map(item => item.video_url).filter(Boolean) || []
-    },
-    instagram: {
-        enabled: !!(RAPIDAPI_INSTAGRAM_URL && RAPIDAPI_INSTAGRAM_HOST),
-        method: 'GET',
-        url: RAPIDAPI_INSTAGRAM_URL,
-        host: RAPIDAPI_INSTAGRAM_HOST,
-        params: (keyword) => ({ query: keyword }),
-        parse: (data) => data?.posts?.map(item => item.post_url).filter(Boolean) || []
-    },
-    facebook: {
-        enabled: !!(RAPIDAPI_FACEBOOK_URL && RAPIDAPI_FACEBOOK_HOST),
-        method: 'GET',
-        url: RAPIDAPI_FACEBOOK_URL,
-        host: RAPIDAPI_FACEBOOK_HOST,
-        params: (keyword) => ({ q: keyword }),
-        parse: (data) => data?.results?.map(item => item.url).filter(Boolean) || []
-    },
-    globalImage: {
-        enabled: !!(RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL && RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST),
-        method: 'GET',
-        url: RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL,
-        host: RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST,
-        params: (keyword) => ({ keywords: keyword, count: "30" }),
-        parse: (data) => data?.results?.map(item => item.url).filter(Boolean) || []
-    }
+  youtube: {
+    enabled: true, // [修正] 啟用服務
+    method: 'GET',
+    url: `${RAPIDAPI_YOUTUBE_URL}/search`,
+    host: 'youtube-search-and-download.p.rapidapi.com',
+    params: (keyword) => ({ query: keyword, sort: 'r', type: 'v' }),
+    parse: (data) => data.contents?.map(item => `https://www.youtube.com/watch?v=${item.video.videoId}`) || []
+  },
+  tiktok: {
+    enabled: true, // [修正] 啟用服務
+    method: 'GET',
+    url: RAPIDAPI_TIKTOK_URL,
+    host: 'tiktok-video-no-watermark2.p.rapidapi.com',
+    params: (keyword) => ({ keywords: keyword, count: 20 }),
+    parse: (data) => data.data?.map(item => item.play) || []
+  },
+  instagram: {
+    enabled: true, // [修正] 啟用服務
+    method: 'GET',
+    url: `${RAPIDAPI_INSTAGRAM_URL}/posts`,
+    host: 'instagram-scraper-api2.p.rapidapi.com',
+    params: (keyword) => ({ hashtag: keyword }),
+    parse: (data) => data.data?.map(item => `https://www.instagram.com/p/${item.shortcode}`) || []
+  },
+  facebook: {
+    enabled: true, // [修正] 啟用服務
+    method: 'GET',
+    url: `${RAPIDAPI_FACEBOOK_URL}/posts`,
+    host: 'facebook-scraper-api.p.rapidapi.com',
+    params: (keyword) => ({ id: keyword }),
+    parse: (data) => data.data?.map(item => item.url) || []
+  },
+  globalImage: {
+    enabled: true, // [修正] 啟用服務
+    method: 'GET',
+    url: RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL,
+    host: 'contextualwebsearch-websearch-v1.p.rapidapi.com',
+    params: (keyword) => ({ q: keyword, pageNumber: 1, pageSize: 30, autoCorrect: true }),
+    parse: (data) => data.value?.map(item => item.url) || []
+  }
 };
 
 async function searchPlatform(platform, keyword) {
