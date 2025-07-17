@@ -107,7 +107,9 @@ const Layout = () => {
                     ) : (
                         <>
                             <NavLink to="/dashboard">儀表板</NavLink>
-                            <NavLink to="/settings/api-keys">API 設定</NavLink>
+                            {user.role === 'admin' && (
+                                <NavLink to="/settings/api-keys">API 設定</NavLink>
+                            )}
                             {user.role === 'admin' && (
                                 <NavLink to="/admin/dashboard">管理面板</NavLink>
                             )}
@@ -147,9 +149,9 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
                 <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="file/:fileId" element={<FileDetailPage />} />
-                <Route path="settings/api-keys" element={<SettingsPage />} />
               </Route>
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="settings/api-keys" element={<SettingsPage />} />
                 <Route path="admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="admin/users" element={<AdminUsersPage />} />
               </Route>

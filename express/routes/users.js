@@ -28,6 +28,9 @@ router.get('/profile', auth, async (req, res) => {
 
 // POST /api/users/api-keys
 router.post('/api-keys', auth, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: '只有管理員可以執行此操作' });
+    }
     const { keys } = req.body;
     const userId = req.user.id;
 
