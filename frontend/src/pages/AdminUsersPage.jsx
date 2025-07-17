@@ -29,7 +29,7 @@ function AdminUsersPage() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const response = await apiClient.get('/api/admin/users');
+            const response = await apiClient.get('/admin/users');
             setUsers(response.data);
         } catch (err) {
             setError(err.response?.data?.error || 'Failed to fetch user list.');
@@ -49,7 +49,7 @@ function AdminUsersPage() {
         if (!window.confirm(`確定要將使用者 #${userId} 的方案更改為 ${newPlanCode} 嗎？`)) return;
 
         try {
-            await apiClient.put(`/api/admin/users/${userId}/subscription`, {
+            await apiClient.put(`/admin/users/${userId}/subscription`, {
                 planCode: newPlanCode
             });
             alert('方案更新成功！');

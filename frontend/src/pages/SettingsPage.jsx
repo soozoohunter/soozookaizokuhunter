@@ -29,7 +29,7 @@ const SettingsPage = () => {
     setStatus({ saving: true, success: false, error: null });
     
     try {
-      const response = await apiClient.post('/api/users/api-keys', { keys });
+      const response = await apiClient.post('/users/api-keys', { keys });
       updateApiKeysInState(response.data.keys);
       setStatus({ saving: false, success: true, error: null });
     } catch (error) {

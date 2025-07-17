@@ -82,7 +82,7 @@ export default function AdminLogin() {
     }
 
     try {
-      const response = await apiClient.post('/api/admin/login', {
+      const response = await apiClient.post('/admin/login', {
         identifier: identifier.trim(),
         password,
       });

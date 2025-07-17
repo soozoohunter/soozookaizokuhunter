@@ -16,7 +16,7 @@ function DashboardPage() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const response = await apiClient.get('/api/dashboard');
+      const response = await apiClient.get('/dashboard');
       setDashboardData(response.data);
     } catch (err) {
       setError(err.response?.data?.error || err.message || '無法載入會員資料。');
@@ -53,7 +53,7 @@ function DashboardPage() {
 
     try {
       // 步驟 2: 向後端發送掃描請求
-      const res = await apiClient.get(`/api/scan/${fileId}`);
+      const res = await apiClient.get(`/scan/${fileId}`);
       alert(res.data.message || '掃描任務已成功派發！');
       // 可以在此處設定一個延遲來刷新，或等待 WebSocket 的自動更新
     } catch (err) {
