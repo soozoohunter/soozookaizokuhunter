@@ -8,14 +8,13 @@ const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
 const { monitorStuckTasks } = require('./services/taskMonitor');
-const { seedDatabase } = require('./seed'); // [★★ 關鍵修正 1 ★★] 導入 Seeding 函式
+const { seedDatabase } = require('./seed'); // 導入 Seeding 函式
 
 // 全局错误处理
 process.on('uncaughtException', (err) => {
   logger.error('[Uncaught Exception]', err);
   process.exit(1);
 });
-
 process.on('unhandledRejection', (reason) => {
   logger.error('[Unhandled Rejection]', reason);
   process.exit(1);
@@ -54,7 +53,7 @@ app.get('/health', (req, res) => {
 
 const PORT = process.env.EXPRESS_PORT || 3000;
 
-// 核心修复：数据库连接重试逻辑
+// 数据库连接重试逻辑
 const connectWithRetry = async (retries = 5, delay = 5000) => {
   for (let i = 1; i <= retries; i++) {
     try {
@@ -74,14 +73,12 @@ async function startServer() {
     logger.info('[Startup] Initializing database connection...');
     await connectWithRetry();
 
-    // 同步模型
     await db.sequelize.sync({ alter: true });
     logger.info('[Database] Models synchronized successfully.');
     
-    // [★★ 關鍵修正 2 ★★] 在同步模型後，執行資料庫填充
-    await seedDatabase();
+    // [★★ 關鍵修正 ★★] 將已初始化的 db 物件作為參數傳遞給 seeder
+    await seedDatabase(db);
 
-    // 初始化區塊鏈服務
     try {
       logger.info('[Startup] Initializing blockchain service...');
       await chain.initializeBlockchainService();
