@@ -23,13 +23,16 @@ const BASE_URL = process.env.REACT_APP_API_URL || '';
 export async function apiRequest(path, options = {}) {
     const fullUrl = `${BASE_URL}${path}`;
 
+    // 調試日誌
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`API Request: ${fullUrl}`, options);
+    }
+
     const headers = {
-        // 如果 body 是 FormData，瀏覽器會自動設定 Content-Type
         ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers,
     };
 
-    // 自動從 localStorage 中讀取 token 並加入到 Authorization 標頭
     const token = localStorage.getItem('token');
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -39,18 +42,26 @@ export async function apiRequest(path, options = {}) {
         const response = await fetch(fullUrl, {
             ...options,
             headers,
+            body: options.body instanceof FormData ? options.body : JSON.stringify(options.body),
         });
 
-        const data = await response.json();
+        // 處理非JSON響應
+        const contentType = response.headers.get('content-type');
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
 
         if (!response.ok) {
-            throw new Error(data.message || data.error || `伺服器錯誤: ${response.status}`);
+            const errorMessage = data.message || data.error || `伺服器錯誤: ${response.status}`;
+            throw new Error(errorMessage);
         }
 
         return data;
     } catch (error) {
         console.error(`API request to ${fullUrl} failed:`, error);
-        // 將錯誤再次拋出，讓呼叫它的組件可以捕獲
         throw error;
     }
 }

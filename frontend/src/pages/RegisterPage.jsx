@@ -1,6 +1,7 @@
 // frontend/src/pages/RegisterPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../services/apiClient';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
@@ -135,26 +136,16 @@ export default function Register() {
     }
 
     try {
-      const resp = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        if (resp.status === 409) {
-          setErrorMsg(data.message || '此電子郵件或手機號碼已被註冊。');
-        } else {
-          setErrorMsg(data.message || '註冊失敗');
-        }
-      } else {
-        alert(data.message || '註冊成功');
-        navigate('/login');
-      }
+      const response = await apiClient.post('/auth/register', form);
+      alert(response.data.message || '註冊成功');
+      navigate('/login');
     } catch (err) {
-      console.error(err);
-      setErrorMsg('無法連接伺服器');
+      const resp = err.response;
+      if (resp?.status === 409) {
+        setErrorMsg(resp.data?.message || '此電子郵件或手機號碼已被註冊。');
+      } else {
+        setErrorMsg(resp?.data?.message || err.message || '無法連接伺服器');
+      }
     }
   };
 
