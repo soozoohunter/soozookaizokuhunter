@@ -22,7 +22,6 @@ import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4 from './pages/ProtectStep4';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
-// 新增的設定頁面
 import SettingsPage from './pages/SettingsPage'; 
 
 // --- Styles ---
@@ -66,7 +65,6 @@ const Footer = styled.footer`
   border-top: 1px solid #374151; font-size: 0.9rem; color: #9CA3AF;
 `;
 
-// Layout Component: Manages page structure and global logic
 const Layout = () => {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
@@ -76,13 +74,11 @@ const Layout = () => {
         navigate('/login', { replace: true });
     }, [logout, navigate]);
 
-    // Setup API interceptor here, as it has access to both router and auth contexts
     useEffect(() => {
         const interceptorId = apiClient.interceptors.response.use(
             response => response,
             error => {
                 if (error.response && [401, 403].includes(error.response.status)) {
-                    console.log(`API Interceptor: Caught ${error.response.status}, logging out.`);
                     handleLogout();
                 }
                 return Promise.reject(error);
@@ -130,7 +126,6 @@ const Layout = () => {
     );
 };
 
-// Main App Component: Sets up providers and routes
 function App() {
   return (
     <BrowserRouter>
@@ -168,101 +163,3 @@ function App() {
 }
 
 export default App;
-```
-
----
-
-### **第二部分：API 功能整合框架**
-
-以下是您需要**新增**的檔案，它們為後續的 API 整合提供了堅實的基礎。
-
-#### 3. `frontend/src/pages/SettingsPage.jsx` (新檔案)
-這個頁面讓使用者可以管理他們的 API 金鑰。
-
-
-```javascript
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../AuthContext';
-import apiClient from '../services/apiClient';
-
-const API_KEY_SERVICES = [
-  { id: 'google_vision', name: 'Google Vision' },
-  { id: 'tineye', name: 'TinEye' },
-  { id: 'dmca', name: 'DMCA.com' },
-  // RapidAPI keys can be added here if needed, or managed via a single RapidAPI key
-];
-
-const SettingsPage = () => {
-  const { user, updateApiKeysInState } = useContext(AuthContext);
-  // Initialize keys from user context or with empty strings
-  const [keys, setKeys] = useState(API_KEY_SERVICES.reduce((acc, service) => {
-    acc[service.id] = user?.apiKeys?.[service.id] || '';
-    return acc;
-  }, {}));
-  
-  const [status, setStatus] = useState({ saving: false, success: false, error: null });
-
-  const handleChange = (service, value) => {
-    setKeys(prev => ({ ...prev, [service]: value }));
-  };
-
-  const saveKeys = async () => {
-    setStatus({ saving: true, success: false, error: null });
-    
-    try {
-      // Save all keys to the backend
-      const response = await apiClient.post('/api/user/api-keys', { keys });
-      
-      // Update the frontend state
-      updateApiKeysInState(response.data.keys);
-      setStatus({ saving: false, success: true, error: null });
-
-    } catch (error) {
-      console.error('保存API金鑰失敗:', error);
-      setStatus({ saving: false, success: false, error: error.response?.data?.detail || '保存失敗' });
-    }
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-white">API 金鑰設定</h1>
-      
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6">
-        {API_KEY_SERVICES.map(service => (
-          <div key={service.id} className="mb-4">
-            <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor={service.id}>
-              {service.name} API 金鑰
-            </label>
-            <input
-              id={service.id}
-              type="password"
-              value={keys[service.id]}
-              onChange={(e) => handleChange(service.id, e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline"
-              placeholder={`請輸入您的 ${service.name} API 金鑰`}
-            />
-          </div>
-        ))}
-        
-        <div className="flex items-center mt-6">
-          <button
-            onClick={saveKeys}
-            disabled={status.saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-          >
-            {status.saving ? '保存中...' : '保存設定'}
-          </button>
-          
-          {status.success && (
-            <span className="ml-4 text-green-500">設定已成功保存！</span>
-          )}
-          {status.error && (
-             <span className="ml-4 text-red-500">{status.error}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default SettingsPage;
