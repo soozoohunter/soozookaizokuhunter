@@ -11,7 +11,7 @@ router.get('/profile', auth, async (req, res) => {
       include: [{
         model: APIKey,
         as: 'apiKeys',
-        attributes: ['service'] 
+        attributes: ['service']
       }]
     });
     if (!user) {
@@ -30,13 +30,13 @@ router.post('/api-keys', auth, async (req, res) => {
     const userId = req.user.id;
 
     if (!keys || typeof keys !== 'object') {
-        return res.status(400).json({ error: 'Invalid key format' });
+        return res.status(400).json({ error: '無效的金鑰格式' });
     }
 
     try {
         const user = await User.findByPk(userId);
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: '找不到用戶' });
         }
 
         await Promise.all(
@@ -45,7 +45,7 @@ router.post('/api-keys', auth, async (req, res) => {
                 await APIKey.upsert({
                     userId: userId,
                     service: service,
-                    value: value, 
+                    value: value,
                 });
             })
         );
@@ -56,11 +56,11 @@ router.post('/api-keys', auth, async (req, res) => {
             return acc;
         }, {});
 
-        res.json({ message: 'API keys updated successfully', keys: keysResponse });
+        res.json({ message: 'API 金鑰已成功更新', keys: keysResponse });
 
     } catch (error) {
-        console.error('Error saving API keys:', error);
-        res.status(500).send('Server error');
+        console.error('保存 API 金鑰時出錯:', error);
+        res.status(500).send('伺服器內部錯誤');
     }
 });
 
