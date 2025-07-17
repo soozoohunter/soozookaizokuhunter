@@ -85,7 +85,7 @@ export default function Login() {
         identifier: identifier.trim(),
         password: password,
       };
-      const response = await apiClient.post('/api/auth/login', payload);
+      const response = await apiClient.post('/auth/login', payload);
       login(response.data.token);
       alert(response.data.message || '登入成功');
       navigate('/dashboard');

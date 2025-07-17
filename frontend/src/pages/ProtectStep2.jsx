@@ -87,16 +87,44 @@ export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
   const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!step1Data) {
-      alert('找不到上一步的資料，請重新上傳。');
-      navigate('/protect/step1');
+    if (!step1Data || !step1Data.file || !step1Data.scanId) {
+      setError('找不到上一步的資料，請重新上傳。');
+      setIsLoading(false);
     }
-  }, [step1Data, navigate]);
+  }, [step1Data]);
+
+  const handleNext = () => {
+    if (!step1Data?.scanId) {
+      setError('掃描ID缺失，無法繼續');
+      return;
+    }
+    navigate('/protect/step3', { state: { scanId: step1Data.scanId, step1Data } });
+  };
+
+  if (error) {
+    return (
+      <PageWrapper>
+        <Container>
+          <Title>Step 2: 錯誤</Title>
+          <InfoBlock>
+            <p style={{ color: '#F87171', textAlign: 'center' }}>{error}</p>
+          </InfoBlock>
+          <ButtonRow>
+            <OrangeButton onClick={() => navigate('/protect/step1')}>
+              返回上一步
+            </OrangeButton>
+          </ButtonRow>
+        </Container>
+      </PageWrapper>
+    );
+  }
 
   if (!step1Data) {
-    return null; 
+    return null;
   }
 
   const { file, scanId } = step1Data;
@@ -117,7 +145,7 @@ export default function ProtectStep2() {
           <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file?.tx_hash || 'N/A'}</span></InfoRow>
         </InfoBlock>
         <ButtonRow>
-          <OrangeButton onClick={() => navigate('/protect/step3', { state: { scanId, step1Data } })}>
+          <OrangeButton onClick={handleNext}>
             下一步：啟動 AI 全網掃描 →
           </OrangeButton>
         </ButtonRow>
