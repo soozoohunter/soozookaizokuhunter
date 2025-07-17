@@ -213,7 +213,7 @@ export default function ProtectStep3() {
 
         const poll = async () => {
             try {
-                const res = await apiClient.get(`/scans/status/${scanId}`);
+                const res = await apiClient.get(`/api/scans/status/${scanId}`);
                const data = res.data;
 
                 setTaskStatus(data.status);
@@ -300,9 +300,13 @@ export default function ProtectStep3() {
                     {Object.entries(scanData.results || {}).map(([source, links]) => {
                         if (!links || links.length === 0) return null;
                         const config = SOURCE_CONFIG[source] || { title: source, color: '#9CA3AF' };
+                        
+                        // [★★ 關鍵修正 ★★] 如果來源是 'vision'，則不顯示標題
+                        const showTitle = source !== 'vision';
+
                         return(
                             <SourceCard key={source} color={config.color}>
-                                <SourceTitle color={config.color}>{config.title} ({links.length})</SourceTitle>
+                                {showTitle && <SourceTitle color={config.color}>{config.title} ({links.length})</SourceTitle>}
                                 <button onClick={() => handleSelectAll(source)}>全選此來源</button>
                                 <LinkList>
                                     {links.map((url, idx) => (
