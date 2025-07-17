@@ -1,22 +1,60 @@
-# log files
+# =================================================================
+# 註解：以 '#' 開頭的行是註解。
+# 作用：此檔案告訴 Git 哪些檔案或資料夾不應該被追蹤或提交。
+# =================================================================
+
+# ### 敏感資訊 (Credentials & Environment) ###
+# 永遠不要將環境變數檔和憑證提交到版本控制中！
+.env
+.env.*
+!/.env.example
+
+# 您提供的規則，非常好，予以保留
+credentials/*.json
+
+
+# ### 日誌檔案 (Logs) ###
+# 忽略所有 .log 檔案以及特定的日誌檔
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 fastapi.log
 nginx.log
 
-# credential files (always keep them out of git)
-credentials/*.json
 
-# dependency directories
-node_modules/
+# ### 依賴項目錄 (Dependencies) ###
+# 這些目錄應該在部署或開發時，由套件管理器 (npm) 自動生成
+# 這是最重要的忽略規則之一
+/node_modules
+/frontend/node_modules
+/express/node_modules
 
-# environment and build artifacts
-.env
-dist/
-.next/
-coverage/
-.turbo/
 
-# lockfiles: 若您使用 yarn/npm/pnpm，確保只留必要的 lockfile
-# package-lock.json
+# ### 建置產物與快取 (Build Artifacts & Cache) ###
+# 這些是程式碼編譯或建置後自動生成的檔案
+/frontend/build
+/dist
+/.next/
+/.turbo/
+
+
+# ### 測試報告 (Testing) ###
+/coverage
+
+
+# ### 編輯器與作業系統特定檔案 (Editor & OS) ###
+# 忽略不同開發環境產生的暫存檔
+.DS_Store
+.vscode/
+.idea/
+
+
+# ### Lockfiles ###
+# 根據您的專案使用的套件管理器，只保留一個 lockfile。
+# 您的專案使用 npm，所以我們保留 package-lock.json。
+# 如果未來改用 yarn 或 pnpm，請相應地修改此區塊。
+# package-lock.json # 您的專案需要這個，所以不要忽略它
 yarn.lock
-# 如果使用 pnpm，請保留 pnpm-lock.yaml 並移除此註解
-# pnpm-lock.yaml
+pnpm-lock.yaml
+
