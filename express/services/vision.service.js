@@ -25,6 +25,10 @@ function initClient() {
 
 initClient();
 
+function isInitialized() {
+    return !!visionClient;
+}
+
 async function searchByBuffer(buffer) {
     if (!visionClient) {
         logger.warn('[Vision Service] Client not initialized or failed to initialize. Skipping Google Vision search.');
@@ -72,4 +76,5 @@ async function infringementScan(buffer) {
 module.exports = {
     searchByBuffer,
     infringementScan,
+    isInitialized,
 };

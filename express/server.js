@@ -7,8 +7,12 @@ const logger = require('./utils/logger');
 const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
+const visionService = require('./services/vision.service');
+const tineyeService = require('./services/tineye.service');
+const socialMediaScanner = require('./services/rapidApi.service');
+const dmcaService = require('./services/dmcaService');
 const { monitorStuckTasks } = require('./services/taskMonitor');
-const { seedDatabase } = require('./seed');
+const seedDatabase = require('./seed');
 
 // 全局错误处理
 process.on('uncaughtException', (err) => {
@@ -42,13 +46,22 @@ app.use('/api/files', require('./routes/files'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/scans', require('./routes/scans'));
+app.use('/api/dmca', require('./routes/dmca'));
 
 // 健康检查
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const status = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-  });
+    services: {
+      database: 'connected',
+      vision: visionService.isInitialized(),
+      tineye: tineyeService.isInitialized(),
+      social_scanner: socialMediaScanner.isInitialized(),
+      dmca: dmcaService.isDmcaEnabled
+    }
+  };
+  res.status(200).json(status);
 });
 
 const PORT = process.env.EXPRESS_PORT || 3000;
@@ -73,8 +86,7 @@ async function startServer() {
     logger.info('[Startup] Initializing database connection...');
     await connectWithRetry();
 
-    await db.sequelize.sync({ alter: true });
-    logger.info('[Database] Models synchronized successfully.');
+    await db.syncDatabase({ alter: true });
     
     // 直接呼叫 seeder，它會自己處理模型的載入
     await seedDatabase();
