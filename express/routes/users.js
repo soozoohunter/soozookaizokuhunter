@@ -1,15 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { User, APIKey } = require('../models');
+// [★★ 關鍵修正 ★★] 導入整個 db 物件
+const db = require('../models');
 const auth = require('../middleware/auth');
 
 // GET /api/users/profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id, {
+    // [★★ 關鍵修正 ★★] 使用 db.User 和 db.APIKey
+    const user = await db.User.findByPk(req.user.id, {
       attributes: ['id', 'realName', 'email', 'phone'],
       include: [{
-        model: APIKey,
+        model: db.APIKey,
         as: 'apiKeys',
         attributes: ['service']
       }]
@@ -34,7 +36,7 @@ router.post('/api-keys', auth, async (req, res) => {
     }
 
     try {
-        const user = await User.findByPk(userId);
+        const user = await db.User.findByPk(userId);
         if (!user) {
             return res.status(404).json({ error: '找不到用戶' });
         }
@@ -42,7 +44,7 @@ router.post('/api-keys', auth, async (req, res) => {
         await Promise.all(
             Object.entries(keys).map(async ([service, value]) => {
                 if (typeof value !== 'string') return;
-                await APIKey.upsert({
+                await db.APIKey.upsert({
                     userId: userId,
                     service: service,
                     value: value,
@@ -50,7 +52,7 @@ router.post('/api-keys', auth, async (req, res) => {
             })
         );
         
-        const updatedApiKeys = await APIKey.findAll({ where: { userId } });
+        const updatedApiKeys = await db.APIKey.findAll({ where: { userId } });
         const keysResponse = updatedApiKeys.reduce((acc, key) => {
             acc[key.service] = key.value;
             return acc;
@@ -68,7 +70,7 @@ router.post('/api-keys', auth, async (req, res) => {
 router.get('/:userId', auth, async (req, res) => {
   const { userId } = req.params;
   try {
-    const user = await User.findByPk(userId, {
+    const user = await db.User.findByPk(userId, {
       attributes: ['id', 'realName', 'email', 'phone']
     });
     if (!user) {
