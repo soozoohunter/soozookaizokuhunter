@@ -7,7 +7,7 @@ async function seedDatabase() {
     const Plan = db.Plan || db.Plans;
 
     if (!Role || !Plan) {
-      const models = Object.keys(db).filter(key => !['sequelize', 'Sequelize', 'syncDatabase'].includes(key));
+      const models = Object.keys(db).filter(key => !['sequelize', 'Sequelize'].includes(key));
       throw new Error(`Role/Plan models not found. Available models: ${models.join(', ')}`);
     }
 
