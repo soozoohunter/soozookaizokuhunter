@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
                 }
             }
         } catch (error) {
-            console.error("Invalid token on initial load, clearing token.", error);
+            console.error("Invalid token found, clearing token.", error);
             logout();
         } finally {
             setLoading(false);
