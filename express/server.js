@@ -8,6 +8,7 @@ const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
 const { monitorStuckTasks } = require('./services/taskMonitor');
+const { seedDatabase } = require('./seed'); // [★★ 關鍵修正 1 ★★] 導入 Seeding 函式
 
 // 全局错误处理
 process.on('uncaughtException', (err) => {
@@ -73,9 +74,12 @@ async function startServer() {
     logger.info('[Startup] Initializing database connection...');
     await connectWithRetry();
 
-    // 核心修复：僅同步模型，不強制重建
+    // 同步模型
     await db.sequelize.sync({ alter: true });
     logger.info('[Database] Models synchronized successfully.');
+    
+    // [★★ 關鍵修正 2 ★★] 在同步模型後，執行資料庫填充
+    await seedDatabase();
 
     // 初始化區塊鏈服務
     try {
