@@ -14,6 +14,10 @@ if (TINEYE_PRIVATE_KEY && TINEYE_PUBLIC_KEY) {
     logger.warn('[TinEye Service] TINEYE_PUBLIC_KEY or TINEYE_PRIVATE_KEY is not configured in .env file. Service will be disabled.');
 }
 
+function isInitialized() {
+    return !!api;
+}
+
 /**
  * Searches for matches using the TinEye API with a given image buffer.
  * @param {Buffer} buffer - The image file buffer.
@@ -56,4 +60,5 @@ async function searchByBuffer(buffer) {
 
 module.exports = {
     searchByBuffer,
+    isInitialized,
 };

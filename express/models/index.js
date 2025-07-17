@@ -14,9 +14,8 @@ const sequelize = new Sequelize(
   process.env.POSTGRES_PASSWORD, {
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
-    dialect: 'postgres',
-    // 關閉 Sequelize 的 SQL 日誌，除非您需要調試，否則可保持控制台乾淨
-    logging: false, 
+  dialect: 'postgres',
+  logging: process.env.NODE_ENV === 'development' ? console.log : false,
     define: {
       freezeTableName: true, // 禁止 Sequelize 自動將表名變為複數
       underscored: true,     // 自動將駝峰式命名的欄位轉為底線式
@@ -24,6 +23,12 @@ const sequelize = new Sequelize(
       createdAt: 'created_at',
       updatedAt: 'updated_at'
     }
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
   }
 );
 
@@ -41,7 +46,8 @@ fs
   .forEach(file => {
     try {
       const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-      db[model.name] = model;
+      const modelName = model.name.charAt(0).toUpperCase() + model.name.slice(1);
+      db[modelName] = model;
     } catch (error) {
       logger.error(`[Database] CRITICAL: Failed to load model from file ${file}.`, error);
       process.exit(1);
@@ -54,6 +60,19 @@ Object.keys(db).forEach(modelName => {
     db[modelName].associate(db);
   }
 });
+
+db.syncDatabase = async (options = { alter: true }) => {
+  try {
+    await sequelize.authenticate();
+    logger.info('[Database] Connection established.');
+    await sequelize.sync(options);
+    logger.info('[Database] Models synchronized.');
+    return true;
+  } catch (error) {
+    logger.error('[Database] Sync failed:', error);
+    throw error;
+  }
+};
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;

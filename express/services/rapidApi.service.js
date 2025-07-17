@@ -1,7 +1,7 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const { 
+const {
     RAPIDAPI_KEY, 
     RAPIDAPI_YOUTUBE_URL, RAPIDAPI_YOUTUBE_HOST,
     RAPIDAPI_TIKTOK_URL, RAPIDAPI_TIKTOK_HOST,
@@ -9,6 +9,10 @@ const {
     RAPIDAPI_FACEBOOK_URL, RAPIDAPI_FACEBOOK_HOST,
     RAPIDAPI_GLOBAL_IMAGE_SEARCH_URL, RAPIDAPI_GLOBAL_IMAGE_SEARCH_HOST
 } = process.env;
+
+function isInitialized() {
+    return !!RAPIDAPI_KEY;
+}
 
 const API_CONFIGS = {
     youtube: {
@@ -92,4 +96,5 @@ async function searchPlatform(platform, keyword) {
 
 module.exports = {
     searchPlatform,
+    isInitialized,
 };
