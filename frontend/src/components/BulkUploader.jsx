@@ -116,7 +116,7 @@ function BulkUploader({ onClose, onUploadComplete }) {
 
     try {
       // [核心修正] 直接使用 apiClient，它會自動處理 token 和 headers
-      const response = await apiClient.post('/api/protect/batch-protect', formData);
+      const response = await apiClient.post('/protect/batch-protect', formData);
       
       const data = response.data;
       
