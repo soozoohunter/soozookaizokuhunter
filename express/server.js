@@ -8,7 +8,7 @@ const chain = require('./utils/chain');
 const { initSocket } = require('./socket');
 const db = require('./models');
 const { monitorStuckTasks } = require('./services/taskMonitor');
-const { seedDatabase } = require('./seed'); // 導入 Seeding 函式
+const { seedDatabase } = require('./seed');
 
 // 全局错误处理
 process.on('uncaughtException', (err) => {
@@ -76,8 +76,8 @@ async function startServer() {
     await db.sequelize.sync({ alter: true });
     logger.info('[Database] Models synchronized successfully.');
     
-    // [★★ 關鍵修正 ★★] 將已初始化的 db 物件作為參數傳遞給 seeder
-    await seedDatabase(db);
+    // 直接呼叫 seeder，它會自己處理模型的載入
+    await seedDatabase();
 
     try {
       logger.info('[Startup] Initializing blockchain service...');
