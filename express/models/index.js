@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
 const basename = path.basename(__filename);
 const db = {};
 
-// [優化] 直接從 .env 讀取設定，這比依賴外部的 config/database.js 更適合 Docker 環境
+// 直接從 .env 讀取設定，這比依賴外部的 config/database.js 更適合 Docker 環境
 const sequelize = new Sequelize(
   process.env.POSTGRES_DB,
   process.env.POSTGRES_USER,
@@ -15,12 +15,11 @@ const sequelize = new Sequelize(
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
     dialect: 'postgres',
-    // 關閉 Sequelize 的 SQL 日誌，除非您需要調試，否則可保持控制台乾淨
     logging: false, 
     define: {
-      freezeTableName: true, // 禁止 Sequelize 自動將表名變為複數
-      underscored: true,     // 自動將駝峰式命名的欄位轉為底線式
-      timestamps: true,      // 自動加入 createdAt 和 updatedAt 欄位
+      freezeTableName: true,
+      underscored: true,
+      timestamps: true,
       createdAt: 'created_at',
       updatedAt: 'updated_at'
     },
@@ -33,7 +32,7 @@ const sequelize = new Sequelize(
   }
 );
 
-// [★★ 關鍵修正 1 ★★] 自動讀取當前目錄下的所有模型檔案，並進行初始化
+// 自動讀取當前目錄下的所有模型檔案，並進行初始化
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -47,7 +46,6 @@ fs
   .forEach(file => {
     try {
       const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-      // 將初始化的模型掛載到 db 物件上，使用模型的名稱作為鍵 (例如 db.User)
       db[model.name] = model;
     } catch (error) {
       logger.error(`[Database] CRITICAL: Failed to load model from file ${file}.`, error);
@@ -55,7 +53,7 @@ fs
     }
   });
 
-// [★★ 關鍵修正 2 ★★] 在所有模型都載入後，才執行模型間的關聯設定
+// 在所有模型都載入後，才執行模型間的關聯設定
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
