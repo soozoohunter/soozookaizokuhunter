@@ -86,24 +86,40 @@ const OrangeButton = styled.button`
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [step1Data, setStep1Data] = useState(location.state?.step1Data || null);
-  const [isLoading, setIsLoading] = useState(false);
+  // [修正] 直接從 location.state 獲取 file 和 scanId
+  const { file, scanId } = location.state?.step1Data || {};
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!step1Data || !step1Data.file || !step1Data.scanId) {
+    if (!file || !scanId) {
       setError('找不到上一步的資料，請重新上傳。');
       setIsLoading(false);
-    }
-  }, [step1Data]);
-
-  const handleNext = () => {
-    if (!step1Data?.scanId) {
-      setError('掃描ID缺失，無法繼續');
       return;
     }
-    navigate('/protect/step3', { state: { scanId: step1Data.scanId, step1Data } });
+
+    // [新增] 確保所有必要資料存在
+    if (!file.fingerprint || !file.ipfs_hash || !file.tx_hash) {
+      setError('檔案資訊不完整，請重新上傳。');
+    }
+
+    setIsLoading(false);
+  }, [file, scanId]);
+
+  const handleNext = () => {
+    navigate('/protect/step3', { state: { scanId, file } });
   };
+
+  if (isLoading) {
+    return (
+      <PageWrapper>
+        <Container>
+          <Title>Step 2: 載入中...</Title>
+          <p style={{ textAlign: 'center', color: '#ccc' }}>正在獲取檔案資訊...</p>
+        </Container>
+      </PageWrapper>
+    );
+  }
 
   if (error) {
     return (
@@ -123,11 +139,6 @@ export default function ProtectStep2() {
     );
   }
 
-  if (!step1Data) {
-    return null;
-  }
-
-  const { file, scanId } = step1Data;
 
   return (
     <PageWrapper>

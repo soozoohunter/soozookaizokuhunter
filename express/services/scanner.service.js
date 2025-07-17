@@ -5,6 +5,58 @@ const { searchPlatform } = require('./rapidApi.service');
 const { verifyMatches } = require('../utils/imageFetcher');
 const logger = require('../utils/logger');
 
+// [新增] 處理 Bing API 錯誤
+async function searchWithBing(imageBuffer, maxResults) {
+    try {
+        const res = await bingService.searchByBuffer(imageBuffer);
+        return res.links?.slice(0, maxResults) || [];
+    } catch (error) {
+        logger.error(`[Bing Service] 搜尋失敗: ${error.message}`);
+        if (error.response?.status === 401) {
+            logger.warn('[Bing Service] API金鑰無效，使用Google Vision替代');
+            const gv = await visionService.searchByBuffer(imageBuffer);
+            return gv.links?.slice(0, maxResults) || [];
+        }
+        return [];
+    }
+}
+
+// [新增] 增強錯誤處理的全面掃描
+async function fullScan(imageBuffer, keywords) {
+    try {
+        const results = { platforms: [], sources: [] };
+
+        const [bingResults, googleResults, tineyeResults, socialResults] = await Promise.all([
+            searchWithBing(imageBuffer, 10),
+            visionService.searchByBuffer(imageBuffer).then(r => r.links || []),
+            tineyeService.searchByBuffer(imageBuffer).then(r => r.matches?.map(m => m.url) || []),
+            searchPlatform('youtube', keywords).catch(() => [])
+        ]);
+
+        if (bingResults.length > 0) {
+            results.platforms.push({ name: 'Bing 圖片搜尋', results: bingResults });
+            results.sources.push('bing');
+        }
+        if (googleResults.length > 0) {
+            results.platforms.push({ name: 'Google Vision', results: googleResults });
+            results.sources.push('google');
+        }
+        if (tineyeResults.length > 0) {
+            results.platforms.push({ name: 'TinEye 反向搜尋', results: tineyeResults });
+            results.sources.push('tineye');
+        }
+        if (socialResults.length > 0) {
+            results.platforms.push({ name: '社群媒體', results: socialResults });
+            results.sources.push('social');
+        }
+
+        return results;
+    } catch (error) {
+        logger.error(`[Scanner Service] 全面掃描失敗: ${error.message}`);
+        throw new Error('掃描過程中發生錯誤');
+    }
+}
+
 const scanByImage = async (imageBuffer, options = {}) => {
     logger.info('[Scanner Service] Received scan request with options:', options);
     const results = {};
@@ -80,4 +132,8 @@ const scanByImage = async (imageBuffer, options = {}) => {
     };
 };
 
-module.exports = { scanByImage };
+module.exports = {
+    scanByImage,
+    searchWithBing,
+    fullScan,
+};
