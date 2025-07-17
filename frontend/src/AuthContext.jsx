@@ -5,19 +5,22 @@ export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const logout = useCallback(() => {
         localStorage.removeItem('token');
+        setToken(null);
         setUser(null);
     }, []);
 
     useEffect(() => {
         try {
-            const token = localStorage.getItem('token');
-            if (token) {
-                const decodedToken = jwtDecode(token);
+            const stored = localStorage.getItem('token');
+            if (stored) {
+                const decodedToken = jwtDecode(stored);
                 if (decodedToken.exp * 1000 > Date.now()) {
+                    setToken(stored);
                     setUser({
                         id: decodedToken.id,
                         email: decodedToken.email,
@@ -36,10 +39,11 @@ export const AuthProvider = ({ children }) => {
         }
     }, [logout]);
 
-    const login = (token) => {
+    const login = (tokenValue) => {
         try {
-            localStorage.setItem('token', token);
-            const decodedToken = jwtDecode(token);
+            localStorage.setItem('token', tokenValue);
+            setToken(tokenValue);
+            const decodedToken = jwtDecode(tokenValue);
             setUser({
                 id: decodedToken.id,
                 email: decodedToken.email,
@@ -64,6 +68,7 @@ export const AuthProvider = ({ children }) => {
 
     const authContextValue = {
         user,
+        token,
         login,
         logout,
         updateApiKeysInState,
