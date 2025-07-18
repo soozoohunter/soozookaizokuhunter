@@ -28,6 +28,7 @@ const LogoLink = styled(Link)`
   text-decoration: none;
   display: flex;
   align-items: center;
+  color: #0A0101; // Ensure logo text is visible on light background
 `;
 
 const NavLinks = styled.div`
@@ -55,7 +56,18 @@ const NavLink = styled(Link)`
 const ActionButtons = styled.div`
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+`;
+
+const LoginLink = styled(Link)`
+    text-decoration: none;
+    color: #858080;
+    font-weight: 500;
+    letter-spacing: -0.08px;
+
+    &:hover {
+        color: #231A1A;
+    }
 `;
 
 const StyledButton = styled(Link)`
@@ -95,12 +107,13 @@ const Header = () => {
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO</span>
         </LogoLink>
         <NavLinks>
-          <NavLink to="#">解決方案</NavLink>
+          <NavLink to="/">解決方案</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
-          <NavLink to="#">相關資源</NavLink>
-          <NavLink to="#">關於我們</NavLink>
+          <NavLink to="/">相關資源</NavLink>
+          <NavLink to="/">關於我們</NavLink>
         </NavLinks>
         <ActionButtons>
+          <LoginLink to="/login">登入</LoginLink>
           <StyledButton to="/register">免費諮詢</StyledButton>
           <HamburgerMenu>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
