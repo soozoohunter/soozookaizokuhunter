@@ -1,179 +1,165 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
-import apiClient from '../services/apiClient';
+import styled from 'styled-components';
+import { apiClient } from '../apiClient';
 
-const gradientFlow = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-`;
-const neonGlow = keyframes`
-  0%, 100% { box-shadow: 0 0 8px #ff6f00; }
-  50% { box-shadow: 0 0 25px #ff6f00; }
-`;
 const PageWrapper = styled.div`
-  min-height: 100vh;
-  background: linear-gradient(-45deg, #202020, #1a1a1a, #2a2a2a, #0f0f0f);
-  background-size: 500% 500%;
-  animation: ${gradientFlow} 10s ease infinite;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+`;
+
+const Container = styled.div`
+  background-color: ${({ theme }) => theme.colors.dark.card};
+  width: 100%;
+  max-width: 700px;
+  padding: 2.5rem;
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+`;
+
+const Title = styled.h2`
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: ${({ theme }) => theme.colors.dark.accent};
+  font-size: 2rem;
+`;
+
+const InfoBlock = styled.div`
+  background-color: ${({ theme }) => theme.colors.dark.background};
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+`;
+
+const LinkList = styled.ul`
+  list-style: none;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+`;
+
+const LinkItem = styled.li`
+  background: #374151;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #fff;
+  justify-content: space-between;
+  gap: 1rem;
 `;
-const Container = styled.div`
-  width: 95%;
-  max-width: 800px;
-  background: rgba(30, 30, 30, 0.8);
-  padding: 2rem 2.5rem;
-  border-radius: 12px;
-  border: 1px solid #444;
-  animation: ${neonGlow} 2s ease-in-out infinite alternate;
+
+const LinkUrl = styled.a`
+  word-break: break-all;
+  color: #90caf9;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
 `;
-const Title = styled.h2`
-  color: #ffd700;
-  margin-bottom: 1rem;
-  text-align: center;
-`;
-const InfoBlock = styled.div`
-  background-color: #1e1e1e;
-  border: 1px solid #333;
-  padding: 1.5rem;
+
+const TakedownButton = styled.button`
+  background-color: ${props => props.disabled ? '#555' : '#c53030'};
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
   border-radius: 6px;
-  margin-bottom: 1rem;
+  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
+  min-width: 160px;
+  text-align: center;
+  font-weight: 500;
+  white-space: nowrap;
+  &:hover:not(:disabled) {
+    background-color: #9b2c2c;
+  }
 `;
-const LinkList = styled.ul`
-    list-style: none;
-    padding: 0;
-    max-height: 400px;
-    overflow-y: auto;
-`;
-const LinkItem = styled.li`
-    background: #333;
-    padding: 0.75rem;
-    border-radius: 4px;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    font-size: 0.9rem;
-`;
-const LinkUrl = styled.span`
-    word-break: break-all;
-    flex-grow: 1;
-    color: #90caf9;
-`;
-const ActionButton = styled.button`
-    background-color: ${props => props.disabled ? '#555' : '#c53030'};
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
-    min-width: 150px;
-    text-align: center;
-    font-weight: 500;
-    white-space: nowrap;
-    &:hover:not(:disabled) {
-        background-color: #9b2c2c;
-    }
-`;
+
 const ButtonRow = styled.div`
   display: flex;
   gap: 1rem;
   justify-content: center;
-  margin-top: 1.5rem;
+  margin-top: 2rem;
 `;
+
 const NavButton = styled.button`
-  background-color: #f97316;
+  background-color: ${({ theme }) => theme.colors.dark.primary};
   color: #fff;
   padding: 0.75rem 1.2rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   &:hover {
-    background-color: #ea580c;
+    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
   }
 `;
 
 export default function ProtectStep4() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [confirmedLinks, setConfirmedLinks] = useState(location.state?.confirmedLinks || []);
-  const [fileInfo, setFileInfo] = useState(location.state?.fileInfo || null);
+  const { scanResults, fileInfo } = location.state || {};
+  
+  const [infringingLinks, setInfringingLinks] = useState([]);
   const [takedownStatus, setTakedownStatus] = useState({});
 
   useEffect(() => {
-    if (!fileInfo || confirmedLinks.length === 0) {
-        alert("缺少申訴所需的檔案資訊或確認連結，將返回第一步。");
-        navigate('/protect/step1');
+    if (!fileInfo || !scanResults) {
+      navigate('/protect/step1');
+      return;
     }
-  }, [confirmedLinks, fileInfo, navigate]);
+    const allLinks = scanResults.platforms?.flatMap(p => p.results.map(r => r.url)) || [];
+    setInfringingLinks(allLinks);
+  }, [scanResults, fileInfo, navigate]);
 
-  const handleTakedown = async (infringingUrl) => {
-    if (takedownStatus[infringingUrl] && takedownStatus[infringingUrl].status !== 'error') return;
+  const handleTakedown = async (url) => {
+    if (takedownStatus[url] && takedownStatus[url].status !== 'error') return;
 
-    setTakedownStatus(prev => ({ ...prev, [infringingUrl]: { status: 'sending', message: '傳送中...' } }));
+    setTakedownStatus(prev => ({ ...prev, [url]: { status: 'sending', message: '傳送中...' } }));
 
     try {
       const response = await apiClient.post('/infringement/takedown', {
         originalFileId: fileInfo.id,
-        infringingUrl,
+        infringingUrl: url,
       });
-      const result = response.data;
       setTakedownStatus(prev => ({ 
-          ...prev, 
-          [infringingUrl]: { status: 'success', message: `成功 (Case ID: ${result.caseId})` }
+        ...prev, 
+        [url]: { status: 'success', message: `成功 (Case ID: ${response.data.caseId})` }
       }));
     } catch (error) {
-      const errorMessage = error.response?.data?.error || '申訴請求失敗';
       setTakedownStatus(prev => ({ 
-          ...prev, 
-          [infringingUrl]: { status: 'error', message: `失敗: ${errorMessage}` }
+        ...prev, 
+        [url]: { status: 'error', message: `失敗: ${error.message}` }
       }));
     }
   };
-  
-  if (!fileInfo || confirmedLinks.length === 0) {
-      return (
-        <PageWrapper>
-            <Container>
-                <Title>正在載入資料...</Title>
-            </Container>
-        </PageWrapper>
-      );
-  }
+
+  if (!fileInfo) return null;
 
   return (
     <PageWrapper>
       <Container>
         <Title>Step 4: 確認報告與一鍵申訴</Title>
         <InfoBlock>
-          <h4>您已確認以下 {confirmedLinks.length} 個連結為侵權內容：</h4>
-          <p>您的原始檔案：<strong>{fileInfo.filename} (ID: {fileInfo.id})</strong></p>
-          <p style={{fontSize: '0.8rem', color: '#ccc'}}>點擊按鈕後，系統將透過 DMCA.com 的 API 發送下架通知。</p>
+          <h4>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</h4>
+          <p>您的原始檔案：<strong>{fileInfo.filename}</strong></p>
           <LinkList>
-            {confirmedLinks.map((link, index) => {
+            {infringingLinks.map((link, index) => {
               const statusInfo = takedownStatus[link];
               const isProcessing = statusInfo && (statusInfo.status === 'sending' || statusInfo.status === 'success');
-
               return (
                 <LinkItem key={index}>
-                  <LinkUrl>{link}</LinkUrl>
-                  <ActionButton onClick={() => handleTakedown(link)} disabled={isProcessing}>
+                  <LinkUrl href={link} target="_blank" rel="noopener noreferrer">{link}</LinkUrl>
+                  <TakedownButton onClick={() => handleTakedown(link)} disabled={isProcessing}>
                     {statusInfo ? statusInfo.message : '發送 DMCA 申訴'}
-                  </ActionButton>
+                  </TakedownButton>
                 </LinkItem>
               );
             })}
           </LinkList>
         </InfoBlock>
         <ButtonRow>
-          <NavButton onClick={() => navigate(-1)}>← 返回修改</NavButton>
-          <NavButton onClick={() => navigate('/')}>完成並返回首頁</NavButton>
+          <NavButton onClick={() => navigate('/dashboard')}>完成並返回儀表板</NavButton>
         </ButtonRow>
       </Container>
     </PageWrapper>

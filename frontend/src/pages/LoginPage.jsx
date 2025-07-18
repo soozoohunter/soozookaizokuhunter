@@ -1,132 +1,136 @@
-// frontend/src/pages/LoginPage.jsx (最終版)
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AuthContext } from '../AuthContext';
-import apiClient from '../services/apiClient';
 import styled from 'styled-components';
+import { AuthContext } from '../AuthContext';
+import { apiClient } from '../apiClient';
 
 const PageWrapper = styled.div`
-  min-height: calc(100vh - 140px);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: ${({ theme }) => theme.colors.dark.background};
 `;
+
 const FormContainer = styled.div`
-  background-color: #1e1e1e;
-  padding: 2rem 2.5rem;
-  border-radius: 8px;
+  padding: 2.5rem;
+  background: ${({ theme }) => theme.colors.dark.card};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  box-shadow: ${({ theme }) => theme.shadows.dark};
   width: 100%;
   max-width: 420px;
-  border: 1px solid #F97316;
-  color: #ffffff;
-  box-shadow: 0 0 25px rgba(249, 115, 22, 0.2);
+  color: ${({ theme }) => theme.colors.dark.text};
 `;
+
 const Title = styled.h2`
   text-align: center;
-  margin-bottom: 1.5rem;
-  color: #FFD700;
+  color: ${({ theme }) => theme.colors.dark.accent};
+  margin-bottom: 2rem;
+  font-size: 2rem;
 `;
+
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
 `;
-const StyledLabel = styled.label`
-  margin-bottom: 0.5rem;
-`;
+
 const StyledInput = styled.input`
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  border-radius: 4px;
-  border: 1px solid #4B5563;
-  background-color: #374151;
-  color: #FFFFFF;
+  padding: 0.8rem 1rem;
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border-radius: 8px;
+  background-color: ${({ theme }) => theme.colors.dark.background};
+  color: ${({ theme }) => theme.colors.dark.text};
   font-size: 1rem;
 `;
+
+const SubmitButton = styled.button`
+  padding: 0.8rem 1rem;
+  background-color: ${({ theme }) => theme.colors.dark.primary};
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
+  }
+`;
+
 const ErrorMsg = styled.p`
   color: #F87171;
   text-align: center;
-  margin-bottom: 1rem;
+  margin: 0;
 `;
-const SubmitButton = styled.button`
-  padding: 0.75rem;
-  background-color: #f97316;
-  color: #fff;
-  font-weight: bold;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
+
+const SwitchLink = styled(Link)`
+  color: ${({ theme }) => theme.colors.dark.primary};
+  text-decoration: none;
   &:hover {
-    background-color: #ea580c;
-  }
-`;
-const SwitchPrompt = styled.p`
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
-  text-align: center;
-  a {
-    color: #4caf50;
-    text-decoration: none;
+    text-decoration: underline;
   }
 `;
 
-export default function Login() {
+const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, user } = useContext(AuthContext);
-  const [identifier, setIdentifier] = useState('');
+  const { login } = useContext(AuthContext);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
+    document.title = '登入 - SUZOO IP Guard';
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMsg('');
+    setError('');
     try {
-      const payload = {
-        identifier: identifier.trim(),
-        password: password,
-      };
-      const response = await apiClient.post('/auth/login', payload);
-      login(response.data.token);
-      alert(response.data.message || '登入成功');
+      const data = await apiClient.post('/auth/login', { email, password });
+      login(data.token, data.user);
+      
+      if (data.user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
-      const message = err.response?.data?.message || '伺服器登入時發生錯誤。';
-      setErrorMsg(message);
+      setError(err.message || '登入失敗，請檢查您的憑證。');
     }
   };
 
   return (
     <PageWrapper>
       <FormContainer>
-        <Title>登入 / Login</Title>
-        {errorMsg && <ErrorMsg>{errorMsg}</ErrorMsg>}
+        <Title>登入您的帳戶</Title>
         <StyledForm onSubmit={handleSubmit}>
-          <StyledLabel>帳號 (手機號碼 or Email)</StyledLabel>
           <StyledInput
-            placeholder="請輸入您的手機號碼或 Email"
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            type="email"
+            placeholder="電子郵件"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <StyledLabel>密碼 / Password</StyledLabel>
           <StyledInput
             type="password"
-            placeholder="••••••••"
+            placeholder="密碼"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <SubmitButton type="submit">登入 / Login</SubmitButton>
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+          <SubmitButton type="submit">登入</SubmitButton>
+          <p style={{ textAlign: 'center' }}>
+            還沒有帳號嗎？ <SwitchLink to="/register">立即註冊</SwitchLink>
+          </p>
         </StyledForm>
-        <SwitchPrompt>
-          尚未註冊？ <Link to="/register">前往註冊</Link>
-        </SwitchPrompt>
       </FormContainer>
     </PageWrapper>
   );
-}
+};
+
+export default LoginPage;
