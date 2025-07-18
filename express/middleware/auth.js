@@ -16,13 +16,17 @@ const auth = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // 根據您 JWT payload 的實際結構來判斷，通常是 decoded.id 或 decoded.userId
-    // 這裡使用 Op.or 嘗試兩種可能性，增加健壯性
+    // 濾除 undefined 以避免 Sequelize 拋出 "WHERE parameter has invalid 'undefined'" 的錯誤
+    const ids = [decoded.id, decoded.userId].filter((v) => v !== undefined && v !== null);
+    if (ids.length === 0) {
+      logger.warn('[Auth Middleware] Token payload lacks user id.');
+      return res.status(401).send({ error: 'Invalid token payload.' });
+    }
+
+    const { Op } = require('sequelize');
     const user = await User.findOne({
       where: {
-        [require('sequelize').Op.or]: [
-          { id: decoded.id },
-          { id: decoded.userId } // 有些 JWT 可能把 ID 放在 userId 欄位
-        ]
+        id: { [Op.in]: ids }
       }
     });
 
