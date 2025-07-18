@@ -7,8 +7,11 @@ const auth = require('../middleware/auth');
 // GET /api/users/profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    // [★★ 關鍵修正 ★★] 使用 db.User 和 db.APIKey
-    const user = await db.User.findByPk(req.user.id, {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const user = await db.User.findByPk(userId, {
       attributes: ['id', 'realName', 'email', 'phone'],
       include: [{
         model: db.APIKey,

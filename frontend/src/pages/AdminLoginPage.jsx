@@ -68,10 +68,16 @@ const styles = {
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const { login, user } = useContext(AuthContext);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      navigate('/admin/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -88,7 +94,6 @@ export default function AdminLogin() {
       });
       login(response.data.token);
       alert(response.data.message || 'Admin 登入成功');
-      navigate('/admin/dashboard');
     } catch (err) {
       const message = err.response?.data?.message || '登入失敗，請檢查帳號密碼或權限。';
       setError(message);

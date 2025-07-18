@@ -76,18 +76,25 @@ const handleFileUpload = async (file, userId, body, transaction) => {
 
   const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
 
-  const newFile = await File.create({
-    user_id: userId,
-    filename: originalname,
-    title: title || originalname,
-    keywords,
-    fingerprint,
-    ipfs_hash: ipfsHash,
-    tx_hash: txReceipt?.transactionHash || null,
-    status: 'protected',
-    mime_type: mimetype,
-    thumbnail_path: thumbnailUrl
-  }, { transaction });
+  let newFile;
+  try {
+    newFile = await File.create({
+      user_id: userId,
+      filename: originalname,
+      title: title || originalname,
+      keywords,
+      fingerprint,
+      ipfs_hash: ipfsHash,
+      tx_hash: txReceipt?.transactionHash || null,
+      status: 'protected',
+      mime_type: mimetype,
+      thumbnail_path: thumbnailUrl
+    }, { transaction });
+    logger.info(`[File Upload] Created file record with id: ${newFile.id}`);
+  } catch (err) {
+    logger.error(`[File Upload] Failed to create file record: ${err.message}`);
+    throw err;
+  }
 
   await UsageRecord.create({ user_id: userId, feature_code: 'image_upload' }, { transaction });
 

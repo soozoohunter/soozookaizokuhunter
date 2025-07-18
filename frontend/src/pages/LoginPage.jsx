@@ -72,10 +72,16 @@ const SwitchPrompt = styled.p`
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useContext(AuthContext);
+  const { login, user } = useContext(AuthContext);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,7 +94,6 @@ export default function Login() {
       const response = await apiClient.post('/auth/login', payload);
       login(response.data.token);
       alert(response.data.message || '登入成功');
-      navigate('/dashboard');
     } catch (err) {
       const message = err.response?.data?.message || '伺服器登入時發生錯誤。';
       setErrorMsg(message);
