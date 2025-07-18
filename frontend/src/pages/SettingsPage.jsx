@@ -9,7 +9,7 @@ const API_KEY_SERVICES = [
 ];
 
 const SettingsPage = () => {
-  const { user, updateApiKeysInState } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   
   const [keys, setKeys] = useState(user?.apiKeys || {});
   const [status, setStatus] = useState({ saving: false, success: false, error: null });
@@ -30,7 +30,8 @@ const SettingsPage = () => {
     
     try {
       const response = await apiClient.post('/users/api-keys', { keys });
-      updateApiKeysInState(response.data.keys);
+      // Optionally update local state with new keys returned from server
+      setKeys(response.data.keys);
       setStatus({ saving: false, success: true, error: null });
     } catch (error) {
       console.error('保存API金鑰失敗:', error);
