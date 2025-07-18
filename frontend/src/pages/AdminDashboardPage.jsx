@@ -1,23 +1,88 @@
-// frontend/src/pages/AdminDashboardPage.jsx (重構為導覽中樞)
 import React from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+const PageContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+`;
+
+const PageTitle = styled.h2`
+  font-size: 2.5rem;
+  color: ${({ theme }) => theme.colors.dark.text};
+  margin-bottom: 0.5rem;
+  text-align: center;
+`;
+
+const PageSubtitle = styled.p`
+  font-size: 1.2rem;
+  color: ${({ theme }) => theme.colors.dark.textSecondary};
+  margin-bottom: 3rem;
+  text-align: center;
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: ${({ theme }) => theme.spacing.lg};
+`;
+
+const CardLink = styled(Link)`
+  text-decoration: none;
+`;
+
+const Card = styled.div`
+  background-color: ${({ theme }) => theme.colors.dark.card};
+  padding: 2rem;
+  border-radius: ${({ theme }) => theme.borderRadius};
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  }
+`;
+
+const CardIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: 1rem;
+`;
+
+const CardTitle = styled.h3`
+  margin: 0 0 0.75rem 0;
+  font-size: 1.5rem;
+  color: ${({ theme }) => theme.colors.dark.text};
+`;
+
+const CardDescription = styled.p`
+  margin: 0;
+  font-size: 1rem;
+  color: ${({ theme }) => theme.colors.dark.textSecondary};
+  line-height: 1.5;
+`;
 
 const AdminCard = ({ title, description, linkTo, icon }) => (
-    <Link to={linkTo} style={styles.cardLink}>
-        <div style={styles.card}>
-            <div style={styles.cardIcon}>{icon}</div>
-            <h3 style={styles.cardTitle}>{title}</h3>
-            <p style={styles.cardDescription}>{description}</p>
-        </div>
-    </Link>
+    <CardLink to={linkTo}>
+        <Card>
+            <CardIcon>{icon}</CardIcon>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+        </Card>
+    </CardLink>
 );
 
 function AdminDashboardPage() {
     return (
-        <div style={styles.pageContainer}>
-            <h2 style={styles.pageTitle}>Admin Panel</h2>
-            <p style={styles.pageSubtitle}>選擇一項管理功能以繼續</p>
-            <div style={styles.grid}>
+        <PageContainer>
+            <PageTitle>Admin Panel</PageTitle>
+            <PageSubtitle>選擇一項管理功能以繼續</PageSubtitle>
+            <Grid>
                 <AdminCard 
                     title="使用者管理"
                     description="檢視、編輯所有使用者的方案、額度與狀態。"
@@ -36,33 +101,9 @@ function AdminDashboardPage() {
                     linkTo="#"
                     icon="📊"
                 />
-            </div>
-        </div>
+            </Grid>
+        </PageContainer>
     );
 }
-
-// 專屬樣式
-const styles = {
-    pageContainer: { maxWidth: '1200px', margin: '2rem auto' },
-    pageTitle: { fontSize: '2.5rem', color: '#FFFFFF', marginBottom: '0.5rem', textAlign: 'center' },
-    pageSubtitle: { fontSize: '1.2rem', color: '#9CA3AF', marginBottom: '3rem', textAlign: 'center' },
-    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' },
-    cardLink: { textDecoration: 'none' },
-    card: {
-        backgroundColor: '#1F2937',
-        padding: '2rem',
-        borderRadius: '12px',
-        border: '1px solid #374151',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-    },
-    cardIcon: { fontSize: '3rem', marginBottom: '1rem' },
-    cardTitle: { margin: '0 0 0.75rem 0', fontSize: '1.5rem', color: '#F3F4F6' },
-    cardDescription: { margin: 0, fontSize: '1rem', color: '#9CA3AF', lineHeight: '1.5' }
-};
 
 export default AdminDashboardPage;

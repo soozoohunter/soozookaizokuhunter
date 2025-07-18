@@ -1,31 +1,78 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-// Use the named apiClient export to match updated apiClient.js
 import { apiClient } from '../apiClient';
 
-// [★★ 關鍵優化 ★★] - Wrapper to make page content look good in the new layout
 const PageWrapper = styled.div`
-  padding-top: 74px; /* Spacer for fixed header */
   display: flex;
   justify-content: center;
-  padding: 4rem 2rem;
+  align-items: center;
+  padding: 2rem;
 `;
 
 const FormContainer = styled.div`
-  background-color: #F8F8F8;
-  border: 1px solid #EAEAEA;
-  border-radius: 12px;
-  padding: 2rem 2.5rem;
+  background-color: ${({ theme }) => theme.colors.dark.card};
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border-radius: ${({ theme }) => theme.borderRadius};
+  padding: 2.5rem;
   width: 100%;
   max-width: 600px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: ${({ theme }) => theme.shadows.dark};
 `;
 
 const Title = styled.h2`
   text-align: center;
-  margin-bottom: 1.5rem;
-  color: #0A0101;
+  margin-bottom: 2rem;
+  color: ${({ theme }) => theme.colors.dark.accent};
+  font-size: 2rem;
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const Label = styled.label`
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.dark.textSecondary};
+`;
+
+const Input = styled.input`
+  padding: 0.8rem 1rem;
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border-radius: 8px;
+  background-color: ${({ theme }) => theme.colors.dark.background};
+  color: ${({ theme }) => theme.colors.dark.text};
+  font-size: 1rem;
+`;
+
+const SubmitButton = styled.button`
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background-color: ${({ theme }) => theme.colors.dark.primary};
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  opacity: ${props => props.disabled ? 0.5 : 1};
+  
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
+  }
+`;
+
+const ErrorMsg = styled.p`
+  color: #F87171;
+  text-align: center;
 `;
 
 const ProtectStep1 = () => {
@@ -34,10 +81,6 @@ const ProtectStep1 = () => {
   const [keywords, setKeywords] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,11 +97,13 @@ const ProtectStep1 = () => {
     formData.append('keywords', keywords);
 
     try {
-      // Assuming your apiClient is set up to handle FormData
-      const response = await apiClient.post('/protect/step1', formData);
+      const response = await apiClient.post('/protect/step1', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       
-      // Navigate to step 2 with the response data
-      navigate('/protect/step2', { state: { scanId: response.scanId, file: response.file } });
+      navigate('/protect/step2', { state: { step1Data: response.data } });
     } catch (err) {
       setError(err.message || '上傳失敗，請稍後再試。');
     } finally {
@@ -70,28 +115,28 @@ const ProtectStep1 = () => {
     <PageWrapper>
       <FormContainer>
         <Title>Step 1: 上傳您的原創作品</Title>
-        <form onSubmit={handleSubmit}>
-          {/* Your form inputs for file and keywords go here */}
-          <div>
-            <label>選擇檔案</label>
-            <input type="file" onChange={handleFileChange} />
-          </div>
-          <div>
-            <label>相關關鍵字（可選）</label>
-            <input 
-              type="text" 
+        <StyledForm onSubmit={handleSubmit}>
+          <FormGroup>
+            <Label htmlFor="file-upload">選擇檔案 (圖片或影片)</Label>
+            <Input id="file-upload" type="file" onChange={(e) => setFile(e.target.files[0])} />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="keywords">相關關鍵字 (選填)</Label>
+            <Input
+              id="keywords"
+              type="text"
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
-              placeholder="例如：作品名稱、主題"
+              placeholder="例如：作品名稱、主題，以逗號分隔"
             />
-          </div>
+          </FormGroup>
           
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? '處理中...' : '上傳並保護'}
-          </button>
+          <SubmitButton type="submit" disabled={isLoading}>
+            {isLoading ? '處理中...' : '上傳並產生證明'}
+          </SubmitButton>
 
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-        </form>
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+        </StyledForm>
       </FormContainer>
     </PageWrapper>
   );
