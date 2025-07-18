@@ -33,7 +33,8 @@ services:
       context: ./express
       dockerfile: Dockerfile
     command: node server.js
-    env_file: .env
+    env_file:
+      - ./.env
     volumes:
       - ./express:/app
       - /app/node_modules # 保持匿名 volume 以隔離主機的 node_modules
@@ -62,7 +63,8 @@ services:
       context: ./express
       dockerfile: Dockerfile
     command: node worker.js
-    env_file: .env
+    env_file:
+      - ./.env
     volumes:
       - ./express:/app
       - /app/node_modules
