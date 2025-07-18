@@ -51,24 +51,24 @@ function App() {
         <GlobalStyle />
         <ErrorBoundary>
           <Routes>
-            {/* ===== Public Routes (using the new blog-style layout) ===== */}
+            {/* ===== 1. Public-Facing Routes (New Design) ===== */}
             <Route element={<PublicLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/blog/:postId" element={<BlogPostPage />} />
-              {/* [★★ 關鍵優化 ★★] 為新連接添加位置路由，防止 404 錯誤 */}
+              {/* Placeholder routes for new nav links */}
               <Route path="/solutions" element={<HomePage />} />
               <Route path="/resources" element={<HomePage />} />
               <Route path="/about" element={<HomePage />} />
             </Route>
 
-            {/* ===== Standalone Auth Routes (no layout) ===== */}
+            {/* ===== 2. Standalone Auth Routes (No Layout) ===== */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
-            {/* ===== Protected App Routes (using the original app layout) ===== */}
+            {/* ===== 3. Protected User & Admin Routes (App Design) ===== */}
             <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
@@ -80,16 +80,16 @@ function App() {
               </Route>
             </Route>
 
-            {/* ===== Protected Admin Routes (using the original app layout) ===== */}
+            {/* ===== 4. Protected ADMIN-ONLY Routes (App Design) ===== */}
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-                <Route element={<AppLayout />}>
-                    <Route path="/settings/api-keys" element={<SettingsPage />} />
-                    <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-                    <Route path="/admin/users" element={<AdminUsersPage />} />
-                </Route>
+              <Route element={<AppLayout />}>
+                <Route path="/settings/api-keys" element={<SettingsPage />} />
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+              </Route>
             </Route>
 
-            {/* ===== Fallback Route ===== */}
+            {/* ===== 5. Fallback Route for Not Found Pages ===== */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </ErrorBoundary>

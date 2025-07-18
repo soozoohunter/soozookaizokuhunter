@@ -150,6 +150,8 @@ const Header = () => {
           <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
           <NavLink to="/resources" onClick={() => setIsMenuOpen(false)}>相關資源</NavLink>
           <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
+          <LoginLink to="/login" onClick={() => setIsMenuOpen(false)}>登入</LoginLink>
+          <StyledButton to="/register" onClick={() => setIsMenuOpen(false)}>免費諮詢</StyledButton>
         </MobileMenu>
       )}
     </HeaderWrapper>
