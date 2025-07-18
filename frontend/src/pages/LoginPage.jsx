@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { AuthContext } from '../AuthContext';
 import { apiClient } from '../apiClient';
@@ -77,10 +77,14 @@ const SwitchLink = styled(Link)`
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  const from = location.state?.from?.pathname;
+  const redirectState = location.state;
 
   useEffect(() => {
     document.title = '登入 - SUZOO IP Guard';
@@ -92,11 +96,13 @@ const LoginPage = () => {
     try {
       const data = await apiClient.post('/auth/login', { email, password });
       login(data.token, data.user);
-      
-      if (data.user.role === 'admin') {
-        navigate('/admin/dashboard');
+
+      if (from) {
+        navigate(from, { state: redirectState, replace: true });
+      } else if (data.user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
       } else {
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       setError(err.message || '登入失敗，請檢查您的憑證。');
