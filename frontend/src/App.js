@@ -1,4 +1,3 @@
-// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { createGlobalStyle } from 'styled-components';
@@ -55,16 +54,25 @@ function App() {
         <GlobalStyle />
         <ErrorBoundary>
           <Routes>
-            {/* ===== 1. Public-Facing Routes (New Design) ===== */}
+            {/* ===== 1. Public-Facing & Core Function Routes (New Design) ===== */}
             <Route element={<PublicLayout />}>
+              {/* --- Publicly Accessible --- */}
               <Route path="/" element={<HomePage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/blog/:postId" element={<BlogPostPage />} />
-              {/* Placeholder routes for new nav links */}
               <Route path="/solutions" element={<HomePage />} />
               <Route path="/resources" element={<HomePage />} />
               <Route path="/about" element={<HomePage />} />
+
+              {/* [★★ 關鍵修正 ★★] --- Protected Core Function --- */}
+              {/* These routes use PublicLayout but require login */}
+              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+                <Route path="/protect/step1" element={<ProtectStep1 />} />
+                <Route path="/protect/step2" element={<ProtectStep2 />} />
+                <Route path="/protect/step3" element={<ProtectStep3 />} />
+                <Route path="/protect/step4" element={<ProtectStep4 />} />
+              </Route>
             </Route>
 
             {/* ===== 2. Standalone Auth Routes (No Layout) ===== */}
@@ -72,15 +80,11 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
-            {/* ===== 3. Protected User & Admin Routes (App Design) ===== */}
+            {/* ===== 3. Protected User Dashboard Routes (App Design) ===== */}
             <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/file/:fileId" element={<FileDetailPage />} />
-                <Route path="/protect/step1" element={<ProtectStep1 />} />
-                <Route path="/protect/step2" element={<ProtectStep2 />} />
-                <Route path="/protect/step3" element={<ProtectStep3 />} />
-                <Route path="/protect/step4" element={<ProtectStep4 />} />
               </Route>
             </Route>
 
