@@ -1,9 +1,11 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+    const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export const AuthProvider = ({ children }) => {
                 role: decodedToken.role,
                 apiKeys: decodedToken.apiKeys || {}
             });
+            navigate('/dashboard');
         } catch (error) {
             console.error("Failed to process token on login:", error);
             logout();
