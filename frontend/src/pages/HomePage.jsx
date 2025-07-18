@@ -29,12 +29,24 @@ const HeroTitle = styled.h1`
   line-height: 1.12;
   letter-spacing: -2.16px;
   color: #0A0101;
+  animation: fadeInUp 0.8s ease-out;
 
   @media (max-width: 899.95px) {
     font-size: 48px;
   }
   @media (max-width: 599.95px) {
     font-size: 32px;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 `;
 
@@ -61,11 +73,11 @@ const PrimaryButton = styled(Link)`
   background: #EBB0CF;
   color: #0A0101;
   box-shadow: 2px 2px 0px #D45398;
-  transition: all 0.2s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 
   &:hover {
     box-shadow: 4px 4px 0px #D45398;
-    transform: translate(-2px, -2px);
+    transform: translateY(-3px);
   }
 `;
 
@@ -86,6 +98,27 @@ const SecondaryButton = styled(Link)`
   }
 `;
 
+const FeaturesSection = styled.section`
+  padding: 80px 32px;
+  background: white;
+`;
+
+const FeaturesContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 40px;
+`;
+
+const FeatureCard = styled.div`
+  text-align: center;
+  padding: 30px;
+  border-radius: 16px;
+  background: #F8F8F8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+`;
+
 const HomePage = () => {
   return (
     <>
@@ -102,6 +135,23 @@ const HomePage = () => {
           </CtaGroup>
         </HeroContainer>
       </HeroWrapper>
+      <FeaturesSection>
+        <h2 style={{ textAlign: 'center', marginBottom: '50px' }}>強大功能，全面保護</h2>
+        <FeaturesContainer>
+          <FeatureCard>
+            <h3>AI 全網掃描</h3>
+            <p>24小時自動監控網路侵權行為</p>
+          </FeatureCard>
+          <FeatureCard>
+            <h3>區塊鏈存證</h3>
+            <p>不可篡改的創作時間證明</p>
+          </FeatureCard>
+          <FeatureCard>
+            <h3>一鍵維權</h3>
+            <p>自動化侵權通知與下架流程</p>
+          </FeatureCard>
+        </FeaturesContainer>
+      </FeaturesSection>
       {/* You can add more sections to your homepage here */}
     </>
   );

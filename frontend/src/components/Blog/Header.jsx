@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 
@@ -99,7 +99,27 @@ const HamburgerMenu = styled.button`
   }
 `;
 
+const MobileMenu = styled.div`
+  position: fixed;
+  top: 74px;
+  left: 0;
+  width: 100%;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+
+  @media (min-width: 1201px) {
+    display: none;
+  }
+`;
+
 const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   return (
     <HeaderWrapper>
       <Toolbar>
@@ -107,15 +127,15 @@ const Header = () => {
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO</span>
         </LogoLink>
         <NavLinks>
-          <NavLink to="/">解決方案</NavLink>
+          <NavLink to="/solutions">解決方案</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
-          <NavLink to="/">相關資源</NavLink>
-          <NavLink to="/">關於我們</NavLink>
+          <NavLink to="/resources">相關資源</NavLink>
+          <NavLink to="/about">關於我們</NavLink>
         </NavLinks>
         <ActionButtons>
           <LoginLink to="/login">登入</LoginLink>
           <StyledButton to="/register">免費諮詢</StyledButton>
-          <HamburgerMenu>
+          <HamburgerMenu onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="24" height="3" fill="#544D4D" />
               <rect y="6" width="24" height="3" fill="#544D4D" />
@@ -124,6 +144,16 @@ const Header = () => {
           </HamburgerMenu>
         </ActionButtons>
       </Toolbar>
+      {isMenuOpen && (
+        <MobileMenu>
+          <NavLink to="/solutions" onClick={() => setIsMenuOpen(false)}>解決方案</NavLink>
+          <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
+          <NavLink to="/resources" onClick={() => setIsMenuOpen(false)}>相關資源</NavLink>
+          <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
+          <LoginLink to="/login" onClick={() => setIsMenuOpen(false)}>登入</LoginLink>
+          <StyledButton to="/register" onClick={() => setIsMenuOpen(false)}>免費諮詢</StyledButton>
+        </MobileMenu>
+      )
     </HeaderWrapper>
   );
 };
