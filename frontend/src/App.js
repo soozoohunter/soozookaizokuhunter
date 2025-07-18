@@ -4,9 +4,11 @@ import { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { AuthProvider } from './AuthContext';
 import { theme } from './theme';
 
+// Layouts
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
 
+// Pages
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import ContactPage from './pages/ContactPage';
@@ -25,6 +27,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 
+// Components
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -55,7 +58,7 @@ function App() {
           <GlobalStyle />
           <ErrorBoundary>
             <Routes>
-              {/* ===== 1. 公開頁面 (亮色主題) ===== */}
+              {/* ===== 1. Public Pages (Light Theme) ===== */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
@@ -63,13 +66,13 @@ function App() {
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
               </Route>
 
-              {/* ===== 2. 獨立驗證頁面 (暗色主題) ===== */}
+              {/* ===== 2. Standalone Auth Pages (Dark Theme) ===== */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
 
-              {/* ===== 3. 受保護的使用者後台 (暗色主題) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+              {/* ===== 3. Protected User Dashboard (Dark Theme) ===== */}
+              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} /> }>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/file/:fileId" element={<FileDetailPage />} />
@@ -80,16 +83,16 @@ function App() {
                   <Route path="/protect/step4" element={<ProtectStep4 />} />
                 </Route>
               </Route>
-
-              {/* ===== 4. 受保護的管理員後台 (暗色主題) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              
+              {/* ===== 4. Protected Admin Dashboard (Dark Theme) ===== */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']} /> }>
                 <Route element={<AppLayout />}>
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
                 </Route>
               </Route>
 
-              {/* ===== 5. 404 頁面 ===== */}
+              {/* ===== 5. 404 Page ===== */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
