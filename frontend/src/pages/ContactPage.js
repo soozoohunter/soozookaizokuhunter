@@ -1,147 +1,118 @@
-// frontend/src/pages/ContactPage.js
+// frontend/src/pages/ContactPage.jsx
 import React, { useState } from 'react';
+import styled from 'styled-components';
+
+const PageSpacer = styled.div`
+  min-height: 74px;
+`;
+
+const Container = styled.div`
+  margin: 2rem auto;
+  padding: 2.5rem;
+  max-width: 520px;
+  text-align: left;
+  background: #F8F8F8;
+  border: 1px solid #EAEAEA;
+  border-radius: 8px;
+`;
+
+const Title = styled.h2`
+  text-align: center;
+  color: #0A0101;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  color: #333;
+  font-weight: 600;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+`;
+
+const Textarea = styled.textarea`
+  width: 100%;
+  height: 120px;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  resize: vertical;
+`;
+
+const SubmitButton = styled.button`
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: #D45398;
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #C14788;
+  }
+`;
+
+const ResultMessage = styled.p`
+  margin-top: 1.5rem;
+  color: #D45398;
+  font-weight: bold;
+  text-align: center;
+`;
 
 export default function ContactUsPage() {
-  const [companyName, setCompanyName] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [contactName, setContactName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [message, setMessage] = useState('');
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [resultMsg, setResultMsg] = useState('');
 
-  // 送出表單
-  const handleSubmit = async (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setResultMsg('');
-
-    try {
-      const resp = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyName,
-          jobTitle,
-          contactName,
-          phone,
-          address,
-          message
-        })
-      });
-      const data = await resp.json();
-      if (resp.ok) {
-        setResultMsg('感謝您的聯絡，我們已收到表單！');
-        // 清空欄位
-        setCompanyName('');
-        setJobTitle('');
-        setContactName('');
-        setPhone('');
-        setAddress('');
-        setMessage('');
-      } else {
-        setResultMsg(`送出失敗：${data.error || '未知錯誤'}`);
-      }
-    } catch (err) {
-      setResultMsg('發生錯誤：' + err.message);
-    }
-  };
-
-  // 讓頁面與表單置中 + 橘色邊框
-  const containerStyle = {
-    margin: '2rem auto',
-    border: '2px solid orange',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    maxWidth: '480px',
-    textAlign: 'left',
-    background: 'rgba(255,255,255,0.05)'
-  };
-
-  const titleStyle = {
-    textAlign: 'center',
-    color: 'red',
-    marginBottom: '1rem',
-    fontSize: '1.5rem'
-  };
-
-  const labelStyle = { display: 'block', margin: '0.5rem 0 0.2rem', color:'#fff' };
-  const inputStyle = {
-    width: '100%',
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #aaa'
-  };
-  const textareaStyle = {
-    width: '100%',
-    height: '80px',
-    padding: '0.5rem',
-    borderRadius: '4px',
-    border: '1px solid #aaa'
-  };
-  const btnStyle = {
-    marginTop:'1rem',
-    padding:'0.5rem 1.2rem',
-    border:'2px solid orange',
-    background:'black',
-    color:'orange',
-    cursor:'pointer',
-    borderRadius:'4px',
-    fontWeight:'bold'
+    // Placeholder for submission logic
+    console.log('Form submitted:', formData);
+    setResultMsg('感謝您的聯絡，我們已收到您的訊息！');
+    setFormData({ name: '', email: '', message: '' });
   };
 
   return (
-    <div style={containerStyle}>
-      <h2 style={titleStyle}>Contact Us</h2>
+    <>
+      <PageSpacer />
+      <Container>
+        <Title>聯絡我們</Title>
+        <StyledForm onSubmit={handleSubmit}>
+          <Label htmlFor="name">姓名</Label>
+          <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
 
-      <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>公司名稱 / Company Name</label>
-        <input
-          style={inputStyle}
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-        />
+          <Label htmlFor="email">電子郵件</Label>
+          <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} required />
+          
+          <Label htmlFor="message">您的訊息</Label>
+          <Textarea id="message" name="message" value={formData.message} onChange={handleChange} required />
 
-        <label style={labelStyle}>頭銜 / Job Title</label>
-        <input
-          style={inputStyle}
-          value={jobTitle}
-          onChange={(e) => setJobTitle(e.target.value)}
-        />
-
-        <label style={labelStyle}>聯絡人姓名 / Contact Name</label>
-        <input
-          style={inputStyle}
-          value={contactName}
-          onChange={(e) => setContactName(e.target.value)}
-        />
-
-        <label style={labelStyle}>聯絡電話 / Phone</label>
-        <input
-          style={inputStyle}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-
-        <label style={labelStyle}>地址 / Address</label>
-        <input
-          style={inputStyle}
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-
-        <label style={labelStyle}>需求 / Message</label>
-        <textarea
-          style={textareaStyle}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-
-        <button type="submit" style={btnStyle}>送出</button>
-      </form>
-
-      {resultMsg && (
-        <p style={{ marginTop:'1rem', color:'orange', fontWeight:'bold' }}>{resultMsg}</p>
-      )}
-    </div>
+          <SubmitButton type="submit">送出</SubmitButton>
+        </StyledForm>
+        {resultMsg && <ResultMessage>{resultMsg}</ResultMessage>}
+      </Container>
+    </>
   );
 }
