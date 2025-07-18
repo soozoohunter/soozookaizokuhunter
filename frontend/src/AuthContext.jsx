@@ -1,11 +1,9 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import { useNavigate } from 'react-router-dom';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -18,70 +16,56 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         try {
-            const stored = localStorage.getItem('token');
-            if (stored) {
-                const decodedToken = jwtDecode(stored);
+            const storedToken = localStorage.getItem('token');
+            if (storedToken) {
+                const decodedToken = jwtDecode(storedToken);
                 if (decodedToken.exp * 1000 > Date.now()) {
-                    setToken(stored);
+                    setToken(storedToken);
                     setUser({
                         id: decodedToken.id,
                         email: decodedToken.email,
                         role: decodedToken.role,
-                        apiKeys: decodedToken.apiKeys || {}
                     });
                 } else {
-                    logout();
+                    localStorage.removeItem('token');
                 }
             }
         } catch (error) {
-            console.error("Invalid token found, clearing token.", error);
-            logout();
+            console.error("AuthContext: Could not process token from storage.", error);
+            localStorage.removeItem('token');
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, []);
 
-    const login = (tokenValue) => {
+    const login = useCallback((tokenValue) => {
         try {
+            const decodedToken = jwtDecode(tokenValue);
             localStorage.setItem('token', tokenValue);
             setToken(tokenValue);
-            const decodedToken = jwtDecode(tokenValue);
             setUser({
                 id: decodedToken.id,
                 email: decodedToken.email,
                 role: decodedToken.role,
-                apiKeys: decodedToken.apiKeys || {}
             });
-            navigate('/dashboard');
         } catch (error) {
-            console.error("Failed to process token on login:", error);
+            console.error("AuthContext: Failed to process token on login.", error);
             logout();
         }
-    };
-    
-    const updateApiKeysInState = (newKeys) => {
-        setUser(currentUser => {
-            if (!currentUser) return null;
-            return {
-                ...currentUser,
-                apiKeys: { ...currentUser.apiKeys, ...newKeys }
-            };
-        });
-    };
+    }, [logout]);
 
-    const authContextValue = {
+    const authContextValue = useMemo(() => ({
         user,
         token,
         login,
         logout,
-        updateApiKeysInState,
         isAuthenticated: !!user,
         loading,
-    };
+    }), [user, token, loading, login, logout]);
 
     return (
         <AuthContext.Provider value={authContextValue}>
-            {!loading && children}
+            {children}
         </AuthContext.Provider>
     );
 };
