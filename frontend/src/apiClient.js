@@ -65,3 +65,11 @@ export async function apiRequest(path, options = {}) {
         throw error;
     }
 }
+
+// Provide a simple client wrapper for convenience
+export const apiClient = {
+    get: (path, options = {}) => apiRequest(path, { method: 'GET', ...options }),
+    post: (path, body, options = {}) => apiRequest(path, { method: 'POST', body, ...options }),
+    put: (path, body, options = {}) => apiRequest(path, { method: 'PUT', body, ...options }),
+    delete: (path, options = {}) => apiRequest(path, { method: 'DELETE', ...options }),
+};

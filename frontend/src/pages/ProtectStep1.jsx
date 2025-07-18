@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import apiClient from '../apiClient';
+// Use the named apiClient export to match updated apiClient.js
+import { apiClient } from '../apiClient';
 
 // [★★ 關鍵優化 ★★] - Wrapper to make page content look good in the new layout
 const PageWrapper = styled.div`
