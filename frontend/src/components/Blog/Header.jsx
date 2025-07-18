@@ -7,7 +7,8 @@ const HeaderWrapper = styled.header`
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
   z-index: 1100;
   border-bottom: 1px solid rgb(231, 230, 230);
 `;
@@ -28,10 +29,10 @@ const LogoLink = styled(Link)`
   text-decoration: none;
   display: flex;
   align-items: center;
-  color: #0A0101; // Ensure logo text is visible on light background
+  color: #0A0101;
 `;
 
-const NavLinks = styled.div`
+const NavLinks = styled.nav`
   display: flex;
   align-items: center;
   gap: 36px;
@@ -64,7 +65,7 @@ const LoginLink = styled(Link)`
     color: #858080;
     font-weight: 500;
     letter-spacing: -0.08px;
-
+    
     &:hover {
         color: #231A1A;
     }
@@ -124,17 +125,18 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={() => setIsMenuOpen(false)}>
-          <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO</span>
+          <img src="/logo0.jpg" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
+          <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
-          <NavLink to="/solutions">解決方案</NavLink>
+          <NavLink to="/solutions">核心功能</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
-          <NavLink to="/resources">相關資源</NavLink>
-          <NavLink to="/about">關於我們</NavLink>
+          <NavLink to="/resources">相关资源</NavLink>
+          <NavLink to="/about">关于我们</NavLink>
         </NavLinks>
         <ActionButtons>
           <LoginLink to="/login">登入</LoginLink>
-          <StyledButton to="/register">免費諮詢</StyledButton>
+          <StyledButton to="/register">免費開始</StyledButton>
           <HamburgerMenu onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="24" height="3" fill="#544D4D" />
@@ -146,12 +148,10 @@ const Header = () => {
       </Toolbar>
       {isMenuOpen && (
         <MobileMenu>
-          <NavLink to="/solutions" onClick={() => setIsMenuOpen(false)}>解決方案</NavLink>
+          <NavLink to="/solutions" onClick={() => setIsMenuOpen(false)}>核心功能</NavLink>
           <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
-          <NavLink to="/resources" onClick={() => setIsMenuOpen(false)}>相關資源</NavLink>
-          <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
-          <LoginLink to="/login" onClick={() => setIsMenuOpen(false)}>登入</LoginLink>
-          <StyledButton to="/register" onClick={() => setIsMenuOpen(false)}>免費諮詢</StyledButton>
+          <NavLink to="/resources" onClick={() => setIsMenuOpen(false)}>相关资源</NavLink>
+          <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>关于我们</NavLink>
         </MobileMenu>
       )}
     </HeaderWrapper>

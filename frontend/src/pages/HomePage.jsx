@@ -59,12 +59,6 @@ const HeroSubtitle = styled.h3`
   max-width: 704px;
 `;
 
-const CtaGroup = styled.div`
-  display: flex;
-  gap: 16px;
-  margin-top: 16px;
-`;
-
 const PrimaryButton = styled(Link)`
   text-decoration: none;
   font-weight: 600;
@@ -131,28 +125,25 @@ const HomePage = () => {
         <HeroContainer>
           <HeroTitle>保護您的創意資產，免於數位侵權的威脅</HeroTitle>
           <HeroSubtitle>
-            利用 AI 全網掃描與區塊鏈存證技術，SUZOO IP Guard 提供最強大的智慧財產權保護。立即上傳您的作品，啟動全方位的防護網。
+          利用 AI 全網掃描與區塊鏈存證技術，SUZOO IP Guard 提供最強大的智慧財產權保護。立即上傳您的作品，啟動全方位的防護網。
           </HeroSubtitle>
-          <CtaGroup>
-            {/* [★★ 關鍵修正 ★★] 這個按鈕現在會連結到 /protect/step1 */}
-            <PrimaryButton to="/protect/step1">立即開始保護</PrimaryButton>
-          </CtaGroup>
+          <PrimaryButton to="/protect/step1">立即開始保護</PrimaryButton>
         </HeroContainer>
       </HeroWrapper>
       <FeaturesSection>
-        <SectionTitle>強大功能，全面保護</SectionTitle>
+        <SectionTitle>三大核心技術，一站式解決方案</SectionTitle>
         <FeaturesContainer>
           <FeatureCard>
             <FeatureTitle>AI 全網掃描</FeatureTitle>
-            <FeatureText>24小時自動監控各大社群媒體與網站的侵權行為，第一時間發現盜用。</FeatureText>
+            <FeatureText>我們強大的 AI 引擎 24/7 不間斷掃描主流社群平台與各大網站，第一時間揪出盜用您珍贵作品的侵權者。</FeatureText>
           </FeatureCard>
           <FeatureCard>
             <FeatureTitle>區塊鏈存證</FeatureTitle>
-            <FeatureText>為您的每一份創作生成不可篡改的時間戳記與數位指紋，提供最強法律效力。</FeatureText>
+            <FeatureText>您的每一份创作，都会在上传瞬间生成不可篡改的数位指纹并记录在区块链上，提供最坚实的法律后盾。</FeatureText>
           </FeatureCard>
           <FeatureCard>
-            <FeatureTitle>一鍵維權</FeatureTitle>
-            <FeatureText>整合 DMCA 申訴流程，只需一鍵即可對侵權平台發出正式下架通知。</FeatureText>
+            <FeatureTitle>一鍵維權申訴</FeatureTitle>
+            <FeatureText>发现侵权？无需繁琐流程。系统整合 DMCA 官方 API，您只需一键即可发出正式下架通知，高效维护您的权益。</FeatureText>
           </FeatureCard>
         </FeaturesContainer>
       </FeaturesSection>
