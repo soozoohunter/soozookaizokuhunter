@@ -1,3 +1,4 @@
+// frontend/src/components/Blog/Header.jsx
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
@@ -125,7 +126,8 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={() => setIsMenuOpen(false)}>
-          <img src="/logo0.jpg" alt="Logo" style={{ height: '40px', marginRight: '10px' }} />
+          {/* [★★ 關鍵修正 ★★] - 引用新的 Logo 圖片 */}
+          <img src="/suzoo-logo.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
