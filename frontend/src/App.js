@@ -54,7 +54,6 @@ function App() {
       <AuthProvider>
         <GlobalStyle />
         <ErrorBoundary>
-          {/* [★★ 關鍵修正 ★★] 簡化並修正了路由結構，消除所有重複項 */}
           <Routes>
             {/* ===== 1. Public-Facing Routes (New Design) ===== */}
             <Route element={<PublicLayout />}>
@@ -62,6 +61,7 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/blog/:postId" element={<BlogPostPage />} />
+              {/* Placeholder routes for new nav links */}
               <Route path="/solutions" element={<HomePage />} />
               <Route path="/resources" element={<HomePage />} />
               <Route path="/about" element={<HomePage />} />
