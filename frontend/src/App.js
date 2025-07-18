@@ -72,7 +72,7 @@ function App() {
               <Route path="/admin/login" element={<AdminLoginPage />} />
 
               {/* ===== 3. Protected User Dashboard (Dark Theme) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} /> }>
+              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/file/:fileId" element={<FileDetailPage />} />
@@ -85,7 +85,7 @@ function App() {
               </Route>
               
               {/* ===== 4. Protected Admin Dashboard (Dark Theme) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['admin']} /> }>
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
