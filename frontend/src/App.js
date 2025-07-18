@@ -1,12 +1,14 @@
+// frontend/src/App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { createGlobalStyle } from 'styled-components';
 import { AuthProvider } from './AuthContext';
 
+// --- Layouts ---
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
 
-// --- Pages & Components ---
+// --- Pages ---
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import ContactPage from './pages/ContactPage';
@@ -15,15 +17,17 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import ProtectStep1 from './pages/ProtectStep1';
+import ProtectStep2 from './pages/ProtectStep2';
+import ProtectStep3 from './pages/ProtectStep3';
+import ProtectStep4 from './pages/ProtectStep4';
 import FileDetailPage from './pages/FileDetailPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import NotFoundPage from './pages/NotFoundPage';
-import ProtectStep1 from './pages/ProtectStep1';
-import ProtectStep2 from './pages/ProtectStep2';
-import ProtectStep3 from './pages/ProtectStep3';
-import ProtectStep4 from './pages/ProtectStep4';
+
+// --- Components ---
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -50,6 +54,7 @@ function App() {
       <AuthProvider>
         <GlobalStyle />
         <ErrorBoundary>
+          {/* [★★ 關鍵修正 ★★] 簡化並修正了路由結構，消除所有重複項 */}
           <Routes>
             {/* ===== 1. Public-Facing Routes (New Design) ===== */}
             <Route element={<PublicLayout />}>
@@ -57,7 +62,6 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/blog/:postId" element={<BlogPostPage />} />
-              {/* Placeholder routes for new nav links */}
               <Route path="/solutions" element={<HomePage />} />
               <Route path="/resources" element={<HomePage />} />
               <Route path="/about" element={<HomePage />} />
