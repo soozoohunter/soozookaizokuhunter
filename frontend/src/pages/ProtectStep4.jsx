@@ -1,51 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiClient } from '../apiClient';
+import { AuthContext } from '../AuthContext';
 
 const PageWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 2rem;
+  padding: 4rem 2rem;
+  background-color: ${({ theme }) => theme.colors.light.card};
 `;
 
 const Container = styled.div`
-  background-color: ${({ theme }) => theme.colors.dark.card};
   width: 100%;
-  max-width: 700px;
+  max-width: 800px;
+  background: ${({ theme }) => theme.colors.light.background};
   padding: 2.5rem;
   border-radius: ${({ theme }) => theme.borderRadius};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
+  box-shadow: ${({ theme }) => theme.shadows.main};
 `;
 
 const Title = styled.h2`
+  color: ${({ theme }) => theme.colors.light.text};
+  margin-bottom: 1.5rem;
   text-align: center;
-  margin-bottom: 1.5rem;
-  color: ${({ theme }) => theme.colors.dark.accent};
   font-size: 2rem;
-`;
-
-const InfoBlock = styled.div`
-  background-color: ${({ theme }) => theme.colors.dark.background};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
 `;
 
 const LinkList = styled.ul`
   list-style: none;
   padding: 0;
-  max-height: 400px;
+  max-height: 300px;
   overflow-y: auto;
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
+  border-radius: 8px;
+  padding: 0.5rem;
 `;
 
 const LinkItem = styled.li`
-  background: #374151;
+  background: #f9fafb;
   padding: 0.75rem 1rem;
   border-radius: 6px;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -54,18 +52,18 @@ const LinkItem = styled.li`
 
 const LinkUrl = styled.a`
   word-break: break-all;
-  color: #90caf9;
+  color: ${({ theme }) => theme.colors.light.primary};
   text-decoration: none;
   &:hover { text-decoration: underline; }
 `;
 
 const TakedownButton = styled.button`
-  background-color: ${props => props.disabled ? '#555' : '#c53030'};
+  background-color: ${props => (props.disabled ? '#ccc' : '#c53030')};
   color: white;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 6px;
-  cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
+  cursor: ${props => (props.disabled ? 'not-allowed' : 'pointer')};
   min-width: 160px;
   text-align: center;
   font-weight: 500;
@@ -75,31 +73,46 @@ const TakedownButton = styled.button`
   }
 `;
 
-const ButtonRow = styled.div`
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
+const AuthActionBlock = styled.div`
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background-color: #fffbe6;
+  border: 1px solid #fde68a;
+  border-radius: ${({ theme }) => theme.borderRadius};
+  text-align: center;
 `;
 
-const NavButton = styled.button`
-  background-color: ${({ theme }) => theme.colors.dark.primary};
-  color: #fff;
-  padding: 0.75rem 1.2rem;
+const AuthActionTitle = styled.h3`
+  margin: 0 0 1rem 0;
+`;
+
+const AuthButtonContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+`;
+
+const AuthButton = styled.button`
+  padding: 0.8rem 1.5rem;
   border: none;
   border-radius: 8px;
-  cursor: pointer;
   font-size: 1rem;
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
-  }
+  font-weight: bold;
+  cursor: pointer;
+  background-color: ${({ theme, primary }) =>
+    primary ? theme.colors.light.primary : '#FFFFFF'};
+  color: ${({ theme, primary }) =>
+    primary ? '#FFFFFF' : theme.colors.light.primary};
+  border: 1px solid ${({ theme }) => theme.colors.light.primary};
 `;
 
 export default function ProtectStep4() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useContext(AuthContext);
+
   const { scanResults, fileInfo } = location.state || {};
-  
+
   const [infringingLinks, setInfringingLinks] = useState([]);
   const [takedownStatus, setTakedownStatus] = useState({});
 
@@ -108,30 +121,44 @@ export default function ProtectStep4() {
       navigate('/protect/step1');
       return;
     }
-    const allLinks = scanResults.platforms?.flatMap(p => p.results.map(r => r.url)) || [];
+    const allLinks =
+      scanResults.platforms?.flatMap(p => p.results.map(r => r.url)) || [];
     setInfringingLinks(allLinks);
   }, [scanResults, fileInfo, navigate]);
 
-  const handleTakedown = async (url) => {
+  const handleTakedown = async url => {
     if (takedownStatus[url] && takedownStatus[url].status !== 'error') return;
 
-    setTakedownStatus(prev => ({ ...prev, [url]: { status: 'sending', message: '傳送中...' } }));
+    setTakedownStatus(prev => ({
+      ...prev,
+      [url]: { status: 'sending', message: '傳送中...' }
+    }));
 
     try {
       const response = await apiClient.post('/infringement/takedown', {
         originalFileId: fileInfo.id,
-        infringingUrl: url,
+        infringingUrl: url
       });
-      setTakedownStatus(prev => ({ 
-        ...prev, 
+      setTakedownStatus(prev => ({
+        ...prev,
         [url]: { status: 'success', message: `成功 (Case ID: ${response.data.caseId})` }
       }));
     } catch (error) {
-      setTakedownStatus(prev => ({ 
-        ...prev, 
+      setTakedownStatus(prev => ({
+        ...prev,
         [url]: { status: 'error', message: `失敗: ${error.message}` }
       }));
     }
+  };
+
+  const handleAuthRedirect = path => {
+    navigate(path, {
+      state: {
+        from: location,
+        scanResults,
+        fileInfo
+      }
+    });
   };
 
   if (!fileInfo) return null;
@@ -139,28 +166,44 @@ export default function ProtectStep4() {
   return (
     <PageWrapper>
       <Container>
-        <Title>Step 4: 確認報告與一鍵申訴</Title>
-        <InfoBlock>
-          <h4>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</h4>
-          <p>您的原始檔案：<strong>{fileInfo.filename}</strong></p>
-          <LinkList>
-            {infringingLinks.map((link, index) => {
-              const statusInfo = takedownStatus[link];
-              const isProcessing = statusInfo && (statusInfo.status === 'sending' || statusInfo.status === 'success');
-              return (
-                <LinkItem key={index}>
-                  <LinkUrl href={link} target="_blank" rel="noopener noreferrer">{link}</LinkUrl>
-                  <TakedownButton onClick={() => handleTakedown(link)} disabled={isProcessing}>
-                    {statusInfo ? statusInfo.message : '發送 DMCA 申訴'}
-                  </TakedownButton>
-                </LinkItem>
-              );
-            })}
-          </LinkList>
-        </InfoBlock>
-        <ButtonRow>
-          <NavButton onClick={() => navigate('/dashboard')}>完成並返回儀表板</NavButton>
-        </ButtonRow>
+        <Title>Step 4: 確認報告與採取行動</Title>
+        <p>
+          您的原始檔案：<strong>{fileInfo.filename}</strong>
+        </p>
+        <p>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</p>
+
+        <LinkList>
+          {infringingLinks.map((link, index) => (
+            <LinkItem key={index}>
+              <LinkUrl href={link} target="_blank" rel="noopener noreferrer">
+                {link}
+              </LinkUrl>
+              {user && (
+                <TakedownButton
+                  onClick={() => handleTakedown(link)}
+                  disabled={takedownStatus[link]?.status === 'success'}
+                >
+                  {takedownStatus[link]
+                    ? takedownStatus[link].message
+                    : '發送 DMCA 申訴'}
+                </TakedownButton>
+              )}
+            </LinkItem>
+          ))}
+        </LinkList>
+
+        {!user && (
+          <AuthActionBlock>
+            <AuthActionTitle>註冊或登入以發送 DMCA 申訴</AuthActionTitle>
+            <p>儲存您的掃描結果，並立即採取法律行動保護您的資產。</p>
+            <AuthButtonContainer>
+              <AuthButton onClick={() => handleAuthRedirect('/login')}>登入</AuthButton>
+              <AuthButton primary onClick={() => handleAuthRedirect('/register')}>
+                免費註冊
+              </AuthButton>
+            </AuthButtonContainer>
+          </AuthActionBlock>
+        )}
       </Container>
     </PageWrapper>
   );

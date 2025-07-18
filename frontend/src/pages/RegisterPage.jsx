@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiClient } from '../apiClient';
+import { AuthContext } from '../AuthContext';
 
 const PageWrapper = styled.div`
   display: flex;
@@ -76,69 +77,83 @@ const SwitchLink = styled(Link)`
 `;
 
 const RegisterPage = () => {
-    const navigate = useNavigate();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useContext(AuthContext);
 
-    useEffect(() => {
-        document.title = '註冊 - SUZOO IP Guard';
-    }, []);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
+  const from = location.state?.from?.pathname;
+  const redirectState = location.state;
 
-        if (password !== confirmPassword) {
-            setError('兩次輸入的密碼不一致。');
-            return;
-        }
+  useEffect(() => {
+    document.title = '註冊 - SUZOO IP Guard';
+  }, []);
 
-        try {
-            await apiClient.post('/auth/register', { email, password });
-            alert('註冊成功！請使用您的新帳號登入。');
-            navigate('/login');
-        } catch (err) {
-            setError(err.message || '註冊失敗，此電子郵件可能已被使用。');
-        }
-    };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (password !== confirmPassword) {
+      setError('兩次輸入的密碼不一致。');
+      return;
+    }
 
-    return (
-        <PageWrapper>
-            <FormContainer>
-                <Title>建立您的保護網</Title>
-                <StyledForm onSubmit={handleSubmit}>
-                    <StyledInput
-                        type="email"
-                        placeholder="電子郵件"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                    <StyledInput
-                        type="password"
-                        placeholder="密碼"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                    <StyledInput
-                        type="password"
-                        placeholder="確認密碼"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                    />
-                    {error && <ErrorMsg>{error}</ErrorMsg>}
-                    <SubmitButton type="submit">註冊</SubmitButton>
-                    <p style={{ textAlign: 'center' }}>
-                        已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
-                    </p>
-                </StyledForm>
-            </FormContainer>
-        </PageWrapper>
-    );
+    try {
+      await apiClient.post('/auth/register', { email, password });
+
+      const loginData = await apiClient.post('/auth/login', { email, password });
+      login(loginData.token, loginData.user);
+
+      alert('註冊成功！已為您自動登入。');
+
+      if (from) {
+        navigate(from, { state: redirectState, replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (err) {
+      setError(err.message || '註冊失敗，此電子郵件可能已被使用。');
+    }
+  };
+
+  return (
+    <PageWrapper>
+      <FormContainer>
+        <Title>建立您的保護網</Title>
+        <StyledForm onSubmit={handleSubmit}>
+          <StyledInput
+            type="email"
+            placeholder="電子郵件"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <StyledInput
+            type="password"
+            placeholder="密碼"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <StyledInput
+            type="password"
+            placeholder="確認密碼"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+          {error && <ErrorMsg>{error}</ErrorMsg>}
+          <SubmitButton type="submit">註冊</SubmitButton>
+          <p style={{ textAlign: 'center' }}>
+            已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
+          </p>
+        </StyledForm>
+      </FormContainer>
+    </PageWrapper>
+  );
 };
 
 export default RegisterPage;
