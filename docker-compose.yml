@@ -17,6 +17,8 @@ services:
     volumes:
       # [★★ 關鍵修正 1 ★★] 掛載我們最終定稿的 production.conf 設定檔
       - ./frontend/nginx/production.conf:/etc/nginx/conf.d/default.conf
+      # [★★ 關鍵修正 ★★] 新增這一行來掛載 mime.types 檔案
+      - ./frontend/nginx/mime.types:/etc/nginx/mime.types
       # [★★ 關鍵修正 2 ★★] 掛載 Let's Encrypt 憑證和續約驗證目錄
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
