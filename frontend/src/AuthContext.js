@@ -4,39 +4,37 @@ import { jwtDecode } from 'jwt-decode';
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(null);
+    const [token, setToken] = useState(() => localStorage.getItem('token'));
+    // Initialize user as 'undefined' to represent a loading state
+    const [user, setUser] = useState(undefined); 
 
     const checkTokenValidity = useCallback((authToken) => {
         if (!authToken) {
-            setUser(null);
             localStorage.removeItem('token');
-            return null;
+            setToken(null);
+            setUser(null); // Explicitly set to null (not logged in)
+            return;
         }
         try {
             const decoded = jwtDecode(authToken);
             if (decoded.exp * 1000 < Date.now()) {
-                // Token expired
                 localStorage.removeItem('token');
+                setToken(null);
                 setUser(null);
-                return null;
+            } else {
+                setUser({ id: decoded.id, email: decoded.email, role: decoded.role });
+                setToken(authToken);
             }
-            setUser({ id: decoded.id, email: decoded.email, role: decoded.role });
-            return authToken;
         } catch (error) {
-            // Invalid token
             localStorage.removeItem('token');
+            setToken(null);
             setUser(null);
-            return null;
         }
     }, []);
 
     useEffect(() => {
         const storedToken = localStorage.getItem('token');
-        if (storedToken) {
-            const validToken = checkTokenValidity(storedToken);
-            setToken(validToken);
-        }
+        checkTokenValidity(storedToken);
     }, [checkTokenValidity]);
 
     const login = (newToken, userData) => {
@@ -45,6 +43,7 @@ export const AuthProvider = ({ children }) => {
         if (userData) {
             setUser(userData);
         } else {
+            // If user data isn't passed, decode it from the token
             checkTokenValidity(newToken);
         }
     };
@@ -55,7 +54,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
-    const value = { token, user, login, logout };
+    const value = { token, user, login, logout, checkTokenValidity };
 
     return (
         <AuthContext.Provider value={value}>

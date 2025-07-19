@@ -1,4 +1,3 @@
-// frontend/src/components/ProtectedRoute.jsx (最終版)
 import React, { useContext } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
@@ -10,23 +9,34 @@ const LoadingWrapper = styled.div`
   align-items: center;
   height: 100vh;
   width: 100%;
-  background-color: #fff;
-  color: #0A0101;
-  font-family: 'Manrope', 'Roboto', sans-serif;
+  background-color: ${({ theme }) => theme.colors.dark.background};
+  color: ${({ theme }) => theme.colors.dark.text};
+  font-family: ${({ theme }) => theme.fonts.main};
 `;
 
 const ProtectedRoute = ({ allowedRoles }) => {
-  const { isAuthenticated, user, loading } = useContext(AuthContext);
+  const { user, token, checkTokenValidity } = useContext(AuthContext);
 
-  if (loading) {
+  // Re-validate token on component mount
+  React.useEffect(() => {
+    if (token) {
+      checkTokenValidity(token);
+    }
+  }, [token, checkTokenValidity]);
+
+  // Handle initial loading state
+  if (user === undefined) {
     return <LoadingWrapper><h1>Verifying Session...</h1></LoadingWrapper>;
   }
-
-  if (!isAuthenticated) {
+  
+  // If no user object, redirect to login
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // If roles are specified and user's role is not included, redirect
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Redirect non-admins trying to access admin routes
     return <Navigate to="/dashboard" replace />;
   }
 
