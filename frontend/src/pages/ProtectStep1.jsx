@@ -99,6 +99,10 @@ const ErrorMsg = styled.p`
 const ProtectStep1 = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
+  const [title, setTitle] = useState('');
+  const [realName, setRealName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [keywords, setKeywords] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -115,6 +119,10 @@ const ProtectStep1 = () => {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('title', title);
+    formData.append('realName', realName);
+    formData.append('email', email);
+    formData.append('phone', phone);
     formData.append('keywords', keywords);
 
     try {
@@ -125,7 +133,8 @@ const ProtectStep1 = () => {
       
       navigate('/protect/step2', { state: { step1Data: response.data } });
     } catch (err) {
-      setError(err.message || '上傳失敗，檔案可能過大或伺服器發生錯誤。');
+      const msg = err.response?.data?.error || err.message;
+      setError(msg || '上傳失敗，檔案可能過大或伺服器發生錯誤。');
     } finally {
       setIsLoading(false);
     }
@@ -141,6 +150,47 @@ const ProtectStep1 = () => {
           <FormGroup>
             <Label htmlFor="file-upload">選擇檔案 (圖片或影片)</Label>
             <Input id="file-upload" type="file" onChange={(e) => setFile(e.target.files[0])} />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="title">作品標題</Label>
+            <Input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="例如：2025 台北夜景"
+              required
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="realName">姓名</Label>
+            <Input
+              id="realName"
+              type="text"
+              value={realName}
+              onChange={(e) => setRealName(e.target.value)}
+              required
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </FormGroup>
+          <FormGroup>
+            <Label htmlFor="phone">電話</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
           </FormGroup>
           <FormGroup>
             <Label htmlFor="keywords">相關關鍵字 (選填)</Label>
