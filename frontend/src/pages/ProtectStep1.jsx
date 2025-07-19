@@ -118,8 +118,9 @@ const ProtectStep1 = () => {
     formData.append('keywords', keywords);
 
     try {
-      // Do not manually set the Content-Type header when using FormData.
-      // Axios will automatically configure the correct multipart headers.
+      // [★★ KEY FIX ★★]
+      // When using axios with FormData, DO NOT manually set the Content-Type header.
+      // The browser will automatically set it to 'multipart/form-data' with the correct boundary.
       const response = await apiClient.post('/protect/step1', formData);
       
       navigate('/protect/step2', { state: { step1Data: response.data } });
