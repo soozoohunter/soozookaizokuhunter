@@ -6,7 +6,7 @@ export const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(() => localStorage.getItem('token'));
     // Use 'undefined' for loading, 'null' for logged out, and user object for logged in.
-    const [user, setUser] = useState(undefined);
+    const [user, setUser] = useState(undefined); 
 
     const checkTokenValidity = useCallback((authToken) => {
         if (!authToken) {
