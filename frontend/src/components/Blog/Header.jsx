@@ -1,4 +1,3 @@
-// frontend/src/components/Blog/Header.jsx
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
@@ -126,19 +125,19 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={() => setIsMenuOpen(false)}>
-          {/* [★★ 關鍵修正 ★★] - 引用新的 Logo 圖片 */}
           <img src="/suzoo-logo.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
-          <NavLink to="/solutions">核心功能</NavLink>
+          <NavLink to="/solutions/ai-detection">核心功能</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
-          <NavLink to="/resources">相关资源</NavLink>
-          <NavLink to="/about">关于我们</NavLink>
+          <NavLink to="/blog/post-1">相关资源</NavLink>
+          <NavLink to="/contact">关于我们</NavLink>
         </NavLinks>
         <ActionButtons>
           <LoginLink to="/login">登入</LoginLink>
-          <StyledButton to="/register">免費開始</StyledButton>
+          {/* [★★ 關鍵修正 ★★] 修正連結至正確的保護流程第一步 */}
+          <StyledButton to="/protect/step1">免費開始</StyledButton>
           <HamburgerMenu onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="24" height="3" fill="#544D4D" />
@@ -150,10 +149,10 @@ const Header = () => {
       </Toolbar>
       {isMenuOpen && (
         <MobileMenu>
-          <NavLink to="/solutions" onClick={() => setIsMenuOpen(false)}>核心功能</NavLink>
+          <NavLink to="/solutions/ai-detection" onClick={() => setIsMenuOpen(false)}>核心功能</NavLink>
           <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
-          <NavLink to="/resources" onClick={() => setIsMenuOpen(false)}>相关资源</NavLink>
-          <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>关于我们</NavLink>
+          <NavLink to="/blog/post-1" onClick={() => setIsMenuOpen(false)}>相关资源</NavLink>
+          <NavLink to="/contact" onClick={() => setIsMenuOpen(false)}>关于我们</NavLink>
         </MobileMenu>
       )}
     </HeaderWrapper>

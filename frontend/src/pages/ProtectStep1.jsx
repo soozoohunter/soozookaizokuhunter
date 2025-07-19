@@ -10,6 +10,23 @@ const PageWrapper = styled.div`
   padding: 2rem;
 `;
 
+// [★★ 新增 ★★]
+const BackButton = styled.button`
+  position: absolute;
+  top: 98px; /* Header height + spacing */
+  left: 2rem;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
+  color: ${({ theme }) => theme.colors.light.textMuted};
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.light.primary};
+    color: ${({ theme }) => theme.colors.light.text};
+  }
+`;
+
 const FormContainer = styled.div`
   background-color: ${({ theme }) => theme.colors.dark.card};
   border: 1px solid ${({ theme }) => theme.colors.dark.border};
@@ -113,6 +130,8 @@ const ProtectStep1 = () => {
 
   return (
     <PageWrapper>
+      {/* [★★ 新增 ★★] */}
+      <BackButton onClick={() => navigate(-1)}>← 返回上一頁</BackButton>
       <FormContainer>
         <Title>Step 1: 上傳您的原創作品</Title>
         <StyledForm onSubmit={handleSubmit}>
