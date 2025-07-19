@@ -6,11 +6,28 @@ import { AuthContext } from '../AuthContext';
 
 const PageWrapper = styled.div`
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 4rem 1rem;
+  padding: 2rem 1rem;
   min-height: 100vh;
   background-color: ${({ theme }) => theme.colors.dark.background};
+`;
+
+const BackButton = styled.button`
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  background: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  color: ${({ theme }) => theme.colors.dark.textSecondary};
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.dark.primary};
+    color: ${({ theme }) => theme.colors.dark.text};
+  }
 `;
 
 const FormContainer = styled.div`
@@ -20,7 +37,7 @@ const FormContainer = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.dark.border};
   box-shadow: ${({ theme }) => theme.shadows.dark};
   width: 100%;
-  max-width: 500px;
+  max-width: 420px;
   color: ${({ theme }) => theme.colors.dark.text};
 `;
 
@@ -77,83 +94,85 @@ const SwitchLink = styled(Link)`
 `;
 
 const RegisterPage = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useContext(AuthContext);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { login } = useContext(AuthContext);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
 
-  const from = location.state?.from?.pathname;
-  const redirectState = location.state;
+    const from = location.state?.from?.pathname;
+    const redirectState = location.state;
 
-  useEffect(() => {
-    document.title = '註冊 - SUZOO IP Guard';
-  }, []);
+    useEffect(() => {
+        document.title = '註冊 - SUZOO IP Guard';
+    }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    if (password !== confirmPassword) {
-      setError('兩次輸入的密碼不一致。');
-      return;
-    }
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (password !== confirmPassword) {
+            setError('兩次輸入的密碼不一致。');
+            return;
+        }
 
-    try {
-      await apiClient.post('/auth/register', { email, password });
+        try {
+            await apiClient.post('/auth/register', { email, password });
+            const loginData = await apiClient.post('/auth/login', { email, password });
+            login(loginData.token, loginData.user);
 
-      const loginData = await apiClient.post('/auth/login', { email, password });
-      login(loginData.token, loginData.user);
+            alert('註冊成功！已為您自動登入。');
 
-      alert('註冊成功！已為您自動登入。');
+            if (from) {
+              navigate(from, { state: redirectState, replace: true });
+            } else {
+              navigate('/dashboard', { replace: true });
+            }
+        } catch (err) {
+            setError(err.message || '註冊失敗，此電子郵件可能已被使用。');
+        }
+    };
 
-      if (from) {
-        navigate(from, { state: redirectState, replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    } catch (err) {
-      setError(err.message || '註冊失敗，此電子郵件可能已被使用。');
-    }
-  };
-
-  return (
-    <PageWrapper>
-      <FormContainer>
-        <Title>建立您的保護網</Title>
-        <StyledForm onSubmit={handleSubmit}>
-          <StyledInput
-            type="email"
-            placeholder="電子郵件"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <StyledInput
-            type="password"
-            placeholder="密碼"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <StyledInput
-            type="password"
-            placeholder="確認密碼"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-          <SubmitButton type="submit">註冊</SubmitButton>
-          <p style={{ textAlign: 'center' }}>
-            已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
-          </p>
-        </StyledForm>
-      </FormContainer>
-    </PageWrapper>
-  );
+    return (
+        <PageWrapper>
+            {/* [★★ 關鍵修正 ★★] 加入返回按鈕 */}
+            <BackButton onClick={() => navigate(-1)}>← 返回上一頁</BackButton>
+            <FormContainer>
+                <Title>建立您的保護網</Title>
+                <StyledForm onSubmit={handleSubmit}>
+                    <StyledInput
+                        type="email"
+                        placeholder="電子郵件"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                    <StyledInput
+                        type="password"
+                        placeholder="密碼"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                    <StyledInput
+                        type="password"
+                        placeholder="確認密碼"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                    />
+                    {error && <ErrorMsg>{error}</ErrorMsg>}
+                    <SubmitButton type="submit">註冊</SubmitButton>
+                    <p style={{ textAlign: 'center' }}>
+                        已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
+                    </p>
+                </StyledForm>
+            </FormContainer>
+        </PageWrapper>
+    );
 };
 
 export default RegisterPage;
+
