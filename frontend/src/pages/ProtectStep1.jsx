@@ -7,7 +7,8 @@ const PageWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 2rem;
+  padding: 8rem 2rem 4rem;
+  background-color: ${({ theme }) => theme.colors.light.card};
 `;
 
 // [★★ 新增 ★★]
@@ -28,19 +29,19 @@ const BackButton = styled.button`
 `;
 
 const FormContainer = styled.div`
-  background-color: ${({ theme }) => theme.colors.dark.card};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  background-color: ${({ theme }) => theme.colors.light.background};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
   border-radius: ${({ theme }) => theme.borderRadius};
   padding: 2.5rem;
   width: 100%;
   max-width: 600px;
-  box-shadow: ${({ theme }) => theme.shadows.dark};
+  box-shadow: ${({ theme }) => theme.shadows.main};
 `;
 
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 2rem;
-  color: ${({ theme }) => theme.colors.dark.accent};
+  color: ${({ theme }) => theme.colors.light.text};
   font-size: 2rem;
 `;
 
@@ -58,32 +59,35 @@ const FormGroup = styled.div`
 
 const Label = styled.label`
   font-weight: 500;
-  color: ${({ theme }) => theme.colors.dark.textSecondary};
+  color: ${({ theme }) => theme.colors.light.textMuted};
 `;
 
 const Input = styled.input`
   padding: 0.8rem 1rem;
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
   border-radius: 8px;
-  background-color: ${({ theme }) => theme.colors.dark.background};
-  color: ${({ theme }) => theme.colors.dark.text};
+  background-color: #FFFFFF;
+  color: ${({ theme }) => theme.colors.light.text};
   font-size: 1rem;
 `;
 
 const SubmitButton = styled.button`
   margin-top: 1rem;
   padding: 0.8rem 1rem;
-  background-color: ${({ theme }) => theme.colors.dark.primary};
-  color: white;
-  border: none;
+  background: ${({ theme }) => theme.colors.light.secondary};
+  color: ${({ theme }) => theme.colors.light.text};
+  border: 1px solid ${({ theme }) => theme.colors.light.primary};
+  box-shadow: 2px 2px 0px ${({ theme }) => theme.colors.light.primary};
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: bold;
   opacity: ${props => props.disabled ? 0.5 : 1};
-  
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
+  transition: all 0.2s ease;
+
+  &:hover:not(:disabled) {
+    box-shadow: 4px 4px 0px ${({ theme }) => theme.colors.light.primary};
+    transform: translate(-2px, -2px);
   }
 `;
 
