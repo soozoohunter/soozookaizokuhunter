@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react'; // Correctly imports useEffect
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { AuthContext } from '../AuthContext';
@@ -83,8 +83,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const fromState = location.state?.from;
-
   useEffect(() => {
     document.title = '登入 - SUZOO IP Guard';
   }, []);
@@ -94,16 +92,14 @@ const LoginPage = () => {
     setError('');
     try {
       const data = await apiClient.post('/auth/login', { email, password });
-      login(data.token, data.user); 
+      login(data.token, data.user);
       
-      // If redirected from another page, go back there. Otherwise, go to dashboard.
-      if (fromState) {
-        navigate(fromState.pathname + fromState.search, { replace: true });
-      } else if (data.user.role === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      // 统一处理重定向逻辑
+      const from = location.state?.from || {
+        pathname: data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+      };
+      
+      navigate(`${from.pathname}${from.search || ''}`, { replace: true });
     } catch (err) {
       setError(err.message || '登入失敗，請檢查您的憑證。');
     }
