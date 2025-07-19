@@ -6,7 +6,7 @@ export const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(() => localStorage.getItem('token'));
     // Initialize user as 'undefined' to represent a loading state
-    const [user, setUser] = useState(undefined); 
+    const [user, setUser] = useState(undefined);
 
     const checkTokenValidity = useCallback((authToken) => {
         if (!authToken) {
