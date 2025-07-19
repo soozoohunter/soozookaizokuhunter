@@ -27,6 +27,11 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import NotFoundPage from './pages/NotFoundPage';
 
+// New solution pages
+import AiDetectionPage from './pages/solutions/AiDetectionPage';
+import BlockchainPage from './pages/solutions/BlockchainPage';
+import DmcaPage from './pages/solutions/DmcaPage';
+
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
@@ -58,42 +63,41 @@ function App() {
           <GlobalStyle />
           <ErrorBoundary>
             <Routes>
-              {/* ===== 1. 公開頁面 & 核心體驗流程 (亮色主題) ===== */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
-                {/* [★★ 關鍵修正 ★★] 保護流程改為公開可訪問 */}
                 <Route path="/protect/step1" element={<ProtectStep1 />} />
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
                 <Route path="/protect/step3" element={<ProtectStep3 />} />
                 <Route path="/protect/step4" element={<ProtectStep4 />} />
+
+                {/* [★★ 關鍵修正 ★★] 新增三個功能頁面的路由 */}
+                <Route path="/solutions/ai-detection" element={<AiDetectionPage />} />
+                <Route path="/solutions/blockchain" element={<BlockchainPage />} />
+                <Route path="/solutions/dmca-takedown" element={<DmcaPage />} />
               </Route>
 
-              {/* ===== 2. 獨立驗證頁面 (暗色主題) ===== */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
 
-              {/* ===== 3. 受保護的使用者後台 (暗色主題) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
+              <Route element={<ProtectedRoute allowedRoles={["user", "admin"]} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/file/:fileId" element={<FileDetailPage />} />
                   <Route path="/settings/api-keys" element={<SettingsPage />} />
                 </Route>
               </Route>
-              
-              {/* ===== 4. 受保護的管理員後台 (暗色主題) ===== */}
-              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+
+              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
                 <Route element={<AppLayout />}>
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
                 </Route>
               </Route>
 
-              {/* ===== 5. 404 頁面 ===== */}
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>

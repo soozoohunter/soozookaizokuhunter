@@ -1,122 +1,99 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Link } from 'react-router-dom';
 
 const FooterWrapper = styled.footer`
-  border-top: 1px solid rgb(231, 230, 230);
-  padding: 40px 32px;
-
-  @media (max-width: 900px) {
-    padding: 40px 24px;
-  }
+  background-color: #F8F8F8;
+  border-top: 1px solid #EAEAEA;
+  padding: 4rem 2rem;
+  font-size: 0.9rem;
 `;
 
 const FooterContainer = styled.div`
-  max-width: 1536px;
-  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
 `;
 
-const TopSection = styled.div`
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 40px;
-  margin-bottom: 32px;
-`;
-
-const CompanyInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-`;
-
-const FooterNav = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 72px;
-
-  @media (max-width: 600px) {
-    gap: 32px;
-    flex-direction: column;
+const BrandSection = styled.div`
+  p {
+    color: #6B7280;
+    line-height: 1.6;
   }
 `;
 
-const NavColumn = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  width: 170px;
+const NavSection = styled.div``;
+
+const NavTitle = styled.h4`
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: #1F2937;
 `;
 
-const ColumnTitle = styled.span`
-  color: #B6B3B3;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  margin-bottom: 8px;
+const NavList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0;
 `;
 
-const FooterLink = styled.a`
-  color: #858080;
+const NavItem = styled.li`
+  margin-bottom: 0.75rem;
+`;
+
+const NavLink = styled(Link)`
+  color: #6B7280;
   text-decoration: none;
-  transition: color 150ms ease;
-
   &:hover {
-    color: #231A1A;
+    color: #D45398;
   }
 `;
 
-const BottomSection = styled.div`
-  border-top: 1px solid rgb(231, 230, 230);
-  padding-top: 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 24px;
-`;
-
-const Copyright = styled.span`
-  color: #B6B3B3;
-  font-size: 14px;
+const CopyrightSection = styled.div`
+  text-align: center;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #EAEAEA;
+  color: #9CA3AF;
 `;
 
 const Footer = () => {
   return (
     <FooterWrapper>
       <FooterContainer>
-        <TopSection>
-          <CompanyInfo>
-            <span style={{ fontWeight: 'bold', fontSize: '1.8rem' }}>SUZOO</span>
-            <p style={{ color: '#9D9999', fontSize: '14px', lineHeight: '1.5' }}>
-              100 台北市中正區金山南路一段77號2樓<br />
-              hey@suzookaikokuhunter.com
-            </p>
-          </CompanyInfo>
-          <FooterNav>
-            <NavColumn>
-              <ColumnTitle>網站導覽</ColumnTitle>
-              <FooterLink href="/">首頁</FooterLink>
-              <FooterLink href="/pricing">價格方案</FooterLink>
-            </NavColumn>
-            <NavColumn>
-              <ColumnTitle>解決方案</ColumnTitle>
-              <FooterLink href="#">AI 侵權偵測</FooterLink>
-              <FooterLink href="#">區塊鏈存證</FooterLink>
-              <FooterLink href="#">DMCA 申訴</FooterLink>
-            </NavColumn>
-            <NavColumn>
-              <ColumnTitle>關於我們</ColumnTitle>
-              <FooterLink href="#">媒體專區</FooterLink>
-              <FooterLink href="#">合作夥伴</FooterLink>
-            </NavColumn>
-          </FooterNav>
-        </TopSection>
-        <BottomSection>
-          <Copyright>© {new Date().getFullYear()} • SUZOO IP Guard • All rights reserved</Copyright>
-        </BottomSection>
+        <BrandSection>
+          <NavTitle>SUZOO IP Guard</NavTitle>
+          <p>100 台北市中正區金山南路一段77號2樓</p>
+          <p>hey@suzookaikaikuhunter.com</p>
+        </BrandSection>
+        <NavSection>
+          <NavTitle>網站導覽</NavTitle>
+          <NavList>
+            <NavItem><NavLink to="/">首頁</NavLink></NavItem>
+            <NavItem><NavLink to="/pricing">價格方案</NavLink></NavItem>
+          </NavList>
+        </NavSection>
+        <NavSection>
+          <NavTitle>解決方案</NavTitle>
+          <NavList>
+            {/* [★★ 關鍵修正 ★★] 更新連結 */}
+            <NavItem><NavLink to="/solutions/ai-detection">AI 侵權偵測</NavLink></NavItem>
+            <NavItem><NavLink to="/solutions/blockchain">區塊鏈存證</NavLink></NavItem>
+            <NavItem><NavLink to="/solutions/dmca-takedown">DMCA 申訴</NavLink></NavItem>
+          </NavList>
+        </NavSection>
+        <NavSection>
+          <NavTitle>關於我們</NavTitle>
+          <NavList>
+            <NavItem><NavLink to="#">媒體專區</NavLink></NavItem>
+            <NavItem><NavLink to="#">合作夥伴</NavLink></NavItem>
+          </NavList>
+        </NavSection>
       </FooterContainer>
+      <CopyrightSection>
+        © 2025 SUZOO IP Guard • All rights reserved
+      </CopyrightSection>
     </FooterWrapper>
   );
 };
