@@ -5,14 +5,14 @@ export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(() => localStorage.getItem('token'));
-    // Initialize user as 'undefined' to represent a loading state
+    // Use 'undefined' for loading, 'null' for logged out, and user object for logged in.
     const [user, setUser] = useState(undefined);
 
     const checkTokenValidity = useCallback((authToken) => {
         if (!authToken) {
             localStorage.removeItem('token');
             setToken(null);
-            setUser(null); // Explicitly set to null (not logged in)
+            setUser(null);
             return;
         }
         try {
@@ -33,9 +33,8 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        const storedToken = localStorage.getItem('token');
-        checkTokenValidity(storedToken);
-    }, [checkTokenValidity]);
+        checkTokenValidity(token);
+    }, [token, checkTokenValidity]);
 
     const login = (newToken, userData) => {
         localStorage.setItem('token', newToken);
@@ -43,7 +42,6 @@ export const AuthProvider = ({ children }) => {
         if (userData) {
             setUser(userData);
         } else {
-            // If user data isn't passed, decode it from the token
             checkTokenValidity(newToken);
         }
     };
