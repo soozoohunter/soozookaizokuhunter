@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
 import styled from 'styled-components';
 
@@ -15,31 +15,25 @@ const LoadingWrapper = styled.div`
 `;
 
 const ProtectedRoute = ({ allowedRoles }) => {
-  const { user, token, checkTokenValidity } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+  const location = useLocation();
 
-  // Re-validate token on component mount
-  React.useEffect(() => {
-    if (token) {
-      checkTokenValidity(token);
-    }
-  }, [token, checkTokenValidity]);
-
-  // Handle initial loading state
+  // The AuthContext now provides 'undefined' during initial load, 'null' for logged out, and a user object for logged in.
   if (user === undefined) {
     return <LoadingWrapper><h1>Verifying Session...</h1></LoadingWrapper>;
   }
-  
-  // If no user object, redirect to login
+
+  // If not authenticated, redirect to login, passing the intended destination.
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If roles are specified and user's role is not included, redirect
+  // If the route requires a specific role and the user does not have it, redirect.
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Redirect non-admins trying to access admin routes
     return <Navigate to="/dashboard" replace />;
   }
 
+  // If authenticated and authorized, render the child routes.
   return <Outlet />;
 };
 
