@@ -92,7 +92,7 @@ const SubmitButton = styled.button`
 `;
 
 const ErrorMsg = styled.p`
-  color: #F87171;
+  color: #D32F2F;
   text-align: center;
 `;
 
@@ -126,7 +126,7 @@ const ProtectStep1 = () => {
       
       navigate('/protect/step2', { state: { step1Data: response.data } });
     } catch (err) {
-      setError(err.message || '上傳失敗，請稍後再試。');
+      setError(err.message || '上傳失敗，檔案可能過大或伺服器發生錯誤。');
     } finally {
       setIsLoading(false);
     }
