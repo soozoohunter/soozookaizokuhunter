@@ -1,4 +1,10 @@
 exports.sequelize = {
+    async transaction() {
+        return {
+            commit: async () => {},
+            rollback: async () => {}
+        };
+    },
     sync: () => Promise.resolve()
 };
 
@@ -11,4 +17,13 @@ exports.File = {
         }
         return null;
     }
+};
+
+exports.Scan = {
+    create: async (data) => ({ id: 1, ...data })
+};
+
+exports.User = {
+    findOne: async ({ where }) => null,
+    findByPk: async (id) => ({ id, real_name: 'User', email: 'user@example.com' })
 };
