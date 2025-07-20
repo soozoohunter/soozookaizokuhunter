@@ -5,7 +5,7 @@ const chain = require('../utils/chain');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
-// const queueService = require('../services/queueService'); // If you have a queue service
+// const queueService = require('../services/queueService'); // Uncomment if you have this service
 
 exports.handleStep1Upload = async (req, res) => {
     if (!req.file) {
@@ -18,7 +18,8 @@ exports.handleStep1Upload = async (req, res) => {
     try {
         let user = await User.findOne({ where: { email }, transaction });
         if (!user) {
-            // This is a placeholder for user creation. In a real app, handle temporary users or require login.
+            // This is a placeholder for user creation. 
+            // In a real app, handle temporary users or require login.
             user = { id: 1 }; // Fallback to user 1 for now to prevent crashes
             logger.warn(`User with email ${email} not found. Defaulting to user ID 1 for this transaction.`);
         }
@@ -65,15 +66,14 @@ exports.handleStep1Upload = async (req, res) => {
         
         await transaction.commit();
 
-        // [★★ KEY FIX ★★] Ensure ipfsHash and txHash are included in the response
         res.status(201).json({
             message: "File successfully protected.",
             file: {
                 id: newFile.id,
                 filename: newFile.filename,
                 fingerprint: newFile.fingerprint,
-                ipfsHash: newFile.ipfs_hash, // Corrected from ipfs_hash
-                txHash: newFile.tx_hash       // Corrected from tx_hash
+                ipfsHash: newFile.ipfs_hash,
+                txHash: newFile.tx_hash
             },
         });
 
