@@ -1,7 +1,7 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY ? process.env.RAPIDAPI_KEY.trim() : '';
 
 // [新增] 配置所有 API 端點
 const RAPIDAPI_YOUTUBE_URL = 'https://youtube-search-and-download.p.rapidapi.com';
@@ -65,6 +65,11 @@ async function searchPlatform(platform, keyword) {
         return [];
     }
 
+    if (!/^\w{20,}$/.test(RAPIDAPI_KEY)) {
+        logger.error('[RapidAPI] API key format appears invalid');
+        return [];
+    }
+
     logger.info(`[RapidAPI][${platform}] Searching with keyword: "${keyword}"`);
 
     try {
@@ -88,8 +93,16 @@ async function searchPlatform(platform, keyword) {
         return [...new Set(links)];
 
     } catch (err) {
+        const status = err.response?.status;
         const errorMsg = err.response?.data?.message || err.message;
         logger.error(`[RapidAPI][${platform}] Request failed: ${errorMsg}`);
+
+        if (status === 403) {
+            logger.warn(`[RapidAPI][${platform}] Subscription issue detected, disabling this API.`);
+            API_CONFIGS[platform].enabled = false;
+            return [];
+        }
+
         throw new Error(`[${platform}] ${errorMsg}`);
     }
 }
