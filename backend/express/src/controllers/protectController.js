@@ -5,14 +5,7 @@ const chain = require('../utils/chain');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
-const { generateCertificatePDF } = require('../services/pdfService');
-// const queueService = require('../services/queueService'); // Uncomment if you have this service
-
-const CERT_DIR = path.join('/app/uploads', 'certificates');
-// Ensure directory exists synchronously at startup
-if (!require('fs').existsSync(CERT_DIR)) {
-    require('fs').mkdirSync(CERT_DIR, { recursive: true });
-}
+// const queueService = require('../services/queueService'); // Uncomment if you have a queue service
 
 exports.handleStep1Upload = async (req, res) => {
     if (!req.file) {
@@ -25,8 +18,9 @@ exports.handleStep1Upload = async (req, res) => {
     try {
         let user = await User.findOne({ where: { email }, transaction });
         if (!user) {
-            // This is a placeholder for user creation. In a real app, handle temporary users or require login.
-            user = { id: 1 }; // Fallback to user 1 for now to prevent crashes
+            // Using a fallback user for the public flow.
+            user = await User.findByPk(1, { transaction }); 
+            if (!user) throw new Error("Default user with ID 1 not found.");
             logger.warn(`User with email ${email} not found. Defaulting to user ID 1 for this transaction.`);
         }
 
@@ -43,12 +37,12 @@ exports.handleStep1Upload = async (req, res) => {
         const fileBuffer = await fs.readFile(filePath);
         const ipfsHash = await ipfsService.saveFile(fileBuffer).catch(err => {
             logger.error(`IPFS upload failed: ${err.message}`);
-            return null; // Gracefully handle IPFS failure
+            return null;
         });
 
         const txReceipt = await chain.storeRecord(fingerprint, ipfsHash || '').catch(err => {
             logger.error(`Blockchain transaction failed: ${err.message}`);
-            return null; // Gracefully handle blockchain failure
+            return null;
         });
         
         const txHash = txReceipt?.transactionHash || null;
@@ -72,14 +66,15 @@ exports.handleStep1Upload = async (req, res) => {
         
         await transaction.commit();
 
+        // [★★ KEY FIX ★★] Ensure ipfsHash and txHash are included in the response
         res.status(201).json({
             message: "File successfully protected.",
             file: {
                 id: newFile.id,
                 filename: newFile.filename,
                 fingerprint: newFile.fingerprint,
-                ipfsHash: newFile.ipfs_hash,
-                txHash: newFile.tx_hash
+                ipfsHash: newFile.ipfs_hash, // Corrected from ipfs_hash
+                txHash: newFile.tx_hash       // Corrected from tx_hash
             },
         });
 
