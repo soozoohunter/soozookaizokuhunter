@@ -4,25 +4,27 @@ import styled from 'styled-components';
 import { apiClient } from '../apiClient';
 
 const PageWrapper = styled.div`
+  min-height: 100vh;
+  padding: 4rem 2rem;
+  background-color: ${({ theme }) => theme.colors.light.card};
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 2rem;
+  justify-content: center;
 `;
 
 const Container = styled.div`
-  background-color: ${({ theme }) => theme.colors.dark.card};
+  background-color: ${({ theme }) => theme.colors.light.background};
   width: 100%;
   max-width: 700px;
   padding: 2.5rem;
   border-radius: ${({ theme }) => theme.borderRadius};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
 `;
 
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1rem;
-  color: ${({ theme }) => theme.colors.dark.accent};
+  color: ${({ theme }) => theme.colors.light.text};
   font-size: 2rem;
 `;
 

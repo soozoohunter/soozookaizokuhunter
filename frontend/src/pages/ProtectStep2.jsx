@@ -3,31 +3,34 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
+  min-height: 100vh;
+  padding: 4rem 2rem;
+  background-color: ${({ theme }) => theme.colors.light.card};
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 2rem;
+  justify-content: center;
 `;
 
 const Container = styled.div`
-  background-color: ${({ theme }) => theme.colors.dark.card};
+  background-color: ${({ theme }) => theme.colors.light.background};
   width: 100%;
   max-width: 700px;
   padding: 2.5rem;
   border-radius: ${({ theme }) => theme.borderRadius};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
+  box-shadow: ${({ theme }) => theme.shadows.main};
 `;
 
 const Title = styled.h2`
   text-align: center;
   margin-bottom: 1.5rem;
-  color: ${({ theme }) => theme.colors.dark.accent};
+  color: ${({ theme }) => theme.colors.light.text};
   font-size: 2rem;
 `;
 
 const InfoBlock = styled.div`
-  background: ${({ theme }) => theme.colors.dark.background};
-  border: 1px solid ${({ theme }) => theme.colors.dark.border};
+  background: ${({ theme }) => theme.colors.light.card};
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
@@ -39,13 +42,13 @@ const InfoRow = styled.p`
   display: flex;
   flex-wrap: wrap;
   strong {
-    color: ${({ theme }) => theme.colors.dark.textSecondary};
+    color: ${({ theme }) => theme.colors.light.textMuted};
     display: inline-block;
     width: 180px;
     flex-shrink: 0;
   }
   span {
-    color: ${({ theme }) => theme.colors.dark.text};
+    color: ${({ theme }) => theme.colors.light.text};
     font-family: 'Courier New', Courier, monospace;
     word-break: break-all;
   }
@@ -56,9 +59,10 @@ const ButtonRow = styled.div`
 `;
 
 const NextButton = styled.button`
-  background-color: ${({ theme }) => theme.colors.dark.primary};
-  color: #fff;
-  border: none;
+  background: ${({ theme }) => theme.colors.light.secondary};
+  color: ${({ theme }) => theme.colors.light.text};
+  border: 1px solid ${({ theme }) => theme.colors.light.primary};
+  box-shadow: 2px 2px 0px ${({ theme }) => theme.colors.light.primary};
   padding: 0.8rem 1.5rem;
   font-size: 1rem;
   font-weight: bold;
@@ -66,7 +70,8 @@ const NextButton = styled.button`
   cursor: pointer;
   
   &:hover {
-    background-color: ${({ theme }) => theme.colors.dark.primaryHover};
+    box-shadow: 4px 4px 0px ${({ theme }) => theme.colors.light.primary};
+    transform: translate(-2px, -2px);
   }
 `;
 
