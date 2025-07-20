@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
+      allowNull: false
     },
     user_id: {
       type: DataTypes.INTEGER,
@@ -23,42 +24,55 @@ module.exports = (sequelize, DataTypes) => {
     },
     filename: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: false
     },
     title: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true
     },
     keywords: {
       type: DataTypes.TEXT,
-      allowNull: true,
+      allowNull: true
     },
     fingerprint: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(64),
       allowNull: false,
-      unique: true,
+      unique: true
     },
     ipfs_hash: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true
     },
     tx_hash: {
       type: DataTypes.STRING,
-      allowNull: true,
+      allowNull: true
     },
     status: {
       type: DataTypes.STRING,
-      defaultValue: 'pending',
+      defaultValue: 'pending'
     },
-    mime_type: DataTypes.STRING,
-    size: DataTypes.INTEGER,
-    thumbnail_path: DataTypes.STRING,
-    certificate_path: DataTypes.STRING,
+    mime_type: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    size: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    thumbnail_path: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    certificate_path: {
+      type: DataTypes.STRING,
+      allowNull: true
+    }
   }, {
     sequelize,
     modelName: 'File',
     tableName: 'files',
     timestamps: true,
+    underscored: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   });
