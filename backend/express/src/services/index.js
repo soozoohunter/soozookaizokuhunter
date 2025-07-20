@@ -4,3 +4,5 @@ exports.queueService = {
         // TODO: implement queue logic
     }
 };
+
+exports.generateCertificatePDF = require('./pdfService').generateCertificatePDF;
