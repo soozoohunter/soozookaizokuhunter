@@ -148,6 +148,8 @@ router.post('/step1', upload.single('file'), async (req, res) => {
         id: newFile.id,
         filename: newFile.filename,
         thumbnail_path: newFile.thumbnail_path,
+        ipfsHash: newFile.ipfs_hash,
+        txHash: newFile.tx_hash,
       },
       user: {
         id: user.id,

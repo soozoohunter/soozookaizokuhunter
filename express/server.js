@@ -42,7 +42,7 @@ logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/protect', require('./routes/protect'));
-app.use('/api/files', require('./routes/files'));
+app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/scans', require('./routes/scans'));
