@@ -30,30 +30,32 @@ const Title = styled.h2`
 `;
 
 const InfoBlock = styled.div`
-  background-color: ${({ theme }) => theme.colors.light.secondary};
+  background-color: #f9fafb;
   padding: 1.5rem;
   border-radius: 8px;
   margin-bottom: 2rem;
 `;
 
 const InfoRow = styled.p`
-  margin-bottom: 0.8rem;
+  margin: 0.8rem 0;
   display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  strong {
+    color: #4b5563;
+    min-width: 180px;
+    flex-shrink: 0;
+  }
   span {
-    color: ${({ theme }) => theme.colors.light.text};
+    color: #1f2937;
     font-family: 'Courier New', Courier, monospace;
     word-break: break-all;
-    flex-grow: 1;
-    margin-left: 1rem;
   }
 `;
 
 const ButtonRow = styled.div`
   text-align: center;
   margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 `;
 
 const NextButton = styled.button`
@@ -65,7 +67,7 @@ const NextButton = styled.button`
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
-  margin-top: 1rem;
+  margin-left: 1rem;
   transition: background-color 0.2s;
 
   &:hover {
@@ -73,22 +75,20 @@ const NextButton = styled.button`
   }
 `;
 
-// [★★ ADD THIS ★★] Style for the download button
 const DownloadButton = styled.a`
   display: inline-block;
   padding: 0.8rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
-  color: ${({ theme }) => theme.colors.light.text};
-  background-color: ${({ theme }) => theme.colors.light.secondary};
+  color: ${({ theme }) => theme.colors.light.primary};
+  background-color: transparent;
   border: 1px solid ${({ theme }) => theme.colors.light.primary};
   border-radius: 8px;
   text-decoration: none;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${({ theme }) => theme.colors.light.primary};
-    color: white;
+    background-color: ${({ theme }) => theme.colors.light.secondary};
   }
 `;
 
@@ -98,13 +98,13 @@ export default function ProtectStep2() {
   const { file, scanId } = location.state?.step1Data || {};
 
   useEffect(() => {
-    if (!file || !scanId) {
+    if (!file) {
       alert('找不到上一步的資料，將返回第一步。');
       navigate('/protect/step1');
     }
-  }, [file, scanId, navigate]);
+  }, [file, navigate]);
 
-  if (!file || !scanId) return null;
+  if (!file) return null;
 
   return (
     <PageWrapper>
@@ -120,10 +120,9 @@ export default function ProtectStep2() {
           <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.txHash || 'N/A'}</span></InfoRow>
         </InfoBlock>
         <ButtonRow>
-          {/* [★★ ADD THIS ★★] Download link for the certificate */}
           <DownloadButton
             href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`}
-            download={`原創著作證明書_${file.filename}.pdf`}
+            download
           >
             下載原創著作證明書 (PDF)
           </DownloadButton>
