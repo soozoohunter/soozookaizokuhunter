@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { apiClient } from '../apiClient';
 import styled from 'styled-components';
+import { apiClient } from '../apiClient'; // Ensure apiClient is imported
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -69,18 +69,20 @@ const NextButton = styled.button`
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
-  
+
   &:hover {
     box-shadow: 4px 4px 0px ${({ theme }) => theme.colors.light.primary};
     transform: translate(-2px, -2px);
   }
 `;
 
+// [★★ ADD THIS ★★] Style for the download button
 const DownloadButton = styled.a`
   display: inline-block;
-  margin-top: 1rem;
-  padding: 0.7rem 1.2rem;
-  font-size: 0.9rem;
+  margin-top: 1.5rem;
+  margin-right: 1rem;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.light.primary};
   background-color: transparent;
@@ -88,6 +90,7 @@ const DownloadButton = styled.a`
   border-radius: 8px;
   text-decoration: none;
   transition: all 0.2s ease;
+
   &:hover {
     background-color: ${({ theme }) => theme.colors.light.secondary};
     color: ${({ theme }) => theme.colors.light.text};
@@ -106,27 +109,29 @@ export default function ProtectStep2() {
     }
   }, [file, scanId, navigate]);
 
-  if (!file || !scanId) {
-    return null; 
-  }
+  if (!file || !scanId) return null;
 
   return (
     <PageWrapper>
       <Container>
-        <Title>Step 2: 原創著作證明書</Title>
-        <p style={{ textAlign: 'center', color: '#9CA3AF', marginBottom: '1.5rem' }}>
-          您的原創著作證明已成功建立並儲存於區塊鏈上。
+        <Title>Step 2: 原創著作證明</Title>
+        <p style={{ textAlign: 'center', color: '#6B7280', marginBottom: '1.5rem' }}>
+          您的檔案已成功上傳，並產生了唯一的數位指紋存證於區塊鏈上。
         </p>
         <InfoBlock>
           <InfoRow><strong>檔案名稱:</strong> <span>{file.filename}</span></InfoRow>
           <InfoRow><strong>數位指紋 (SHA-256):</strong> <span>{file.fingerprint}</span></InfoRow>
-          <InfoRow><strong>IPFS 存證 Hash:</strong> <span>{file.ipfs_hash || 'N/A'}</span></InfoRow>
-          <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.tx_hash || 'N/A'}</span></InfoRow>
-          <DownloadButton href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`} download>
-            下載原創著作證明書 (PDF)
-          </DownloadButton>
+          <InfoRow><strong>IPFS 存證 Hash:</strong> <span>{file.ipfsHash || 'N/A'}</span></InfoRow>
+          <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.txHash || 'N/A'}</span></InfoRow>
         </InfoBlock>
         <ButtonRow>
+          {/* [★★ ADD THIS ★★] Download link for the certificate */}
+          <DownloadButton 
+            href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`} 
+            download
+          >
+            下載原創著作證明書 (PDF)
+          </DownloadButton>
           <NextButton onClick={() => navigate('/protect/step3', { state: { scanId, file } })}>
             下一步：啟動 AI 全網掃描 →
           </NextButton>

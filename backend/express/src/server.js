@@ -7,7 +7,7 @@ const fs = require('fs');
 
 const protectRoutes = require('./routes/protectRoutes');
 const authRoutes = require('./routes/authRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const adminRoutes = require('./routes/adminRoutes'); 
 const fileRoutes = require('./routes/fileRoutes');
 const scanRoutes = require('./routes/scanRoutes');
 
@@ -15,18 +15,18 @@ const { sequelize } = require('./models');
 
 const app = express();
 
-// --- 中間件 ---
+// --- Middleware ---
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// 確保上傳目錄存在
+// Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// 配置 Multer 用於文件上傳
+// Configure Multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadDir);
@@ -37,23 +37,26 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// 提供靜態文件服務（上傳的文件）
+// Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(uploadDir));
 
-// --- 路由 ---
-app.use('/api/protect', upload.single('file'), protectRoutes);
+
+// --- Routes ---
+// The 'upload.single('file')' middleware will process a single file uploaded under the 'file' field name.
+// It must be applied directly to the route that handles the upload.
+app.use('/api/protect', upload.single('file'), protectRoutes); 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/scans', scanRoutes);
 
-// 數據庫連接和服務器啟動
+// Database connection and server startup
 sequelize.sync().then(() => {
-    console.log('數據庫已連接並同步。');
+    console.log('Database connected and synchronized.');
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
-        console.log(`服務器運行在 http://0.0.0.0:${PORT}`);
+        console.log(`Server is ready and running on http://0.0.0.0:${PORT}`);
     });
 }).catch(err => {
-    console.error('無法連接到數據庫:', err);
+    console.error('Unable to connect to the database:', err);
 });
