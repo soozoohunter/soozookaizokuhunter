@@ -4,92 +4,51 @@ import { apiClient } from '../apiClient';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
-  min-height: 100vh;
-  padding: 4rem 2rem;
+  min-height: 100vh; padding: 4rem 2rem;
   background-color: ${({ theme }) => theme.colors.light.card};
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
 `;
-
 const Container = styled.div`
   background-color: ${({ theme }) => theme.colors.light.background};
-  width: 100%;
-  max-width: 700px;
-  padding: 2.5rem;
+  width: 100%; max-width: 700px; padding: 2.5rem;
   border-radius: ${({ theme }) => theme.borderRadius};
   border: 1px solid ${({ theme }) => theme.colors.light.border};
   box-shadow: ${({ theme }) => theme.shadows.main};
 `;
-
 const Title = styled.h2`
-  text-align: center;
-  margin-bottom: 1.5rem;
-  color: ${({ theme }) => theme.colors.light.text};
-  font-size: 2rem;
+  text-align: center; margin-bottom: 1.5rem;
+  color: ${({ theme }) => theme.colors.light.text}; font-size: 2rem;
 `;
-
 const InfoBlock = styled.div`
-  background-color: #f9fafb;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
+  background-color: #f9fafb; padding: 1.5rem;
+  border-radius: 8px; margin-bottom: 2rem;
 `;
-
 const InfoRow = styled.p`
-  margin: 0.8rem 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  margin: 0.8rem 0; display: flex; flex-wrap: wrap; align-items: baseline;
   strong {
-    color: #4b5563;
-    min-width: 180px;
-    flex-shrink: 0;
+    color: #4b5563; min-width: 180px; flex-shrink: 0;
   }
   span {
-    color: #1f2937;
-    font-family: 'Courier New', Courier, monospace;
+    color: #1f2937; font-family: 'Courier New', Courier, monospace;
     word-break: break-all;
   }
 `;
-
 const ButtonRow = styled.div`
-  text-align: center;
-  margin-top: 2rem;
+  text-align: center; margin-top: 2rem;
 `;
-
 const NextButton = styled.button`
-  background: ${({ theme }) => theme.colors.light.primary};
-  color: white;
-  border: none;
-  padding: 0.8rem 1.5rem;
-  font-size: 1rem;
-  font-weight: bold;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-left: 1rem;
+  background: ${({ theme }) => theme.colors.light.primary}; color: white; border: none;
+  padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: bold;
+  border-radius: 8px; cursor: pointer; margin-left: 1rem;
   transition: background-color 0.2s;
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.light.primaryHover};
-  }
+  &:hover { background-color: ${({ theme }) => theme.colors.light.primaryHover}; }
 `;
-
 const DownloadButton = styled.a`
-  display: inline-block;
-  padding: 0.8rem 1.5rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.light.primary};
-  background-color: transparent;
+  display: inline-block; padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: 600;
+  color: ${({ theme }) => theme.colors.light.primary}; background-color: transparent;
   border: 1px solid ${({ theme }) => theme.colors.light.primary};
-  border-radius: 8px;
-  text-decoration: none;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.light.secondary};
-  }
+  border-radius: 8px; text-decoration: none; transition: all 0.2s ease;
+  &:hover { background-color: ${({ theme }) => theme.colors.light.secondary}; }
 `;
 
 export default function ProtectStep2() {
