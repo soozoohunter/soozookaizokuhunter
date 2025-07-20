@@ -8,30 +8,59 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   File.init({
-    id: { allowNull: false, autoIncrement: true, primaryKey: true, type: DataTypes.INTEGER },
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      // [修正] 外鍵引用改為小寫 snake_case
-      references: { model: 'users', key: 'id' },
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
-    filename: DataTypes.STRING,
-    title: DataTypes.STRING,
-    keywords: DataTypes.TEXT,
+    filename: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    keywords: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    fingerprint: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    ipfs_hash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    tx_hash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.STRING,
+      defaultValue: 'pending',
+    },
     mime_type: DataTypes.STRING,
-    fingerprint: { type: DataTypes.STRING, unique: true },
-    ipfs_hash: DataTypes.STRING,
-    tx_hash: DataTypes.STRING,
+    size: DataTypes.INTEGER,
     thumbnail_path: DataTypes.STRING,
-    status: DataTypes.STRING,
-    report_url: DataTypes.STRING,
-    resultJson: DataTypes.JSONB,
+    certificate_path: DataTypes.STRING,
   }, {
     sequelize,
     modelName: 'File',
-    // [修正] 將資料表名稱改為小寫 snake_case
     tableName: 'files',
-    underscored: true,
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   });
   return File;
 };
