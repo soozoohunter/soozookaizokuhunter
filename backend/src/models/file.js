@@ -4,7 +4,9 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class File extends Model {
     static associate(models) {
+      // A file belongs to a user
       File.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
+      // A file can have many scans
       File.hasMany(models.Scan, { foreignKey: 'file_id', as: 'scans' });
     }
   }
@@ -20,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'users',
+        model: 'users', // table name should be lowercase
         key: 'id'
       }
     },
@@ -37,17 +39,17 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     fingerprint: {
-      type: DataTypes.STRING(64),
+      type: DataTypes.STRING(64), // SHA256 is 64 hex characters
       allowNull: false,
       unique: true
     },
     ipfs_hash: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true // Allow null in case IPFS fails
     },
     tx_hash: {
       type: DataTypes.STRING,
-      allowNull: true
+      allowNull: true // Allow null in case blockchain fails
     },
     status: {
       type: DataTypes.STRING,
@@ -58,7 +60,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     size: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.BIGINT, // Use BIGINT for file size
       allowNull: true
     },
     thumbnail_path: {
@@ -74,7 +76,7 @@ module.exports = (sequelize, DataTypes) => {
     modelName: 'File',
     tableName: 'files',
     timestamps: true,
-    underscored: true,
+    underscored: true, // This automatically converts camelCase field names to snake_case in the DB
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   });
