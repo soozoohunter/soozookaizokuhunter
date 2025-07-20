@@ -99,7 +99,7 @@ const LoginPage = () => {
         pathname: data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
       };
       
-      navigate(`${from.pathname}${from.search || ''}`, { replace: true });
+      navigate(from.pathname + (from.search || ''), { replace: true });
     } catch (err) {
       setError(err.message || '登入失敗，請檢查您的憑證。');
     }

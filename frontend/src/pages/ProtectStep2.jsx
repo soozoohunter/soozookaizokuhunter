@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiClient } from '../apiClient';
 import styled from 'styled-components';
 
 const PageWrapper = styled.div`
@@ -75,6 +76,24 @@ const NextButton = styled.button`
   }
 `;
 
+const DownloadButton = styled.a`
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.7rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.light.primary};
+  background-color: transparent;
+  border: 1px solid ${({ theme }) => theme.colors.light.primary};
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  &:hover {
+    background-color: ${({ theme }) => theme.colors.light.secondary};
+    color: ${({ theme }) => theme.colors.light.text};
+  }
+`;
+
 export default function ProtectStep2() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -103,6 +122,9 @@ export default function ProtectStep2() {
           <InfoRow><strong>數位指紋 (SHA-256):</strong> <span>{file.fingerprint}</span></InfoRow>
           <InfoRow><strong>IPFS 存證 Hash:</strong> <span>{file.ipfs_hash || 'N/A'}</span></InfoRow>
           <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.tx_hash || 'N/A'}</span></InfoRow>
+          <DownloadButton href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`} download>
+            下載原創著作證明書 (PDF)
+          </DownloadButton>
         </InfoBlock>
         <ButtonRow>
           <NextButton onClick={() => navigate('/protect/step3', { state: { scanId, file } })}>
