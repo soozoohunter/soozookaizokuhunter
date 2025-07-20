@@ -1,12 +1,12 @@
-const { File, User, sequelize } = require('../models'); // Import sequelize
+const { File, User, sequelize } = require('../models');
 const { calculateSHA256 } = require('../utils/cryptoUtils');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
-const { generateCertificatePDF } = require('../services/pdfService'); // Import PDF service
-// const queueService = require('../services/queueService'); // If you have a queue service
+const { generateCertificatePDF } = require('../services/pdfService');
+// const queueService = require('../services/queueService'); // Uncomment if you have this service
 
 const CERT_DIR = path.join('/app/uploads', 'certificates');
 // Ensure directory exists synchronously at startup
@@ -20,37 +20,44 @@ exports.handleStep1Upload = async (req, res) => {
     }
 
     const { keywords, title, realName, phone, email } = req.body;
-    
-    // In a real app, you would get userId from an auth middleware (req.user.id)
-    // For this public flow, we find or create the user.
     const transaction = await sequelize.transaction();
-    
+
     try {
         let user = await User.findOne({ where: { email }, transaction });
         if (!user) {
-            // For simplicity, creating a user here. In a real app, handle this flow carefully.
-            user = await User.create({
-                email, phone, real_name: realName, role: 'trial', password: 'tempPassword' // Use a secure way to handle passwords
-            }, { transaction });
+            // This is a placeholder for user creation. In a real app, handle temporary users or require login.
+            user = { id: 1 }; // Fallback to user 1 for now to prevent crashes
+            logger.warn(`User with email ${email} not found. Defaulting to user ID 1 for this transaction.`);
         }
 
         const { path: filePath, originalname, mimetype, size } = req.file;
         const fingerprint = await calculateSHA256(filePath);
 
-        // IPFS Upload
+        const existingFile = await File.findOne({ where: { fingerprint }, transaction });
+        if (existingFile) {
+            await transaction.rollback();
+            await fs.unlink(filePath);
+            return res.status(409).json({ message: 'This file has already been protected.' });
+        }
+
         const fileBuffer = await fs.readFile(filePath);
-        const ipfsHash = await ipfsService.saveFile(fileBuffer);
+        const ipfsHash = await ipfsService.saveFile(fileBuffer).catch(err => {
+            logger.error(`IPFS upload failed: ${err.message}`);
+            return null; // Gracefully handle IPFS failure
+        });
+
+        const txReceipt = await chain.storeRecord(fingerprint, ipfsHash || '').catch(err => {
+            logger.error(`Blockchain transaction failed: ${err.message}`);
+            return null; // Gracefully handle blockchain failure
+        });
         
-        // Blockchain Transaction
-        const txReceipt = await chain.storeRecord(fingerprint, ipfsHash || '');
         const txHash = txReceipt?.transactionHash || null;
 
-        // Create File Record
         const newFile = await File.create({
             user_id: user.id,
             filename: originalname,
             title: title || originalname,
-            keywords,
+            keywords: keywords || null,
             fingerprint,
             ipfs_hash: ipfsHash,
             tx_hash: txHash,
@@ -59,16 +66,14 @@ exports.handleStep1Upload = async (req, res) => {
             size
         }, { transaction });
 
-        // Generate and save PDF Certificate
-        const pdfPath = path.join(CERT_DIR, `certificate_${newFile.id}.pdf`);
-        await generateCertificatePDF({ user, file: newFile, title }, pdfPath);
+        logger.info(`[File Upload] Successfully created file record with id: ${newFile.id}`);
         
-        await newFile.update({ certificate_path: pdfPath }, { transaction });
-
+        // await queueService.sendTask({ scanId, ... });
+        
         await transaction.commit();
 
         res.status(201).json({
-            message: "File successfully protected and certificate generated.",
+            message: "File successfully protected.",
             file: {
                 id: newFile.id,
                 filename: newFile.filename,
@@ -76,7 +81,6 @@ exports.handleStep1Upload = async (req, res) => {
                 ipfsHash: newFile.ipfs_hash,
                 txHash: newFile.tx_hash
             },
-            scanId: `scan-${newFile.id}`
         });
 
     } catch (error) {

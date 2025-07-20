@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { apiClient } from '../apiClient';
 import styled from 'styled-components';
-import { apiClient } from '../apiClient'; // Ensure apiClient is imported
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -30,70 +30,65 @@ const Title = styled.h2`
 `;
 
 const InfoBlock = styled.div`
-  background: ${({ theme }) => theme.colors.light.card};
-  border: 1px solid ${({ theme }) => theme.colors.light.border};
-  border-radius: 8px;
+  background-color: ${({ theme }) => theme.colors.light.secondary};
   padding: 1.5rem;
+  border-radius: 8px;
   margin-bottom: 2rem;
 `;
 
 const InfoRow = styled.p`
-  margin: 1rem 0;
-  font-size: 0.95rem;
+  margin-bottom: 0.8rem;
   display: flex;
-  flex-wrap: wrap;
-  strong {
-    color: ${({ theme }) => theme.colors.light.textMuted};
-    display: inline-block;
-    width: 180px;
-    flex-shrink: 0;
-  }
   span {
     color: ${({ theme }) => theme.colors.light.text};
     font-family: 'Courier New', Courier, monospace;
     word-break: break-all;
+    flex-grow: 1;
+    margin-left: 1rem;
   }
 `;
 
 const ButtonRow = styled.div`
   text-align: center;
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
 
 const NextButton = styled.button`
-  background: ${({ theme }) => theme.colors.light.secondary};
-  color: ${({ theme }) => theme.colors.light.text};
-  border: 1px solid ${({ theme }) => theme.colors.light.primary};
-  box-shadow: 2px 2px 0px ${({ theme }) => theme.colors.light.primary};
+  background: ${({ theme }) => theme.colors.light.primary};
+  color: white;
+  border: none;
   padding: 0.8rem 1.5rem;
   font-size: 1rem;
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
+  margin-top: 1rem;
+  transition: background-color 0.2s;
 
   &:hover {
-    box-shadow: 4px 4px 0px ${({ theme }) => theme.colors.light.primary};
-    transform: translate(-2px, -2px);
+    background-color: ${({ theme }) => theme.colors.light.primaryHover};
   }
 `;
 
 // [★★ ADD THIS ★★] Style for the download button
 const DownloadButton = styled.a`
   display: inline-block;
-  margin-top: 1.5rem;
-  margin-right: 1rem;
   padding: 0.8rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
-  color: ${({ theme }) => theme.colors.light.primary};
-  background-color: transparent;
+  color: ${({ theme }) => theme.colors.light.text};
+  background-color: ${({ theme }) => theme.colors.light.secondary};
   border: 1px solid ${({ theme }) => theme.colors.light.primary};
   border-radius: 8px;
   text-decoration: none;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: ${({ theme }) => theme.colors.light.secondary};
-    color: ${({ theme }) => theme.colors.light.text};
+    background-color: ${({ theme }) => theme.colors.light.primary};
+    color: white;
   }
 `;
 
@@ -126,9 +121,9 @@ export default function ProtectStep2() {
         </InfoBlock>
         <ButtonRow>
           {/* [★★ ADD THIS ★★] Download link for the certificate */}
-          <DownloadButton 
-            href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`} 
-            download
+          <DownloadButton
+            href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`}
+            download={`原創著作證明書_${file.filename}.pdf`}
           >
             下載原創著作證明書 (PDF)
           </DownloadButton>
