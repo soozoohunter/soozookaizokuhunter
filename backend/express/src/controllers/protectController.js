@@ -1,4 +1,4 @@
-const { File, User, sequelize } = require('../models');
+const { File, Scan, User, sequelize } = require('../models');
 const { calculateSHA256 } = require('../utils/cryptoUtils');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
@@ -26,7 +26,7 @@ exports.handleStep1Upload = async (req, res) => {
         if (!user) {
             user = await User.findByPk(1, { transaction });
             if (!user) throw new Error("Default user with ID 1 not found.");
-            logger.warn(`User with email ${email} not found. Defaulting to user ID 1 for this transaction.`);
+            logger.warn(`User with email ${email} not found. Defaulting to user ID 1.`);
         }
 
         const { path: filePath, originalname, mimetype, size } = req.file;
