@@ -10,8 +10,8 @@ const auth = require('../middleware/auth');
  * Checks the status and result of a specific scan task.
  * This is the primary endpoint for the frontend to poll for scan results.
  */
-router.get('/status/:scanId', async (req, res) => {
-    // [關鍵修正] 將參數從 taskId 改為 scanId，以匹配前端的 API 呼叫
+// 新舊路徑兼容：/status/:scanId 與 /:scanId/status 皆可取得任務狀態
+async function getScanStatus(req, res) {
     const { scanId } = req.params;
 
     if (!scanId) {
@@ -54,7 +54,10 @@ router.get('/status/:scanId', async (req, res) => {
         logger.error(`[Scan Status API] Failed to get status for task ID ${scanId}:`, error);
         res.status(500).json({ error: 'Failed to retrieve scan status.' });
     }
-});
+}
+
+router.get('/status/:scanId', getScanStatus);
+router.get('/:scanId/status', getScanStatus);
 
 
 /**

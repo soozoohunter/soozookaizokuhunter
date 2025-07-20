@@ -3,13 +3,17 @@ const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
-const BING_API_KEY = process.env.BING_API_KEY;
+const BING_API_KEY = process.env.BING_API_KEY ? process.env.BING_API_KEY.trim() : '';
 const BING_ENDPOINT = process.env.BING_ENDPOINT;
 
 async function searchByBuffer(buffer) {
   if (!BING_API_KEY || !BING_ENDPOINT) {
     logger.warn('[Bing Service] BING_API_KEY or BING_ENDPOINT is not configured. Service disabled.');
     return { success: false, links: [], error: 'Bing API key or endpoint not configured.' };
+  }
+  if (!/^[A-Fa-f0-9]{32}$/.test(BING_API_KEY)) {
+    logger.error('[Bing Service] Invalid API key format.');
+    return { success: false, links: [], error: 'Invalid Bing API key format.' };
   }
   if (!buffer) {
     return { success: false, links: [], error: 'Invalid image buffer provided.' };
