@@ -1,17 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
-const { File } = require('../models');
+const fileController = require('../controllers/fileController');
 
-router.get('/:id/certificate', async (req, res) => {
-    try {
-        const file = await File.findByPk(req.params.id);
-        if (!file || !file.certificate_path) return res.status(404).end();
-        return res.sendFile(path.resolve(file.certificate_path));
-    } catch (err) {
-        res.status(500).json({ message: 'Failed to retrieve certificate.' });
-    }
-});
+// GET /api/files/:id/certificate
+router.get('/:id/certificate', fileController.downloadCertificate);
 
 module.exports = router;
