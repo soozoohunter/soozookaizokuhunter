@@ -2,8 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
 const protectRoutes = require('./routes/protectRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -18,14 +16,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const upload = multer({ dest: path.join(uploadDir, 'temp') });
-
-app.use('/uploads', express.static(uploadDir));
+const upload = multer({ dest: '/app/uploads/temp' });
 
 // --- Routes ---
 app.use('/api/protect', upload.single('file'), protectRoutes);
