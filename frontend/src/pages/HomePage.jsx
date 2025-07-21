@@ -158,7 +158,8 @@ const AccordionContent = styled.div`
   padding: 0 1rem 1rem 1rem;
   font-size: 0.95rem;
   line-height: 1.7;
-  color: #555;
+  /* [★★ UI UPDATE ★★] Change text color to dark orange */
+  color: #FF8C00;
   p strong {
       color: #D45398;
   }
