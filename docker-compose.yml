@@ -34,9 +34,15 @@ services:
     build:
       context: ./express
       dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
     command: node server.js
     env_file:
       - ./.env
+    environment:
+      - IPFS_API_URL=http://suzoo_ipfs:5001
+      - DB_CONN_RETRIES=10
+      - DB_CONN_RETRY_DELAY_MS=5000
     volumes:
       - ./express:/app
       - /app/node_modules # 保持匿名 volume 以隔離主機的 node_modules
@@ -58,7 +64,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 40s
+      start_period: 60s
     restart: unless-stopped
 
   suzoo_worker:
