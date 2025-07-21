@@ -131,8 +131,8 @@ const Header = () => {
         <NavLinks>
           <NavLink to="/solutions/ai-detection">核心功能</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
-          <NavLink to="/blog/post-1">相關資源</NavLink>
-          <NavLink to="/contact">關於我們</NavLink>
+          <NavLink to="/contact">聯絡我們</NavLink>
+          <NavLink to="/about">關於我們</NavLink>
         </NavLinks>
         <ActionButtons>
           <LoginLink to="/login">登入</LoginLink>
@@ -151,8 +151,8 @@ const Header = () => {
         <MobileMenu>
           <NavLink to="/solutions/ai-detection" onClick={() => setIsMenuOpen(false)}>核心功能</NavLink>
           <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
-          <NavLink to="/blog/post-1" onClick={() => setIsMenuOpen(false)}>相關資源</NavLink>
-          <NavLink to="/contact" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
+          <NavLink to="/contact" onClick={() => setIsMenuOpen(false)}>聯絡我們</NavLink>
+          <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
         </MobileMenu>
       )}
     </HeaderWrapper>

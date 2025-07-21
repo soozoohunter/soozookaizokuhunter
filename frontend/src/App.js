@@ -12,6 +12,7 @@ import AppLayout from './layouts/AppLayout';
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import ContactPage from './pages/ContactPage';
+import AboutPage from './pages/AboutPage';
 import BlogPostPage from './pages/BlogPostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -67,6 +68,7 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/about" element={<AboutPage />} />
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
                 <Route path="/protect/step1" element={<ProtectStep1 />} />
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
