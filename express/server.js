@@ -26,7 +26,7 @@ const adminRoutes = require('./routes/admin');
 const dashboardRoutes = require('./routes/dashboard');
 
 // Services
-const { init: initIpfs } = require('./services/ipfsService');
+const ipfsService = require('./services/ipfsService');
 
 // App & server initialization
 const app = express();
@@ -72,7 +72,7 @@ async function startServer() {
 
         // 1. Initialize IPFS service with limited retries
         try {
-            await initIpfs();
+            await ipfsService.init();
             logger.info('[ipfsService] IPFS initialized successfully');
         } catch (ipfsError) {
             logger.error('[ipfsService] IPFS initialization failed, proceeding without IPFS:', ipfsError);
