@@ -99,6 +99,7 @@ const RegisterPage = () => {
     const { login } = useContext(AuthContext);
 
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -119,7 +120,7 @@ const RegisterPage = () => {
         }
 
         try {
-            await apiClient.post('/auth/register', { email, password });
+            await apiClient.post('/auth/register', { email, phone, password });
             const loginData = await apiClient.post('/auth/login', { email, password });
             login(loginData.token, loginData.user);
 
@@ -147,6 +148,13 @@ const RegisterPage = () => {
                         placeholder="電子郵件"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
+                    <StyledInput
+                        type="tel"
+                        placeholder="手機號碼"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
                         required
                     />
                     <StyledInput
