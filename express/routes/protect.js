@@ -141,6 +141,25 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     const { path: tempFilePath } = req.file;
 
     try {
+        const fileBuffer = fs.readFileSync(tempFilePath);
+        const fingerprint = fingerprintService.sha256(fileBuffer);
+
+        const existingFile = await File.findOne({ where: { fingerprint }, transaction });
+        if (existingFile) {
+            await transaction.rollback();
+            // ★ 優化409響應，返回更多資訊 ★
+            return res.status(409).json({
+                message: 'This file has already been protected.',
+                file: {
+                    id: existingFile.id,
+                    filename: existingFile.filename,
+                    fingerprint: existingFile.fingerprint,
+                    ipfsHash: existingFile.ipfs_hash,
+                    txHash: existingFile.tx_hash
+                }
+            });
+        }
+        
         let user = await User.findOne({ where: { [Op.or]: [{ email }, { phone }] }, transaction });
         if (!user) {
             const tempPassword = Math.random().toString(36).slice(-8);
@@ -150,14 +169,6 @@ router.post('/step1', upload.single('file'), async (req, res) => {
             logger.info(`New user created: ${email}`);
         }
 
-        const fileBuffer = fs.readFileSync(tempFilePath);
-        const fingerprint = fingerprintService.sha256(fileBuffer);
-
-        const existingFile = await File.findOne({ where: { fingerprint }, transaction });
-        if (existingFile) {
-            await transaction.rollback();
-            return res.status(409).json({ message: 'This file has already been protected.' });
-        }
 
         const ipfsHash = await ipfsService.saveFile(fileBuffer).catch(e => {
             logger.error(`IPFS upload failed: ${e.message}`);
@@ -202,9 +213,9 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     } catch (error) {
         await transaction.rollback();
         logger.error(`[Protect Step1] Critical error: ${error.message}`, { stack: error.stack });
-        res.status(500).json({ message: 'Server error during file processing.' });
+        res.status(500).json({ message: `Server error during file processing: ${error.message}` });
     } finally {
-        if (tempFilePath) {
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
             fs.unlink(tempFilePath, (err) => {
                 if (err) logger.error(`[Cleanup] Failed to delete temp file: ${tempFilePath}`, err);
             });
@@ -212,73 +223,32 @@ router.post('/step1', upload.single('file'), async (req, res) => {
     }
 });
 
-// [ROUTE] Generate proof using simplified upload
-router.post('/generate-proof', upload.single('file'), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No file uploaded.' });
-  }
-
-  try {
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const fingerprint = fingerprintService.sha256(fileBuffer);
-
-    const existingFile = await File.findOne({ where: { fingerprint } });
-    if (existingFile) {
-      return res.status(409).json({
-        success: false,
-        error: 'This file has already been protected.',
-        proofId: existingFile.id
-      });
+// ★ 新增路由：獲取單一檔案資訊，讓前端頁面可被刷新 ★
+router.get('/file/:fileId', async (req, res) => {
+    try {
+        const file = await File.findByPk(req.params.fileId, {
+            attributes: ['id', 'filename', 'fingerprint', 'ipfs_hash', 'tx_hash', 'status']
+        });
+        if (!file) {
+            return res.status(404).json({ message: 'File not found.' });
+        }
+        // 將 snake_case 轉換為 camelCase
+        res.json({
+            id: file.id,
+            filename: file.filename,
+            fingerprint: file.fingerprint,
+            ipfsHash: file.ipfs_hash,
+            txHash: file.tx_hash,
+            status: file.status
+        });
+    } catch (error) {
+        logger.error(`Error fetching file info: ${error.message}`);
+        res.status(500).json({ message: 'Server error fetching file data.' });
     }
-
-    const ipfsHash = await ipfsService.saveFile(fileBuffer);
-    if (!ipfsHash) {
-      throw new Error('IPFS upload failed');
-    }
-
-    const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
-
-    const newFile = await File.create({
-      filename: req.file.originalname,
-      title: req.file.originalname.replace(/\.[^/.]+$/, ""),
-      fingerprint,
-      ipfs_hash: ipfsHash,
-      tx_hash: txReceipt?.transactionHash || null,
-      status: 'protected',
-      mime_type: req.file.mimetype,
-      size: req.file.size
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'File successfully protected.',
-      proofId: newFile.id,
-      file: {
-        id: newFile.id,
-        filename: newFile.filename,
-        fingerprint: newFile.fingerprint,
-        ipfsHash: newFile.ipfs_hash,
-        txHash: newFile.tx_hash
-      }
-    });
-
-  } catch (error) {
-    logger.error(`[Generate Proof] Error: ${error.message}`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Server error during file processing.',
-      details: error.message
-    });
-  } finally {
-    if (req.file?.path) {
-      fs.unlink(req.file.path, err => {
-        if (err) logger.error(`[Cleanup] Failed to delete temp file: ${req.file.path}`, err);
-      });
-    }
-  }
 });
 
-// [ROUTE 2] Certificate Download
+
+// [ROUTE] Certificate Download
 router.get('/certificates/:fileId', async (req, res) => {
     try {
         const fileId = req.params.fileId;
@@ -301,19 +271,23 @@ router.get('/certificates/:fileId', async (req, res) => {
 });
 
 
-// [ROUTE 3] Infringement Scan
-router.get('/scan/:fileId', async(req, res) => {
+// ★ 路由方法從 GET 改為 POST，更符合 RESTful 原則 ★
+router.post('/scan/:fileId', async(req, res) => {
     try {
         const fileId = req.params.fileId;
         const fileRec = await File.findByPk(fileId);
         if (!fileRec) {
-            return res.status(404).json({ error: 'File not found' });
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        if (!fileRec.ipfs_hash) {
+            return res.status(400).json({ message: 'File is not stored on IPFS, cannot perform scan.' });
         }
 
         // The temporary uploaded file is already deleted, so we need to get it from IPFS
         const fileBuffer = await ipfsService.getFile(fileRec.ipfs_hash);
         if (!fileBuffer) {
-            return res.status(500).json({ error: 'Could not retrieve file from IPFS for scanning.' });
+            return res.status(500).json({ message: 'Could not retrieve file from IPFS for scanning.' });
         }
 
         const report = await infringementScan({ buffer: fileBuffer });
@@ -329,18 +303,15 @@ router.get('/scan/:fileId', async(req, res) => {
             infringingLinks: uniqueLinks
         });
         
-        // In a real scenario, you'd generate a scan report PDF here as well.
-        // For now, we return the links directly.
         res.json({
-            message: 'Scan completed.',
+            message: 'Scan completed successfully.',
             suspiciousLinks: uniqueLinks,
         });
 
     } catch (e) {
         logger.error('[Scan Route] Error:', e);
-        res.status(500).json({ error: 'SCAN_ERROR', detail: e.message });
+        res.status(500).json({ message: 'An unexpected error occurred during the scan.', detail: e.message });
     }
 });
-
 
 module.exports = router;
