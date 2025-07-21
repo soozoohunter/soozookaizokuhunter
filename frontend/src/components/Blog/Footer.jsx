@@ -64,7 +64,8 @@ const Footer = () => {
       <FooterContainer>
         <BrandSection>
           <NavTitle>SUZOO IP Guard</NavTitle>
-          <p>100 台北市中正區金山南路一段77號2樓</p>
+          <p>100 台北市中山區泰順街40巷10弄5號</p>
+          <p>220新北市板橋區三民路二段153巷36弄3號2樓</p>
           <p>hey@suzookaikaikuhunter.com</p>
         </BrandSection>
         <NavSection>
