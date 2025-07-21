@@ -146,7 +146,6 @@ const RegisterPage = () => {
 
             await apiClient.post('/auth/register', payload);
             
-            // 註冊成功後，嘗試自動登入
             const loginData = await apiClient.post('/auth/login', { 
                 identifier: payload.email, 
                 password: payload.password 
@@ -161,7 +160,6 @@ const RegisterPage = () => {
               navigate('/dashboard', { replace: true });
             }
         } catch (err) {
-            // ★★★ 關鍵修正：顯示從後端來的、真實的錯誤訊息 ★★★
             if (err.response && err.response.data && err.response.data.message) {
                 setError(err.response.data.message);
             } else {
@@ -221,7 +219,8 @@ const RegisterPage = () => {
                     {error && <ErrorMsg>{error}</ErrorMsg>}
                     <SubmitButton type="submit" disabled={isLoading}>
                         {isLoading ? '處理中...' : '註冊'}
-                    </Button>
+                    </SubmitButton> 
+                    {/* ★★★ 關鍵修正：將 </Button> 改為 </SubmitButton> ★★★ */}
                     <p style={{ textAlign: 'center' }}>
                         已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
                     </p>
