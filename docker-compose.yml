@@ -51,12 +51,14 @@ services:
         condition: service_healthy
       suzoo_ganache:
         condition: service_healthy
+      suzoo_ipfs:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
     restart: unless-stopped
 
   suzoo_worker:
@@ -133,6 +135,11 @@ services:
       - ipfs_data:/data/ipfs
     networks:
       - suzoo-network
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     restart: unless-stopped
 
   suzoo_ganache:
