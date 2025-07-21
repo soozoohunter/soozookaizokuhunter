@@ -1,3 +1,4 @@
+// express/services/vision.service.js
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const logger = require('../utils/logger');
 const tinEyeService = require('./tineye.service');
@@ -60,7 +61,8 @@ async function searchByBuffer(buffer) {
     }
 }
 
-async function infringementScan(buffer) {
+// ★★★ 關鍵修正：將參數從 buffer 改為 { buffer } 以正確解構 ★★★
+async function infringementScan({ buffer }) {
     if (!buffer || buffer.length === 0) {
         throw new Error('Image buffer is required for infringement scan');
     }
