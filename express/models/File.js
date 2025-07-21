@@ -1,5 +1,7 @@
+// express/models/File.js
 'use strict';
 const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   class File extends Model {
     static associate(models) {
@@ -7,6 +9,7 @@ module.exports = (sequelize, DataTypes) => {
       File.hasMany(models.Scan, { foreignKey: 'file_id', as: 'scans' });
     }
   }
+  
   File.init({
     id: {
       type: DataTypes.INTEGER,
@@ -59,12 +62,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BIGINT,
       allowNull: true
     },
-    thumbnail_path: {
+    certificate_path: {
       type: DataTypes.STRING,
       allowNull: true
     },
-    certificate_path: {
-      type: DataTypes.STRING,
+    infringingLinks: {
+      type: DataTypes.JSONB,
       allowNull: true
     }
   }, {
@@ -76,5 +79,6 @@ module.exports = (sequelize, DataTypes) => {
     createdAt: 'created_at',
     updatedAt: 'updated_at'
   });
+  
   return File;
 };
