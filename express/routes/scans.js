@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../models');
 const logger = require('../utils/logger');
 const auth = require('../middleware/auth');
+const queueService = require('../services/queue.service');
 
 /**
  * GET /api/scans/status/:scanId
