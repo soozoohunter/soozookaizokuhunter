@@ -16,7 +16,7 @@ const { User, File, sequelize } = require('../models');
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
-const { infringementScan } = require('../services/visionService'); // Assuming this service exists
+const { infringementScan } = require('../services/vision.service');
 const logger = require('../utils/logger');
 
 
