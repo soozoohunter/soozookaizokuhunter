@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import FileUploadSection from '../components/FileUploadSection';
+import ConsoleStatus from '../components/ConsoleStatus';
 
 const PageSpacer = styled.div`
   min-height: 74px; /* Matches header height */
@@ -242,15 +244,18 @@ const HomePage = () => {
         </TwoColGrid>
       </LegalSection>
 
-      <FinalCTASection>
-        <HeroContainer>
-          <h2 style={{ fontSize: '2rem', fontWeight: '700' }}>準備好感受無懈可擊的保護了嗎？</h2>
-          <p style={{ maxWidth: '600px', lineHeight: '1.6', fontSize: '1.1rem' }}>查看我們的彈性方案，無論您是個人創作者還是大型企業，都能找到最適合您的保護計畫。</p>
-          <PrimaryButton to="/pricing">查看方案與價格</PrimaryButton>
-        </HeroContainer>
-      </FinalCTASection>
-    </>
-  );
-};
+        <FinalCTASection>
+          <HeroContainer>
+            <h2 style={{ fontSize: '2rem', fontWeight: '700' }}>準備好感受無懈可擊的保護了嗎？</h2>
+            <p style={{ maxWidth: '600px', lineHeight: '1.6', fontSize: '1.1rem' }}>查看我們的彈性方案，無論您是個人創作者還是大型企業，都能找到最適合您的保護計畫。</p>
+            <PrimaryButton to="/pricing">查看方案與價格</PrimaryButton>
+          </HeroContainer>
+        </FinalCTASection>
+
+        <FileUploadSection />
+        <ConsoleStatus />
+      </>
+    );
+  };
 
 export default HomePage;

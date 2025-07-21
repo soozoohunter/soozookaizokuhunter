@@ -1,0 +1,50 @@
+.console-status {
+  background-color: #111827;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 2rem;
+  font-family: monospace;
+}
+
+.console-header {
+  border-bottom: 1px solid #374151;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.console-header h3 {
+  color: #D1D5DB;
+  font-size: 1rem;
+}
+
+.status-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.status-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #2D3748;
+}
+
+.status-checkbox {
+  margin-right: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.status-message {
+  color: #9CA3AF;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.status-item.error .status-message {
+  color: #F87171;
+}
+
+.status-item.warning .status-message {
+  color: #FBBF24;
+}
