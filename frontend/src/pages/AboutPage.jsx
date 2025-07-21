@@ -78,7 +78,7 @@ export default function AboutPage() {
             <TeamMember>
               <MemberName>姚騰凱Zack Yao</MemberName>
               <MemberRole>創始人兼 CEO</MemberRole>
-              <p>前 Google 安全工程師，擁有 10 年區塊鏈經驗</p>
+              <p>台灣香港律師 台北大學法律系畢業 Université de Montréal法律學院畢業 擁有十年著作財產權經驗</p>
             </TeamMember>
             <TeamMember>
               <MemberName>李思穎</MemberName>
