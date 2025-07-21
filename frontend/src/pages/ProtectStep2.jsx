@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiClient } from '../apiClient';
 import styled from 'styled-components';
@@ -37,11 +37,15 @@ const ButtonRow = styled.div`
   text-align: center; margin-top: 2rem;
 `;
 const NextButton = styled.button`
-  background: ${({ theme }) => theme.colors.light.primary}; color: white; border: none;
+  background: ${({ theme, disabled }) => disabled ? '#9ca3af' : theme.colors.light.primary};
+  color: white; border: none;
   padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: bold;
-  border-radius: 8px; cursor: pointer; margin-left: 1rem;
+  border-radius: 8px; cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
+  margin-left: 1rem;
   transition: background-color 0.2s;
-  &:hover { background-color: ${({ theme }) => theme.colors.light.primaryHover}; }
+  &:hover { 
+    background-color: ${({ theme, disabled }) => !disabled && theme.colors.light.primaryHover}; 
+  }
 `;
 const DownloadButton = styled.a`
   display: inline-block; padding: 0.8rem 1.5rem; font-size: 1rem; font-weight: 600;
@@ -51,45 +55,85 @@ const DownloadButton = styled.a`
   &:hover { background-color: ${({ theme }) => theme.colors.light.secondary}; }
 `;
 
+const ErrorMessage = styled.p`
+  text-align: center;
+  color: #ef4444;
+  margin-top: 1rem;
+`;
+
 export default function ProtectStep2() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { file, scanId } = location.state?.step1Data || {};
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { file } = location.state?.step1Data || {};
 
-  useEffect(() => {
-    if (!file) {
-      alert('找不到上一步的資料，將返回第一步。');
-      navigate('/protect/step1');
-    }
-  }, [file, navigate]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
 
-  if (!file) return null;
+    useEffect(() => {
+        if (!file) {
+            alert('找不到上一步的資料，將返回第一步。');
+            navigate('/protect/step1');
+        }
+    }, [file, navigate]);
 
-  return (
-    <PageWrapper>
-      <Container>
-        <Title>Step 2: 原創著作證明</Title>
-        <p style={{ textAlign: 'center', color: '#6B7280', marginBottom: '1.5rem' }}>
-          您的檔案已成功上傳，並產生了唯一的數位指紋存證於區塊鏈上。
-        </p>
-        <InfoBlock>
-          <InfoRow><strong>檔案名稱:</strong> <span>{file.filename}</span></InfoRow>
-          <InfoRow><strong>數位指紋 (SHA-256):</strong> <span>{file.fingerprint}</span></InfoRow>
-          <InfoRow><strong>IPFS 存證 Hash:</strong> <span>{file.ipfsHash || 'N/A'}</span></InfoRow>
-          <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.txHash || 'N/A'}</span></InfoRow>
-        </InfoBlock>
-        <ButtonRow>
-          <DownloadButton
-            href={`${apiClient.defaults.baseURL}/files/${file.id}/certificate`}
-            download
-          >
-            下載原創著作證明書 (PDF)
-          </DownloadButton>
-          <NextButton onClick={() => navigate('/protect/step3', { state: { scanId, file } })}>
-            下一步：啟動 AI 全網掃描 →
-          </NextButton>
-        </ButtonRow>
-      </Container>
-    </PageWrapper>
-  );
+    const handleScan = async () => {
+        if (!file?.id) {
+            setError('檔案 ID 遺失，無法啟動掃描。');
+            return;
+        }
+        setIsLoading(true);
+        setError('');
+        try {
+            // ★ 改為 POST 請求，並先執行 API 呼叫 ★
+            const response = await apiClient.post(`/protect/scan/${file.id}`);
+            
+            // ★ 成功後再導航，並將掃描結果傳遞到下一步 ★
+            navigate('/protect/step3', { 
+                state: { 
+                    file, 
+                    scanResult: response.data 
+                } 
+            });
+
+        } catch (err) {
+            const errorMessage = err.response?.data?.message || '啟動掃描時發生未知的錯誤。';
+            setError(errorMessage);
+            logger.error('Scan initiation failed:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (!file) return null;
+
+    return (
+        <PageWrapper>
+            <Container>
+                <Title>Step 2: 原創著作證明</Title>
+                <p style={{ textAlign: 'center', color: '#6B7280', marginBottom: '1.5rem' }}>
+                    您的檔案已成功上傳，並產生了唯一的數位指紋存證於區塊鏈上。
+                </p>
+                <InfoBlock>
+                    <InfoRow><strong>檔案名稱:</strong> <span>{file.filename}</span></InfoRow>
+                    <InfoRow><strong>數位指紋 (SHA-256):</strong> <span>{file.fingerprint}</span></InfoRow>
+                    <InfoRow><strong>IPFS 存證 Hash:</strong> <span>{file.ipfsHash || 'N/A'}</span></InfoRow>
+                    <InfoRow><strong>區塊鏈交易 Hash:</strong> <span>{file.txHash || 'N/A'}</span></InfoRow>
+                </InfoBlock>
+                
+                {error && <ErrorMessage>{error}</ErrorMessage>}
+
+                <ButtonRow>
+                    <DownloadButton
+                        href={`${apiClient.defaults.baseURL}/protect/certificates/${file.id}`}
+                        download
+                    >
+                        下載原創著作證明書 (PDF)
+                    </DownloadButton>
+                    <NextButton onClick={handleScan} disabled={isLoading}>
+                        {isLoading ? '掃描中...' : '下一步：啟動 AI 全網掃描 →'}
+                    </NextButton>
+                </ButtonRow>
+            </Container>
+        </PageWrapper>
+    );
 }
