@@ -29,6 +29,7 @@ nginx.log
 /node_modules
 /frontend/node_modules
 /express/node_modules
+/api_service/node_modules
 
 
 # ### 建置產物與快取 (Build Artifacts & Cache) ###

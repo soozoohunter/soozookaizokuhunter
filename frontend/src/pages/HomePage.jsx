@@ -142,6 +142,8 @@ const AccordionHeader = styled.button`
   text-align: left;
   font-size: 1rem;
   font-weight: 600;
+  /* [★★ UI UPDATE ★★] Apply dark orange color to header text */
+  color: #FF8C00;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
