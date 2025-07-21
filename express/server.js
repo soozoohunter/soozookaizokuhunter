@@ -23,6 +23,7 @@ const protectRoutes = require('./routes/protect');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/admin');
 const dashboardRoutes = require('./routes/dashboard');
+const scansRoutes = require('./routes/scans'); // ★ 導入新的 scans 路由
 
 // Services
 const ipfsService = require('./services/ipfsService');
@@ -47,6 +48,7 @@ app.use('/api/protect', protectRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/scans', scansRoutes); // ★ 掛載新的 scans 路由
 
 // ★ 新增區塊鏈專用健康檢查端點 ★
 app.get('/blockchain-health', async (req, res) => {

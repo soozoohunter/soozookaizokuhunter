@@ -10,13 +10,13 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 
 // Models
-const { User, File, sequelize } = require('../models');
+const { User, File, Scan, sequelize } = require('../models'); // ★ 引入 Scan 模型
 
 // Services & Utils
 const fingerprintService = require('../services/fingerprintService');
 const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
-const { infringementScan } = require('../services/vision.service');
+const queueService = require('../services/queue.service'); // ★ 引入 queueService
 const logger = require('../utils/logger');
 const multer = require('multer');
 
@@ -271,46 +271,52 @@ router.get('/certificates/:fileId', async (req, res) => {
 });
 
 
-// ★ 路由方法從 GET 改為 POST，更符合 RESTful 原則 ★
-router.post('/scan/:fileId', async(req, res) => {
+// ★★★ 關鍵修改：新增派發掃描任務的路由 ★★★
+router.post('/:fileId/dispatch-scan', async (req, res) => {
+    const { fileId } = req.params;
+    if (!fileId) {
+        return res.status(400).json({ message: 'File ID is required.' });
+    }
+
     try {
-        const fileId = req.params.fileId;
-        const fileRec = await File.findByPk(fileId);
-        if (!fileRec) {
-            return res.status(404).json({ message: 'File not found' });
+        const file = await File.findByPk(fileId);
+        if (!file) {
+            return res.status(404).json({ message: 'File not found.' });
         }
 
-        if (!fileRec.ipfs_hash) {
-            return res.status(400).json({ message: 'File is not stored on IPFS, cannot perform scan.' });
-        }
-
-        // The temporary uploaded file is already deleted, so we need to get it from IPFS
-        const fileBuffer = await ipfsService.getFile(fileRec.ipfs_hash);
-        if (!fileBuffer) {
-            return res.status(500).json({ message: 'Could not retrieve file from IPFS for scanning.' });
-        }
-
-        const report = await infringementScan({ buffer: fileBuffer });
-        
-        const allLinks = [];
-        if (report.tineye?.success) allLinks.push(...report.tineye.links);
-        if (report.vision?.success) allLinks.push(...report.vision.links);
-
-        const uniqueLinks = [...new Set(allLinks)];
-
-        await fileRec.update({
-            status: 'scanned',
-            infringingLinks: uniqueLinks
-        });
-        
-        res.json({
-            message: 'Scan completed successfully.',
-            suspiciousLinks: uniqueLinks,
+        // 1. 在資料庫中建立新的掃描紀錄，狀態為 pending
+        const scan = await Scan.create({
+            file_id: file.id,
+            user_id: file.user_id,
+            status: 'pending',
+            progress: 5
         });
 
-    } catch (e) {
-        logger.error('[Scan Route] Error:', e);
-        res.status(500).json({ message: 'An unexpected error occurred during the scan.', detail: e.message });
+        // 2. 將掃描任務發送到佇列
+        await queueService.sendToQueue({
+            scanId: scan.id,
+            fileId: file.id,
+            userId: file.user_id,
+            ipfsHash: file.ipfs_hash,
+            fingerprint: file.fingerprint,
+            keywords: file.keywords,
+        });
+
+        logger.info(`[Dispatch] Scan task ${scan.id} for file ${file.id} has been dispatched.`);
+
+        // 3. 回傳 scanId 及檔案資訊
+        res.status(202).json({
+            message: 'Scan task dispatched successfully.',
+            scanId: scan.id,
+            file: {
+                id: file.id,
+                filename: file.filename,
+            },
+        });
+
+    } catch (error) {
+        logger.error(`[Dispatch] Failed to dispatch scan for file ${fileId}:`, error);
+        res.status(500).json({ message: 'Failed to dispatch scan task.' });
     }
 });
 
