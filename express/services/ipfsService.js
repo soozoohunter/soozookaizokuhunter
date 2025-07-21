@@ -12,9 +12,8 @@ class IpfsService {
       const host = process.env.IPFS_HOST || 'suzoo_ipfs';
       const port = parseInt(process.env.IPFS_PORT || '5001', 10);
       const protocol = process.env.IPFS_PROTOCOL || 'http';
-      this.client = create({ host, port, protocol });
+      this.client = create({ host, port, protocol, timeout: 30000 });
       logger.info(`[ipfsService] IPFS client configured for ${protocol}://${host}:${port}`);
-      logger.info('[ipfsService] init => client created.');
     } catch (error) {
       logger.error('[ipfsService] Failed to initialize IPFS client:', error);
       this.client = null;
@@ -28,11 +27,10 @@ class IpfsService {
     }
     try {
       logger.info(`[ipfsService.saveFile] buffer length=${buffer.length}`);
-      const result = await this.client.add(buffer);
-      logger.debug(`[ipfsService.saveFile] raw add result: ${JSON.stringify(result)}`);
+      const result = await this.client.add(buffer, { pin: true, timeout: 60000 });
       let cidStr = '';
       if (result.cid) {
-        cidStr = result.cid.toString ? result.cid.toString() : String(result.cid);
+        cidStr = result.cid.toString();
       } else if (result.Hash) {
         cidStr = result.Hash;
       } else if (result.path) {
@@ -58,19 +56,23 @@ class IpfsService {
       logger.error('[ipfsService.getFile] CID is missing or undefined.');
       return null;
     }
-    logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
     try {
-      const chunks = [];
+      logger.info(`[ipfsService.getFile] Fetching CID: ${cid}`);
+      const content = [];
       for await (const chunk of this.client.cat(cid)) {
-        chunks.push(chunk);
+        content.push(chunk);
       }
-      const fileBuffer = Buffer.concat(chunks);
+      const fileBuffer = Buffer.concat(content);
       logger.info(`[ipfsService.getFile] Successfully fetched ${fileBuffer.length} bytes for CID: ${cid}`);
       return fileBuffer;
     } catch (error) {
       logger.error(`[ipfsService.getFile] Error getting file from IPFS for CID ${cid}:`, error);
       return null;
     }
+  }
+
+  getClient() {
+    return this.client;
   }
 }
 
