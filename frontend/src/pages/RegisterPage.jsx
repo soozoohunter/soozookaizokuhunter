@@ -1,12 +1,9 @@
-// frontend/src/pages/RegisterPage.jsx
-
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiClient } from '../apiClient';
 import { AuthContext } from '../AuthContext';
 
-// --- Styled Components (與您提供版本相同，無需修改) ---
 const PageWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -16,6 +13,7 @@ const PageWrapper = styled.div`
   min-height: 100vh;
   background-color: ${({ theme }) => theme.colors.dark.background};
 `;
+
 const BackButton = styled.button`
   position: absolute;
   top: 2rem;
@@ -31,6 +29,7 @@ const BackButton = styled.button`
     color: ${({ theme }) => theme.colors.dark.text};
   }
 `;
+
 const FormContainer = styled.div`
   padding: 2.5rem;
   background: ${({ theme }) => theme.colors.dark.card};
@@ -41,17 +40,20 @@ const FormContainer = styled.div`
   max-width: 420px;
   color: ${({ theme }) => theme.colors.dark.text};
 `;
+
 const Title = styled.h2`
   text-align: center;
   color: ${({ theme }) => theme.colors.dark.accent};
   margin-bottom: 2rem;
   font-size: 2rem;
 `;
+
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 `;
+
 const StyledInput = styled.input`
   padding: 0.8rem 1rem;
   border: 1px solid ${({ theme }) => theme.colors.dark.border};
@@ -60,25 +62,29 @@ const StyledInput = styled.input`
   color: ${({ theme }) => theme.colors.dark.text};
   font-size: 1rem;
 `;
+
 const SubmitButton = styled.button`
   padding: 0.8rem 1rem;
-  background-color: ${({ theme }) => theme.colors.dark.primary};
+  background-color: ${({ theme, disabled }) => disabled ? '#555' : theme.colors.dark.primary};
   color: white;
   border: none;
   border-radius: 8px;
-  cursor: pointer;
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
   font-size: 1rem;
   font-weight: bold;
   transition: background-color 0.2s;
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: ${({ theme }) => theme.colors.dark.primaryHover};
   }
 `;
+
 const ErrorMsg = styled.p`
   color: #F87171;
   text-align: center;
   margin: 0;
+  min-height: 1.2em;
 `;
+
 const SwitchLink = styled(Link)`
   color: ${({ theme }) => theme.colors.dark.primary};
   text-decoration: none;
@@ -86,18 +92,21 @@ const SwitchLink = styled(Link)`
     text-decoration: underline;
   }
 `;
-// --- End of Styled Components ---
 
 const RegisterPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { login } = useContext(AuthContext);
 
-    const [email, setEmail] = useState('');
-    const [phone, setPhone] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [formData, setFormData] = useState({
+        realName: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: ''
+    });
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const from = location.state?.from?.pathname;
     const redirectState = location.state;
@@ -106,33 +115,40 @@ const RegisterPage = () => {
         document.title = '註冊 - SUZOO IP Guard';
     }, []);
 
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (password !== confirmPassword) {
+        setIsLoading(true);
+
+        if (formData.password !== formData.confirmPassword) {
             setError('兩次輸入的密碼不一致。');
+            setIsLoading(false);
             return;
         }
 
         try {
-            // ★★★ 關鍵修正：在發送前修剪字串，去除前後空格 ★★★
             const payload = {
-                email: email.trim(),
-                phone: phone.trim(),
-                password: password // 密碼通常不建議 trim
+                realName: formData.realName.trim(),
+                email: formData.email.trim(),
+                phone: formData.phone.trim(),
+                password: formData.password
             };
-            
-            // 確保手機號碼不為空
-            if (!payload.phone) {
-                setError('手機號碼為必填項。');
+
+            if (!payload.realName || !payload.email || !payload.phone || !payload.password) {
+                setError('所有欄位皆為必填項。');
+                setIsLoading(false);
                 return;
             }
 
             await apiClient.post('/auth/register', payload);
-
-            // 註冊成功後自動登入
+            
+            // 註冊成功後，嘗試自動登入
             const loginData = await apiClient.post('/auth/login', { 
-                identifier: payload.email, // 使用修剪過的 email
+                identifier: payload.email, 
                 password: payload.password 
             });
             login(loginData.token, loginData.user);
@@ -145,8 +161,14 @@ const RegisterPage = () => {
               navigate('/dashboard', { replace: true });
             }
         } catch (err) {
-            // 優先使用後端回傳的錯誤訊息
-            setError(err.response?.data?.message || err.message || '註冊失敗，此電子郵件或手機可能已被使用。');
+            // ★★★ 關鍵修正：顯示從後端來的、真實的錯誤訊息 ★★★
+            if (err.response && err.response.data && err.response.data.message) {
+                setError(err.response.data.message);
+            } else {
+                setError('註冊時發生未預期的錯誤，請稍後再試。');
+            }
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -157,35 +179,49 @@ const RegisterPage = () => {
                 <Title>建立您的保護網</Title>
                 <StyledForm onSubmit={handleSubmit}>
                     <StyledInput
+                        name="realName"
+                        type="text"
+                        placeholder="暱稱"
+                        value={formData.realName}
+                        onChange={handleChange}
+                        required
+                    />
+                    <StyledInput
+                        name="email"
                         type="email"
                         placeholder="電子郵件"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={formData.email}
+                        onChange={handleChange}
                         required
                     />
                     <StyledInput
+                        name="phone"
                         type="tel"
-                        placeholder="手機號碼 (格式：0912345678)"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="手機號碼"
+                        value={formData.phone}
+                        onChange={handleChange}
                         required
                     />
                     <StyledInput
+                        name="password"
                         type="password"
                         placeholder="密碼"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        value={formData.password}
+                        onChange={handleChange}
                         required
                     />
                     <StyledInput
+                        name="confirmPassword"
                         type="password"
                         placeholder="確認密碼"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
                         required
                     />
                     {error && <ErrorMsg>{error}</ErrorMsg>}
-                    <SubmitButton type="submit">註冊</SubmitButton>
+                    <SubmitButton type="submit" disabled={isLoading}>
+                        {isLoading ? '處理中...' : '註冊'}
+                    </Button>
                     <p style={{ textAlign: 'center' }}>
                         已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
                     </p>
