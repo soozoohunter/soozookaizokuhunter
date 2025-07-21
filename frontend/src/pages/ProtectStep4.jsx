@@ -121,9 +121,25 @@ export default function ProtectStep4() {
       navigate('/protect/step1');
       return;
     }
-    const allLinks =
-      scanResults.platforms?.flatMap(p => p.results.map(r => r.url)) || [];
-    setInfringingLinks(allLinks);
+
+    // ★★★ 關鍵修正：採用新的邏輯來解析後端回傳的 scanResults ★★★
+    let collectedLinks = [];
+
+    // 檢查 scanResults.results 物件是否存在
+    if (scanResults && scanResults.results) {
+      // 遍歷所有掃描來源 (例如 'tineye', 'vision' 等)
+      Object.values(scanResults.results).forEach(sourceResult => {
+        // 檢查該來源是否成功，並且回傳了 links 陣列
+        if (sourceResult && sourceResult.success && Array.isArray(sourceResult.links)) {
+          collectedLinks.push(...sourceResult.links);
+        }
+      });
+    }
+
+    // 移除重複的連結並更新到 state
+    const uniqueLinks = [...new Set(collectedLinks)];
+    setInfringingLinks(uniqueLinks);
+
   }, [scanResults, fileInfo, navigate]);
 
   const handleTakedown = async url => {
@@ -170,27 +186,33 @@ export default function ProtectStep4() {
         <p>
           您的原始檔案：<strong>{fileInfo.filename}</strong>
         </p>
-        <p>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</p>
-
-        <LinkList>
-          {infringingLinks.map((link, index) => (
-            <LinkItem key={index}>
-              <LinkUrl href={link} target="_blank" rel="noopener noreferrer">
-                {link}
-              </LinkUrl>
-              {user && (
-                <TakedownButton
-                  onClick={() => handleTakedown(link)}
-                  disabled={takedownStatus[link]?.status === 'success'}
-                >
-                  {takedownStatus[link]
-                    ? takedownStatus[link].message
-                    : '發送 DMCA 申訴'}
-                </TakedownButton>
-              )}
-            </LinkItem>
-          ))}
-        </LinkList>
+        
+        {infringingLinks.length > 0 ? (
+          <>
+            <p>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</p>
+            <LinkList>
+              {infringingLinks.map((link, index) => (
+                <LinkItem key={index}>
+                  <LinkUrl href={link} target="_blank" rel="noopener noreferrer">
+                    {link}
+                  </LinkUrl>
+                  {user && (
+                    <TakedownButton
+                      onClick={() => handleTakedown(link)}
+                      disabled={takedownStatus[link]?.status === 'success'}
+                    >
+                      {takedownStatus[link]
+                        ? takedownStatus[link].message
+                        : '發送 DMCA 申訴'}
+                    </TakedownButton>
+                  )}
+                </LinkItem>
+              ))}
+            </LinkList>
+          </>
+        ) : (
+          <p>太棒了！AI 掃描目前未在網路上發現疑似侵權的內容。</p>
+        )}
 
         {!user && (
           <AuthActionBlock>
