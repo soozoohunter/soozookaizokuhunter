@@ -160,7 +160,6 @@ const RegisterPage = () => {
               navigate('/dashboard', { replace: true });
             }
         } catch (err) {
-            // ★★★ 關鍵修正：優先顯示後端傳來的錯誤訊息 ★★★
             if (err.response && err.response.data && err.response.data.message) {
                 setError(err.response.data.message);
             } else {
@@ -220,7 +219,8 @@ const RegisterPage = () => {
                     {error && <ErrorMsg>{error}</ErrorMsg>}
                     <SubmitButton type="submit" disabled={isLoading}>
                         {isLoading ? '處理中...' : '註冊'}
-                    </Button>
+                    </SubmitButton>
+                    {/* ★★★ 這裡就是錯誤點，已修正 ★★★ */}
                     <p style={{ textAlign: 'center' }}>
                         已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
                     </p>
