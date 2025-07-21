@@ -1,4 +1,5 @@
-// express/routes/authRoutes.js (最終版)
+// express/routes/authRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -11,7 +12,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-    const { email, password, phone } = req.body;
+    // ★★★ 關鍵修正：在後端也修剪收到的資料 ★★★
+    const email = req.body.email ? req.body.email.trim() : '';
+    const phone = req.body.phone ? req.body.phone.trim() : '';
+    const password = req.body.password;
 
     if (!email || !password || !phone) {
         return res.status(400).json({ message: 'Email、密碼和手機號碼為必填項。' });
@@ -33,9 +37,12 @@ router.post('/register', async (req, res) => {
             logger.error('[Register] CRITICAL: free_trial plan not found in database.');
             return res.status(500).json({ message: '伺服器設定錯誤：找不到預設方案。' });
         }
-
+        
+        // 使用修剪過的資料來建立使用者
         const newUser = await User.create({
-            ...req.body,
+            ...req.body, // 依然可以展開 body 以接收 real_name 等選填欄位
+            email: email,
+            phone: phone,
             username: phone, // 使用手機作為預設 username
             password: hashedPassword,
             role: 'user',
@@ -60,12 +67,19 @@ router.post('/register', async (req, res) => {
         res.status(201).json({ message: '註冊成功！請前往登入。' });
 
     } catch (error) {
+        // 現在，如果格式真的錯誤，Sequelize 的錯誤訊息會更有用
         logger.error('[Register] Error:', { message: error.message, original: error.original?.message });
+        
+        // 如果是 Sequelize 的驗證錯誤，將其訊息回傳給前端
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({ message: error.errors[0].message });
+        }
+        
         res.status(500).json({ message: '伺服器註冊時發生錯誤。' });
     }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login (與您提供版本相同，無需修改)
 router.post('/login', async (req, res) => {
     const { identifier, password } = req.body;
     
