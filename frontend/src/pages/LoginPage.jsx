@@ -47,16 +47,16 @@ const StyledInput = styled.input`
 
 const SubmitButton = styled.button`
   padding: 0.8rem 1rem;
-  background-color: ${({ theme }) => theme.colors.dark.primary};
+  background-color: ${({ theme, disabled }) => disabled ? '#555' : theme.colors.dark.primary};
   color: white;
   border: none;
   border-radius: 8px;
-  cursor: pointer;
+  cursor: ${({ disabled }) => disabled ? 'not-allowed' : 'pointer'};
   font-size: 1rem;
   font-weight: bold;
   transition: background-color 0.2s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: ${({ theme }) => theme.colors.dark.primaryHover};
   }
 `;
@@ -65,6 +65,7 @@ const ErrorMsg = styled.p`
   color: #F87171;
   text-align: center;
   margin: 0;
+  min-height: 1.2em;
 `;
 
 const SwitchLink = styled(Link)`
@@ -79,9 +80,10 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useContext(AuthContext);
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // ★ 改名為 identifier
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     document.title = '登入 - SUZOO IP Guard';
@@ -90,18 +92,25 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
-      const data = await apiClient.post('/auth/login', { email, password });
+      // ★★★ 關鍵修正：將發送的欄位從 {email, password} 改為 {identifier, password} ★★★
+      const data = await apiClient.post('/auth/login', { identifier: identifier.trim(), password });
       login(data.token, data.user);
       
-      // 统一处理重定向逻辑
       const from = location.state?.from || {
         pathname: data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
       };
       
       navigate(from.pathname + (from.search || ''), { replace: true });
     } catch (err) {
-      setError(err.message || '登入失敗，請檢查您的憑證。');
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('登入失敗，請檢查您的憑證。');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -111,10 +120,10 @@ const LoginPage = () => {
         <Title>登入您的帳戶</Title>
         <StyledForm onSubmit={handleSubmit}>
           <StyledInput
-            type="email"
-            placeholder="電子郵件"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            placeholder="電子郵件或手機號碼" // 提示文字更精確
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
           <StyledInput
@@ -125,7 +134,9 @@ const LoginPage = () => {
             required
           />
           {error && <ErrorMsg>{error}</ErrorMsg>}
-          <SubmitButton type="submit">登入</SubmitButton>
+          <SubmitButton type="submit" disabled={isLoading}>
+            {isLoading ? '登入中...' : '登入'}
+          </SubmitButton>
           <p style={{ textAlign: 'center' }}>
             還沒有帳號嗎？ <SwitchLink to="/register">立即註冊</SwitchLink>
           </p>
