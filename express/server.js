@@ -57,8 +57,31 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+    try {
+        await db.sequelize.authenticate();
+
+        const ipfs = ipfsService.getClient();
+        if (!ipfs) {
+            throw new Error('IPFS client not initialized');
+        }
+        await ipfs.version();
+
+        res.status(200).json({
+            status: 'OK',
+            timestamp: new Date().toISOString(),
+            database: 'connected',
+            ipfs: 'connected'
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'ERROR',
+            timestamp: new Date().toISOString(),
+            error: error.message,
+            database: 'disconnected',
+            ipfs: ipfsService.getClient() ? 'connected' : 'disconnected'
+        });
+    }
 });
 
 const PORT = process.env.EXPRESS_PORT || 3000;

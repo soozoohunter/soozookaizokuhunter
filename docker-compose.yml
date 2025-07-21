@@ -43,6 +43,7 @@ services:
       - IPFS_API_URL=http://suzoo_ipfs:5001
       - DB_CONN_RETRIES=10
       - DB_CONN_RETRY_DELAY_MS=5000
+      - MAX_FILE_SIZE=104857600 # 100MB
     volumes:
       - ./express:/app
       - /app/node_modules # 保持匿名 volume 以隔離主機的 node_modules

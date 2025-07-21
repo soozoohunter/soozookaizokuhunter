@@ -18,7 +18,27 @@ const ipfsService = require('../services/ipfsService');
 const chain = require('../utils/chain');
 const { infringementScan } = require('../services/vision.service');
 const logger = require('../utils/logger');
+const multer = require('multer');
 
+// --- Multer configuration ---
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const tempDir = path.join('/app/uploads', 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    cb(null, tempDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 100 * 1024 * 1024 }
+});
 
 // --- Directory Setup ---
 const UPLOAD_BASE_DIR = path.resolve('/app/uploads');
@@ -107,7 +127,7 @@ async function generateCertificatePDF(data, outputPath) {
 // --- Route Handlers ---
 
 // [ROUTE 1] File Upload and Certificate Generation
-router.post('/step1', async (req, res) => {
+router.post('/step1', upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
@@ -190,6 +210,72 @@ router.post('/step1', async (req, res) => {
             });
         }
     }
+});
+
+// [ROUTE] Generate proof using simplified upload
+router.post('/generate-proof', upload.single('file'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded.' });
+  }
+
+  try {
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const fingerprint = fingerprintService.sha256(fileBuffer);
+
+    const existingFile = await File.findOne({ where: { fingerprint } });
+    if (existingFile) {
+      return res.status(409).json({
+        success: false,
+        error: 'This file has already been protected.',
+        proofId: existingFile.id
+      });
+    }
+
+    const ipfsHash = await ipfsService.saveFile(fileBuffer);
+    if (!ipfsHash) {
+      throw new Error('IPFS upload failed');
+    }
+
+    const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
+
+    const newFile = await File.create({
+      filename: req.file.originalname,
+      title: req.file.originalname.replace(/\.[^/.]+$/, ""),
+      fingerprint,
+      ipfs_hash: ipfsHash,
+      tx_hash: txReceipt?.transactionHash || null,
+      status: 'protected',
+      mime_type: req.file.mimetype,
+      size: req.file.size
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'File successfully protected.',
+      proofId: newFile.id,
+      file: {
+        id: newFile.id,
+        filename: newFile.filename,
+        fingerprint: newFile.fingerprint,
+        ipfsHash: newFile.ipfs_hash,
+        txHash: newFile.tx_hash
+      }
+    });
+
+  } catch (error) {
+    logger.error(`[Generate Proof] Error: ${error.message}`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during file processing.',
+      details: error.message
+    });
+  } finally {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, err => {
+        if (err) logger.error(`[Cleanup] Failed to delete temp file: ${req.file.path}`, err);
+      });
+    }
+  }
 });
 
 // [ROUTE 2] Certificate Download
