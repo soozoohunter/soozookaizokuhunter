@@ -136,8 +136,8 @@ const Header = () => {
         </NavLinks>
         <ActionButtons>
           <LoginLink to="/login">登入</LoginLink>
-          {/* [★★ 關鍵修正 ★★] 修正連結至正確的保護流程第一步 */}
-          <StyledButton to="/protect/step1">註冊會員</StyledButton>
+          {/* ★★★ 關鍵修正：將連結從 /protect/step1 改為 /register ★★★ */}
+          <StyledButton to="/register">註冊會員</StyledButton>
           <HamburgerMenu onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="24" height="3" fill="#544D4D" />
