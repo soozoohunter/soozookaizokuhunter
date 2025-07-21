@@ -12,13 +12,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-    // ★★★ 關鍵修正：在後端也修剪收到的資料 ★★★
     const email = req.body.email ? req.body.email.trim() : '';
     const phone = req.body.phone ? req.body.phone.trim() : '';
     const password = req.body.password;
+    const realName = req.body.realName ? req.body.realName.trim() : ''; // 接收 realName
 
-    if (!email || !password || !phone) {
-        return res.status(400).json({ message: 'Email、密碼和手機號碼為必填項。' });
+    // ★ 修正：將 realName 加入驗證
+    if (!email || !password || !phone || !realName) {
+        return res.status(400).json({ message: '暱稱、Email、密碼和手機號碼為必填項。' });
     }
 
     try {
@@ -38,18 +39,16 @@ router.post('/register', async (req, res) => {
             return res.status(500).json({ message: '伺服器設定錯誤：找不到預設方案。' });
         }
         
-        // 使用修剪過的資料來建立使用者
+        // ★★★ 關鍵修正：使用明確的欄位建立使用者，避免潛在問題 ★★★
         const newUser = await User.create({
-            ...req.body, // 依然可以展開 body 以接收 real_name 等選填欄位
+            real_name: realName, // 使用 real_name 欄位
             email: email,
             phone: phone,
-            username: phone, // 使用手機作為預設 username
             password: hashedPassword,
             role: 'user',
             status: 'active',
-            image_upload_limit: freePlan.image_limit,
-            scan_limit_monthly: freePlan.scan_limit_monthly,
-            dmca_takedown_limit_monthly: freePlan.dmca_takedown_limit_monthly,
+            // 預設方案的額度
+            quota: freePlan.image_limit, 
         });
 
         const expiresAt = new Date();
@@ -67,19 +66,15 @@ router.post('/register', async (req, res) => {
         res.status(201).json({ message: '註冊成功！請前往登入。' });
 
     } catch (error) {
-        // 現在，如果格式真的錯誤，Sequelize 的錯誤訊息會更有用
-        logger.error('[Register] Error:', { message: error.message, original: error.original?.message });
-        
-        // 如果是 Sequelize 的驗證錯誤，將其訊息回傳給前端
         if (error.name === 'SequelizeValidationError') {
             return res.status(400).json({ message: error.errors[0].message });
         }
-        
+        logger.error('[Register] Error:', { message: error.message, original: error.original?.message });
         res.status(500).json({ message: '伺服器註冊時發生錯誤。' });
     }
 });
 
-// POST /api/auth/login (與您提供版本相同，無需修改)
+// POST /api/auth/login
 router.post('/login', async (req, res) => {
     const { identifier, password } = req.body;
     
@@ -90,21 +85,25 @@ router.post('/login', async (req, res) => {
     try {
         const user = await User.findOne({
              where: { 
-                [Op.or]: [{ email: identifier }, { phone: identifier }],
-                role: 'user'
+                [Op.or]: [{ email: identifier.trim() }, { phone: identifier.trim() }], // 登入時也 trim
+                // role: 'user' // 暫時移除，讓所有角色都能登入
              }
         });
 
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: '帳號或密碼錯誤' });
         }
+        
+        // 登入成功後，更新 last_login 時間
+        user.last_login = new Date();
+        await user.save();
 
         const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
         
         res.json({
             message: '登入成功',
             token,
-            user: { id: user.id, email: user.email, role: user.role }
+            user: { id: user.id, email: user.email, role: user.role, realName: user.real_name } // 回傳更多使用者資訊
         });
 
     } catch (error) {
