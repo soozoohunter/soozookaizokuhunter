@@ -6,6 +6,7 @@ const chain = require('../utils/chain');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
+// const queueService = require('../services/queueService'); // Uncomment if you have this service
 
 exports.handleStep1Upload = async (req, res) => {
     if (!req.file) {
@@ -18,10 +19,9 @@ exports.handleStep1Upload = async (req, res) => {
     try {
         let user = await User.findOne({ where: { email }, transaction });
         if (!user) {
-            // This is a placeholder. A real app should have a proper user creation flow.
-            // We'll fall back to a default user to prevent crashes.
-            user = await User.findByPk(1, { transaction }); 
-            if (!user) throw new Error("Default user with ID 1 not found.");
+            // This is a placeholder for user creation. 
+            // In a real app, handle temporary users or require login.
+            user = { id: 1 }; // Fallback to user 1 for now to prevent crashes
             logger.warn(`User with email ${email} not found. Defaulting to user ID 1 for this transaction.`);
         }
 
@@ -35,7 +35,6 @@ exports.handleStep1Upload = async (req, res) => {
             return res.status(409).json({ message: 'This file has already been protected.' });
         }
 
-        // --- THIS IS THE MISSING LOGIC ---
         const fileBuffer = await fs.readFile(filePath);
         const ipfsHash = await ipfsService.saveFile(fileBuffer).catch(err => {
             logger.error(`IPFS upload failed: ${err.message}`);
@@ -64,6 +63,8 @@ exports.handleStep1Upload = async (req, res) => {
 
         logger.info(`[File Upload] Successfully created file record with id: ${newFile.id}`);
         
+        // await queueService.sendTask({ scanId, ... });
+        
         await transaction.commit();
 
         res.status(201).json({
@@ -76,7 +77,6 @@ exports.handleStep1Upload = async (req, res) => {
                 txHash: newFile.tx_hash
             },
         });
-        // --- END OF MISSING LOGIC ---
 
     } catch (error) {
         await transaction.rollback();
