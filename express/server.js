@@ -15,7 +15,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 const logger = require('./utils/logger');
 const db = require('./models');
 
@@ -27,6 +26,7 @@ const dashboardRoutes = require('./routes/dashboard');
 
 // Services
 const ipfsService = require('./services/ipfsService');
+const chain = require('./utils/chain'); // ★ 導入 chain 模組
 
 // App & server initialization
 const app = express();
@@ -37,24 +37,31 @@ app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// File upload (multer)
-const TEMP_DIR = path.join('/app/uploads', 'temp');
-if (!fs.existsSync(TEMP_DIR)) {
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-}
-const upload = multer({ dest: TEMP_DIR });
-
 // Static files
 const UPLOAD_DIR = path.resolve('/app/uploads');
 app.use('/uploads', express.static(UPLOAD_DIR));
 logger.info(`[Setup] Static directory served at '/uploads' -> '${UPLOAD_DIR}'`);
 
 // Routes
-// Multer middleware applied within individual route files when needed
 app.use('/api/protect', protectRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// ★ 新增區塊鏈專用健康檢查端點 ★
+app.get('/blockchain-health', async (req, res) => {
+    try {
+        const health = await chain.getHealthStatus();
+        if (health.status === 'healthy') {
+            res.status(200).json(health);
+        } else {
+            res.status(503).json(health);
+        }
+    } catch (error) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
 
 // Health check
 app.get('/health', async (req, res) => {
@@ -67,19 +74,24 @@ app.get('/health', async (req, res) => {
         }
         await ipfs.version();
 
+        const blockchainHealth = await chain.getHealthStatus();
+        if (blockchainHealth.status !== 'healthy') {
+            throw new Error(`Blockchain status: ${blockchainHealth.message}`);
+        }
+
         res.status(200).json({
             status: 'OK',
             timestamp: new Date().toISOString(),
             database: 'connected',
-            ipfs: 'connected'
+            ipfs: 'connected',
+            blockchain: 'connected'
         });
     } catch (error) {
+        logger.error(`[Health Check] Failed: ${error.message}`);
         res.status(503).json({
             status: 'ERROR',
             timestamp: new Date().toISOString(),
             error: error.message,
-            database: 'disconnected',
-            ipfs: ipfsService.getClient() ? 'connected' : 'disconnected'
         });
     }
 });
@@ -93,7 +105,7 @@ async function startServer() {
     try {
         logger.info('[Startup] Starting server initialization...');
 
-        // 1. Initialize IPFS service with limited retries
+        // 1. Initialize IPFS service
         try {
             await ipfsService.init();
             logger.info('[ipfsService] IPFS initialized successfully');
@@ -117,7 +129,6 @@ async function startServer() {
                 }
             }
         }
-
         if (!dbConnected) {
             throw new Error('Database connection failed after all retries');
         }
@@ -125,6 +136,12 @@ async function startServer() {
         await db.sequelize.sync({ alter: true });
         logger.info('[Database] Models synchronized.');
 
+        // ★ 3. Initialize blockchain service BEFORE starting server ★
+        logger.info('[Startup] Initializing blockchain service...');
+        await chain.initializeBlockchainService();
+        logger.info('[Startup] Blockchain service initialization complete.');
+
+        // 4. Start HTTP server
         server.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
         });
