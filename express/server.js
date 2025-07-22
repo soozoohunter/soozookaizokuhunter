@@ -28,6 +28,7 @@ const scansRoutes = require('./routes/scans'); // ★ 導入新的 scans 路由
 // Services
 const ipfsService = require('./services/ipfsService');
 const chain = require('./utils/chain'); // ★ 導入 chain 模組
+const conversionTracking = require('./middleware/conversionTracking');
 
 // App & server initialization
 const app = express();
@@ -37,6 +38,7 @@ const server = http.createServer(app);
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(conversionTracking);
 
 // Static files
 const UPLOAD_DIR = path.resolve('/app/uploads');
