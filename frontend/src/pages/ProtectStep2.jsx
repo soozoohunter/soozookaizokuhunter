@@ -63,17 +63,17 @@ const ErrorMessage = styled.p`
 export default function ProtectStep2() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { file } = location.state?.step1Data || {};
+    const { file, user } = location.state?.trialData || {};
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!file) {
-            alert('找不到上一步的資料，將返回第一步。');
+        if (!file || !user) {
+            alert('找不到試用資料，將返回第一步。');
             navigate('/protect/step1');
         }
-    }, [file, navigate]);
+    }, [file, user, navigate]);
 
     // 乾淨的 handleScan 邏輯，專注於派發任務並導航
     const handleScan = async () => {
@@ -93,7 +93,8 @@ export default function ProtectStep2() {
             navigate('/protect/step3', { 
                 state: { 
                     scanId: scanId, 
-                    file: file // 將檔案資訊也傳遞下去
+                    file: file,
+                    trialUser: user // 傳遞用戶資訊
                 } 
             });
 
@@ -105,7 +106,7 @@ export default function ProtectStep2() {
         }
     };
 
-    if (!file) return null;
+    if (!file || !user) return null;
 
     return (
         <PageWrapper>

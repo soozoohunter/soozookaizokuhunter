@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiClient } from '../apiClient';
@@ -100,12 +100,16 @@ const ProtectStep1 = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
-  const [realName, setRealName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [realName, setRealName] = useState(localStorage.getItem('trial_realName') || '');
+  const [email, setEmail] = useState(localStorage.getItem('trial_email') || '');
+  const [phone, setPhone] = useState(localStorage.getItem('trial_phone') || '');
   const [keywords, setKeywords] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // 可以在此處加入更複雜的UTM來源追蹤等
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -129,9 +133,14 @@ const ProtectStep1 = () => {
       // [★★ KEY FIX ★★]
       // When using axios with FormData, DO NOT manually set the Content-Type header.
       // The browser will automatically set it to 'multipart/form-data' with the correct boundary.
-      const response = await apiClient.post('/protect/step1', formData);
-      
-      navigate('/protect/step2', { state: { step1Data: response.data } });
+      const response = await apiClient.post('/protect/trial', formData);
+
+      // ★★★ 成功後，將用戶資訊存入 localStorage，方便註冊時自動帶入 ★★★
+      localStorage.setItem('trial_realName', realName);
+      localStorage.setItem('trial_email', email);
+      localStorage.setItem('trial_phone', phone);
+
+      navigate('/protect/step2', { state: { trialData: response.data } });
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       setError(msg || '上傳失敗，檔案可能過大或伺服器發生錯誤。');
