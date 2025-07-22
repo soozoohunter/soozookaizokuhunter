@@ -1,11 +1,10 @@
-// express/services/vision.service.js
 const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const logger = require('../utils/logger');
-const tinEyeService = require('./tineye.service');
 const fs = require('fs');
 const path = require('path');
 
 let visionClient = null;
+// ★★★ 關鍵修正：將結果上限從預設值調整為 50 ★★★
 const VISION_MAX_RESULTS = parseInt(process.env.VISION_MAX_RESULTS, 10) || 50;
 
 function initClient() {
@@ -14,7 +13,6 @@ function initClient() {
         logger.error(`[Vision Service] FATAL ERROR: Google Vision API credentials file not found at ${keyFilename}. Vision service will be disabled.`);
         return;
     }
-
     try {
         visionClient = new ImageAnnotatorClient({ keyFilename });
         logger.info('[Service] Google Vision Client initialized successfully.');
@@ -32,7 +30,7 @@ function isInitialized() {
 
 async function searchByBuffer(buffer) {
     if (!visionClient) {
-        logger.warn('[Vision Service] Client not initialized or failed to initialize. Skipping Google Vision search.');
+        logger.warn('[Vision Service] Client not initialized. Skipping Google Vision search.');
         return { success: false, links: [], error: 'Vision client not initialized.' };
     }
     if (!buffer || buffer.length === 0) {
@@ -44,39 +42,21 @@ async function searchByBuffer(buffer) {
         const [result] = await visionClient.webDetection({ image: { content: buffer } });
         const webDetection = result.webDetection;
         let urls = [];
-        if (Array.isArray(webDetection?.pagesWithMatchingImages)) {
+        if (webDetection?.pagesWithMatchingImages) {
             urls = webDetection.pagesWithMatchingImages.map(page => page.url).filter(Boolean);
-        } else if (webDetection && webDetection.pagesWithMatchingImages) {
-            logger.warn('[Vision Service] pagesWithMatchingImages is not array:', webDetection.pagesWithMatchingImages);
         }
+        
+        // ★★★ 使用新的上限值來擷取結果 ★★★
         const uniqueUrls = [...new Set(urls)].slice(0, VISION_MAX_RESULTS);
         logger.info(`[Vision Service] Search by buffer successful, found ${uniqueUrls.length} links.`);
         return { success: true, links: uniqueUrls, error: null };
     } catch (err) {
-        logger.error(`[Vision Service] Google Vision API call failed: ${err.message}`, { code: err.code });
-        if (err.code === 16 || err.code === 7) {
-             logger.error('[Vision Service] FATAL: Authentication/Permission issue! Verify key file, IAM role (Vision AI User), and GOOGLE_APPLICATION_CREDENTIALS path inside the container.');
-        }
+        logger.error(`[Vision Service] Google Vision API call failed: ${err.message}`);
         return { success: false, links: [], error: err.message };
     }
 }
 
-// ★★★ 關鍵修正：將參數從 buffer 改為 { buffer } 以正確解構 ★★★
-async function infringementScan({ buffer }) {
-    if (!buffer || buffer.length === 0) {
-        throw new Error('Image buffer is required for infringement scan');
-    }
-
-    const [tineyeResult, visionResult] = await Promise.all([
-        tinEyeService.searchByBuffer(buffer),
-        searchByBuffer(buffer)
-    ]);
-
-    return { tineye: tineyeResult, vision: visionResult };
-}
-
 module.exports = {
     searchByBuffer,
-    infringementScan,
     isInitialized,
 };

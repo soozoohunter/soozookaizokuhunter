@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { apiClient } from '../apiClient';
 import { AuthContext } from '../AuthContext';
+import ExperienceCompleteModal from '../components/ExperienceCompleteModal';
 
 const PageWrapper = styled.div`
   display: flex;
@@ -121,6 +122,47 @@ const SummaryText = styled.p`
   color: ${({ theme }) => theme.colors.light.primary};
 `;
 
+// ★★★ 新增：為預覽列表設計的樣式 ★★★
+const PreviewSection = styled.div`
+  margin-top: 2rem;
+  border: 1px solid ${({ theme }) => theme.colors.light.border};
+  border-radius: 8px;
+  padding: 1.5rem;
+`;
+
+const PreviewTitle = styled.h4`
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+`;
+
+const ClearLink = styled.div`
+  padding: 0.5rem 0;
+  font-family: 'Courier New', Courier, monospace;
+  a {
+    color: ${({ theme }) => theme.colors.light.primary};
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+`;
+
+const BlurredLink = styled.div`
+  padding: 0.5rem 0;
+  font-family: 'Courier New', Courier, monospace;
+  color: transparent;
+  text-shadow: 0 0 8px rgba(0,0,0,0.5);
+  user-select: none;
+  cursor: pointer;
+`;
+
+const MoreLinksText = styled.p`
+  text-align: center;
+  font-style: italic;
+  color: #6b7280;
+  margin-top: 1rem;
+`;
+
 export default function ProtectStep4() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -132,6 +174,7 @@ export default function ProtectStep4() {
   const [infringingLinks, setInfringingLinks] = useState([]);
   const [summary, setSummary] = useState({ count: 0, sources: 0 });
   const [takedownStatus, setTakedownStatus] = useState({});
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     if (!fileInfo || !scanResults) {
@@ -199,6 +242,7 @@ export default function ProtectStep4() {
   const isPaidUser = user && user.role !== 'trial';
 
   return (
+    <>
     <PageWrapper>
       <Container>
         <Title>Step 4: 確認報告與採取行動</Title>
@@ -231,23 +275,37 @@ export default function ProtectStep4() {
             <SummaryCard>
               <AuthActionTitle>掃描摘要</AuthActionTitle>
               {summary.count > 0 ? (
-                <SummaryText>
-                  已在 {summary.sources} 個主要平台發現 {summary.count} 筆疑似侵權！
-                </SummaryText>
+                <SummaryText>已在 {summary.sources} 個平台發現 {summary.count} 筆疑似侵權！</SummaryText>
               ) : (
-                <SummaryText>
-                  恭喜！初步掃描未發現侵權。
-                </SummaryText>
+                <SummaryText>恭喜！初步掃描未發現侵權。</SummaryText>
               )}
-              <p>註冊或登入以解鎖完整侵權報告，並啟用一鍵下架功能。</p>
             </SummaryCard>
 
+            {infringingLinks.length > 0 && (
+              <PreviewSection>
+                  <PreviewTitle>部分掃描結果預覽</PreviewTitle>
+                  {infringingLinks.slice(0, 2).map((link, index) => (
+                      <ClearLink key={`clear-${index}`}>
+                         <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
+                      </ClearLink>
+                  ))}
+                  {infringingLinks.slice(2, 10).map((link, index) => (
+                      <BlurredLink key={`blur-${index}`} onClick={() => setShowUpgradeModal(true)}>
+                          https://blurred-for-preview.com/path/to/page/{index + 1}
+                      </BlurredLink>
+                  ))}
+                  {infringingLinks.length > 10 && (
+                      <MoreLinksText>...以及另外 {infringingLinks.length - 10} 個疑似連結</MoreLinksText>
+                  )}
+              </PreviewSection>
+            )}
+
             <AuthActionBlock>
-              <AuthActionTitle>升級帳戶以保護您的資產</AuthActionTitle>
-              <p>成為正式會員，即可查看詳細報告、下載 PDF、並立即採取法律行動。</p>
+              <AuthActionTitle>升級帳戶以查看完整報告</AuthActionTitle>
+              <p>成為正式會員，即可查看全部 {infringingLinks.length} 筆詳細報告、下載 PDF、並立即採取法律行動。</p>
               <AuthButtonContainer>
                 <AuthButton onClick={() => handleAuthRedirect('/login')}>我已有帳號，前往登入</AuthButton>
-                <AuthButton primary onClick={() => handleAuthRedirect('/register')}>
+                <AuthButton primary onClick={() => setShowUpgradeModal(true)}>
                   免費註冊並查看方案
                 </AuthButton>
               </AuthButtonContainer>
@@ -256,5 +314,7 @@ export default function ProtectStep4() {
         )}
       </Container>
     </PageWrapper>
+    {showUpgradeModal && <ExperienceCompleteModal onClose={() => setShowUpgradeModal(false)} />}
+    </>
   );
 }
