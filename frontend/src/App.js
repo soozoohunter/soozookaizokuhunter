@@ -16,6 +16,7 @@ import AboutPage from './pages/AboutPage';
 import BlogPostPage from './pages/BlogPostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import PaymentPage from './pages/PaymentPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import ProtectStep1 from './pages/ProtectStep1';
@@ -70,6 +71,7 @@ function App() {
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
+                <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/protect/step1" element={<ProtectStep1 />} />
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
                 <Route path="/protect/step3" element={<ProtectStep3 />} />

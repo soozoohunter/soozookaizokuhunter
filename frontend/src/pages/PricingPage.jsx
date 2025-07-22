@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const PageSpacer = styled.div`
   min-height: 74px;
@@ -124,6 +124,12 @@ const StyledButton = styled(Link)`
 `;
 
 const PricingPage = () => {
+  const navigate = useNavigate();
+
+  const handleChoosePlan = (planCode, price) => {
+    navigate(`/payment?plan=${planCode}&price=${price}`);
+  };
+
   return (
     <>
       <PageSpacer />
@@ -132,98 +138,63 @@ const PricingPage = () => {
           <Header>
             <Title>方案與定價</Title>
             <Subtitle>
-              透過我們獨家的<strong>區塊鏈 + AI 侵權偵測</strong>系統，輕鬆保護您的著作權與商標，並在您最需要時獲得法律支援。
+              選擇最適合您的方案。所有方案皆包含我們獨家的<strong>區塊鏈 + AI 侵權偵測</strong>核心技術。
             </Subtitle>
           </Header>
 
-          {/* Subscription Plans */}
           <Section>
             <SectionTitle>訂閱方案</SectionTitle>
             <SectionDescription>
-              選擇月付或年付訂閱，持續享有區塊鏈認證與 AI 侵權偵測服務。
+              年繳方案享有 2 個月免費優惠，是您最划算的選擇。
             </SectionDescription>
             <PricingGrid>
+              {/* --- Free Plan --- */}
               <Card>
-                <PlanName>BASIC</PlanName>
-                <PlanPrice>NT$490 / 月</PlanPrice>
+                <PlanName>FREE</PlanName>
+                <PlanPrice>NT$0</PlanPrice>
                 <FeatureList>
-                  <FeatureItem>共 3 支影片、5 張圖片保護額度</FeatureItem>
-                  <FeatureItem>24 小時侵權偵測</FeatureItem>
-                  <FeatureItem>區塊鏈證書 (無限下載)</FeatureItem>
-                  <FeatureItem>每月 1 次免費 DMCA 下架</FeatureItem>
+                  <FeatureItem><strong>5</strong> 件作品永久區塊鏈存證</FeatureItem>
+                  <FeatureItem>每月 <strong>1</strong> 次免費 AI 掃描</FeatureItem>
+                  <FeatureItem>掃描結果摘要報告</FeatureItem>
+                  <FeatureItem>✓ 無限次證書下載</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合初階創作者 / 部落客</PlanRemark>
-                <StyledButton to="/register">選擇 Basic</StyledButton>
+                <PlanRemark>適合剛起步，想體驗核心功能的您</PlanRemark>
+                <StyledButton to="/register">免費註冊</StyledButton>
               </Card>
+
+              {/* --- Creator Plan --- */}
               <Card>
-                <PlanName>PRO</PlanName>
-                <PlanPrice>NT$1,290 / 月</PlanPrice>
+                <PlanName>CREATOR</PlanName>
+                <PlanPrice>NT$390 / 月</PlanPrice>
                 <FeatureList>
-                  <FeatureItem>共 10 支影片、30 張圖片保護額度</FeatureItem>
-                  <FeatureItem>優先 AI 掃描 (每日)</FeatureItem>
-                  <FeatureItem>無限區塊鏈證書</FeatureItem>
-                  <FeatureItem>每月 3 次免費 DMCA 下架</FeatureItem>
-                  <FeatureItem>基本法律諮詢 (Email)</FeatureItem>
+                  <FeatureItem><strong>100</strong> 件作品永久區塊鏈存證</FeatureItem>
+                  <FeatureItem>每月 <strong>10</strong> 次 AI 掃描</FeatureItem>
+                  <FeatureItem><strong>解鎖完整侵權報告</strong></FeatureItem>
+                  <FeatureItem>每月 <strong>1</strong> 次免費 DMCA 下架</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合專業影音工作室 / 插畫師</PlanRemark>
-                <StyledButton to="/register" primary>選擇 Pro</StyledButton>
+                <PlanRemark>適合個人創作者、攝影師、部落客</PlanRemark>
+                <StyledButton as="button" onClick={() => handleChoosePlan('CREATOR', 390)} primary>
+                  選擇 Creator
+                </StyledButton>
               </Card>
+              {/* --- Professional Plan --- */}
               <Card>
-                <PlanName>ENTERPRISE</PlanName>
-                <PlanPrice>NT$3,990 / 月</PlanPrice>
+                <PlanName>PROFESSIONAL</PlanName>
+                <PlanPrice>NT$1,490 / 月</PlanPrice>
                 <FeatureList>
-                  <FeatureItem>無限影片與圖片保護</FeatureItem>
-                  <FeatureItem>即時 AI 掃描</FeatureItem>
-                  <FeatureItem>無限 DMCA 下架</FeatureItem>
-                  <FeatureItem>進階法律涵蓋 (內部法務)</FeatureItem>
-                  <FeatureItem>團隊協作 (含 5 個席位)</FeatureItem>
+                  <FeatureItem><strong>500</strong> 件作品永久區塊鏈存證</FeatureItem>
+                  <FeatureItem>每月 <strong>50</strong> 次 AI 掃描</FeatureItem>
+                  <FeatureItem><strong>批量上傳 & 批量掃描</strong></FeatureItem>
+                  <FeatureItem>每月 <strong>5</strong> 次免費 DMCA 下架</FeatureItem>
+                  <FeatureItem>Email 法律諮詢支援</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合企業、大型媒體集團</PlanRemark>
-                <StyledButton to="/contact">聯繫我們</StyledButton>
+                <PlanRemark>適合專業工作室、設計師、YouTuber</PlanRemark>
+                <StyledButton as="button" onClick={() => handleChoosePlan('PROFESSIONAL', 1490)} primary>
+                  選擇 Professional
+                </StyledButton>
               </Card>
             </PricingGrid>
           </Section>
-
-          {/* Flexible Pay-Per-Feature */}
-          <Section>
-            <SectionTitle>彈性功能付費</SectionTitle>
-            <SectionDescription>
-              不想訂閱？先免費上傳與掃描，再依需求單次購買功能即可。
-            </SectionDescription>
-            <PricingGrid>
-               <Card>
-                <PlanName>證書下載</PlanName>
-                <PlanPrice>NT$99 / 次</PlanPrice>
-                <FeatureList>
-                  <FeatureItem>生成 PDF 原創證明書</FeatureItem>
-                  <FeatureItem>包含區塊鏈時間戳與雜湊值</FeatureItem>
-                  <FeatureItem>即時下載永久保存</FeatureItem>
-                </FeatureList>
-                <StyledButton to="/protect/step1">立即試用</StyledButton>
-              </Card>
-              <Card>
-                <PlanName>侵權掃描</PlanName>
-                <PlanPrice>NT$99 / 次</PlanPrice>
-                <FeatureList>
-                  <FeatureItem>AI 驅動的圖像比對搜尋</FeatureItem>
-                  <FeatureItem>識別潛在的侵權來源</FeatureItem>
-                  <FeatureItem>每次掃描單次付費</FeatureItem>
-                </FeatureList>
-                <StyledButton to="/protect/step1">立即試用</StyledButton>
-              </Card>
-              <Card>
-                <PlanName>DMCA 下架申訴</PlanName>
-                <PlanPrice>NT$299 / 案</PlanPrice>
-                <FeatureList>
-                  <FeatureItem>官方 DMCA 下架流程</FeatureItem>
-                  <FeatureItem>加速內容移除</FeatureItem>
-                  <FeatureItem>每案單次付費</FeatureItem>
-                </FeatureList>
-                <StyledButton to="/protect/step1">立即試用</StyledButton>
-              </Card>
-            </PricingGrid>
-          </Section>
-
         </ContentContainer>
       </PageWrapper>
     </>

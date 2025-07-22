@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User, SubscriptionPlan, UserSubscription, File, Scan } = require('../models');
+const { User, SubscriptionPlan, UserSubscription, File, Scan, PaymentProof, sequelize } = require('../models');
 const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
 
 const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
@@ -120,6 +120,66 @@ router.put('/users/:userId', async (req, res) => {
         res.json({ message: 'User updated successfully', user });
     } catch (err) {
         res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
+// ★★★ 新增：獲取待審核的付款證明 ★★★
+router.get('/payment-proofs', async (req, res) => {
+    try {
+        const proofs = await PaymentProof.findAll({
+            where: { status: 'pending' },
+            include: [{ model: User, attributes: ['id', 'email', 'real_name'] }],
+            order: [['createdAt', 'ASC']]
+        });
+        res.json(proofs);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch payment proofs' });
+    }
+});
+
+// ★★★ 新增：批准付款並開通會員方案 ★★★
+router.post('/approve-payment/:proofId', async (req, res) => {
+    const { proofId } = req.params;
+    const transaction = await sequelize.transaction();
+
+    try {
+        const proof = await PaymentProof.findByPk(proofId, { transaction });
+        if (!proof || proof.status !== 'pending') {
+            await transaction.rollback();
+            return res.status(404).json({ message: '找不到待審核的紀錄或已被處理' });
+        }
+
+        const user = await User.findByPk(proof.user_id, { transaction });
+        const plan = await SubscriptionPlan.findOne({ where: { plan_code: proof.plan_code }, transaction });
+
+        if (!user || !plan) {
+            await transaction.rollback();
+            return res.status(404).json({ message: '找不到對應的使用者或方案' });
+        }
+
+        await user.update({
+            role: 'member',
+            quota: user.quota + plan.image_limit
+        }, { transaction });
+
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+        await UserSubscription.create({
+            user_id: user.id,
+            plan_id: plan.id,
+            status: 'active',
+            started_at: new Date(),
+            expires_at: expiresAt
+        }, { transaction });
+
+        await proof.update({ status: 'approved', approved_by: req.user.id }, { transaction });
+
+        await transaction.commit();
+
+        res.json({ message: `已成功為 ${user.email} 開通 ${plan.plan_name} 方案` });
+    } catch (err) {
+        await transaction.rollback();
+        res.status(500).json({ error: '批准付款時發生錯誤' });
     }
 });
 
