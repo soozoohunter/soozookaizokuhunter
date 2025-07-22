@@ -193,7 +193,7 @@ const HomePage = () => {
           <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
             <strong>ONLY WE</strong> combine unstoppable <strong>Blockchain Fingerprinting</strong> with advanced <strong>AI Infringement Detection</strong> and global legal solutions, recognized under the <strong>Berne Convention</strong> and <strong>WTO/TRIPS</strong>.
           </p>
-          <PrimaryButton to="/protect/step1">立即免費體驗</PrimaryButton>
+          <PrimaryButton to="/free-trial">立即免費體驗</PrimaryButton>
         </HeroContainer>
       </HeroWrapper>
 

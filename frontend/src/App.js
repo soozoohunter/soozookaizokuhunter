@@ -11,6 +11,7 @@ import AppLayout from './layouts/AppLayout';
 // Pages
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
+import FreeTrialLandingPage from './pages/FreeTrialLandingPage';
 import ContactPage from './pages/ContactPage';
 import AboutPage from './pages/AboutPage';
 import BlogPostPage from './pages/BlogPostPage';
@@ -72,6 +73,7 @@ function App() {
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
                 <Route path="/payment" element={<PaymentPage />} />
+                <Route path="/free-trial" element={<FreeTrialLandingPage />} />
                 <Route path="/protect/step1" element={<ProtectStep1 />} />
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
                 <Route path="/protect/step3" element={<ProtectStep3 />} />

@@ -100,9 +100,9 @@ const ProtectStep1 = () => {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
-  const [realName, setRealName] = useState(localStorage.getItem('trial_realName') || '');
-  const [email, setEmail] = useState(localStorage.getItem('trial_email') || '');
-  const [phone, setPhone] = useState(localStorage.getItem('trial_phone') || '');
+  const [realName, setRealName] = useState(() => localStorage.getItem('trial_realName') || '');
+  const [email, setEmail] = useState(() => localStorage.getItem('trial_email') || '');
+  const [phone, setPhone] = useState(() => localStorage.getItem('trial_phone') || '');
   const [keywords, setKeywords] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);

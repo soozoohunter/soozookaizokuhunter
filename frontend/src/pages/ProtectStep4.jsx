@@ -198,7 +198,12 @@ export default function ProtectStep4() {
       sources: Object.keys(scanResults.results || {}).length
     });
 
-  }, [scanResults, fileInfo, navigate]);
+    if (!user) {
+      const timer = setTimeout(() => setShowUpgradeModal(true), 1500);
+      return () => clearTimeout(timer);
+    }
+
+  }, [scanResults, fileInfo, navigate, user]);
 
   const handleTakedown = async url => {
     if (takedownStatus[url] && takedownStatus[url].status !== 'error') return;
