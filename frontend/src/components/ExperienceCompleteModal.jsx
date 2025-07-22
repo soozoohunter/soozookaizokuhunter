@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 
 const Overlay = styled.div`
   position: fixed;
@@ -110,6 +111,7 @@ const PlanButton = styled.button`
 `;
 
 export default function ExperienceCompleteModal({ onClose }) {
+  const navigate = useNavigate();
   return (
     <Overlay>
       <ModalContent>
@@ -118,43 +120,26 @@ export default function ExperienceCompleteModal({ onClose }) {
         <p>您已成功體驗我們的著作權保護服務，升級專業版解鎖完整功能：</p>
         <PlanGrid>
           <PlanCard>
-            <PlanTitle>基礎版</PlanTitle>
-            <PlanPrice>NT$600<span>/月</span></PlanPrice>
+            <PlanTitle>CREATOR</PlanTitle>
+            <PlanPrice>NT$390<span>/月</span></PlanPrice>
             <FeatureList>
-              <li>每月 50 次圖片偵測</li>
-              <li>每月 10 次影片偵測</li>
-              <li>基本侵權報告</li>
-              <li>5GB IPFS 儲存空間</li>
-              <li>標準客服支援</li>
+              <li><strong>100</strong> 件作品存證</li>
+              <li>每月 <strong>10</strong> 次 AI 掃描</li>
+              <li><strong>完整侵權報告</strong></li>
+              <li>每月 <strong>1</strong> 次 DMCA 下架</li>
             </FeatureList>
-            <PlanButton>選擇此方案</PlanButton>
+            <PlanButton onClick={() => navigate('/pricing')}>選擇此方案</PlanButton>
           </PlanCard>
           <PlanCard featured>
-            <div style={{
-              position: 'absolute',
-              top: '-12px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: '#4285f4',
-              color: 'white',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              fontSize: '0.8rem'
-            }}>
-              最受歡迎
-            </div>
-            <PlanTitle featured>專業版</PlanTitle>
-            <PlanPrice featured>NT$1,200<span>/月</span></PlanPrice>
-            <FeatureList featured>
-              <li>無限圖片/影片偵測</li>
-              <li>商標偵測功能</li>
-              <li>詳細侵權報告</li>
-              <li>一鍵DMCA下架</li>
-              <li>法律諮詢服務</li>
-              <li>20GB IPFS 儲存空間</li>
-              <li>優先客服支援</li>
+            <PlanTitle featured>PROFESSIONAL</PlanTitle>
+            <PlanPrice featured>NT$1,490<span>/月</span></PlanPrice>
+            <FeatureList>
+              <li><strong>500</strong> 件作品存證</li>
+              <li>每月 <strong>50</strong> 次 AI 掃描</li>
+              <li><strong>批量處理工具</strong></li>
+              <li>每月 <strong>5</strong> 次 DMCA 下架</li>
             </FeatureList>
-            <PlanButton featured>立即升級</PlanButton>
+            <PlanButton featured onClick={() => navigate('/pricing')}>立即升級</PlanButton>
           </PlanCard>
         </PlanGrid>
         <div style={{ marginTop: '1.5rem' }}>

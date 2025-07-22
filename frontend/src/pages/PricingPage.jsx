@@ -148,47 +148,47 @@ const PricingPage = () => {
               年繳方案享有 2 個月免費優惠，是您最划算的選擇。
             </SectionDescription>
             <PricingGrid>
-              {/* --- Free Plan --- */}
+              {/* Free Plan */}
               <Card>
-                <PlanName>FREE</PlanName>
+                <PlanName>FREE (永久免費版)</PlanName>
                 <PlanPrice>NT$0</PlanPrice>
                 <FeatureList>
-                  <FeatureItem><strong>5</strong> 件作品永久區塊鏈存證</FeatureItem>
-                  <FeatureItem>每月 <strong>1</strong> 次免費 AI 掃描</FeatureItem>
+                  <FeatureItem><strong>5</strong> 件作品永久存證席位</FeatureItem>
+                  <FeatureItem>每月 <strong>1</strong> 次 AI 掃描額度</FeatureItem>
                   <FeatureItem>掃描結果摘要報告</FeatureItem>
-                  <FeatureItem>✓ 無限次證書下載</FeatureItem>
+                  <FeatureItem>無限次證書下載</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合剛起步，想體驗核心功能的您</PlanRemark>
                 <StyledButton to="/register">免費註冊</StyledButton>
               </Card>
 
-              {/* --- Creator Plan --- */}
+              {/* Creator Plan */}
               <Card>
-                <PlanName>CREATOR</PlanName>
+                <PlanName>CREATOR (守護者方案)</PlanName>
                 <PlanPrice>NT$390 / 月</PlanPrice>
                 <FeatureList>
-                  <FeatureItem><strong>100</strong> 件作品永久區塊鏈存證</FeatureItem>
-                  <FeatureItem>每月 <strong>10</strong> 次 AI 掃描</FeatureItem>
-                  <FeatureItem><strong>解鎖完整侵權報告</strong></FeatureItem>
-                  <FeatureItem>每月 <strong>1</strong> 次免費 DMCA 下架</FeatureItem>
+                  <FeatureItem><strong>100</strong> 件作品永久存證席位</FeatureItem>
+                  <FeatureItem>每月 <strong>10</strong> 次 AI 掃描額度</FeatureItem>
+                  <FeatureItem>每週自動巡檢</FeatureItem>
+                  <FeatureItem>每月 <strong>1</strong> 次 DMCA 下架額度</FeatureItem>
+                  <FeatureItem>解鎖完整侵權報告</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合個人創作者、攝影師、部落客</PlanRemark>
                 <StyledButton as="button" onClick={() => handleChoosePlan('CREATOR', 390)} primary>
                   選擇 Creator
                 </StyledButton>
               </Card>
-              {/* --- Professional Plan --- */}
+              {/* Professional Plan */}
               <Card>
-                <PlanName>PROFESSIONAL</PlanName>
+                <PlanName>PROFESSIONAL (捍衛者方案)</PlanName>
                 <PlanPrice>NT$1,490 / 月</PlanPrice>
                 <FeatureList>
-                  <FeatureItem><strong>500</strong> 件作品永久區塊鏈存證</FeatureItem>
-                  <FeatureItem>每月 <strong>50</strong> 次 AI 掃描</FeatureItem>
-                  <FeatureItem><strong>批量上傳 & 批量掃描</strong></FeatureItem>
-                  <FeatureItem>每月 <strong>5</strong> 次免費 DMCA 下架</FeatureItem>
-                  <FeatureItem>Email 法律諮詢支援</FeatureItem>
+                  <FeatureItem><strong>500</strong> 件作品永久存證席位</FeatureItem>
+                  <FeatureItem>每月 <strong>50</strong> 次 AI 掃描額度</FeatureItem>
+                  <FeatureItem><strong>每日優先掃描</strong></FeatureItem>
+                  <FeatureItem>每月 <strong>5</strong> 次 DMCA 下架額度</FeatureItem>
+                  <FeatureItem><strong>批量處理工具</strong></FeatureItem>
+                  <FeatureItem><strong>商標監測功能</strong></FeatureItem>
+                  <FeatureItem>Email 法律諮詢</FeatureItem>
                 </FeatureList>
-                <PlanRemark>適合專業工作室、設計師、YouTuber</PlanRemark>
                 <StyledButton as="button" onClick={() => handleChoosePlan('PROFESSIONAL', 1490)} primary>
                   選擇 Professional
                 </StyledButton>
