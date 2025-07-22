@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import FileUploadSection from '../components/FileUploadSection';
-import ConsoleStatus from '../components/ConsoleStatus';
+// 移除了 FileUploadSection 和 ConsoleStatus 的導入，因為此頁面不需要它們
 
 const PageSpacer = styled.div`
   min-height: 74px; /* Matches header height */
@@ -144,7 +143,6 @@ const AccordionHeader = styled.button`
   text-align: left;
   font-size: 1rem;
   font-weight: 600;
-  /* [★★ UI UPDATE ★★] Apply dark orange color to header text */
   color: #FF8C00;
   cursor: pointer;
   display: flex;
@@ -152,7 +150,6 @@ const AccordionHeader = styled.button`
   align-items: center;
   transition: background-color 0.2s ease;
 
-  /* [★★ UI UPDATE ★★] */
   &:hover {
     background-color: #FEF6FB; 
   }
@@ -162,7 +159,6 @@ const AccordionContent = styled.div`
   padding: 0 1rem 1rem 1rem;
   font-size: 0.95rem;
   line-height: 1.7;
-  /* [★★ UI UPDATE ★★] Change text color to dark orange */
   color: #FF8C00;
   p strong {
       color: #D45398;
@@ -204,7 +200,6 @@ const HomePage = () => {
       <FeaturesSection>
         <SectionTitle>三大核心技術，一站式解決方案</SectionTitle>
         <FeaturesContainer>
-          {/* [★★ CONTENT UPDATE ★★] */}
           <FeatureCard>
             <FeatureTitle>AI 全網掃描</FeatureTitle>
             <FeatureText>面對全網的**盜圖**、**盜影片**與**盜版**內容，我們的 AI 引擎提供 24/7 **侵權偵測**。不僅揪出侵權，更能有效**防詐騙濫用**，保護您的品牌形象與數位資產安全。</FeatureText>
@@ -233,7 +228,6 @@ const HomePage = () => {
             </p>
           </InfoCard>
           <InfoCard>
-            {/* [★★ CONTENT UPDATE ★★] */}
             <Accordion title="全球法律效力 (伯恩公約, WTO/TRIPS)">
               <p>我們在聯合國成員國塞席爾的註冊，確保了系統生成的**原創證明文件具有國際效力**。依據《伯恩公約》與 WTO/TRIPS 協定，這份基於區塊鏈的證據在全球主要國家均具法律上的參考價值，無論侵權者身在何處，您都擁有強大的法律基礎來主張權利，建立無可撼動的**信任感**。</p>
             </Accordion>
@@ -252,8 +246,9 @@ const HomePage = () => {
           </HeroContainer>
         </FinalCTASection>
 
-        <FileUploadSection />
-        <ConsoleStatus />
+        {/* ★★★ 關鍵修正：已將以下兩個多餘的元件移除 ★★★ */}
+        {/* <FileUploadSection /> */}
+        {/* <ConsoleStatus /> */}
       </>
     );
   };
