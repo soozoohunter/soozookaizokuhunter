@@ -25,7 +25,7 @@ router.get('/', auth, async (req, res) => {
         plan = activeSubscription.plan;
     } else {
         logger.warn(`User ${userId} has no active subscription, providing default free plan data.`);
-        plan = { name: 'Free Trial', image_limit: 5, scan_limit_monthly: 10, dmca_takedown_limit_monthly: 0 };
+        plan = { name: 'Free Trial', works_quota: 5, scan_quota_monthly: 10, dmca_quota_monthly: 0 };
     }
 
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -55,9 +55,9 @@ router.get('/', auth, async (req, res) => {
       userInfo: { id: user.id, email: user.email, realName: user.realName },
       planInfo: { name: plan.name, expires_at: activeSubscription?.expires_at },
       usage: {
-        images: { used: imageUsage, limit: plan.image_limit ?? 5 },
-        monthlyScan: { used: scanUsage, limit: plan.scan_limit_monthly ?? 10 },
-        monthlyDmca: { used: dmcaUsage, limit: plan.dmca_takedown_limit_monthly ?? 0 },
+        works: { used: imageUsage, limit: plan.works_quota ?? 5 },
+        monthlyScan: { used: scanUsage, limit: plan.scan_quota_monthly ?? 10 },
+        monthlyDmca: { used: dmcaUsage, limit: plan.dmca_quota_monthly ?? 0 },
       },
       protectedContent: protectedFiles.map(file => ({
         fileId: file.id,

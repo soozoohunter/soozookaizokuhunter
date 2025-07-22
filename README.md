@@ -68,6 +68,16 @@ BING_API_KEY2=your-secondary-bing-key   # optional fallback
 BING_ENDPOINT=https://<your-resource>.cognitiveservices.azure.com
 ```
 
+## Subscription Quotas
+
+Each subscription plan provides three types of resources:
+
+* **works_quota** – how many works can be protected concurrently.
+* **scan_quota_monthly** – number of AI scans you can trigger each month.
+* **dmca_quota_monthly** – monthly DMCA takedown actions.
+
+Usage for the latter two resets every month. When a plan has `null` for a quota it means the resource is unlimited.
+
 ## Protect API Endpoints
 
 ### POST `/api/protect/step1`

@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
             role: 'user',
             status: 'active',
             // 預設方案的額度
-            quota: freePlan.image_limit, 
+            quota: freePlan.works_quota,
         });
 
         const expiresAt = new Date();

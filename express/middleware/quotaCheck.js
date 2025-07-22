@@ -33,12 +33,14 @@ const checkQuota = (featureCode) => async (req, res, next) => {
 
         switch (featureCode) {
             case 'image_upload':
-                limit = plan.image_limit;
+                // works_quota corresponds to the total number of stored works
+                limit = plan.works_quota;
                 usage = await File.count({ where: { user_id: userId } });
                 break;
             
             case 'scan':
-                limit = plan.scan_limit_monthly;
+                // monthly scan credits
+                limit = plan.scan_quota_monthly;
                 const startOfMonthScan = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
                 usage = await UsageRecord.count({
                     where: { user_id: userId, feature_code: 'scan', created_at: { [Op.gte]: startOfMonthScan } }
@@ -46,7 +48,8 @@ const checkQuota = (featureCode) => async (req, res, next) => {
                 break;
 
             case 'dmca_takedown':
-                limit = plan.dmca_takedown_limit_monthly;
+                // monthly DMCA takedown credits
+                limit = plan.dmca_quota_monthly;
                 const startOfMonthDmca = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
                 usage = await UsageRecord.count({
                     where: { user_id: userId, feature_code: 'dmca_takedown', created_at: { [Op.gte]: startOfMonthDmca } }
