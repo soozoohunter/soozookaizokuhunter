@@ -106,14 +106,31 @@ const AuthButton = styled.button`
   border: 1px solid ${({ theme }) => theme.colors.light.primary};
 `;
 
+const SummaryCard = styled.div`
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin: 2rem 0;
+`;
+
+const SummaryText = styled.p`
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: ${({ theme }) => theme.colors.light.primary};
+`;
+
 export default function ProtectStep4() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useContext(AuthContext);
 
-  const { scanResults, fileInfo } = location.state || {};
+  // ★★★ fileInfo, trialUser 從 step3 傳來 ★★★
+  const { scanResults, fileInfo, trialUser } = location.state || {};
 
   const [infringingLinks, setInfringingLinks] = useState([]);
+  const [summary, setSummary] = useState({ count: 0, sources: 0 });
   const [takedownStatus, setTakedownStatus] = useState({});
 
   useEffect(() => {
@@ -122,23 +139,21 @@ export default function ProtectStep4() {
       return;
     }
 
-    // ★★★ 關鍵修正：採用新的邏輯來解析後端回傳的 scanResults ★★★
     let collectedLinks = [];
-
-    // 檢查 scanResults.results 物件是否存在
     if (scanResults && scanResults.results) {
-      // 遍歷所有掃描來源 (例如 'tineye', 'vision' 等)
       Object.values(scanResults.results).forEach(sourceResult => {
-        // 檢查該來源是否成功，並且回傳了 links 陣列
         if (sourceResult && sourceResult.success && Array.isArray(sourceResult.links)) {
           collectedLinks.push(...sourceResult.links);
         }
       });
     }
-
-    // 移除重複的連結並更新到 state
     const uniqueLinks = [...new Set(collectedLinks)];
     setInfringingLinks(uniqueLinks);
+    // ★★★ 計算結果摘要 ★★★
+    setSummary({
+      count: uniqueLinks.length,
+      sources: Object.keys(scanResults.results || {}).length
+    });
 
   }, [scanResults, fileInfo, navigate]);
 
@@ -172,12 +187,16 @@ export default function ProtectStep4() {
       state: {
         from: location,
         scanResults,
-        fileInfo
+        fileInfo,
+        trialUser
       }
     });
   };
 
   if (!fileInfo) return null;
+
+  // ★★★ 根據用戶登入狀態和角色，顯示不同內容 ★★★
+  const isPaidUser = user && user.role !== 'trial';
 
   return (
     <PageWrapper>
@@ -187,44 +206,53 @@ export default function ProtectStep4() {
           您的原始檔案：<strong>{fileInfo.filename}</strong>
         </p>
         
-        {infringingLinks.length > 0 ? (
-          <>
-            <p>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</p>
-            <LinkList>
-              {infringingLinks.map((link, index) => (
-                <LinkItem key={index}>
-                  <LinkUrl href={link} target="_blank" rel="noopener noreferrer">
-                    {link}
-                  </LinkUrl>
-                  {user && (
-                    <TakedownButton
-                      onClick={() => handleTakedown(link)}
-                      disabled={takedownStatus[link]?.status === 'success'}
-                    >
-                      {takedownStatus[link]
-                        ? takedownStatus[link].message
-                        : '發送 DMCA 申訴'}
-                    </TakedownButton>
-                  )}
-                </LinkItem>
-              ))}
-            </LinkList>
-          </>
-        ) : (
-          <p>太棒了！AI 掃描目前未在網路上發現疑似侵權的內容。</p>
+        {/* --- 對於付費會員，顯示完整結果 --- */}
+        {isPaidUser && (
+          infringingLinks.length > 0 ? (
+            <>
+              <p>AI 掃描發現 {infringingLinks.length} 個疑似侵權連結：</p>
+              <LinkList>
+                {infringingLinks.map((link, index) => (
+                  <LinkItem key={index}>
+                    <LinkUrl href={link} target="_blank" rel="noopener noreferrer">{link}</LinkUrl>
+                    <TakedownButton>發送 DMCA 申訴</TakedownButton>
+                  </LinkItem>
+                ))}
+              </LinkList>
+            </>
+          ) : (
+            <p>太棒了！AI 掃描目前未在網路上發現疑似侵權的內容。</p>
+          )
         )}
 
-        {!user && (
-          <AuthActionBlock>
-            <AuthActionTitle>註冊或登入以發送 DMCA 申訴</AuthActionTitle>
-            <p>儲存您的掃描結果，並立即採取法律行動保護您的資產。</p>
-            <AuthButtonContainer>
-              <AuthButton onClick={() => handleAuthRedirect('/login')}>登入</AuthButton>
-              <AuthButton primary onClick={() => handleAuthRedirect('/register')}>
-                免費註冊
-              </AuthButton>
-            </AuthButtonContainer>
-          </AuthActionBlock>
+        {/* --- 對於未登入或試用者，顯示摘要和付費引導 --- */}
+        {!isPaidUser && (
+          <>
+            <SummaryCard>
+              <AuthActionTitle>掃描摘要</AuthActionTitle>
+              {summary.count > 0 ? (
+                <SummaryText>
+                  已在 {summary.sources} 個主要平台發現 {summary.count} 筆疑似侵權！
+                </SummaryText>
+              ) : (
+                <SummaryText>
+                  恭喜！初步掃描未發現侵權。
+                </SummaryText>
+              )}
+              <p>註冊或登入以解鎖完整侵權報告，並啟用一鍵下架功能。</p>
+            </SummaryCard>
+
+            <AuthActionBlock>
+              <AuthActionTitle>升級帳戶以保護您的資產</AuthActionTitle>
+              <p>成為正式會員，即可查看詳細報告、下載 PDF、並立即採取法律行動。</p>
+              <AuthButtonContainer>
+                <AuthButton onClick={() => handleAuthRedirect('/login')}>我已有帳號，前往登入</AuthButton>
+                <AuthButton primary onClick={() => handleAuthRedirect('/register')}>
+                  免費註冊並查看方案
+                </AuthButton>
+              </AuthButtonContainer>
+            </AuthActionBlock>
+          </>
         )}
       </Container>
     </PageWrapper>
