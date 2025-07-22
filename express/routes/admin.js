@@ -170,11 +170,14 @@ router.post('/approve-payment/:proofId', async (req, res) => {
  expires_at: expiresAt
  }, { transaction });
 
- await proof.update({ status: 'approved', approved_by: req.user.id }, { transaction });
+    await proof.update({ status: 'approved', approved_by: req.user.id }, { transaction });
 
- await transaction.commit();
+    await transaction.commit();
 
- res.json({ message: `已成功為 ${user.email} 開通 ${plan.name} 方案` });
+    // TODO: 在此處整合 Email 服務，通知使用者方案已開通
+    // await emailService.sendSubscriptionActivatedEmail(user.email, plan.name);
+
+    res.json({ message: `已成功為 ${user.email} 開通 ${plan.name} 方案` });
 
  } catch (err) {
  await transaction.rollback();
