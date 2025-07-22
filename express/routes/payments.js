@@ -20,8 +20,11 @@ router.post('/submit-proof', auth, async (req, res) => {
             account_last_five: accountLastFive,
             user_email: userEmail,
             notes: notes,
-            status: 'pending'
+            status: 'pending' // 狀態為待審核
         });
+
+        // TODO: 在此處整合 Email 服務，發送確認信給使用者
+        // await emailService.sendPaymentProofReceivedEmail(userEmail);
 
         logger.info(`[Payment] Received payment proof from User ID: ${userId} for plan ${planCode}`);
         res.status(201).json({ message: '已成功收到您的付款證明，我們將在 1 個工作小時內完成審核並為您開通權限。' });
