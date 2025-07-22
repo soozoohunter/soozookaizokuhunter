@@ -41,7 +41,7 @@ router.get('/stats', async (req, res) => {
         const totalUsers = await User.count({ where: { role: {[Op.ne]: 'trial'} } });
         const trialUsers = await User.count({ where: { role: 'trial' } });
         const totalFiles = await File.count();
-        const totalScans = await Scan.count();
+        const totalScans = await Scan.count({ where: { status: 'completed' } });
         res.json({ totalUsers, trialUsers, totalFiles, totalScans });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch stats' });
@@ -53,7 +53,7 @@ router.get('/users', async (req, res) => {
     try {
         const users = await User.findAll({
             order: [['createdAt', 'DESC']],
-            attributes: { exclude: ['password'] }
+            attributes: { exclude: ['password'] } // 不回傳密碼
         });
         res.json(users);
     } catch (err) {
@@ -61,28 +61,29 @@ router.get('/users', async (req, res) => {
     }
 });
 
-// ★★★ 新增：獲取單一使用者的所有檔案 ★★★
-router.get('/users/:userId/files', async (req, res) => {
+// 獲取單一使用者的詳細資訊 (包含檔案和訂閱)
+router.get('/users/:userId/details', async (req, res) => {
     try {
-        const files = await File.findAll({
-            where: { user_id: req.params.userId },
-            order: [['createdAt', 'DESC']]
+        const user = await User.findByPk(req.params.userId, {
+            attributes: { exclude: ['password'] },
+            include: [
+                { model: File, as: 'Files', order: [['createdAt', 'DESC']] },
+                { model: UserSubscription, as: 'UserSubscriptions', include: [{ model: SubscriptionPlan, as: 'SubscriptionPlan' }] }
+            ]
         });
-        res.json(files);
-    } catch(err) {
-        res.status(500).json({ error: 'Failed to fetch user files' });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch user details' });
     }
 });
 
-// ★★★ 新增：獲取所有檔案列表 ★★★
+// 獲取所有檔案列表
 router.get('/files', async (req, res) => {
     try {
         const files = await File.findAll({
             order: [['createdAt', 'DESC']],
-            include: {
-                model: User,
-                attributes: ['id', 'email', 'real_name']
-            }
+            include: { model: User, attributes: ['id', 'email', 'real_name'] }
         });
         res.json(files);
     } catch(err) {
@@ -90,19 +91,12 @@ router.get('/files', async (req, res) => {
     }
 });
 
-
-// ★★★ 新增：獲取所有掃描任務列表 ★★★
+// 獲取所有掃描任務列表
 router.get('/scans', async (req, res) => {
     try {
         const scans = await Scan.findAll({
             order: [['createdAt', 'DESC']],
-            include: [{
-                model: File,
-                attributes: ['id', 'filename']
-            }, {
-                model: User,
-                attributes: ['id', 'email']
-            }]
+            include: [{ model: File, attributes: ['id', 'filename'] }, { model: User, attributes: ['id', 'email'] }]
         });
         res.json(scans);
     } catch(err) {
@@ -110,8 +104,7 @@ router.get('/scans', async (req, res) => {
     }
 });
 
-
-// 更新使用者資訊 (例如: 額度)
+// 更新使用者資訊 (角色、狀態、額度等)
 router.put('/users/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
