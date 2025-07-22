@@ -1,10 +1,11 @@
+// express/routes/admin.js
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User, SubscriptionPlan, UserSubscription, File, Scan, PaymentProof, sequelize } = require('../models');
-const adminAuth = require('../middleware/adminAuth'); // 確保您已建立此管理員專用中介層
+const adminAuth = require('../middleware/adminAuth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 
@@ -12,15 +13,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
 router.post('/login', async (req, res) => {
     try {
         const { identifier, password } = req.body;
-        if (!identifier || !password) {
-            return res.status(400).json({ error: '缺少帳號或密碼' });
-        }
+        if (!identifier || !password) return res.status(400).json({ error: '缺少帳號或密碼' });
+        
         const user = await User.findOne({
-            where: {
-                [Op.or]: [{ email: identifier }, { phone: identifier }],
-                role: 'admin'
-            }
+            where: { [Op.or]: [{ email: identifier }, { phone: identifier }], role: 'admin' }
         });
+
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ error: '帳號或密碼錯誤，或非管理員帳號' });
         }
@@ -53,7 +51,7 @@ router.get('/users', async (req, res) => {
     try {
         const users = await User.findAll({
             order: [['createdAt', 'DESC']],
-            attributes: { exclude: ['password'] } // 不回傳密碼
+            attributes: { exclude: ['password'] }
         });
         res.json(users);
     } catch (err) {
@@ -123,64 +121,66 @@ router.put('/users/:userId', async (req, res) => {
     }
 });
 
-// ★★★ 新增：獲取待審核的付款證明 ★★★
+// 獲取待審核的付款證明
 router.get('/payment-proofs', async (req, res) => {
-    try {
-        const proofs = await PaymentProof.findAll({
-            where: { status: 'pending' },
-            include: [{ model: User, attributes: ['id', 'email', 'real_name'] }],
-            order: [['createdAt', 'ASC']]
-        });
-        res.json(proofs);
-    } catch (err) {
-        res.status(500).json({ error: 'Failed to fetch payment proofs' });
-    }
+ try {
+ const proofs = await PaymentProof.findAll({
+ where: { status: 'pending' },
+ include: [{ model: User, attributes: ['id', 'email', 'real_name'] }],
+ order: [['createdAt', 'ASC']]
+ });
+ res.json(proofs);
+ } catch (err) {
+ res.status(500).json({ error: 'Failed to fetch payment proofs' });
+ }
 });
 
-// ★★★ 新增：批准付款並開通會員方案 ★★★
+// 批准付款並開通會員方案
 router.post('/approve-payment/:proofId', async (req, res) => {
-    const { proofId } = req.params;
-    const transaction = await sequelize.transaction();
+ const { proofId } = req.params;
+ const transaction = await sequelize.transaction();
 
-    try {
-        const proof = await PaymentProof.findByPk(proofId, { transaction });
-        if (!proof || proof.status !== 'pending') {
-            await transaction.rollback();
-            return res.status(404).json({ message: '找不到待審核的紀錄或已被處理' });
-        }
+ try {
+ const proof = await PaymentProof.findByPk(proofId, { transaction });
+ if (!proof || proof.status !== 'pending') {
+ await transaction.rollback();
+ return res.status(404).json({ message: '找不到待審核的紀錄或已被處理' });
+ }
 
-        const user = await User.findByPk(proof.user_id, { transaction });
-        const plan = await SubscriptionPlan.findOne({ where: { plan_code: proof.plan_code }, transaction });
+ const user = await User.findByPk(proof.user_id, { transaction });
+ const plan = await SubscriptionPlan.findOne({ where: { plan_code: proof.plan_code }, transaction });
 
-        if (!user || !plan) {
-            await transaction.rollback();
-            return res.status(404).json({ message: '找不到對應的使用者或方案' });
-        }
+ if (!user || !plan) {
+ await transaction.rollback();
+ return res.status(404).json({ message: '找不到對應的使用者或方案' });
+ }
 
-        await user.update({
-            role: 'member',
-            quota: user.quota + plan.works_quota
-        }, { transaction });
+ await user.update({
+ role: 'member',
+ quota: user.quota + plan.works_quota
+ }, { transaction });
 
-        const expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-        await UserSubscription.create({
-            user_id: user.id,
-            plan_id: plan.id,
-            status: 'active',
-            started_at: new Date(),
-            expires_at: expiresAt
-        }, { transaction });
+ const expiresAt = new Date();
+ expiresAt.setMonth(expiresAt.getMonth() + 1);
+ await UserSubscription.create({
+ user_id: user.id,
+ plan_id: plan.id,
+ status: 'active',
+ started_at: new Date(),
+ expires_at: expiresAt
+ }, { transaction });
 
-        await proof.update({ status: 'approved', approved_by: req.user.id }, { transaction });
+ await proof.update({ status: 'approved', approved_by: req.user.id }, { transaction });
 
-        await transaction.commit();
+ await transaction.commit();
 
-        res.json({ message: `已成功為 ${user.email} 開通 ${plan.plan_name} 方案` });
-    } catch (err) {
-        await transaction.rollback();
-        res.status(500).json({ error: '批准付款時發生錯誤' });
-    }
+ res.json({ message: `已成功為 ${user.email} 開通 ${plan.name} 方案` });
+
+ } catch (err) {
+ await transaction.rollback();
+ console.error(`[Admin] Error approving payment ${proofId}:`, err);
+ res.status(500).json({ error: '批准付款時發生錯誤' });
+ }
 });
 
 module.exports = router;
