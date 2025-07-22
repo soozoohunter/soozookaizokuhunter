@@ -159,7 +159,7 @@ router.post('/approve-payment/:proofId', async (req, res) => {
 
         await user.update({
             role: 'member',
-            quota: user.quota + plan.image_limit
+            quota: user.quota + plan.works_quota
         }, { transaction });
 
         const expiresAt = new Date();

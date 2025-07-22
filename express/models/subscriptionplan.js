@@ -15,12 +15,16 @@ module.exports = (sequelize, DataTypes) => {
     name: { type: DataTypes.STRING, allowNull: false },
     monthly_price: DataTypes.DECIMAL(10, 2),
     annual_price: DataTypes.INTEGER,
+    // "works_quota" represents the total number of protected works allowed.
+    works_quota: { type: DataTypes.INTEGER, field: 'image_limit' },
+    // legacy field kept for compatibility but not used directly
     video_limit: DataTypes.INTEGER,
-    image_limit: DataTypes.INTEGER,
     image_upload_limit: DataTypes.INTEGER,
-    scan_limit_monthly: DataTypes.INTEGER,
+    // monthly scan credits
+    scan_quota_monthly: { type: DataTypes.INTEGER, field: 'scan_limit_monthly' },
     dmca_free: DataTypes.INTEGER,
-    dmca_takedown_limit_monthly: DataTypes.INTEGER,
+    // monthly DMCA takedown credits
+    dmca_quota_monthly: { type: DataTypes.INTEGER, field: 'dmca_takedown_limit_monthly' },
     scan_frequency_in_hours: DataTypes.INTEGER,
     scan_frequency: DataTypes.STRING(16),
     has_legal_consultation: DataTypes.BOOLEAN,
