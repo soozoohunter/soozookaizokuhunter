@@ -27,6 +27,8 @@ const scansRoutes = require('./routes/scans'); // ★ 導入新的 scans 路由
 const filesRoutes = require('./routes/files'); // ★★★ 新增：會員檔案路由
 const trademarkRoutes = require('./routes/trademarkCheck'); // ★★★ 新增：商標檢測路由
 const paymentsRoutes = require('./routes/payments'); // ★ 新增
+const casesRoutes = require('./routes/cases');
+const resolutionRoutes = require('./routes/resolution');
 
 // Services
 const ipfsService = require('./services/ipfsService');
@@ -57,6 +59,8 @@ app.use('/api/scans', scansRoutes); // ★ 掛載新的 scans 路由
 app.use('/api/files', filesRoutes); // ★★★ 掛載：會員檔案路由
 app.use('/api/trademark', trademarkRoutes); // ★★★ 掛載：商標檢測路由
 app.use('/api/payments', paymentsRoutes); // ★ 掛載
+app.use('/api/cases', casesRoutes);
+app.use('/api/resolution', resolutionRoutes);
 
 // ★ 新增區塊鏈專用健康檢查端點 ★
 app.get('/blockchain-health', async (req, res) => {

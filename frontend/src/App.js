@@ -18,6 +18,7 @@ import BlogPostPage from './pages/BlogPostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import PaymentPage from './pages/PaymentPage';
+import ResolutionPage from './pages/ResolutionPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import ProtectStep1 from './pages/ProtectStep1';
@@ -73,6 +74,7 @@ function App() {
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/blog/post-1" element={<BlogPostPage />} />
                 <Route path="/payment" element={<PaymentPage />} />
+                <Route path="/resolve/:uniqueCaseId" element={<ResolutionPage />} />
                 <Route path="/free-trial" element={<FreeTrialLandingPage />} />
                 <Route path="/protect/step1" element={<ProtectStep1 />} />
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
