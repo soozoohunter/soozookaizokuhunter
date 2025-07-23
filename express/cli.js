@@ -4,6 +4,16 @@ const bcrypt = require('bcryptjs');
 const { sequelize, User, SubscriptionPlan, UserSubscription } = require('./models');
 const logger = require('./utils/logger');
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('未處理的拒絕:', promise, '原因:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('未捕獲的異常:', error);
+  process.exit(1);
+});
+
 console.log('===== 環境變量檢查 =====');
 console.log('BCRYPT_SALT_ROUNDS:', process.env.BCRYPT_SALT_ROUNDS);
 console.log('DATABASE_URL:', process.env.DATABASE_URL);
@@ -101,37 +111,64 @@ program
   .option('-e, --email <string>', '使用者 Email')
   .option('-pw, --password <string>', '密碼')
   .action(async (options) => {
+    console.log('[CLI] 開始測試登入...');
     const { email, password } = options;
+
     if (!email || !password) {
-      console.error('[CLI] 需要 Email (--email) 和密碼 (--password)。');
+      console.error('[CLI] 錯誤：需要 Email 和密碼');
       await sequelize.close();
       return;
     }
+
     try {
+      console.log('[CLI] 嘗試驗證資料庫連線...');
       await sequelize.authenticate();
+      console.log('[CLI] 資料庫連線成功');
+
+      console.log(`[CLI] 搜尋使用者: ${email}`);
       const user = await User.findOne({
         where: { email },
         attributes: ['id', 'email', 'password']
       });
+
       if (!user) {
-        console.warn(`[CLI] 找不到 Email 為 ${email} 的使用者。`);
+        console.error(`[CLI] 錯誤：找不到使用者 ${email}`);
         return;
       }
-      console.log('[CLI] BCRYPT_SALT_ROUNDS:', process.env.BCRYPT_SALT_ROUNDS);
-      console.log(`[CLI] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}... (長度: ${user.password.length})`);
+
+      console.log(`[CLI] 使用者找到: ${user.email}`);
+      console.log(`[CLI] 資料庫密碼哈希: ${user.password.substring(0, 10)}... (長度: ${user.password.length})`);
+
+      console.log('[CLI] 開始比對密碼...');
       const isMatch = await bcrypt.compare(password, user.password);
+
       if (isMatch) {
-        console.log(`[CLI] 密碼正確！使用者 ${email} 可以登入。`);
+        console.log('[CLI] 成功：密碼正確！');
       } else {
-        console.warn(`[CLI] 密碼錯誤！使用者 ${email} 無法登入。`);
+        console.error('[CLI] 錯誤：密碼比對失敗');
+
         const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+        console.log(`[CLI] 使用鹽輪次: ${saltRounds} 生成新哈希`);
         const newHash = await bcrypt.hash(password, saltRounds);
-        console.log(`[CLI] 新生成的密碼哈希: ${newHash.substring(0, 10)}... (長度: ${newHash.length})`);
+        console.log(`[CLI] 新生成哈希: ${newHash.substring(0, 10)}... (長度: ${newHash.length})`);
+
+        console.log(`[CLI] 哈希完全比對: ${user.password === newHash ? '相同' : '不同'}`);
       }
     } catch (error) {
-      console.error('[CLI] 測試登入失敗:', error);
+      console.error('[CLI] 發生未捕獲的異常:');
+      console.error('錯誤訊息:', error.message);
+      console.error('堆棧追蹤:', error.stack);
+
+      if (error.original) {
+        console.error('原始資料庫錯誤:', error.original);
+      }
     } finally {
-      await sequelize.close();
+      try {
+        await sequelize.close();
+        console.log('[CLI] 資料庫連線已關閉');
+      } catch (closeError) {
+        console.error('[CLI] 關閉連線失敗:', closeError);
+      }
     }
   });
 
