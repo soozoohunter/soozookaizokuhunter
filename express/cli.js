@@ -36,13 +36,13 @@ program
         logger.info(`[CLI] === 超級管理員帳號已成功建立！ ===`);
         logger.info(`[CLI] Email: ${adminDetails.email}`);
         logger.info(`[CLI] Phone: ${adminDetails.phone}`);
-        logger.info(`[CLI] 密碼: ${adminDetails.password}`);
+        logger.info(`[CLI] Password: ${adminDetails.password}`);
         logger.info(`[CLI] =================================`);
       }
     } catch (error) {
       logger.error('[CLI] 建立管理員失敗:', error.message);
     }
-    process.exit(0);
+    await sequelize.close();
   });
 
 // --- 手動開通/變更方案指令 ---
@@ -52,11 +52,10 @@ program
   .option('-e, --email <string>', '使用者 Email')
   .option('-p, --plan-code <string>', '方案代碼 (例如: CREATOR, PROFESSIONAL)')
   .action(async (options) => {
-    await sequelize.sync();
     const { email, planCode } = options;
     if (!email || !planCode) {
       logger.error('[CLI] 需要 Email (--email) 和方案代碼 (--plan-code)。');
-      process.exit(1);
+      return sequelize.close();
     }
     const transaction = await sequelize.transaction();
     try {
@@ -93,7 +92,7 @@ program
       await transaction.rollback();
       logger.error('[CLI] 設定方案失敗:', error.message);
     }
-    process.exit(0);
+    await sequelize.close();
   });
 
 program.parse(process.argv);
