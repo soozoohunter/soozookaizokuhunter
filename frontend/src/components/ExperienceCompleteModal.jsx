@@ -40,7 +40,7 @@ const PlanButton = styled.button`
 export default function ExperienceCompleteModal({ onClose }) {
   const navigate = useNavigate();
   const handleChoosePlan = (planCode, price) => {
-    onClose(); // Close modal before navigating
+    onClose(); 
     navigate(`/payment?plan=${planCode}&price=${price}`);
   };
 
@@ -58,6 +58,7 @@ export default function ExperienceCompleteModal({ onClose }) {
               <li><strong>100</strong> 件作品存證</li>
               <li>每月 <strong>10</strong> 次掃描</li>
               <li>完整侵權報告</li>
+              <li>✓ P2P 變現引擎</li>
             </FeatureList>
             <PlanButton onClick={() => handleChoosePlan('CREATOR', 390)}>選擇此方案</PlanButton>
           </Card>
@@ -68,6 +69,7 @@ export default function ExperienceCompleteModal({ onClose }) {
               <li><strong>300</strong> 件作品存證</li>
               <li>每月 <strong>30</strong> 次掃描</li>
               <li>完整侵權報告</li>
+              <li>✓ P2P 變現引擎</li>
             </FeatureList>
             <PlanButton onClick={() => handleChoosePlan('CREATOR_PLUS', 990)}>選擇此方案</PlanButton>
           </Card>
@@ -77,7 +79,7 @@ export default function ExperienceCompleteModal({ onClose }) {
             <FeatureList>
               <li><strong>500</strong> 件作品存證</li>
               <li>每月 <strong>50</strong> 次掃描</li>
-              <li><strong>✓ P2P 變現引擎</strong></li>
+              <li><strong>✓ 進階 P2P 引擎</strong></li>
               <li><strong>✓ 批量處理</strong></li>
             </FeatureList>
             <PlanButton featured onClick={() => handleChoosePlan('PROFESSIONAL', 1490)}>升級捍衛者</PlanButton>
