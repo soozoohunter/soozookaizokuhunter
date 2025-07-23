@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     works_quota: { type: DataTypes.INTEGER },
     scan_quota_monthly: { type: DataTypes.INTEGER },
     dmca_quota_monthly: { type: DataTypes.INTEGER },
-    scan_frequency: { type: DataTypes.STRING }, // 'manual', 'weekly', 'daily'
+    scan_frequency: { type: DataTypes.STRING }, // e.g., 'manual', 'weekly', 'daily'
     has_batch_processing: { type: DataTypes.BOOLEAN, defaultValue: false },
     has_trademark_monitoring: { type: DataTypes.BOOLEAN, defaultValue: false },
     has_p2p_engine: { type: DataTypes.BOOLEAN, defaultValue: false },
