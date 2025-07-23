@@ -3,11 +3,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { AuthProvider } from './AuthContext';
 import { theme } from './theme';
+
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
-import AdminLayout from './layouts/AdminLayout';
+import AdminLayout from './layouts/AdminLayout'; // 確保您已建立此檔案
 
-// --- 所有頁面組件導入 ---
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import FreeTrialLandingPage from './pages/FreeTrialLandingPage';
@@ -27,13 +27,10 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import PaymentApprovalPage from './pages/PaymentApprovalPage';
 import NotFoundPage from './pages/NotFoundPage';
-// ... 其他您可能有的頁面
 
 import ErrorBoundary from './ErrorBoundary';
 
-const GlobalStyle = createGlobalStyle`
-  /* ... Global Styles ... */
-`;
+const GlobalStyle = createGlobalStyle`/* ... Global Styles ... */`;
 
 function App() {
   return (
@@ -43,7 +40,6 @@ function App() {
           <GlobalStyle />
           <ErrorBoundary>
             <Routes>
-              {/* --- 公開路由 --- */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
@@ -58,18 +54,15 @@ function App() {
                 <Route path="/protect/step4" element={<ProtectStep4 />} />
               </Route>
 
-              {/* --- 獨立的登入/註冊路由 --- */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
 
-              {/* --- 會員路由 (受登入保護) --- */}
               <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                {/* ... 其他會員路由 ... */}
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  {/* ... 其他需要登入的會員路由 ... */}
               </Route>
               
-              {/* --- 管理員路由 (受管理員權限保護) --- */}
               <Route element={<AdminLayout />}>
                 <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
