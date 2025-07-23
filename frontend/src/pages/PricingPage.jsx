@@ -63,7 +63,7 @@ const PricingPage = () => {
               <StyledButton onClick={() => handleChoosePlan('CREATOR', 390)}>選擇此方案</StyledButton>
             </Card>
             <Card>
-              <PlanName>CREATOR+<br/>進階守護者</PlanName>
+              <PlanName>CREATOR+<br/>進階守護者 (誘餌)</PlanName>
               <PlanPrice>NT$ 990<span> / 月</span></PlanPrice>
               <FeatureList>
                 <FeatureItem><strong>300</strong> 件作品永久存證席位</FeatureItem>
