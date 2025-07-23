@@ -23,7 +23,6 @@ program
       const [user, created] = await User.findOrCreate({
         where: { email: adminDetails.email },
         defaults: {
-          email: adminDetails.email,
           phone: adminDetails.phone,
           password: hashedPassword,
           real_name: adminDetails.name,
@@ -32,49 +31,16 @@ program
         }
       });
       if (!created) {
-        logger.warn(`[CLI] Admin user ${adminDetails.email} already exists.`);
+        logger.warn(`[CLI] 管理員帳號 ${adminDetails.email} 已經存在。`);
       } else {
         logger.info(`[CLI] === 超級管理員帳號已成功建立！ ===`);
         logger.info(`[CLI] Email: ${adminDetails.email}`);
         logger.info(`[CLI] Phone: ${adminDetails.phone}`);
-        logger.info(`[CLI] Password: ${adminDetails.password} (這是您的明文密碼，請妥善保管)`);
+        logger.info(`[CLI] 密碼: ${adminDetails.password}`);
         logger.info(`[CLI] =================================`);
       }
     } catch (error) {
-      logger.error('[CLI] Failed to create admin user:', error.message);
-    }
-    process.exit(0);
-  });
-
-// --- 通用使用者管理指令 ---
-program
-  .command('user:create')
-  .description('建立一個新的使用者帳號')
-  .option('-e, --email <string>', '使用者 Email')
-  .option('-p, --phone <string>', '使用者手機號碼')
-  .option('-pw, --password <string>', '使用者密碼')
-  .option('-n, --name <string>', '使用者暱稱')
-  .option('--role <string>', '使用者角色 (user, admin, trial)', 'user')
-  .action(async (options) => {
-    await sequelize.sync();
-    const { email, phone, password, name, role } = options;
-    if (!email || !phone || !password || !name) {
-      logger.error('[CLI] Email, phone, password, and name are required.');
-      process.exit(1);
-    }
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const [user, created] = await User.findOrCreate({
-        where: { email },
-        defaults: { email, phone, password: hashedPassword, real_name: name, role, status: 'active' }
-      });
-      if (!created) {
-        logger.warn(`[CLI] User with email ${email} already exists.`);
-      } else {
-        logger.info(`[CLI] User ${email} created successfully with role ${role}.`);
-      }
-    } catch (error) {
-      logger.error('[CLI] Failed to create user:', error.message);
+      logger.error('[CLI] 建立管理員失敗:', error.message);
     }
     process.exit(0);
   });
@@ -84,12 +50,12 @@ program
   .command('user:set-plan')
   .description('為指定使用者設定或變更訂閱方案')
   .option('-e, --email <string>', '使用者 Email')
-  .option('-p, --plan-code <string>', '方案代碼 (e.g., CREATOR, PROFESSIONAL)')
+  .option('-p, --plan-code <string>', '方案代碼 (例如: CREATOR, PROFESSIONAL)')
   .action(async (options) => {
     await sequelize.sync();
     const { email, planCode } = options;
     if (!email || !planCode) {
-      logger.error('[CLI] Email and plan-code are required.');
+      logger.error('[CLI] 需要 Email (--email) 和方案代碼 (--plan-code)。');
       process.exit(1);
     }
     const transaction = await sequelize.transaction();
@@ -97,8 +63,8 @@ program
       const user = await User.findOne({ where: { email }, transaction });
       const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode }, transaction });
 
-      if (!user) throw new Error(`User with email ${email} not found.`);
-      if (!plan) throw new Error(`Subscription plan with code ${planCode} not found.`);
+      if (!user) throw new Error(`找不到 Email 為 ${email} 的使用者。`);
+      if (!plan) throw new Error(`找不到代碼為 ${planCode} 的方案。`);
 
       await UserSubscription.update(
         { status: 'expired' },
@@ -109,8 +75,11 @@ program
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
       await UserSubscription.create({
-        user_id: user.id, plan_id: plan.id, status: 'active',
-        started_at: new Date(), expires_at: expiresAt,
+        user_id: user.id,
+        plan_id: plan.id,
+        status: 'active',
+        started_at: new Date(),
+        expires_at: expiresAt,
       }, { transaction });
 
       await user.update({
@@ -119,10 +88,10 @@ program
       }, { transaction });
 
       await transaction.commit();
-      logger.info(`[CLI] Successfully activated plan '${plan.name}' for user ${email}.`);
+      logger.info(`[CLI] 已成功為 ${email} 開通 '${plan.name}' 方案，效期一年。`);
     } catch (error) {
       await transaction.rollback();
-      logger.error('[CLI] Failed to set user plan:', error.message);
+      logger.error('[CLI] 設定方案失敗:', error.message);
     }
     process.exit(0);
   });
