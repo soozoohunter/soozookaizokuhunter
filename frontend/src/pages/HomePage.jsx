@@ -188,29 +188,29 @@ const HomePage = () => {
       <PageSpacer />
       <HeroWrapper>
         <HeroContainer>
-          <HeroTitle>Blockchain + AI = Flawless Copyright Protection</HeroTitle>
-          <HeroSubtitle>One Click to Prove Your Originality.</HeroSubtitle>
-          <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
-            <strong>ONLY WE</strong> combine unstoppable <strong>Blockchain Fingerprinting</strong> with advanced <strong>AI Infringement Detection</strong> and global legal solutions, recognized under the <strong>Berne Convention</strong> and <strong>WTO/TRIPS</strong>.
-          </p>
-          <PrimaryButton to="/free-trial">立即免費體驗</PrimaryButton>
+          <HeroTitle>不只保護，更能變現</HeroTitle>
+          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的原創著作才華賦予金融價值</HeroSubtitle>
+            <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
+              我們將不可篡改的區塊鏈存證與 AI 全網監控結合，不僅為您的作品提供無懈可擊的法律保護，更能將每一次侵權，都轉化為您的潛在收益。
+            </p>
+          <PrimaryButton to="/free-trial">立即免費體驗賦權</PrimaryButton>
         </HeroContainer>
       </HeroWrapper>
 
       <FeaturesSection>
-        <SectionTitle>三大核心技術，一站式解決方案</SectionTitle>
+        <SectionTitle>三大核心引擎</SectionTitle>
         <FeaturesContainer>
           <FeatureCard>
-            <FeatureTitle>AI 全網掃描</FeatureTitle>
-            <FeatureText>面對全網的**盜圖**、**盜影片**與**盜版**內容，我們的 AI 引擎提供 24/7 **侵權偵測**。不僅揪出侵權，更能有效**防詐騙濫用**，保護您的品牌形象與數位資產安全。</FeatureText>
+            <FeatureTitle>區塊鏈權狀</FeatureTitle>
+            <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份全球認可的永久數位產權證明。這不是收據，這是您在數位世界中神聖不可侵犯的**權狀**。</FeatureText>
           </FeatureCard>
           <FeatureCard>
-            <FeatureTitle>區塊鏈存證</FeatureTitle>
-            <FeatureText>您的每一份創作，上傳瞬間即生成不可篡改的數位指紋，永久記錄於區塊鏈。這份鐵證是您最強大的法律後盾，確保您的原創性無可辯駁。</FeatureText>
+            <FeatureTitle>AI 哨兵</FeatureTitle>
+            <FeatureText>我們的 AI 哨兵 24/7 不間斷地巡邏全球網路，從主流社群到各大電商。它不僅是抓賊的眼睛，更是保護您品牌形象、防止詐騙冒用的忠誠衛士。</FeatureText>
           </FeatureCard>
           <FeatureCard>
-            <FeatureTitle>一鍵維權申訴</FeatureTitle>
-            <FeatureText>從發現侵權到法律行動，我們提供真正的**一條龍服務**。整合官方 API，您只需**一鍵即可發動 DMCA 申訴**，要求各大平台將侵權內容下架，流程高效且簡單。</FeatureText>
+            <FeatureTitle>P2P 變現引擎</FeatureTitle>
+            <FeatureText>發現侵權不再只是憤怒。一鍵啟動 P2P 變現引擎，自動生成具備法律效力的解決方案頁面，讓侵權方在「付費授權」與「面臨訴訟」之間做出選擇。您的原創著作權利，現在是可交易的資產。</FeatureText>
           </FeatureCard>
         </FeaturesContainer>
       </FeaturesSection>
