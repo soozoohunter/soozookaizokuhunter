@@ -10,6 +10,8 @@ program
   .description('建立您指定的超級管理員帳號')
   .action(async () => {
     try {
+      // 先驗證資料庫連線再同步模型，避免隱藏的連線問題
+      await sequelize.authenticate();
       await sequelize.sync();
       const adminDetails = {
         email: 'jeffqqm@gmail.com',
@@ -72,6 +74,39 @@ program
       logger.error('[CLI] 重設密碼失敗:', error.message);
     } finally {
       // 確保資料庫連線在使用後關閉
+      await sequelize.close();
+    }
+  });
+
+// ★ 測試登入指令 ★
+program
+  .command('user:test-login')
+  .description('測試指定使用者的登入')
+  .option('-e, --email <string>', '使用者 Email')
+  .option('-pw, --password <string>', '密碼')
+  .action(async (options) => {
+    const { email, password } = options;
+    if (!email || !password) {
+      logger.error('[CLI] 需要 Email (--email) 和密碼 (--password)。');
+      await sequelize.close();
+      return;
+    }
+    try {
+      await sequelize.authenticate();
+      const user = await User.findOne({ where: { email } });
+      if (!user) {
+        logger.warn(`[CLI] 找不到 Email 為 ${email} 的使用者。`);
+        return;
+      }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        logger.info(`[CLI] 密碼正確！使用者 ${email} 可以登入。`);
+      } else {
+        logger.warn(`[CLI] 密碼錯誤！使用者 ${email} 無法登入。`);
+      }
+    } catch (error) {
+      logger.error('[CLI] 測試登入失敗:', error.message);
+    } finally {
       await sequelize.close();
     }
   });
