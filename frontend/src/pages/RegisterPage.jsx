@@ -99,9 +99,9 @@ const RegisterPage = () => {
     const { login } = useContext(AuthContext);
 
     const [formData, setFormData] = useState({
-        realName: '',
-        email: '',
-        phone: '',
+        realName: location.state?.trialUser?.realName || '',
+        email: location.state?.trialUser?.email || '',
+        phone: location.state?.trialUser?.phone || '',
         password: '',
         confirmPassword: ''
     });
@@ -160,6 +160,7 @@ const RegisterPage = () => {
               navigate('/dashboard', { replace: true });
             }
         } catch (err) {
+            // ★★★ 關鍵修正：確保能顯示來自後端的具體錯誤訊息 ★★★
             if (err.response && err.response.data && err.response.data.message) {
                 setError(err.response.data.message);
             } else {
@@ -218,9 +219,8 @@ const RegisterPage = () => {
                     />
                     {error && <ErrorMsg>{error}</ErrorMsg>}
                     <SubmitButton type="submit" disabled={isLoading}>
-                        {isLoading ? '處理中...' : '註冊'}
+                        {isLoading ? '註冊中...' : '註冊'}
                     </SubmitButton>
-                    {/* ★★★ 這裡就是錯誤點，已修正 ★★★ */}
                     <p style={{ textAlign: 'center' }}>
                         已經有帳號了？ <SwitchLink to="/login">前往登入</SwitchLink>
                     </p>
