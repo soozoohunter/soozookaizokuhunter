@@ -97,7 +97,7 @@ program
       await user.save();
       logger.info(`[CLI] 已成功為 ${email} 重設密碼。`);
     } catch (error) {
-      logger.error('[CLI] 重設密碼失敗:', error.message);
+      logger.error('[CLI] 重設密碼失敗:', error);
     } finally {
       // 確保資料庫連線在使用後關閉
       await sequelize.close();
@@ -124,6 +124,11 @@ program
       console.log('[CLI] 嘗試驗證資料庫連線...');
       await sequelize.authenticate();
       console.log('[CLI] 資料庫連線成功');
+
+      // 調試：列出所有用戶
+      const allUsers = await User.findAll({ attributes: ['id', 'email'] });
+      console.log('[CLI] 資料庫中的用戶列表:');
+      allUsers.forEach(u => console.log(`  ${u.id}: ${u.email}`));
 
       console.log(`[CLI] 搜尋使用者: ${email}`);
       const user = await User.findOne({
