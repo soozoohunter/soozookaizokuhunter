@@ -2,6 +2,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 
+// ... (Styled-components from previous version)
+
 const PageSpacer = styled.div` min-height: 74px; `;
 const PageWrapper = styled.div` padding: 4rem 2rem; background-color: #f9fafb; `;
 const ContentContainer = styled.div` max-width: 1200px; margin: 0 auto; text-align: center; `;
@@ -46,8 +48,8 @@ const PricingPage = () => {
       <PageWrapper>
         <ContentContainer>
           <Header>
-            <Title>選擇您的專屬保護方案</Title>
-            <Subtitle>您購買的不僅是服務，更是永久的數位資產權。年繳方案僅需支付 10 個月費用，立即享有折扣。</Subtitle>
+            <Title>為您的創作賦權</Title>
+            <Subtitle>您投資的不只是工具，而是您每件作品的永久產權與持續增值的潛力。年繳方案僅需支付 10 個月費用。</Subtitle>
           </Header>
           <PricingGrid>
             <Card>
@@ -59,8 +61,9 @@ const PricingPage = () => {
                 <FeatureItem>每週自動巡檢</FeatureItem>
                 <FeatureItem>每月 <strong>1</strong> 次 DMCA 下架額度</FeatureItem>
                 <FeatureItem>✓ 完整侵權報告</FeatureItem>
+                <FeatureItem>✓ **啟動 P2P 變現引擎**</FeatureItem>
               </FeatureList>
-              <StyledButton onClick={() => handleChoosePlan('CREATOR', 390)}>選擇此方案</StyledButton>
+              <StyledButton onClick={() => handleChoosePlan('CREATOR', 390)}>成為守護者</StyledButton>
             </Card>
             <Card>
               <PlanName>CREATOR+<br/>進階守護者</PlanName>
@@ -71,11 +74,12 @@ const PricingPage = () => {
                 <FeatureItem>每週自動巡檢</FeatureItem>
                 <FeatureItem>每月 <strong>3</strong> 次 DMCA 下架額度</FeatureItem>
                 <FeatureItem>✓ 完整侵權報告</FeatureItem>
+                <FeatureItem>✓ **啟動 P2P 變現引擎**</FeatureItem>
               </FeatureList>
               <StyledButton onClick={() => handleChoosePlan('CREATOR_PLUS', 990)}>選擇此方案</StyledButton>
             </Card>
             <Card featured>
-              <PopularBadge>最受歡迎</PopularBadge>
+              <PopularBadge>最佳價值</PopularBadge>
               <PlanName>PROFESSIONAL<br/>捍衛者方案</PlanName>
               <PlanPrice>NT$ 1,490<span> / 月</span></PlanPrice>
               <FeatureList>
@@ -83,12 +87,12 @@ const PricingPage = () => {
                 <FeatureItem>每月 <strong>50</strong> 次 AI 掃描額度</FeatureItem>
                 <FeatureItem><strong>每日優先掃描</strong></FeatureItem>
                 <FeatureItem>每月 <strong>5</strong> 次 DMCA 下架額度</FeatureItem>
-                <FeatureItem>✓ **啟動 P2P 變現引擎**</FeatureItem>
-                <FeatureItem>✓ 批量處理工具</FeatureItem>
-                <FeatureItem>✓ 商標監測功能</FeatureItem>
-                <FeatureItem>✓ Email 法律諮詢</FeatureItem>
+                <FeatureItem>✅ **進階 P2P 變現引擎**</FeatureItem>
+                <FeatureItem>✅ 批量處理工具</FeatureItem>
+                <FeatureItem>✅ 商標監測功能</FeatureItem>
+                <FeatureItem>✅ Email 法律諮詢</FeatureItem>
               </FeatureList>
-              <StyledButton featured onClick={() => handleChoosePlan('PROFESSIONAL', 1490)}>升級捍衛者方案</StyledButton>
+              <StyledButton featured onClick={() => handleChoosePlan('PROFESSIONAL', 1490)}>升級為捍衛者</StyledButton>
             </Card>
           </PricingGrid>
         </ContentContainer>
