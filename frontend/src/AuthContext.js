@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { apiClient } from './apiClient';
 
 export const AuthContext = createContext(null);
 
@@ -8,7 +9,7 @@ export const AuthProvider = ({ children }) => {
     // Use 'undefined' for loading, 'null' for logged out, and user object for logged in.
     const [user, setUser] = useState(undefined); 
 
-    const checkTokenValidity = useCallback((authToken) => {
+    const checkTokenValidity = useCallback(async (authToken) => {
         if (!authToken) {
             localStorage.removeItem('token');
             setToken(null);
@@ -22,7 +23,8 @@ export const AuthProvider = ({ children }) => {
                 setToken(null);
                 setUser(null);
             } else {
-                setUser({ id: decoded.id, email: decoded.email, role: decoded.role });
+                const { data } = await apiClient.get('/auth/verify');
+                setUser(data.user);
                 setToken(authToken);
             }
         } catch (error) {

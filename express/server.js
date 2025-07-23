@@ -40,7 +40,17 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(cors({ origin: '*', credentials: true }));
+const corsOptions = {
+    origin: [
+        'http://localhost:3000',
+        'https://suzookaizokuhunter.com',
+        'http://suzoo_frontend'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(conversionTracking);

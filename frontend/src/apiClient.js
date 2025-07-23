@@ -9,10 +9,10 @@ apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Ensure headers object exists
       config.headers = config.headers || {};
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    console.debug('[API Request]', config.method?.toUpperCase(), config.url, config.data || '');
     return config;
   },
   (error) => {
@@ -22,10 +22,17 @@ apiClient.interceptors.request.use(
 
 // Response interceptor for centralized error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.debug('[API Response]', response.config.url, response.status, response.data);
+    return response;
+  },
   (error) => {
+    const status = error.response?.status;
     const message = error.response?.data?.message || error.message || 'An unexpected error occurred';
-    // You can add logic here to auto-logout on 401 errors if needed
+    if (status === 401) {
+      console.warn('[API] Unauthorized, redirecting to login');
+      window.location.href = '/login';
+    }
     return Promise.reject(new Error(message));
   }
 );
