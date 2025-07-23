@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
+const PageSpacer = styled.div`
+  min-height: 74px;
+`;
+
 const PageWrapper = styled.div`
   background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
   min-height: 100vh;
@@ -93,7 +97,9 @@ const FreeTrialLandingPage = () => {
   };
 
   return (
-    <PageWrapper>
+    <>
+      <PageSpacer />
+      <PageWrapper>
       <h1>免費體驗，即刻感受王者級保護</h1>
       <p>體驗強大的區塊鏈存證與 AI 侵權偵測系統</p>
       <Card>
@@ -126,7 +132,8 @@ const FreeTrialLandingPage = () => {
           </p>
         </TrialForm>
       </Card>
-    </PageWrapper>
+      </PageWrapper>
+    </>
   );
 };
 
