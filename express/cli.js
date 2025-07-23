@@ -1,11 +1,10 @@
-// express/cli.js
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const { program } = require('commander');
 const bcrypt = require('bcryptjs');
 const { sequelize, User, SubscriptionPlan, UserSubscription } = require('./models');
 const logger = require('./utils/logger');
 
-// --- ★ 您的專屬管理員建立指令 ★ ---
+// ★ 您的專屬管理員建立指令 ★
 program
   .command('user:create-admin')
   .description('建立您指定的超級管理員帳號')
@@ -45,7 +44,7 @@ program
     await sequelize.close();
   });
 
-// --- 手動開通/變更方案指令 ---
+// 手動開通/變更方案指令
 program
   .command('user:set-plan')
   .description('為指定使用者設定或變更訂閱方案')
