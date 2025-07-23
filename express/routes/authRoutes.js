@@ -86,7 +86,7 @@ router.post('/login', async (req, res) => {
         }
 
         logger.info(`[Login Step 2] User found: ${user.email}. Comparing passwords...`);
-        logger.debug(`[Login] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}...`);
+        logger.debug(`[Login] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}... (長度: ${user.password.length})`);
 
         const isMatch = await bcrypt.compare(cleanedPassword, user.password);
 
@@ -95,7 +95,7 @@ router.post('/login', async (req, res) => {
 
             const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
             const tempHash = await bcrypt.hash(cleanedPassword, saltRounds);
-            logger.debug(`[Login] 臨時生成的哈希: ${tempHash.substring(0, 10)}...`);
+            logger.debug(`[Login] 臨時生成的哈希: ${tempHash.substring(0, 10)}... (長度: ${tempHash.length})`);
 
             return res.status(401).json({ message: '帳號或密碼錯誤' });
         }
