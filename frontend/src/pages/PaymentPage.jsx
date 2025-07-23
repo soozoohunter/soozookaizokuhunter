@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components'; // ★ 引入 css
 import { AuthContext } from '../AuthContext';
 import { apiClient } from '../apiClient';
 
@@ -21,6 +21,7 @@ const FormContainer = styled.div`
   box-shadow: ${({ theme }) => theme.shadows.dark};
   width: 100%;
   max-width: 520px;
+  max-height: 90vh;
 `;
 
 const Title = styled.h2`
@@ -36,12 +37,26 @@ const StyledForm = styled.form`
   gap: 1rem;
 `;
 
-const StyledInput = styled.input`
+// ★★★ 關鍵修正 1：抽出共用樣式 ★★★
+const inputStyles = css`
   padding: 0.8rem 1rem;
   border: 1px solid ${({ theme }) => theme.colors.dark.border};
   border-radius: 8px;
   background: ${({ theme }) => theme.colors.dark.background};
   color: ${({ theme }) => theme.colors.dark.text};
+  font-size: 1rem;
+  font-family: inherit;
+`;
+
+const StyledInput = styled.input`
+  ${inputStyles}
+`;
+
+// ★★★ 關鍵修正 2：建立一個新的 StyledTextarea 元件 ★★★
+const StyledTextarea = styled.textarea`
+  ${inputStyles}
+  height: 80px;
+  resize: vertical;
 `;
 
 const SubmitButton = styled.button`
@@ -93,9 +108,7 @@ const PaymentPage = () => {
     if (user) {
       setFormData(prev => ({ ...prev, email: user.email }));
     } else {
-      setMessage(<>
-        請先 <Link to="/login">登入</Link> 或 <Link to="/register">註冊</Link>，以便我們將方案啟用在您的帳戶上。
-      </>);
+      setMessage(<>請先 <Link to="/login" style={{color: '#D45398'}}>登入</Link> 或 <Link to="/register" style={{color: '#D45398'}}>註冊</Link>，以便我們將方案啟用在您的帳戶上。</>);
     }
   }, [user]);
 
@@ -148,7 +161,10 @@ const PaymentPage = () => {
               <h4>步驟二：提交付款證明</h4>
               <StyledInput name="email" type="email" placeholder="您的註冊 Email" value={formData.email} onChange={handleChange} required disabled />
               <StyledInput name="lastFive" type="text" placeholder="您的轉帳帳號後五碼" value={formData.lastFive} onChange={handleChange} required />
-              <textarea name="notes" placeholder="其他備註事項 (可選)" value={formData.notes} onChange={handleChange} style={{...StyledInput, height: '80px', resize: 'vertical'}} as="textarea"></textarea>
+              
+              {/* ★★★ 關鍵修正 3：使用新的 StyledTextarea 元件 ★★★ */}
+              <StyledTextarea name="notes" placeholder="其他備註事項 (可選)" value={formData.notes} onChange={handleChange} />
+
               <SubmitButton type="submit" disabled={isLoading || !user}>
                 {isLoading ? '提交中...' : '我已完成轉帳，提交證明'}
               </SubmitButton>
