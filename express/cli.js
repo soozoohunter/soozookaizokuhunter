@@ -75,7 +75,7 @@ program
   .command('user:reset-password')
   .description('強制重設指定使用者的密碼')
   .option('-e, --email <string>', '要重設密碼的使用者 Email')
-  .option('-pw, --password <string>', '要設定的新密碼')
+  .option('-p, --password <string>', '要設定的新密碼')
   .action(async (options) => {
     const { email, password } = options;
     if (!email || !password) {
@@ -109,7 +109,7 @@ program
   .command('user:test-login')
   .description('測試指定使用者的登入')
   .option('-e, --email <string>', '使用者 Email')
-  .option('-pw, --password <string>', '密碼')
+  .option('-p, --password <string>', '密碼')
   .action(async (options) => {
     console.log('[CLI] 開始測試登入...');
     const { email, password } = options;
