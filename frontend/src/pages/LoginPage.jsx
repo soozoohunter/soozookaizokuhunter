@@ -11,7 +11,6 @@ const PageWrapper = styled.div`
   min-height: 100vh;
   background-color: ${({ theme }) => theme.colors.dark.background};
 `;
-
 const FormContainer = styled.div`
   padding: 2.5rem;
   background: ${({ theme }) => theme.colors.dark.card};
@@ -22,20 +21,17 @@ const FormContainer = styled.div`
   max-width: 420px;
   color: ${({ theme }) => theme.colors.dark.text};
 `;
-
 const Title = styled.h2`
   text-align: center;
   color: ${({ theme }) => theme.colors.dark.accent};
   margin-bottom: 2rem;
   font-size: 2rem;
 `;
-
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 `;
-
 const StyledInput = styled.input`
   padding: 0.8rem 1rem;
   border: 1px solid ${({ theme }) => theme.colors.dark.border};
@@ -44,7 +40,6 @@ const StyledInput = styled.input`
   color: ${({ theme }) => theme.colors.dark.text};
   font-size: 1rem;
 `;
-
 const SubmitButton = styled.button`
   padding: 0.8rem 1rem;
   background-color: ${({ theme, disabled }) => disabled ? '#555' : theme.colors.dark.primary};
@@ -55,19 +50,16 @@ const SubmitButton = styled.button`
   font-size: 1rem;
   font-weight: bold;
   transition: background-color 0.2s;
-
   &:hover:not(:disabled) {
     background-color: ${({ theme }) => theme.colors.dark.primaryHover};
   }
 `;
-
 const ErrorMsg = styled.p`
   color: #F87171;
   text-align: center;
   margin: 0;
   min-height: 1.2em;
 `;
-
 const SwitchLink = styled(Link)`
   color: ${({ theme }) => theme.colors.dark.primary};
   text-decoration: none;
@@ -80,7 +72,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useContext(AuthContext);
-  const [identifier, setIdentifier] = useState(''); // ★ 改名為 identifier
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +86,6 @@ const LoginPage = () => {
     setError('');
     setIsLoading(true);
     try {
-      // ★★★ 關鍵修正：將發送的欄位從 {email, password} 改為 {identifier, password} ★★★
       const data = await apiClient.post('/auth/login', { identifier: identifier.trim(), password });
       login(data.token, data.user);
       
@@ -121,7 +112,7 @@ const LoginPage = () => {
         <StyledForm onSubmit={handleSubmit}>
           <StyledInput
             type="text"
-            placeholder="電子郵件或手機號碼" // 提示文字更精確
+            placeholder="電子郵件或手機號碼"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             required
