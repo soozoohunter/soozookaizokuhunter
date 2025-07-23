@@ -2,8 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 
-// ... (Styled-components from previous version)
-
 const PageSpacer = styled.div` min-height: 74px; `;
 const PageWrapper = styled.div` padding: 4rem 2rem; background-color: #f9fafb; `;
 const ContentContainer = styled.div` max-width: 1200px; margin: 0 auto; text-align: center; `;
