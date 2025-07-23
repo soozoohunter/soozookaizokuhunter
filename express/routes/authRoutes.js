@@ -108,14 +108,62 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign({ id: user.id, role: user.role, email: user.email }, JWT_SECRET, { expiresIn: '1d' });
         
         logger.info(`[Login Success] User ${user.email} (Role: ${user.role}) logged in successfully.`);
+
+        const activeSub = await UserSubscription.findOne({
+            where: { user_id: user.id, status: 'active' },
+            order: [['started_at', 'DESC']]
+        });
+
         res.json({
             message: '登入成功',
             token,
-            user: { id: user.id, email: user.email, role: user.role, realName: user.real_name }
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                realName: user.real_name,
+                phone: user.phone,
+                subscriptionStatus: activeSub ? activeSub.status : 'none'
+            }
         });
     } catch (error) {
         logger.error('[Login] Critical error during login process:', error);
         res.status(500).json({ message: '伺服器登入時發生錯誤。'});
+    }
+});
+
+// GET /api/auth/verify - verify token validity and return user info
+router.get('/verify', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ message: '未提供授權資訊' });
+        }
+        const token = authHeader.replace('Bearer ', '');
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findByPk(decoded.id, {
+            attributes: ['id', 'email', 'role', 'real_name', 'phone']
+        });
+        if (!user) {
+            return res.status(404).json({ message: '找不到使用者' });
+        }
+        const activeSub = await UserSubscription.findOne({
+            where: { user_id: user.id, status: 'active' },
+            order: [['started_at', 'DESC']]
+        });
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                role: user.role,
+                realName: user.real_name,
+                phone: user.phone,
+                subscriptionStatus: activeSub ? activeSub.status : 'none'
+            }
+        });
+    } catch (error) {
+        logger.error('[Verify] Error verifying token:', error);
+        res.status(401).json({ message: '驗證失敗' });
     }
 });
 
