@@ -16,9 +16,9 @@ module.exports = (sequelize, DataTypes) => {
     name: { type: DataTypes.STRING, allowNull: false },
     monthly_price: DataTypes.DECIMAL(10, 2),
     annual_price: DataTypes.DECIMAL(10, 2),
-    works_quota: { type: DataTypes.INTEGER },
-    scan_quota_monthly: { type: DataTypes.INTEGER },
-    dmca_quota_monthly: { type: DataTypes.INTEGER },
+    works_quota: { type: DataTypes.INTEGER }, // "作品存證" 總額度
+    scan_quota_monthly: { type: DataTypes.INTEGER }, // 每月 "AI 掃描" 額度
+    dmca_quota_monthly: { type: DataTypes.INTEGER }, // 每月 "DMCA 下架" 額度
     scan_frequency: { type: DataTypes.STRING }, // e.g., 'manual', 'weekly', 'daily'
     has_batch_processing: { type: DataTypes.BOOLEAN, defaultValue: false },
     has_trademark_monitoring: { type: DataTypes.BOOLEAN, defaultValue: false },
