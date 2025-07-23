@@ -128,8 +128,8 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={closeMenu}>
-          {/* ★ 優化：使用我們已處理好的透明背景 Logo ★ */}
-          <img src="/suzoo-logo-transparent.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
+          {/* ★★★ 關鍵修正：將圖片路徑指向您指定的 suzoo-logo.png ★★★ */}
+          <img src="/suzoo-logo.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
