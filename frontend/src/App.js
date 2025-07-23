@@ -18,7 +18,7 @@ import AboutPage from './pages/AboutPage';
 import BlogPostPage from './pages/BlogPostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import PaymentPage from './pages/PaymentPage';
+import PaymentPage from './pages/PaymentPage.jsx';
 import ResolutionPage from './pages/ResolutionPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
