@@ -57,8 +57,8 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login (登入邏輯 - ★★★ 加入詳細日誌 ★★★)
 router.post('/login', async (req, res) => {
     logger.info(`[Login Attempt] Received a login request...`);
-    
-    const { identifier, password } = req.body;
+
+    let { identifier, password } = req.body;
     if (!identifier || !password) {
         logger.warn('[Login Failed] Request missing identifier or password.');
         return res.status(400).json({ message: '請提供帳號和密碼。' });
@@ -66,23 +66,37 @@ router.post('/login', async (req, res) => {
 
     try {
         const trimmedIdentifier = identifier.trim();
+        const cleanedPassword = password.trim();
+
         logger.info(`[Login Step 1] Searching for user with identifier: ${trimmedIdentifier}`);
-        
+
         const user = await User.findOne({
-             where: { [Op.or]: [{ email: trimmedIdentifier }, { phone: trimmedIdentifier }] }
+             where: { [Op.or]: [{ email: trimmedIdentifier }, { phone: trimmedIdentifier }] },
+             attributes: ['id', 'email', 'password', 'role', 'status', 'real_name']
         });
 
         if (!user) {
             logger.warn(`[Login Failed] User not found in database for identifier: ${trimmedIdentifier}`);
             return res.status(401).json({ message: '帳號或密碼錯誤' });
         }
-        
+
+        if (user.status !== 'active') {
+            logger.warn(`[Login Failed] User ${user.email} is inactive (status: ${user.status})`);
+            return res.status(403).json({ message: '帳號已被停用，請聯繫管理員' });
+        }
+
         logger.info(`[Login Step 2] User found: ${user.email}. Comparing passwords...`);
-        
-        const isMatch = await bcrypt.compare(password, user.password);
-        
+        logger.debug(`[Login] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}...`);
+
+        const isMatch = await bcrypt.compare(cleanedPassword, user.password);
+
         if (!isMatch) {
             logger.warn(`[Login Failed] Password comparison failed for user: ${user.email}`);
+
+            const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+            const tempHash = await bcrypt.hash(cleanedPassword, saltRounds);
+            logger.debug(`[Login] 臨時生成的哈希: ${tempHash.substring(0, 10)}...`);
+
             return res.status(401).json({ message: '帳號或密碼錯誤' });
         }
 

@@ -20,7 +20,9 @@ program
         name: 'SUZOO Admin',
         role: 'admin',
       };
-      const hashedPassword = await bcrypt.hash(adminDetails.password, 10);
+      const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+      const hashedPassword = await bcrypt.hash(adminDetails.password, saltRounds);
+      logger.debug(`[CLI] 生成密碼哈希: ${hashedPassword.substring(0, 10)}...`);
       const [user, created] = await User.findOrCreate({
         where: { email: adminDetails.email },
         defaults: {
@@ -32,7 +34,12 @@ program
         }
       });
       if (!created) {
-        logger.warn(`[CLI] 管理員帳號 ${adminDetails.email} 已經存在。`);
+        await user.update({
+          password: hashedPassword,
+          status: 'active',
+          role: adminDetails.role
+        });
+        logger.warn(`[CLI] 管理員帳號 ${adminDetails.email} 已更新密碼和權限。`);
       } else {
         logger.info(`[CLI] === 超級管理員帳號已成功建立！ ===`);
         logger.info(`[CLI] Email: ${adminDetails.email}`);
@@ -62,11 +69,14 @@ program
       return;
     }
     try {
+      await sequelize.authenticate();
       const user = await User.findOne({ where: { email } });
       if (!user) {
         throw new Error(`找不到 Email 為 ${email} 的使用者。`);
       }
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      logger.debug(`[CLI] 新密碼哈希: ${hashedPassword.substring(0, 10)}...`);
       user.password = hashedPassword;
       await user.save();
       logger.info(`[CLI] 已成功為 ${email} 重設密碼。`);
@@ -93,16 +103,23 @@ program
     }
     try {
       await sequelize.authenticate();
-      const user = await User.findOne({ where: { email } });
+      const user = await User.findOne({ 
+        where: { email },
+        attributes: ['id', 'email', 'password']
+      });
       if (!user) {
         logger.warn(`[CLI] 找不到 Email 為 ${email} 的使用者。`);
         return;
       }
+      logger.debug(`[CLI] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}...`);
       const isMatch = await bcrypt.compare(password, user.password);
       if (isMatch) {
         logger.info(`[CLI] 密碼正確！使用者 ${email} 可以登入。`);
       } else {
         logger.warn(`[CLI] 密碼錯誤！使用者 ${email} 無法登入。`);
+        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+        const newHash = await bcrypt.hash(password, saltRounds);
+        logger.debug(`[CLI] 新生成的密碼哈希: ${newHash.substring(0, 10)}...`);
       }
     } catch (error) {
       logger.error('[CLI] 測試登入失敗:', error.message);
