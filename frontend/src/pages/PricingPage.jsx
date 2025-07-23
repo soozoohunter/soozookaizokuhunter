@@ -18,7 +18,20 @@ const Card = styled.div`
   transition: all 0.3s ease; position: relative;
   &:hover { transform: translateY(-10px) ${({ featured }) => (featured ? 'scale(1.05)' : 'scale(1.02)')}; }
 `;
-const PlanName = styled.h3` font-size: 1.4rem; font-weight: 700; color: #111827; line-height: 1.4; min-height: 4rem; display: flex; align-items: center; justify-content: center; text-align: center; `;
+
+// ★★★ 關鍵修正：調整 PlanName 的樣式以解決跑版問題 ★★★
+const PlanName = styled.h3`
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.4;      /* 設定舒適的行高 */
+  min-height: 4rem;      /* 設定一個最小高度，確保所有標題區塊等高 */
+  display: flex;         /* 使用 flexbox 進行垂直對齊 */
+  align-items: center;   /* 讓單行文字也能垂直置中 */
+  justify-content: center; /* 水平置中 */
+  text-align: center;
+`;
+
 const PlanPrice = styled.p` font-size: 2.5rem; text-align: center; font-weight: 800; margin: 0.5rem 0; span { font-size: 1rem; color: #6b7280; font-weight: 400; }`;
 const FeatureList = styled.ul` list-style: '✓'; padding-left: 1.5rem; flex-grow: 1; margin: 2rem 0; `;
 const FeatureItem = styled.li` margin-bottom: 1rem; color: #374151; line-height: 1.5;`;
