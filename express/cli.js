@@ -4,6 +4,12 @@ const bcrypt = require('bcryptjs');
 const { sequelize, User, SubscriptionPlan, UserSubscription } = require('./models');
 const logger = require('./utils/logger');
 
+console.log('===== 環境變量檢查 =====');
+console.log('BCRYPT_SALT_ROUNDS:', process.env.BCRYPT_SALT_ROUNDS);
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('========================');
+
 // ★ 您的專屬管理員建立指令 ★
 program
   .command('user:create-admin')
@@ -97,32 +103,33 @@ program
   .action(async (options) => {
     const { email, password } = options;
     if (!email || !password) {
-      logger.error('[CLI] 需要 Email (--email) 和密碼 (--password)。');
+      console.error('[CLI] 需要 Email (--email) 和密碼 (--password)。');
       await sequelize.close();
       return;
     }
     try {
       await sequelize.authenticate();
-      const user = await User.findOne({ 
+      const user = await User.findOne({
         where: { email },
         attributes: ['id', 'email', 'password']
       });
       if (!user) {
-        logger.warn(`[CLI] 找不到 Email 為 ${email} 的使用者。`);
+        console.warn(`[CLI] 找不到 Email 為 ${email} 的使用者。`);
         return;
       }
-      logger.debug(`[CLI] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}...`);
+      console.log('[CLI] BCRYPT_SALT_ROUNDS:', process.env.BCRYPT_SALT_ROUNDS);
+      console.log(`[CLI] 資料庫中的密碼哈希: ${user.password.substring(0, 10)}... (長度: ${user.password.length})`);
       const isMatch = await bcrypt.compare(password, user.password);
       if (isMatch) {
-        logger.info(`[CLI] 密碼正確！使用者 ${email} 可以登入。`);
+        console.log(`[CLI] 密碼正確！使用者 ${email} 可以登入。`);
       } else {
-        logger.warn(`[CLI] 密碼錯誤！使用者 ${email} 無法登入。`);
+        console.warn(`[CLI] 密碼錯誤！使用者 ${email} 無法登入。`);
         const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
         const newHash = await bcrypt.hash(password, saltRounds);
-        logger.debug(`[CLI] 新生成的密碼哈希: ${newHash.substring(0, 10)}...`);
+        console.log(`[CLI] 新生成的密碼哈希: ${newHash.substring(0, 10)}... (長度: ${newHash.length})`);
       }
     } catch (error) {
-      logger.error('[CLI] 測試登入失敗:', error.message);
+      console.error('[CLI] 測試登入失敗:', error);
     } finally {
       await sequelize.close();
     }
