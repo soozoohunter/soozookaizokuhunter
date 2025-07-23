@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import { AuthContext } from '../../AuthContext';
 
 const HeaderWrapper = styled.header`
   position: fixed;
@@ -120,6 +121,7 @@ const MobileMenu = styled.div`
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useContext(AuthContext);
 
   return (
     <HeaderWrapper>
@@ -135,9 +137,22 @@ const Header = () => {
           <NavLink to="/about">關於我們</NavLink>
         </NavLinks>
         <ActionButtons>
-          <LoginLink to="/login">登入</LoginLink>
-          {/* ★★★ 關鍵修正：將連結從 /protect/step1 改為 /register ★★★ */}
-          <StyledButton to="/register">註冊會員</StyledButton>
+          {user ? (
+            <>
+              {user.role === 'admin' && (
+                <LoginLink to="/admin/dashboard" style={{ fontWeight: 'bold', color: '#D45398' }}>
+                  管理後台
+                </LoginLink>
+              )}
+              <LoginLink to="/dashboard">會員中心</LoginLink>
+              <StyledButton as="button" onClick={logout}>登出</StyledButton>
+            </>
+          ) : (
+            <>
+              <LoginLink to="/login">登入</LoginLink>
+              <StyledButton to="/register">註冊會員</StyledButton>
+            </>
+          )}
           <HamburgerMenu onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="24" height="3" fill="#544D4D" />
@@ -153,6 +168,20 @@ const Header = () => {
           <NavLink to="/pricing" onClick={() => setIsMenuOpen(false)}>價格方案</NavLink>
           <NavLink to="/contact" onClick={() => setIsMenuOpen(false)}>聯絡我們</NavLink>
           <NavLink to="/about" onClick={() => setIsMenuOpen(false)}>關於我們</NavLink>
+          {user ? (
+            <>
+              {user.role === 'admin' && (
+                <NavLink to="/admin/dashboard" onClick={() => setIsMenuOpen(false)}>管理後台</NavLink>
+              )}
+              <NavLink to="/dashboard" onClick={() => setIsMenuOpen(false)}>會員中心</NavLink>
+              <NavLink as="button" onClick={() => { logout(); setIsMenuOpen(false); }} style={{ background:'none', border:'none', padding:0 }}>登出</NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink to="/login" onClick={() => setIsMenuOpen(false)}>登入</NavLink>
+              <NavLink to="/register" onClick={() => setIsMenuOpen(false)}>註冊會員</NavLink>
+            </>
+          )}
         </MobileMenu>
       )}
     </HeaderWrapper>
@@ -160,3 +189,4 @@ const Header = () => {
 };
 
 export default Header;
+

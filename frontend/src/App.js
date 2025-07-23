@@ -7,6 +7,7 @@ import { theme } from './theme';
 // Layouts
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
+import AdminLayout from './layouts/AdminLayout';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -29,6 +30,7 @@ import FileDetailPage from './pages/FileDetailPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import PaymentApprovalPage from './pages/PaymentApprovalPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // New solution pages
@@ -99,11 +101,10 @@ function App() {
                 </Route>
               </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-                  <Route path="/admin/users" element={<AdminUsersPage />} />
-                </Route>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/payments" element={<PaymentApprovalPage />} />
               </Route>
 
               <Route path="*" element={<NotFoundPage />} />
