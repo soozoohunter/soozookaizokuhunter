@@ -73,30 +73,6 @@ router.get('/users/:userId/details', async (req, res) => {
     }
 });
 
-router.get('/files', async (req, res) => {
-    try {
-        const files = await File.findAll({
-            order: [['createdAt', 'DESC']],
-            include: { model: User, attributes: ['id', 'email', 'real_name'] }
-        });
-        res.json(files);
-    } catch(err) {
-        res.status(500).json({ error: 'Failed to fetch files' });
-    }
-});
-
-router.get('/scans', async (req, res) => {
-    try {
-        const scans = await Scan.findAll({
-            order: [['createdAt', 'DESC']],
-            include: [{ model: File, attributes: ['id', 'filename'] }, { model: User, attributes: ['id', 'email'] }]
-        });
-        res.json(scans);
-    } catch(err) {
-        res.status(500).json({ error: 'Failed to fetch scans' });
-    }
-});
-
 router.put('/users/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
