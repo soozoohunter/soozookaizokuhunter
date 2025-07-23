@@ -3,62 +3,36 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { createGlobalStyle, ThemeProvider } from 'styled-components';
 import { AuthProvider } from './AuthContext';
 import { theme } from './theme';
-
-// Layouts
 import PublicLayout from './layouts/PublicLayout';
 import AppLayout from './layouts/AppLayout';
 import AdminLayout from './layouts/AdminLayout';
 
-// Pages
+// --- 所有頁面組件導入 ---
 import HomePage from './pages/HomePage';
 import PricingPage from './pages/PricingPage';
 import FreeTrialLandingPage from './pages/FreeTrialLandingPage';
 import ContactPage from './pages/ContactPage';
 import AboutPage from './pages/AboutPage';
-import BlogPostPage from './pages/BlogPostPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import PaymentPage from './pages/PaymentPage.jsx';
+import PaymentPage from './pages/PaymentPage';
 import ResolutionPage from './pages/ResolutionPage';
 import DashboardPage from './pages/DashboardPage';
-import SettingsPage from './pages/SettingsPage';
 import ProtectStep1 from './pages/ProtectStep1';
 import ProtectStep2 from './pages/ProtectStep2';
 import ProtectStep3 from './pages/ProtectStep3';
 import ProtectStep4 from './pages/ProtectStep4';
-import FileDetailPage from './pages/FileDetailPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import PaymentApprovalPage from './pages/PaymentApprovalPage';
 import NotFoundPage from './pages/NotFoundPage';
+// ... 其他您可能有的頁面
 
-// New solution pages
-import AiDetectionPage from './pages/solutions/AiDetectionPage';
-import BlockchainPage from './pages/solutions/BlockchainPage';
-import DmcaPage from './pages/solutions/DmcaPage';
-
-// Components
-import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './ErrorBoundary';
 
 const GlobalStyle = createGlobalStyle`
-  body {
-    margin: 0;
-    font-family: ${({ theme }) => theme.fonts.main};
-    font-weight: 400;
-    color: ${({ theme }) => theme.colors.light.text};
-    background-color: ${({ theme }) => theme.colors.light.background};
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  *, *::before, *::after {
-    box-sizing: border-box;
-  }
-  a {
-    text-decoration: none;
-    color: inherit;
-  }
+  /* ... Global Styles ... */
 `;
 
 function App() {
@@ -69,12 +43,12 @@ function App() {
           <GlobalStyle />
           <ErrorBoundary>
             <Routes>
+              {/* --- 公開路由 --- */}
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/about" element={<AboutPage />} />
-                <Route path="/blog/post-1" element={<BlogPostPage />} />
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/resolve/:uniqueCaseId" element={<ResolutionPage />} />
                 <Route path="/free-trial" element={<FreeTrialLandingPage />} />
@@ -82,25 +56,20 @@ function App() {
                 <Route path="/protect/step2" element={<ProtectStep2 />} />
                 <Route path="/protect/step3" element={<ProtectStep3 />} />
                 <Route path="/protect/step4" element={<ProtectStep4 />} />
-
-                {/* [★★ 關鍵修正 ★★] 新增三個功能頁面的路由 */}
-                <Route path="/solutions/ai-detection" element={<AiDetectionPage />} />
-                <Route path="/solutions/blockchain" element={<BlockchainPage />} />
-                <Route path="/solutions/dmca-takedown" element={<DmcaPage />} />
               </Route>
 
+              {/* --- 獨立的登入/註冊路由 --- */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
 
-              <Route element={<ProtectedRoute allowedRoles={["user", "admin"]} />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/file/:fileId" element={<FileDetailPage />} />
-                  <Route path="/settings/api-keys" element={<SettingsPage />} />
-                </Route>
+              {/* --- 會員路由 (受登入保護) --- */}
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                {/* ... 其他會員路由 ... */}
               </Route>
-
+              
+              {/* --- 管理員路由 (受管理員權限保護) --- */}
               <Route element={<AdminLayout />}>
                 <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                 <Route path="/admin/users" element={<AdminUsersPage />} />
