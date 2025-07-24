@@ -33,6 +33,10 @@ import PaymentApprovalPage from './pages/PaymentApprovalPage';
 import AiDetectionPage from './pages/solutions/AiDetectionPage';
 import BlockchainPage from './pages/solutions/BlockchainPage';
 import DmcaPage from './pages/solutions/DmcaPage';
+// 新增三大功能詳情頁面
+import BlockchainDeedPage from './pages/solutions/BlockchainDeedPage';
+import AiSentinelPage from './pages/solutions/AiSentinelPage';
+import P2pEnginePage from './pages/solutions/P2pEnginePage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -77,6 +81,10 @@ function App() {
                 <Route path="/solutions/ai-detection" element={<AiDetectionPage />} />
                 <Route path="/solutions/blockchain" element={<BlockchainPage />} />
                 <Route path="/solutions/dmca-takedown" element={<DmcaPage />} />
+                {/* 新增三大功能詳情頁路由 */}
+                <Route path="/solutions/blockchain-deed" element={<BlockchainDeedPage />} />
+                <Route path="/solutions/ai-sentinel" element={<AiSentinelPage />} />
+                <Route path="/solutions/p2p-engine" element={<P2pEnginePage />} />
               </Route>
 
               {/* --- 獨立登入/註冊路由 --- */}
