@@ -2,6 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+const DashboardWrapper = styled.div`
+  padding: 2rem;
+  background-color: #f3f4f6;
+  min-height: 100vh;
+  color: #111827;
+`;
+
 const PageContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
@@ -67,6 +74,15 @@ const CardDescription = styled.p`
   line-height: 1.5;
 `;
 
+const StatCard = styled.div`
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  h3 { margin-top: 0; color: #6b7280; }
+  p { font-size: 2.5rem; font-weight: bold; color: #111827; margin: 0; }
+`;
+
 const AdminCard = ({ title, description, linkTo, icon }) => (
     <CardLink to={linkTo}>
         <Card>
@@ -79,30 +95,32 @@ const AdminCard = ({ title, description, linkTo, icon }) => (
 
 function AdminDashboardPage() {
     return (
-        <PageContainer>
+        <DashboardWrapper>
+          <PageContainer>
             <PageTitle>Admin Panel</PageTitle>
             <PageSubtitle>選擇一項管理功能以繼續</PageSubtitle>
             <Grid>
-                <AdminCard 
+                <AdminCard
                     title="使用者管理"
                     description="檢視、編輯所有使用者的方案、額度與狀態。"
                     linkTo="/admin/users"
                     icon="👥"
                 />
-                <AdminCard 
+                <AdminCard
                     title="內容管理"
                     description="檢視與管理所有使用者上傳的檔案。(待開發)"
                     linkTo="#"
                     icon="📄"
                 />
-                <AdminCard 
+                <AdminCard
                     title="系統營運分析"
                     description="查看平台註冊數、收益等統計數據。(待開發)"
                     linkTo="#"
                     icon="📊"
                 />
             </Grid>
-        </PageContainer>
+          </PageContainer>
+        </DashboardWrapper>
     );
 }
 

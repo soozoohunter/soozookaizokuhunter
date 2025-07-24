@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User, SubscriptionPlan, UserSubscription, File, Scan, PaymentProof, sequelize } = require('../models');
+const { User, SubscriptionPlan, UserSubscription, File, Scan, PaymentProof, ContactSubmission, sequelize } = require('../models');
 const adminAuth = require('../middleware/adminAuth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
@@ -67,6 +67,70 @@ router.get('/users/:userId/details', async (req, res) => {
         res.json(user);
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch user details' });
+    }
+});
+
+// --- 使用者管理進階功能 ---
+router.put('/users/:userId/details', async (req, res) => {
+    try {
+        const { real_name, email, phone, status, role, quota } = req.body;
+        const user = await User.findByPk(req.params.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.real_name = real_name ?? user.real_name;
+        user.email = email ?? user.email;
+        user.phone = phone ?? user.phone;
+        user.status = status ?? user.status;
+        user.role = role ?? user.role;
+        user.quota = quota ?? user.quota;
+
+        await user.save();
+        res.json({ message: 'User details updated successfully.' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update user details.' });
+    }
+});
+
+router.put('/users/:userId/password', async (req, res) => {
+    try {
+        const { newPassword } = req.body;
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+        }
+        const user = await User.findByPk(req.params.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+        res.json({ message: `Password for ${user.email} has been reset.` });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to reset password.' });
+    }
+});
+
+router.post('/users/:userId/subscription', async (req, res) => {
+    const { planCode } = req.body;
+    try {
+        const user = await User.findByPk(req.params.userId);
+        const plan = await SubscriptionPlan.findOne({ where: { plan_code: planCode } });
+        if (!user || !plan) return res.status(404).json({ error: 'User or plan not found' });
+
+        await user.update({ role: 'member', quota: (user.quota || 0) + (plan.works_quota || 0) });
+        const expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+        await UserSubscription.create({ user_id: user.id, plan_id: plan.id, status: 'active', started_at: new Date(), expires_at: expiresAt });
+        res.json({ message: `已為 ${user.email} 開通 ${plan.name} 方案` });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update subscription.' });
+    }
+});
+
+router.get('/contact-submissions', async (req, res) => {
+    try {
+        const submissions = await ContactSubmission.findAll({ where: { status: 'new' }, order: [['createdAt', 'DESC']] });
+        res.json(submissions);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch contact submissions.' });
     }
 });
 
