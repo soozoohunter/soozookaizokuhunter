@@ -189,28 +189,36 @@ const HomePage = () => {
       <HeroWrapper>
         <HeroContainer>
           <HeroTitle>不只保護，更能變現</HeroTitle>
-          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的原創著作才華賦予金融價值</HeroSubtitle>
+          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的商品照原創著作才華賦予經濟價值</HeroSubtitle>
             <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
-              我們將不可篡改的區塊鏈存證與 AI 全網監控結合，不僅為您的作品提供無懈可擊的法律保護，更能將每一次侵權，都轉化為您的潛在收益。
+              我們整合不可篡改的區塊鏈技術與 24/7 AI 全網監控，不僅為您的創作鑄造神聖不可侵犯的數位權狀，更能將每一次侵權，都轉化為一次商業談判的機會，將您的權利變為實際收益。
             </p>
-          <PrimaryButton to="/free-trial">立即免費體驗賦權</PrimaryButton>
+          <PrimaryButton to="/free-trial">免費取得您的第一份區塊鏈權狀</PrimaryButton>
         </HeroContainer>
       </HeroWrapper>
 
       <FeaturesSection>
-        <SectionTitle>三大核心引擎</SectionTitle>
+        <SectionTitle>您的三大權利引擎</SectionTitle>
         <FeaturesContainer>
           <FeatureCard>
             <FeatureTitle>區塊鏈權狀</FeatureTitle>
-            <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份全球認可的永久數位產權證明。這不是收據，這是您在數位世界中神聖不可侵犯的**權狀**。</FeatureText>
+            <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份永久的、具備全球法律效力的數位產權證明。它不是收據，而是您在數位世界中神聖不可侵犯的權狀。</FeatureText>
           </FeatureCard>
           <FeatureCard>
             <FeatureTitle>AI 哨兵</FeatureTitle>
-            <FeatureText>我們的 AI 哨兵 24/7 不間斷地巡邏全球網路，從主流社群到各大電商。它不僅是抓賊的眼睛，更是保護您品牌形象、防止詐騙冒用的忠誠衛士。</FeatureText>
+            <FeatureText>
+              全網監控：我們的 AI 哨兵 24/7 不間斷巡邏全球網路，從台灣各大電商平台到 Facebook、Instagram、TikTok 及 YouTube，滴水不漏。<br />
+              電商防詐：主動掃描並識別盜用您商品圖的詐騙網站與一頁式廣告，保護您的品牌商譽與客戶信任。<br />
+              鐵證保全：一旦發現侵權，系統將自動抓取並儲存侵權頁面的截圖與內容。即使對方刪文下架，您手中仍握有無法抵賴的侵權證據，確保您在法律程序中立於不敗之地。
+            </FeatureText>
           </FeatureCard>
           <FeatureCard>
             <FeatureTitle>P2P 變現引擎</FeatureTitle>
-            <FeatureText>發現侵權不再只是憤怒。一鍵啟動 P2P 變現引擎，自動生成具備法律效力的解決方案頁面，讓侵權方在「付費授權」與「面臨訴訟」之間做出選擇。您的原創著作權利，現在是可交易的資產。</FeatureText>
+            <FeatureText>
+              化憤怒為收益：一鍵啟動 P2P 變現引擎，自動生成具備法律壓力的「侵權解決頁面」，讓侵權方在「付費取得合法授權」與「面臨法律追訴」之間做出理性選擇。<br />
+              快速下架：對於惡意侵權，可直接發動 DMCA 申訴，整合官方 API，最快 24 小時內將侵權內容從主流平台下架。<br />
+              法律支援：所有存證、掃描紀錄與侵權證據都可一鍵匯出，作為提交給律師或法院的專業報告，大幅簡化您的訴訟流程。
+            </FeatureText>
           </FeatureCard>
         </FeaturesContainer>
       </FeaturesSection>
