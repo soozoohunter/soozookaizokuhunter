@@ -128,7 +128,7 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={closeMenu}>
-          <img src="/suzoo-logo-transparent.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
+          <img src="/suzoo-logo.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
