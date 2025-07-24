@@ -86,13 +86,25 @@ const LoginPage = () => {
     setError('');
     setIsLoading(true);
     try {
-      const data = await apiClient.post('/auth/login', { identifier: identifier.trim(), password });
-      login(data.token, data.user);
-      
+      // response 是完整的 axios 回應物件，實際資料在 response.data 中
+      const response = await apiClient.post('/auth/login', {
+        identifier: identifier.trim(),
+        password
+      });
+
+      // 從 response.data 中提取 token 和 user
+      const { token, user } = response.data;
+
+      if (!token || !user) {
+        throw new Error('從伺服器返回的資料格式不正確');
+      }
+
+      login(token, user);
+
       const from = location.state?.from || {
-        pathname: data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
+        pathname: user.role === 'admin' ? '/admin/dashboard' : '/dashboard'
       };
-      
+
       navigate(from.pathname + (from.search || ''), { replace: true });
     } catch (err) {
       if (err.response && err.response.data && err.response.data.message) {
