@@ -128,15 +128,15 @@ const Header = () => {
     <HeaderWrapper>
       <Toolbar>
         <LogoLink to="/" onClick={closeMenu}>
-          {/* ★★★ 關鍵修正：將圖片路徑指向您指定的 suzoo-logo.png ★★★ */}
-          <img src="/suzoo-logo.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
+          <img src="/suzoo-logo-transparent.png" alt="SUZOO IP Guard Logo" style={{ height: '40px', marginRight: '10px' }} />
           <span style={{ fontWeight: 'bold', fontSize: '1.5rem' }}>SUZOO IP Guard</span>
         </LogoLink>
         <NavLinks>
           <NavLink to="/solutions/ai-detection">核心功能</NavLink>
           <NavLink to="/pricing">價格方案</NavLink>
+          {/* ★★★ 新增：部落格/ 專欄入口 ★★★ */}
+          <NavLink to="/blog">創作者專欄</NavLink>
           <NavLink to="/contact">聯絡我們</NavLink>
-          <NavLink to="/about">關於我們</NavLink>
         </NavLinks>
         <ActionButtons>
           {user ? (
@@ -164,8 +164,9 @@ const Header = () => {
         <MobileMenu>
           <NavLink to="/solutions/ai-detection" onClick={closeMenu}>核心功能</NavLink>
           <NavLink to="/pricing" onClick={closeMenu}>價格方案</NavLink>
+          {/* ★★★ 新增：部落格/專欄入口 (Mobile) ★★★ */}
+          <NavLink to="/blog" onClick={closeMenu}>創作者專欄</NavLink>
           <NavLink to="/contact" onClick={closeMenu}>聯絡我們</NavLink>
-          <NavLink to="/about" onClick={closeMenu}>關於我們</NavLink>
           <hr style={{border: 'none', borderTop: '1px solid #eee'}} />
           {user ? (
             <>
