@@ -189,7 +189,7 @@ const HomePage = () => {
       <HeroWrapper>
         <HeroContainer>
           <HeroTitle>不只保護，更能變現</HeroTitle>
-          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的商品照原創著作才華賦予經濟價值</HeroSubtitle>
+          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的原創著作才華賦予經濟價值</HeroSubtitle>
             <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
               我們整合不可篡改的區塊鏈技術與 24/7 AI 全網監控，不僅為您的創作鑄造神聖不可侵犯的數位權狀，更能將每一次侵權，都轉化為一次商業談判的機會，將您的權利變為實際收益。
             </p>
