@@ -200,26 +200,35 @@ const HomePage = () => {
       <FeaturesSection>
         <SectionTitle>您的三大權利引擎</SectionTitle>
         <FeaturesContainer>
-          <FeatureCard>
-            <FeatureTitle>區塊鏈權狀</FeatureTitle>
-            <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份永久的、具備全球法律效力的數位產權證明。它不是收據，而是您在數位世界中神聖不可侵犯的權狀。</FeatureText>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>AI 哨兵</FeatureTitle>
-            <FeatureText>
-              全網監控：我們的 AI 哨兵 24/7 不間斷巡邏全球網路，從台灣各大電商平台到 Facebook、Instagram、TikTok 及 YouTube，滴水不漏。<br />
-              電商防詐：主動掃描並識別盜用您商品圖的詐騙網站與一頁式廣告，保護您的品牌商譽與客戶信任。<br />
-              鐵證保全：一旦發現侵權，系統將自動抓取並儲存侵權頁面的截圖與內容。即使對方刪文下架，您手中仍握有無法抵賴的侵權證據，確保您在法律程序中立於不敗之地。
-            </FeatureText>
-          </FeatureCard>
-          <FeatureCard>
-            <FeatureTitle>P2P 變現引擎</FeatureTitle>
-            <FeatureText>
-              化憤怒為收益：一鍵啟動 P2P 變現引擎，自動生成具備法律壓力的「侵權解決頁面」，讓侵權方在「付費取得合法授權」與「面臨法律追訴」之間做出理性選擇。<br />
-              快速下架：對於惡意侵權，可直接發動 DMCA 申訴，整合官方 API，最快 24 小時內將侵權內容從主流平台下架。<br />
-              法律支援：所有存證、掃描紀錄與侵權證據都可一鍵匯出，作為提交給律師或法院的專業報告，大幅簡化您的訴訟流程。
-            </FeatureText>
-          </FeatureCard>
+          {/* 新增 Link 使卡片可點擊 */}
+          <Link to="/solutions/blockchain-deed" style={{ textDecoration: 'none' }}>
+            <FeatureCard>
+              <FeatureTitle>區塊鏈權狀</FeatureTitle>
+              <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份永久的、具備全球法律效力的數位產權證明。它不是收據，而是您在數位世界中神聖不可侵犯的權狀。</FeatureText>
+            </FeatureCard>
+          </Link>
+
+          <Link to="/solutions/ai-sentinel" style={{ textDecoration: 'none' }}>
+            <FeatureCard>
+              <FeatureTitle>AI 哨兵</FeatureTitle>
+              <FeatureText>
+                全網監控：我們的 AI 哨兵 24/7 不間斷巡邏全球網路，從台灣各大電商平台到 Facebook、Instagram、TikTok 及 YouTube，滴水不漏。<br />
+                電商防詐：主動掃描並識別盜用您商品圖的詐騙網站與一頁式廣告，保護您的品牌商譽與客戶信任。<br />
+                鐵證保全：一旦發現侵權，系統將自動抓取並儲存侵權頁面的截圖與內容。即使對方刪文下架，您手中仍握有無法抵賴的侵權證據，確保您在法律程序中立於不敗之地。
+              </FeatureText>
+            </FeatureCard>
+          </Link>
+
+          <Link to="/solutions/p2p-engine" style={{ textDecoration: 'none' }}>
+            <FeatureCard>
+              <FeatureTitle>P2P 變現引擎</FeatureTitle>
+              <FeatureText>
+                化憤怒為收益：一鍵啟動 P2P 變現引擎，自動生成具備法律壓力的「侵權解決頁面」，讓侵權方在「付費取得合法授權」與「面臨法律追訴」之間做出理性選擇。<br />
+                快速下架：對於惡意侵權，可直接發動 DMCA 申訴，整合官方 API，最快 24 小時內將侵權內容從主流平台下架。<br />
+                法律支援：所有存證、掃描紀錄與侵權證據都可一鍵匯出，作為提交給律師或法院的專業報告，大幅簡化您的訴訟流程。
+              </FeatureText>
+            </FeatureCard>
+          </Link>
         </FeaturesContainer>
       </FeaturesSection>
 
