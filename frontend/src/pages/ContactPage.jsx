@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { apiClient } from '../apiClient';
 
 const PageSpacer = styled.div`
   min-height: 74px;
@@ -79,12 +80,23 @@ const ResultMessage = styled.p`
 export default function ContactPage() {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [resultMsg, setResultMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    setResultMsg('感謝您的聯絡，我們已收到您的訊息！');
-    setFormData({ name: '', email: '', message: '' });
+    setIsLoading(true);
+    setResultMsg('');
+    setErrorMsg('');
+    try {
+      const response = await apiClient.post('/contact', formData);
+      setResultMsg(response.data.message);
+      setFormData({ name: '', email: '', message: '' });
+    } catch (error) {
+      setErrorMsg(error.response?.data?.message || '訊息發送失敗，請稍後再試。');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -105,9 +117,12 @@ export default function ContactPage() {
             <Label htmlFor="message">您的訊息</Label>
             <Textarea id="message" name="message" value={formData.message} onChange={(e) => setFormData({...formData, message: e.target.value})} required />
           </div>
-          <SubmitButton type="submit">送出</SubmitButton>
+          <SubmitButton type="submit" disabled={isLoading}>
+            {isLoading ? '傳送中...' : '送出'}
+          </SubmitButton>
         </StyledForm>
         {resultMsg && <ResultMessage>{resultMsg}</ResultMessage>}
+        {errorMsg && <ResultMessage style={{color: '#D32F2F'}}>{errorMsg}</ResultMessage>}
       </Container>
     </>
   );
