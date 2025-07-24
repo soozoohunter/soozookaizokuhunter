@@ -52,37 +52,37 @@ export default function ExperienceCompleteModal({ onClose }) {
         <p>升級方案以解鎖完整報告、P2P 變現引擎與更多強大功能：</p>
         <PlanGrid>
           <Card>
-            <PlanName>CREATOR<br/>守護者方案</PlanName>
-            <PlanPrice>NT$390<span>/月</span></PlanPrice>
+            <PlanName>創意守護者</PlanName>
+            <PlanPrice>NT$490<span>/月</span></PlanPrice>
             <FeatureList>
               <li><strong>100</strong> 件作品存證</li>
               <li>每月 <strong>10</strong> 次掃描</li>
-              <li>完整侵權報告</li>
-              <li>✓ P2P 變現引擎</li>
+              <li>基本盜版追蹤</li>
+              <li>✓ P2P 收益共享</li>
             </FeatureList>
-            <PlanButton onClick={() => handleChoosePlan('CREATOR', 390)}>選擇此方案</PlanButton>
+            <PlanButton onClick={() => handleChoosePlan('BASIC', 490)}>選擇此方案</PlanButton>
           </Card>
-          <Card>
-            <PlanName>CREATOR+<br/>進階守護者</PlanName>
-            <PlanPrice>NT$990<span>/月</span></PlanPrice>
+          <Card featured>
+            <PlanName>專業捍衛者</PlanName>
+            <PlanPrice>NT$790<span>/月</span></PlanPrice>
             <FeatureList>
               <li><strong>300</strong> 件作品存證</li>
               <li>每月 <strong>30</strong> 次掃描</li>
-              <li>完整侵權報告</li>
-              <li>✓ P2P 變現引擎</li>
+              <li>深度盜版分析</li>
+              <li><strong>✓ 進階 P2P 引擎</strong></li>
             </FeatureList>
-            <PlanButton onClick={() => handleChoosePlan('CREATOR_PLUS', 990)}>選擇此方案</PlanButton>
+            <PlanButton featured onClick={() => handleChoosePlan('PRO', 790)}>升級此方案</PlanButton>
           </Card>
-          <Card featured>
-            <PlanName>PROFESSIONAL<br/>捍衛者方案</PlanName>
+          <Card>
+            <PlanName>全方位守護者</PlanName>
             <PlanPrice>NT$1,490<span>/月</span></PlanPrice>
             <FeatureList>
-              <li><strong>500</strong> 件作品存證</li>
+              <li><strong>500+</strong> 件作品存證</li>
               <li>每月 <strong>50</strong> 次掃描</li>
-              <li><strong>✓ 進階 P2P 引擎</strong></li>
-              <li><strong>✓ 批量處理</strong></li>
+              <li>VIP 法律諮詢</li>
+              <li><strong>旗艦 P2P</strong></li>
             </FeatureList>
-            <PlanButton featured onClick={() => handleChoosePlan('PROFESSIONAL', 1490)}>升級捍衛者</PlanButton>
+            <PlanButton onClick={() => handleChoosePlan('ELITE', 1490)}>尊榮守護</PlanButton>
           </Card>
         </PlanGrid>
       </ModalContent>

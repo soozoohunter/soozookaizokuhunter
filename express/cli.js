@@ -75,6 +75,75 @@ program
     }
   });
 
+// ★ 優化版：全方位守護者會員建立指令 ★
+program
+  .command('user:create-elite')
+  .description('建立全方位守護者會員帳號')
+  .action(async () => {
+    const eliteDetails = {
+      email: 'zacyao88@icloud.com',
+      phone: '0911690757',
+      password: 'Zack967988',
+      name: '全方位守護者',
+      role: 'elite'
+    };
+
+    console.log('[CLI] 開始建立全方位守護者會員...');
+
+    try {
+      await sequelize.authenticate();
+      await sequelize.sync({ alter: true });
+
+      const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+      const hashedPassword = await bcrypt.hash(eliteDetails.password, saltRounds);
+
+      const [user, created] = await User.findOrCreate({
+        where: { email: eliteDetails.email },
+        defaults: {
+          phone: eliteDetails.phone,
+          password: hashedPassword,
+          real_name: eliteDetails.name,
+          role: eliteDetails.role,
+          status: 'active'
+        }
+      });
+
+      if (!created) {
+        await user.update({
+          phone: eliteDetails.phone,
+          password: hashedPassword,
+          real_name: eliteDetails.name,
+          role: eliteDetails.role,
+          status: 'active'
+        });
+        console.log('[CLI] 全方位守護者帳號已更新！');
+        logger.warn(`[CLI] 全方位守護者帳號 ${eliteDetails.email} 已更新！`);
+      } else {
+        console.log('[CLI] 全方位守護者帳號已成功建立！');
+        logger.info(`[CLI] === 全方位守護者帳號建立成功 ===`);
+      }
+
+      console.log('================================');
+      console.log('[CLI] 全方位守護者詳細資訊:');
+      console.log(`信箱: ${eliteDetails.email}`);
+      console.log(`手機: ${eliteDetails.phone}`);
+      console.log(`等級: ${eliteDetails.role}`);
+      console.log('================================');
+
+      logger.info(`[CLI] 信箱: ${eliteDetails.email}`);
+      logger.info(`[CLI] 手機: ${eliteDetails.phone}`);
+    } catch (error) {
+      logger.error('[CLI] 建立全方位守護者會員失敗:', error);
+    } finally {
+      try {
+        await sequelize.close();
+        console.log('[CLI] 資料庫連線已關閉');
+      } catch (closeError) {
+        console.error('[CLI] 關閉連線失敗:', closeError);
+      }
+    }
+  });
+
 // ★ 您的專屬管理員建立指令 ★
 program
   .command('user:create-admin')

@@ -97,8 +97,8 @@ const PaymentPage = () => {
   const [searchParams] = useSearchParams();
   const { user } = useContext(AuthContext);
 
-  const [plan, setPlan] = useState(searchParams.get('plan') || 'CREATOR');
-  const [price, setPrice] = useState(searchParams.get('price') || '390');
+  const [plan, setPlan] = useState(searchParams.get('plan') || 'BASIC');
+  const [price, setPrice] = useState(searchParams.get('price') || '490');
   const [formData, setFormData] = useState({ email: '', lastFive: '', notes: '' });
   const [message, setMessage] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);

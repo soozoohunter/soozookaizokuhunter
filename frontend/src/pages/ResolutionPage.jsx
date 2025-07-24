@@ -55,7 +55,14 @@ const ResolutionPage = () => {
                 <ChoiceSection>
                     <ChoiceCard good>
                         <h4>選項 A: 購買合法授權 (建議)</h4>
-                        <p>以 NT$ {licensePrice} 的優惠價格，立即取得此作品的合法使用授權。付款完成後，此案件將自動結案，保障您的網站正常營運。</p>
+                        <p>以 NT$ {licensePrice} 的優惠價格，立即取得此作品的合法使用授權。</p>
+                        <div style={{background: '#f0fdf4', padding: '10px', borderRadius: '8px', margin: '10px 0'}}>
+                            <p style={{fontSize: '0.9em', margin: '5px 0'}}>
+                              <strong>授權收益分配：</strong><br />
+                              • {originalWork.author} 將獲得 NT$ {Math.round(licensePrice * 0.7)}<br />
+                              • 平台服務費 NT$ {Math.round(licensePrice * 0.3)}
+                            </p>
+                        </div>
                         <ActionButton onClick={() => navigate(`/payment?item=license&price=${licensePrice}&caseId=${uniqueCaseId}`)}>
                             立即支付並取得授權
                         </ActionButton>
