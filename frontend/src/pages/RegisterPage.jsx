@@ -180,7 +180,7 @@ const RegisterPage = () => {
                     <StyledInput
                         name="realName"
                         type="text"
-                        placeholder="暱稱"
+                        placeholder="使用者名稱"
                         value={formData.realName}
                         onChange={handleChange}
                         required
