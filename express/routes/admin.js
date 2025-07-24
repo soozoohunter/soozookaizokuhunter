@@ -70,6 +70,33 @@ router.get('/users/:userId/details', async (req, res) => {
     }
 });
 
+// ★★★ 恢復遺失的 /files 路由 ★★★
+router.get('/files', async (req, res) => {
+    try {
+        const files = await File.findAll({
+            order: [['createdAt', 'DESC']],
+            include: { model: User, attributes: ['id', 'email', 'real_name'] }
+        });
+        res.json(files);
+    } catch(err) {
+        res.status(500).json({ error: 'Failed to fetch files' });
+    }
+});
+
+// ★★★ 恢復遺失的 /scans 路由 ★★★
+router.get('/scans', async (req, res) => {
+    try {
+        const scans = await Scan.findAll({
+            order: [['createdAt', 'DESC']],
+            include: [{ model: File, attributes: ['id', 'filename'] }, { model: User, attributes: ['id', 'email'] }]
+        });
+        res.json(scans);
+    } catch(err) {
+        res.status(500).json({ error: 'Failed to fetch scans' });
+    }
+});
+
+
 // --- 付款審核 API ---
 router.get('/payment-proofs', async (req, res) => {
     try {
