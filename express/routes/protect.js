@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs'); // ★ 引入 bcryptjs
 const { Op } = require('sequelize');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -99,9 +100,19 @@ router.post('/trial', upload.single('file'), async (req, res) => {
             return res.status(409).json({ message: '此檔案先前已被保護，請嘗試其他檔案。' });
         }
         
+        // ★★★ 關鍵修正：為新建立的 trial 用戶生成一個隨機的佔位密碼 ★★★
+        const tempPassword = Math.random().toString(36).slice(-10);
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
         let user = await User.findOrCreate({
             where: { email, role: 'trial' },
-            defaults: { phone, real_name: realName, role: 'trial', status: 'active' },
+            defaults: {
+                phone,
+                real_name: realName,
+                role: 'trial',
+                status: 'active',
+                password: hashedPassword // 將加密後的佔位密碼存入
+            },
             transaction
         });
         user = user[0];
