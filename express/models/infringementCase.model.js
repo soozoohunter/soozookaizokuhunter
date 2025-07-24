@@ -19,8 +19,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('detected', 'offer_sent', 'licensed', 'takedown_requested', 'closed'),
       defaultValue: 'detected'
     },
-    license_price: { type: DataTypes.DECIMAL(10, 2), defaultValue: 3000.00 },
-    revenue_share_percentage: { type: DataTypes.FLOAT, defaultValue: 0.7 },
+    resolution_status: {
+      type: DataTypes.ENUM('pending', 'license_offered', 'license_purchased', 'dmca_sent', 'ignored'),
+      defaultValue: 'pending'
+    },
+    license_price: { type: DataTypes.DECIMAL(10, 2), defaultValue: 999.00 },
+    creator_share: DataTypes.DECIMAL(5,2),
+    platform_share: DataTypes.DECIMAL(5,2),
+    license_revenue: DataTypes.DECIMAL(10,2),
     notes: { type: DataTypes.TEXT }
   }, {
     sequelize,

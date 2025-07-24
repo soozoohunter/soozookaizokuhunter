@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
     email: { type: DataTypes.STRING, allowNull: false, unique: true, validate: { isEmail: true } },
     password: { type: DataTypes.STRING, allowNull: false },
     phone: { type: DataTypes.STRING(20), allowNull: false, unique: true, validate: { is: { args: /^09\d{8}$/, msg: '電話號碼格式不正確' } } },
-    role: { type: DataTypes.ENUM('admin', 'member', 'trial'), defaultValue: 'trial' }, // 預設角色改為 trial
+    role: { type: DataTypes.ENUM('admin', 'member', 'trial', 'elite'), defaultValue: 'trial' }, // 新增 elite 等級
     status: { type: DataTypes.ENUM('active', 'suspended', 'deleted'), defaultValue: 'active' },
     last_login: DataTypes.DATE,
     quota: { type: DataTypes.INTEGER, defaultValue: 10 }

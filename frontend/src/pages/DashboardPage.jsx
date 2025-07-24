@@ -89,6 +89,9 @@ const DashboardPage = () => {
                                         <p><strong>侵權網址：</strong><a href={caseItem.infringing_url} target="_blank" rel="noopener noreferrer">{caseItem.infringing_url}</a></p>
                                         <p><strong>對應作品：</strong>{caseItem.File?.filename}</p>
                                         <p><strong>狀態：</strong><span className={`status-${caseItem.status}`}>{caseItem.status}</span></p>
+                                        {caseItem.resolution_status === 'license_purchased' && (
+                                            <p><strong>P2P收益：</strong>NT$ {caseItem.license_revenue * caseItem.creator_share}</p>
+                                        )}
                                     </div>
                                     <CopyButton onClick={() => copyToClipboard(`${window.location.origin}/resolve/${caseItem.unique_case_id}`)}>複製解決連結</CopyButton>
                                 </CaseInfo>
