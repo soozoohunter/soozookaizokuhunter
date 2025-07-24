@@ -37,6 +37,10 @@ import DmcaPage from './pages/solutions/DmcaPage';
 import BlockchainDeedPage from './pages/solutions/BlockchainDeedPage';
 import AiSentinelPage from './pages/solutions/AiSentinelPage';
 import P2pEnginePage from './pages/solutions/P2pEnginePage';
+import BlogIndexPage from './pages/BlogIndexPage';
+import AiArtworkCopyrightGuide from './pages/blog/AiArtworkCopyrightGuide';
+import EcommerceImageTheftPrevention from './pages/blog/EcommerceImageTheftPrevention';
+import BlockchainEvidenceLegalValidity from './pages/blog/BlockchainEvidenceLegalValidity';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -71,6 +75,10 @@ function App() {
                 <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/blog" element={<BlogIndexPage />} />
+                <Route path="/blog/ai-artwork-copyright-guide" element={<AiArtworkCopyrightGuide />} />
+                <Route path="/blog/ecommerce-image-theft-prevention" element={<EcommerceImageTheftPrevention />} />
+                <Route path="/blog/blockchain-evidence-legal-validity" element={<BlockchainEvidenceLegalValidity />} />
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/resolve/:uniqueCaseId" element={<ResolutionPage />} />
                 <Route path="/free-trial" element={<FreeTrialLandingPage />} />

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-// 移除了 FileUploadSection 和 ConsoleStatus 的導入，因為此頁面不需要它們
 
 const PageSpacer = styled.div`
   min-height: 74px; /* Matches header height */
@@ -29,9 +28,7 @@ const HeroTitle = styled.h1`
   line-height: 1.2;
   letter-spacing: -2px;
   color: #0A0101;
-  text-transform: uppercase;
   @media (max-width: 899.95px) { font-size: 2.5rem; }
-  @media (max-width: 599.95px) { font-size: 2rem; }
 `;
 
 const HeroSubtitle = styled.h2`
@@ -39,7 +36,6 @@ const HeroSubtitle = styled.h2`
   font-weight: 600;
   line-height: 1.4;
   color: #D45398;
-  text-transform: uppercase;
 `;
 
 const PrimaryButton = styled(Link)`
@@ -51,7 +47,7 @@ const PrimaryButton = styled(Link)`
   background: #EBB0CF;
   color: #0A0101;
   box-shadow: 2px 2px 0px #D45398;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
   font-size: 1.1rem;
   margin-top: 1rem;
   &:hover {
@@ -87,6 +83,14 @@ const FeatureCard = styled.div`
   background: #F8F8F8;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid #EAEAEA;
+  transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  }
 `;
 
 const FeatureTitle = styled.h3`
@@ -98,6 +102,14 @@ const FeatureTitle = styled.h3`
 const FeatureText = styled.p`
   color: #666;
   line-height: 1.6;
+  flex-grow: 1;
+`;
+
+const LearnMoreLink = styled.div`
+  margin-top: 1.5rem;
+  color: #D45398;
+  font-weight: bold;
+  text-decoration: none;
 `;
 
 const LegalSection = styled(FeaturesSection)`
@@ -189,10 +201,10 @@ const HomePage = () => {
       <HeroWrapper>
         <HeroContainer>
           <HeroTitle>不只保護，更能變現</HeroTitle>
-          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的原創著作才華賦予經濟價值</HeroSubtitle>
-            <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
-              我們整合不可篡改的區塊鏈技術與 24/7 AI 全網監控，不僅為您的創作鑄造神聖不可侵犯的數位權狀，更能將每一次侵權，都轉化為一次商業談判的機會，將您的權利變為實際收益。
-            </p>
+          <HeroSubtitle>全球首創 P2P 侵權變現引擎，為您的原創著作才華賦予金融價值</HeroSubtitle>
+          <p style={{ maxWidth: '700px', lineHeight: '1.6', fontSize: '1.1rem' }}>
+            我們將不可篡改的區塊鏈存證與 AI 全網監控結合，不僅為您的作品提供無懈可擊的法律保護，更能將每一次侵權，都轉化為您的潛在收益。
+          </p>
           <PrimaryButton to="/free-trial">免費取得您的第一份區塊鏈權狀</PrimaryButton>
         </HeroContainer>
       </HeroWrapper>
@@ -201,32 +213,27 @@ const HomePage = () => {
         <SectionTitle>您的三大權利引擎</SectionTitle>
         <FeaturesContainer>
           {/* 新增 Link 使卡片可點擊 */}
-          <Link to="/solutions/blockchain-deed" style={{ textDecoration: 'none' }}>
+          <Link to="/solutions/blockchain-deed" style={{ textDecoration: 'none', display: 'flex' }}>
             <FeatureCard>
               <FeatureTitle>區塊鏈權狀</FeatureTitle>
-              <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份永久的、具備全球法律效力的數位產權證明。它不是收據，而是您在數位世界中神聖不可侵犯的權狀。</FeatureText>
+              <FeatureText>告別傳統存證的繁瑣與不確定性。您的每件作品上傳即生成一份永久的、具備全球法律效力的數位產權證明。它不是收據，而是您在數位世界中神聖不可侵犯的<strong>權狀</strong>。</FeatureText>
+              <LearnMoreLink>了解更多 &rarr;</LearnMoreLink>
             </FeatureCard>
           </Link>
 
-          <Link to="/solutions/ai-sentinel" style={{ textDecoration: 'none' }}>
+          <Link to="/solutions/ai-sentinel" style={{ textDecoration: 'none', display: 'flex' }}>
             <FeatureCard>
               <FeatureTitle>AI 哨兵</FeatureTitle>
-              <FeatureText>
-                全網監控：我們的 AI 哨兵 24/7 不間斷巡邏全球網路，從台灣各大電商平台到 Facebook、Instagram、TikTok 及 YouTube，滴水不漏。<br />
-                電商防詐：主動掃描並識別盜用您商品圖的詐騙網站與一頁式廣告，保護您的品牌商譽與客戶信任。<br />
-                鐵證保全：一旦發現侵權，系統將自動抓取並儲存侵權頁面的截圖與內容。即使對方刪文下架，您手中仍握有無法抵賴的侵權證據，確保您在法律程序中立於不敗之地。
-              </FeatureText>
+              <FeatureText>我們的 AI 哨兵 24/7 不間斷巡邏全球網路，從台灣各大電商平台到 Facebook、Instagram、TikTok 及 YouTube，更能主動識別盜用您商品圖的詐騙網站，並在侵權發生的瞬間<strong>自動完成滴水不漏的存證</strong>。</FeatureText>
+              <LearnMoreLink>了解更多 &rarr;</LearnMoreLink>
             </FeatureCard>
           </Link>
 
-          <Link to="/solutions/p2p-engine" style={{ textDecoration: 'none' }}>
+          <Link to="/solutions/p2p-engine" style={{ textDecoration: 'none', display: 'flex' }}>
             <FeatureCard>
               <FeatureTitle>P2P 變現引擎</FeatureTitle>
-              <FeatureText>
-                化憤怒為收益：一鍵啟動 P2P 變現引擎，自動生成具備法律壓力的「侵權解決頁面」，讓侵權方在「付費取得合法授權」與「面臨法律追訴」之間做出理性選擇。<br />
-                快速下架：對於惡意侵權，可直接發動 DMCA 申訴，整合官方 API，最快 24 小時內將侵權內容從主流平台下架。<br />
-                法律支援：所有存證、掃描紀錄與侵權證據都可一鍵匯出，作為提交給律師或法院的專業報告，大幅簡化您的訴訟流程。
-              </FeatureText>
+              <FeatureText>發現侵權不再只是憤怒。一鍵啟動 P2P 變現引擎，自動生成具備法律壓力的「侵權解決頁面」，讓侵權方在「付費授權」與「面臨訴訟」之間做出選擇。您的原創著作權利，現在是可交易的資產。</FeatureText>
+              <LearnMoreLink>了解更多 &rarr;</LearnMoreLink>
             </FeatureCard>
           </Link>
         </FeaturesContainer>
