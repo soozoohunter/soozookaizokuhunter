@@ -30,39 +30,6 @@ const Title = styled.h2`
   font-size: 2rem;
 `;
 
-const AuthActionBlock = styled.div`
-  margin-top: 1.5rem;
-  padding: 1.5rem;
-  background-color: #fffbe6;
-  border: 1px solid #fde68a;
-  border-radius: ${({ theme }) => theme.borderRadius};
-  text-align: center;
-`;
-
-const AuthActionTitle = styled.h3`
-  margin: 0 0 1rem 0;
-`;
-
-const AuthButtonContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-`;
-
-const AuthButton = styled.button`
-  padding: 0.8rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  background-color: ${({ theme, primary }) =>
-    primary ? theme.colors.light.primary : '#FFFFFF'};
-  color: ${({ theme, primary }) =>
-    primary ? '#FFFFFF' : theme.colors.light.primary};
-  border: 1px solid ${({ theme }) => theme.colors.light.primary};
-`;
-
 const SummaryCard = styled.div`
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
@@ -78,51 +45,80 @@ const SummaryText = styled.p`
   color: ${({ theme }) => theme.colors.light.primary};
 `;
 
-const PreviewSection = styled.div`
-  margin-top: 2rem;
+const LinkList = styled.div`
+  list-style: none;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
   border: 1px solid ${({ theme }) => theme.colors.light.border};
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 0.5rem;
+  margin-top: 1rem;
 `;
 
-const PreviewTitle = styled.h4`
+const LinkItem = styled.div`
+  background: #f9fafb;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+`;
+
+const LinkUrl = styled.a`
+  word-break: break-all;
+  color: ${({ theme }) => theme.colors.light.primary};
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+`;
+
+// ★★★ 全新的 P2P 案件按鈕 ★★★
+const ActionButton = styled.button`
+  background-color: #A855F7; /* 紫色，代表更高價值的功能 */
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  min-width: 160px;
   text-align: center;
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  font-size: 1.2rem;
-`;
-
-const ClearLink = styled.div`
-  padding: 0.5rem 0;
-  font-family: 'Courier New', Courier, monospace;
-  a {
-    color: ${({ theme }) => theme.colors.light.primary};
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+  &:hover:not(:disabled) {
+    background-color: #9333ea;
+  }
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
   }
 `;
 
-const BlurredLink = styled.div`
-  padding: 0.5rem 0;
-  font-family: 'Courier New', Courier, monospace;
+// ★★★ 模糊化的連結樣式 ★★★
+const BlurredLinkItem = styled(LinkItem)`
   color: transparent;
   text-shadow: 0 0 8px rgba(0,0,0,0.5);
   user-select: none;
   cursor: pointer;
+  justify-content: center;
 `;
 
-const MoreLinksText = styled.p`
+const ActionFooter = styled.div`
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid ${({ theme }) => theme.colors.light.border};
   text-align: center;
-  font-style: italic;
-  color: #6b7280;
-  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
 `;
 
 export default function ProtectStep4() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useContext(AuthContext);
-
   const { scanResults, fileInfo, trialUser } = location.state || {};
 
   const [infringingLinks, setInfringingLinks] = useState([]);
@@ -134,7 +130,6 @@ export default function ProtectStep4() {
       navigate('/protect/step1');
       return;
     }
-
     let collectedLinks = [];
     if (scanResults && scanResults.results) {
       Object.values(scanResults.results).forEach(sourceResult => {
@@ -149,20 +144,21 @@ export default function ProtectStep4() {
       count: uniqueLinks.length,
       sources: Object.keys(scanResults.results || {}).length
     });
-
-    // ★★★ 關鍵修正：已將自動觸發彈窗的邏輯移除 ★★★
-
-  }, [scanResults, fileInfo, navigate, user]);
-
-  const handleAuthRedirect = path => {
-    navigate(path, {
-      state: {
-        from: location,
-        scanResults,
-        fileInfo,
-        trialUser
-      }
-    });
+  }, [scanResults, fileInfo, navigate]);
+  
+  const handleCreateCase = async (fileId, infringingUrl) => {
+    try {
+        await apiClient.post('/cases/create', { fileId, infringingUrl });
+        alert('案件建立成功！您現在可以在會員中心管理此案件。');
+        navigate('/dashboard');
+    } catch (error) {
+        alert(error.response?.data?.message || '建立案件失敗');
+    }
+  };
+  
+  const handleDownloadReport = () => {
+    // 實際的下載邏輯
+    alert("正在為您準備報告...");
   };
 
   if (!fileInfo) return null;
@@ -171,66 +167,76 @@ export default function ProtectStep4() {
 
   return (
     <>
-    <PageWrapper>
-      <Container>
-        <Title>Step 4: AI 掃描結果</Title>
-        <p>
-          您的原始檔案：<strong>{fileInfo.filename}</strong>
-        </p>
-        
-        {/* --- 對於付費會員，顯示完整結果 --- */}
-        {isPaidUser && (
-            // ... 付費會員的完整報告邏輯 ...
-        )}
-
-        {/* --- 對於未登入或試用者，顯示摘要和付費引導 --- */}
-        {!isPaidUser && (
-          <>
-            <SummaryCard>
-              <AuthActionTitle>掃描摘要</AuthActionTitle>
-              {summary.count > 0 ? (
-                <SummaryText>已在 {summary.sources} 個平台發現 {summary.count} 筆疑似侵權！</SummaryText>
-              ) : (
-                <SummaryText>恭喜！初步掃描未發現侵權。</SummaryText>
-              )}
-            </SummaryCard>
-
-            {infringingLinks.length > 0 && (
-              <PreviewSection>
-                  <PreviewTitle>部分掃描結果預覽</PreviewTitle>
-                  {infringingLinks.slice(0, 2).map((link, index) => (
-                      <ClearLink key={`clear-${index}`}>
-                         <a href={link} target="_blank" rel="noopener noreferrer">{link}</a>
-                      </ClearLink>
-                  ))}
-                  {infringingLinks.slice(2, 10).map((link, index) => (
-                      <BlurredLink key={`blur-${index}`} onClick={() => setShowUpgradeModal(true)}>
-                          https://blurred-for-preview.com/path/to/page/{index + 1}
-                      </BlurredLink>
-                  ))}
-                  {infringingLinks.length > 10 && (
-                      <MoreLinksText>...以及另外 {infringingLinks.length - 10} 個疑似連結</MoreLinksText>
-                  )}
-              </PreviewSection>
+      <PageWrapper>
+        <Container>
+          <Title>Step 4: AI 掃描結果</Title>
+          <p>您的原始檔案：<strong>{fileInfo.filename}</strong></p>
+          
+          <SummaryCard>
+            <h3>掃描摘要</h3>
+            {summary.count > 0 ? (
+              <SummaryText>已在 {summary.sources} 個平台發現 {summary.count} 筆疑似侵權！</SummaryText>
+            ) : (
+              <SummaryText>恭喜！初步掃描未發現侵權。</SummaryText>
             )}
+          </SummaryCard>
 
-            <AuthActionBlock>
-              <AuthActionTitle>升級帳戶以查看完整報告</AuthActionTitle>
-              <p>成為正式會員，即可查看全部 {infringingLinks.length} 筆詳細報告、下載 PDF、並立即採取法律行動。</p>
-              <AuthButtonContainer>
-                <AuthButton onClick={() => handleAuthRedirect('/login')}>我已有帳號，前往登入</AuthButton>
-                {/* ★ 按鈕現在是唯一觸發彈窗的方式 ★ */}
-                <AuthButton primary onClick={() => setShowUpgradeModal(true)}>
-                  免費註冊並查看方案
-                </AuthButton>
-              </AuthButtonContainer>
-            </AuthActionBlock>
-          </>
-        )}
-      </Container>
-    </PageWrapper>
-    {/* ★ 彈窗現在只會在被點擊時顯示 ★ */}
-    {showUpgradeModal && <ExperienceCompleteModal onClose={() => setShowUpgradeModal(false)} />}
+          {infringingLinks.length > 0 && (
+            <div>
+              <h4>詳細結果列表：</h4>
+              <LinkList>
+                {infringingLinks.map((link, index) => {
+                  // ★★★ 核心邏輯：付費會員或前2筆，顯示清晰內容 ★★★
+                  if (isPaidUser || index < 2) {
+                    return (
+                      <LinkItem key={index}>
+                        <LinkUrl href={link} target="_blank" rel="noopener noreferrer">{link}</LinkUrl>
+                        {isPaidUser && (
+                          <ActionButton onClick={() => handleCreateCase(fileInfo.id, link)}>
+                            建立 P2P 案件
+                          </ActionButton>
+                        )}
+                      </LinkItem>
+                    );
+                  } 
+                  // ★★★ 對於試用者，第3筆及之後的連結，顯示為模糊樣式 ★★★
+                  else if (index < 10) { // 最多只顯示 8 條模糊連結
+                    return (
+                      <BlurredLinkItem key={index} onClick={() => setShowUpgradeModal(true)}>
+                        [ 升級以查看此連結 ]
+                      </BlurredLinkItem>
+                    );
+                  }
+                  return null;
+                })}
+                {infringingLinks.length > 10 && !isPaidUser && (
+                   <p style={{textAlign: 'center', color: '#6b7280'}}>...及另外 {infringingLinks.length - 10} 筆疑似連結</p>
+                )}
+              </LinkList>
+            </div>
+          )}
+
+          <ActionFooter>
+            {/* ★ 按鈕的行為根據使用者身份而變化 ★ */}
+            <StyledButton 
+                as="button" 
+                onClick={isPaidUser ? handleDownloadReport : () => setShowUpgradeModal(true)}
+            >
+                下載完整侵權報告 (PDF)
+            </StyledButton>
+            <StyledButton 
+                as="button" 
+                primary 
+                onClick={isPaidUser ? () => navigate('/dashboard') : () => navigate('/register', {state: {from: location, trialUser}})}
+            >
+                {isPaidUser ? '前往會員中心' : '免費註冊，永久保存紀錄'}
+            </StyledButton>
+          </ActionFooter>
+        </Container>
+      </PageWrapper>
+      
+      {/* ★ 彈窗現在只會在用戶點擊付費功能時被觸發 ★ */}
+      {showUpgradeModal && <ExperienceCompleteModal onClose={() => setShowUpgradeModal(false)} />}
     </>
   );
 }
