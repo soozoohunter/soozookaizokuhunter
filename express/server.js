@@ -11,7 +11,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const http = require('http');
-const express = require('express');
+    const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -35,7 +35,15 @@ const contactRoutes = require('./routes/contact');
 const ipfsService = require('./services/ipfsService');
 const chain = require('./utils/chain'); // ★ 導入 chain 模組
 const { startScheduledScans } = require('./jobs/cron');
-const cron = require('node-cron');
+
+// 嘗試載入 node-cron，若失敗則停用排程功能
+let cron;
+try {
+    cron = require('node-cron');
+} catch (err) {
+    logger.warn('[Startup] node-cron module not found. Cron functionality will be disabled.', err);
+    cron = null;
+}
 const conversionTracking = require('./middleware/conversionTracking');
 
 // App & server initialization
@@ -90,7 +98,6 @@ app.get('/blockchain-health', async (req, res) => {
     }
 });
 
-
 // Health check
 app.get('/health', async (req, res) => {
     const healthReport = {
@@ -134,11 +141,18 @@ app.get('/health', async (req, res) => {
 
         // 4. Check cron task status
         try {
-            const cronTasks = cron.getTasks();
-            healthReport.services.cron = {
-                status: cronTasks.length > 0 ? 'active' : 'inactive',
-                tasks: cronTasks.map(task => task.options.rule)
-            };
+            if (cron && typeof cron.getTasks === 'function') {
+                const cronTasks = cron.getTasks();
+                const tasksArray = Array.from(cronTasks.values());
+                healthReport.services.cron = {
+                    status: tasksArray.length > 0 ? 'active' : 'inactive',
+                    tasks: tasksArray.map(task => task.options.rule)
+                };
+            } else if (!cron) {
+                healthReport.services.cron = 'disabled';
+            } else {
+                healthReport.services.cron = 'unknown';
+            }
         } catch (cronError) {
             healthReport.services.cron = `error: ${cronError.message}`;
             logger.error('[Health] Cron check failed:', cronError);
@@ -201,7 +215,6 @@ async function startServer() {
             logger.info('[Database] Models synchronized.');
         } catch (syncError) {
             logger.error('[Database] Model synchronization failed:', syncError);
-            // Continue startup even if sync fails
             logger.warn('[Database] Proceeding with startup despite sync errors');
         }
 
@@ -245,6 +258,7 @@ async function startServer() {
 
 startServer().catch((error) => {
     logger.error('[FATAL] Error in startServer execution:', error);
-    logger.info(`[Startup] Retrying initialization in ${STARTUP_RETRY_DELAY / 1000}s...`);
-    setTimeout(startServer, STARTUP_RETRY_DELAY);
+    const retryDelay = parseInt(process.env.STARTUP_RETRY_DELAY_MS || '30000', 10);
+    logger.info(`[Startup] Retrying initialization in ${retryDelay / 1000}s...`);
+    setTimeout(startServer, retryDelay);
 });
