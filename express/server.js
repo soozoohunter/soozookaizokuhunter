@@ -126,8 +126,9 @@ app.get('/health', async (req, res) => {
 const PORT = process.env.EXPRESS_PORT || 3000;
 
 async function startServer() {
-    const MAX_DB_RETRIES = parseInt(process.env.DB_CONN_RETRIES || '5', 10);
-    const DB_RETRY_DELAY = parseInt(process.env.DB_CONN_RETRY_DELAY_MS || '3000', 10);
+    const MAX_DB_RETRIES = parseInt(process.env.DB_CONN_RETRIES || process.env.DB_CONNECT_RETRIES || '5', 10);
+    const DB_RETRY_DELAY = parseInt(process.env.DB_CONN_RETRY_DELAY_MS || process.env.DB_CONNECT_RETRY_DELAY || '3000', 10);
+    const STARTUP_RETRY_DELAY = parseInt(process.env.STARTUP_RETRY_DELAY_MS || '30000', 10);
 
     try {
         logger.info('[Startup] Starting server initialization...');
@@ -177,11 +178,13 @@ async function startServer() {
         });
     } catch (error) {
         logger.error('[Startup] Fatal error during initialization:', error);
-        process.exit(1);
+        logger.info(`[Startup] Retrying initialization in ${STARTUP_RETRY_DELAY / 1000}s...`);
+        setTimeout(startServer, STARTUP_RETRY_DELAY);
     }
 }
 
 startServer().catch((error) => {
     logger.error('[FATAL] Error in startServer execution:', error);
-    process.exit(1);
+    logger.info(`[Startup] Retrying initialization in ${STARTUP_RETRY_DELAY / 1000}s...`);
+    setTimeout(startServer, STARTUP_RETRY_DELAY);
 });
