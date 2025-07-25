@@ -37,6 +37,10 @@ import DmcaPage from './pages/solutions/DmcaPage';
 import BlockchainDeedPage from './pages/solutions/BlockchainDeedPage';
 import AiSentinelPage from './pages/solutions/AiSentinelPage';
 import P2pEnginePage from './pages/solutions/P2pEnginePage';
+// 新增 AI 偵測三大功能頁面
+import GlobalCoveragePage from './pages/solutions/GlobalCoveragePage';
+import SmartMatchingPage from './pages/solutions/SmartMatchingPage';
+import RealtimeAlertsPage from './pages/solutions/RealtimeAlertsPage';
 import BlogIndexPage from './pages/BlogIndexPage';
 import AiArtworkCopyrightGuide from './pages/blog/AiArtworkCopyrightGuide';
 import EcommerceImageTheftPrevention from './pages/blog/EcommerceImageTheftPrevention';
@@ -95,9 +99,12 @@ function App() {
                 <Route path="/protect/step3" element={<ProtectStep3 />} />
                 <Route path="/protect/step4" element={<ProtectStep4 />} />
                 <Route path="/solutions/ai-detection" element={<AiDetectionPage />} />
+                {/* 新增三大功能詳情頁路由 */}
+                <Route path="/solutions/global-coverage" element={<GlobalCoveragePage />} />
+                <Route path="/solutions/smart-matching" element={<SmartMatchingPage />} />
+                <Route path="/solutions/realtime-alerts" element={<RealtimeAlertsPage />} />
                 <Route path="/solutions/blockchain" element={<BlockchainPage />} />
                 <Route path="/solutions/dmca-takedown" element={<DmcaPage />} />
-                {/* 新增三大功能詳情頁路由 */}
                 <Route path="/solutions/blockchain-deed" element={<BlockchainDeedPage />} />
                 <Route path="/solutions/ai-sentinel" element={<AiSentinelPage />} />
                 <Route path="/solutions/p2p-engine" element={<P2pEnginePage />} />
