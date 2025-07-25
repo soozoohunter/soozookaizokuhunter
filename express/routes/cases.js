@@ -3,6 +3,7 @@ const router = express.Router();
 const { InfringementCase, File, UserSubscription, SubscriptionPlan } = require('../models');
 const auth = require('../middleware/auth');
 const logger = require('../utils/logger');
+const scraperService = require('../services/scraper.service');
 
 router.get('/', auth, async (req, res) => {
     try {
@@ -60,6 +61,18 @@ router.post('/create', auth, async (req, res) => {
             platform_share: platformShare
         });
         logger.info(`[Case] User ${req.user.id} created new case ${newCase.id} with license price ${licensePrice}`);
+
+        scraperService.takeScreenshot(infringingUrl)
+            .then(url => {
+                if (url) {
+                    newCase.update({ evidence_snapshot_url: url });
+                    logger.info(`[Case] Evidence snapshot saved for case ${newCase.id}`);
+                }
+            })
+            .catch(err => {
+                logger.error(`[Case] Background screenshot task failed for case ${newCase.id}:`, err);
+            });
+
         res.status(201).json(newCase);
     } catch (error) {
         logger.error('[Case] Error creating case:', error);
