@@ -41,6 +41,9 @@ import BlogIndexPage from './pages/BlogIndexPage';
 import AiArtworkCopyrightGuide from './pages/blog/AiArtworkCopyrightGuide';
 import EcommerceImageTheftPrevention from './pages/blog/EcommerceImageTheftPrevention';
 import BlockchainEvidenceLegalValidity from './pages/blog/BlockchainEvidenceLegalValidity';
+import MythBusterArticle from './pages/blog/MythBusterArticle';
+import P2PEngineCaseStudy from './pages/blog/P2PEngineCaseStudy';
+import UserTestimonialArticle from './pages/blog/UserTestimonialArticle';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -79,6 +82,9 @@ function App() {
                 <Route path="/blog/ai-artwork-copyright-guide" element={<AiArtworkCopyrightGuide />} />
                 <Route path="/blog/ecommerce-image-theft-prevention" element={<EcommerceImageTheftPrevention />} />
                 <Route path="/blog/blockchain-evidence-legal-validity" element={<BlockchainEvidenceLegalValidity />} />
+                <Route path="/blog/copyright-myths-buster" element={<MythBusterArticle />} />
+                <Route path="/blog/p2p-engine-case-study" element={<P2PEngineCaseStudy />} />
+                <Route path="/blog/user-testimonial-ai-sentinel" element={<UserTestimonialArticle />} />
                 <Route path="/payment" element={<PaymentPage />} />
                 <Route path="/resolve/:uniqueCaseId" element={<ResolutionPage />} />
                 <Route path="/free-trial" element={<FreeTrialLandingPage />} />
