@@ -56,13 +56,20 @@ async function storeRecord(fingerprint, ipfsHash) {
     logger.info(`[Chain] Preparing to store record on-chain for fingerprint: ${fingerprint.substring(0, 10)}...`);
     try {
         const fromAddress = account.address;
-        const gasPrice = await web3.eth.getGasPrice();
+        const gasPrice    = await web3.eth.getGasPrice();
         const estimatedGas = await contract.methods.storeRecord(fingerprint, ipfsHash).estimateGas({ from: fromAddress });
+
+        const costWei = BigInt(gasPrice) * BigInt(estimatedGas);
+        const balance = BigInt(await web3.eth.getBalance(fromAddress));
+        if (balance < costWei) {
+            logger.warn(`[Chain] Skip – insufficient funds. Needed ${costWei} wei, only ${balance} wei.`);
+            return { skipped: true, reason: 'insufficient_funds' };
+        }
 
         const receipt = await contract.methods.storeRecord(fingerprint, ipfsHash).send({
             from: fromAddress,
-            gas: estimatedGas,
-            gasPrice: gasPrice,
+            gas:  estimatedGas,
+            gasPrice
         });
 
         logger.info(`[Chain] Transaction successful! TxHash: ${receipt.transactionHash}`);
