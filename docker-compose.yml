@@ -151,6 +151,10 @@ services:
     ports: ["8545:8545"]
     networks:
       - suzoo-network
+    command:
+      - ganache
+      - --server.host=0.0.0.0
+      - --wallet.accounts=${BLOCKCHAIN_PRIVATE_KEY},100000000000000000000
     healthcheck:
       # 註：此健康檢查是正確的，無需修改
       test: ["CMD-SHELL", "curl -f -X POST --data '{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}' -H 'Content-Type: application/json' http://localhost:8545 || exit 1"]
