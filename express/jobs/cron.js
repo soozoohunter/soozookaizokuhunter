@@ -13,14 +13,18 @@ const startScheduledScans = () => {
             const subscriptions = await UserSubscription.findAll({
                 where: { status: 'active', expires_at: { [Op.gte]: now } },
                 include: [
-                    { model: SubscriptionPlan, as: 'SubscriptionPlan', where: { [Op.or]: [{ scan_frequency: 'daily' }, { scan_frequency: 'weekly' }] } },
+                    {
+                        model: SubscriptionPlan,
+                        as: 'plan',
+                        where: { [Op.or]: [{ scan_frequency: 'daily' }, { scan_frequency: 'weekly' }] }
+                    },
                     { model: User, include: [{ model: File, as: 'Files' }] }
                 ],
                 transaction
             });
 
             for (const sub of subscriptions) {
-                const plan = sub.SubscriptionPlan;
+                const plan = sub.plan;
                 const user = sub.User;
                 const filesToScan = user.Files || [];
 

@@ -51,18 +51,13 @@ services:
     depends_on:
       suzoo_postgres:
         condition: service_healthy
-      suzoo_rabbitmq:
-        condition: service_healthy
-      suzoo_ganache:
-        condition: service_healthy
-      suzoo_ipfs:
+      suzoo_redis:
         condition: service_healthy
     healthcheck:
-      # ★★★ 關鍵修正：健康檢查指向新的區塊鏈健康端點 ★★★
-      test: ["CMD", "curl", "-f", "http://localhost:3000/blockchain-health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
       start_period: 60s
     restart: unless-stopped
 

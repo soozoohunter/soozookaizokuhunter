@@ -35,6 +35,7 @@ const contactRoutes = require('./routes/contact');
 const ipfsService = require('./services/ipfsService');
 const chain = require('./utils/chain'); // ★ 導入 chain 模組
 const { startScheduledScans } = require('./jobs/cron');
+const cron = require('node-cron');
 const conversionTracking = require('./middleware/conversionTracking');
 
 // App & server initialization
@@ -92,87 +93,146 @@ app.get('/blockchain-health', async (req, res) => {
 
 // Health check
 app.get('/health', async (req, res) => {
+    const healthReport = {
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        services: {}
+    };
+
     try {
-        await db.sequelize.authenticate();
-
-        const ipfs = ipfsService.getClient();
-        if (!ipfs) {
-            throw new Error('IPFS client not initialized');
-        }
-        await ipfs.version();
-
-        const blockchainHealth = await chain.getHealthStatus();
-        if (blockchainHealth.status !== 'healthy') {
-            throw new Error(`Blockchain status: ${blockchainHealth.message}`);
+        // 1. Check database connection
+        try {
+            await db.sequelize.authenticate();
+            healthReport.services.database = 'connected';
+        } catch (dbError) {
+            healthReport.services.database = `error: ${dbError.message}`;
+            logger.error('[Health] Database connection failed:', dbError);
         }
 
-        res.status(200).json({
-            status: 'OK',
-            timestamp: new Date().toISOString(),
-            database: 'connected',
-            ipfs: 'connected',
-            blockchain: 'connected'
-        });
+        // 2. Check IPFS service
+        try {
+            const ipfs = ipfsService.getClient();
+            if (!ipfs) {
+                healthReport.services.ipfs = 'not_initialized';
+            } else {
+                const version = await ipfs.version();
+                healthReport.services.ipfs = `connected (v${version.version})`;
+            }
+        } catch (ipfsError) {
+            healthReport.services.ipfs = `error: ${ipfsError.message}`;
+            logger.error('[Health] IPFS check failed:', ipfsError);
+        }
+
+        // 3. Check blockchain service
+        try {
+            const blockchainHealth = await chain.getHealthStatus();
+            healthReport.services.blockchain = blockchainHealth;
+        } catch (chainError) {
+            healthReport.services.blockchain = `error: ${chainError.message}`;
+            logger.error('[Health] Blockchain check failed:', chainError);
+        }
+
+        // 4. Check cron task status
+        try {
+            const cronTasks = cron.getTasks();
+            healthReport.services.cron = {
+                status: cronTasks.length > 0 ? 'active' : 'inactive',
+                tasks: cronTasks.map(task => task.options.rule)
+            };
+        } catch (cronError) {
+            healthReport.services.cron = `error: ${cronError.message}`;
+            logger.error('[Health] Cron check failed:', cronError);
+        }
+
+        // If critical services failed, return 503
+        const criticalServices = [healthReport.services.database, healthReport.services.blockchain];
+        const isUnhealthy = criticalServices.some(status => String(status).includes('error'));
+
+        if (isUnhealthy) {
+            res.status(503).json(healthReport);
+        } else {
+            res.status(200).json(healthReport);
+        }
     } catch (error) {
-        logger.error(`[Health Check] Failed: ${error.message}`);
-        res.status(503).json({
-            status: 'ERROR',
-            timestamp: new Date().toISOString(),
-            error: error.message,
-        });
+        healthReport.status = 'ERROR';
+        healthReport.error = error.message;
+        logger.error('[Health] Overall health check failed:', error);
+        res.status(500).json(healthReport);
     }
 });
 
 const PORT = process.env.EXPRESS_PORT || 3000;
 
 async function startServer() {
-    const MAX_DB_RETRIES = parseInt(process.env.DB_CONN_RETRIES || process.env.DB_CONNECT_RETRIES || '5', 10);
-    const DB_RETRY_DELAY = parseInt(process.env.DB_CONN_RETRY_DELAY_MS || process.env.DB_CONNECT_RETRY_DELAY || '3000', 10);
+    const MAX_DB_RETRIES = parseInt(process.env.DB_CONN_RETRIES || '10', 10);
+    const DB_RETRY_DELAY = parseInt(process.env.DB_CONN_RETRY_DELAY_MS || '5000', 10);
     const STARTUP_RETRY_DELAY = parseInt(process.env.STARTUP_RETRY_DELAY_MS || '30000', 10);
 
     try {
         logger.info('[Startup] Starting server initialization...');
 
-        // 1. Initialize IPFS service
+        // Enhanced database connection with retries
+        const connectToDatabase = async () => {
+            logger.info('[Startup] Connecting to database...');
+            for (let attempt = 1; attempt <= MAX_DB_RETRIES; attempt++) {
+                try {
+                    await db.sequelize.authenticate();
+                    logger.info('[Database] Connection established.');
+                    return true;
+                } catch (err) {
+                    logger.warn(`[Database] Connection attempt ${attempt}/${MAX_DB_RETRIES} failed: ${err.message}`);
+                    if (attempt < MAX_DB_RETRIES) {
+                        logger.info(`[Database] Retrying in ${DB_RETRY_DELAY/1000} seconds...`);
+                        await new Promise(res => setTimeout(res, DB_RETRY_DELAY));
+                    } else {
+                        throw new Error('Database connection failed after all retries');
+                    }
+                }
+            }
+        };
+
+        // 1. Connect to database
+        await connectToDatabase();
+
+        // 2. Synchronize models
+        logger.info('[Startup] Synchronizing database models...');
+        try {
+            await db.sequelize.sync({ alter: true });
+            logger.info('[Database] Models synchronized.');
+        } catch (syncError) {
+            logger.error('[Database] Model synchronization failed:', syncError);
+            // Continue startup even if sync fails
+            logger.warn('[Database] Proceeding with startup despite sync errors');
+        }
+
+        // 3. Initialize IPFS service
         try {
             await ipfsService.init();
             logger.info('[ipfsService] IPFS initialized successfully');
         } catch (ipfsError) {
-            logger.error('[ipfsService] IPFS initialization failed, proceeding without IPFS:', ipfsError);
+            logger.error('[ipfsService] IPFS initialization failed:', ipfsError);
+            logger.warn('[ipfsService] Proceeding without IPFS functionality');
         }
 
-        // 2. Connect to database with retry logic
-        logger.info('[Startup] Connecting to database...');
-        let dbConnected = false;
-        for (let attempt = 1; attempt <= MAX_DB_RETRIES; attempt++) {
-            try {
-                await db.sequelize.authenticate();
-                dbConnected = true;
-                logger.info('[Database] Connection established.');
-                break;
-            } catch (err) {
-                logger.warn(`[Database] Connection attempt ${attempt}/${MAX_DB_RETRIES} failed: ${err.message}`);
-                if (attempt < MAX_DB_RETRIES) {
-                    await new Promise(res => setTimeout(res, DB_RETRY_DELAY));
-                }
-            }
-        }
-        if (!dbConnected) {
-            throw new Error('Database connection failed after all retries');
-        }
-
-        await db.sequelize.sync({ alter: true });
-        logger.info('[Database] Models synchronized.');
-
-        // ★ 3. Initialize blockchain service BEFORE starting server ★
+        // 4. Initialize blockchain service
         logger.info('[Startup] Initializing blockchain service...');
-        await chain.initializeBlockchainService();
-        logger.info('[Startup] Blockchain service initialization complete.');
+        try {
+            await chain.initializeBlockchainService();
+            logger.info('[Startup] Blockchain service initialization complete.');
+        } catch (chainError) {
+            logger.error('[Startup] Blockchain initialization failed:', chainError);
+            logger.warn('[Startup] Proceeding without blockchain functionality');
+        }
 
-        startScheduledScans();
-        logger.info('[Startup] Scheduled jobs started.');
+        // 5. Start scheduled jobs
+        try {
+            startScheduledScans();
+            logger.info('[Startup] Scheduled jobs started.');
+        } catch (cronError) {
+            logger.error('[Startup] Failed to start scheduled jobs:', cronError);
+        }
 
-        // 4. Start HTTP server
+        // 6. Start HTTP server
         server.listen(PORT, '0.0.0.0', () => {
             logger.info(`[Express] Server is ready and running on http://0.0.0.0:${PORT}`);
         });
