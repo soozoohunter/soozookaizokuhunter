@@ -62,7 +62,7 @@ router.get('/users', async (req, res) => {
                 as: 'UserSubscriptions',
                 where: { status: 'active' },
                 required: false,
-                include: [{ model: SubscriptionPlan, as: 'SubscriptionPlan' }]
+                include: [{ model: SubscriptionPlan, as: 'plan' }]
             }]
         });
         res.json(users);
@@ -93,7 +93,7 @@ router.get('/users/:userId/details', async (req, res) => {
             attributes: { exclude: ['password'] },
             include: [
                 { model: File, as: 'Files', order: [['createdAt', 'DESC']] },
-                { model: UserSubscription, as: 'UserSubscriptions', include: [{ model: SubscriptionPlan, as: 'SubscriptionPlan' }] }
+                { model: UserSubscription, as: 'UserSubscriptions', include: [{ model: SubscriptionPlan, as: 'plan' }] }
             ]
         });
         if (!user) return res.status(404).json({ error: 'User not found' });
