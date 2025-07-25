@@ -1,10 +1,28 @@
-const cron = require('node-cron');
 const { User, SubscriptionPlan, UserSubscription, File, Scan, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const queueService = require('../services/queue.service');
 const logger = require('../utils/logger');
 
+// 嘗試載入 node-cron 模組；若失敗則不啟用排程
+let cron;
+try {
+    cron = require('node-cron');
+} catch (err) {
+    if (logger && typeof logger.warn === 'function') {
+        logger.warn('[Cron] node-cron module not found. Scheduled scans will be disabled.', err);
+    } else {
+        console.warn('[Cron] node-cron module not found. Scheduled scans will be disabled.', err);
+    }
+    cron = null;
+}
+
 const startScheduledScans = () => {
+    // 若未載入 cron，直接返回，保持系統正常啟動
+    if (!cron) {
+        logger && logger.warn && logger.warn('[Cron] Scheduler unavailable, skipping scheduled scans.');
+        return;
+    }
+
     cron.schedule('0 3 * * *', async () => {
         logger.info('[Cron] Starting daily scheduled scan job...');
         const transaction = await sequelize.transaction();
