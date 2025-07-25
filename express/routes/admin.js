@@ -46,11 +46,34 @@ router.get('/users', async (req, res) => {
     try {
         const users = await User.findAll({
             order: [['createdAt', 'DESC']],
-            attributes: { exclude: ['password'] }
+            attributes: { exclude: ['password'] },
+            include: [{
+                model: UserSubscription,
+                as: 'UserSubscriptions',
+                where: { status: 'active' },
+                required: false,
+                include: [{ model: SubscriptionPlan, as: 'SubscriptionPlan' }]
+            }]
         });
         res.json(users);
     } catch (err) {
+        logger.error('[Admin Users] Error fetching users:', err);
         res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+// 新增使用者
+router.post('/users', async (req, res) => {
+    const { real_name, email, phone, password, role = 'member' } = req.body;
+    if (!real_name || !email || !phone || !password) {
+        return res.status(400).json({ error: '所有欄位皆為必填' });
+    }
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await User.create({ real_name, email, phone, password: hashedPassword, role, status: 'active' });
+        res.status(201).json(newUser);
+    } catch (err) {
+        res.status(500).json({ error: '建立使用者失敗' });
     }
 });
 
@@ -73,7 +96,7 @@ router.get('/users/:userId/details', async (req, res) => {
 // --- 使用者管理進階功能 ---
 router.put('/users/:userId/details', async (req, res) => {
     try {
-        const { real_name, email, phone, status, role, quota } = req.body;
+        const { real_name, email, phone, status, role, quota, image_upload_limit, scan_limit, dmca_limit, p2p_limit } = req.body;
         const user = await User.findByPk(req.params.userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
@@ -83,6 +106,10 @@ router.put('/users/:userId/details', async (req, res) => {
         user.status = status ?? user.status;
         user.role = role ?? user.role;
         user.quota = quota ?? user.quota;
+        user.image_upload_limit = image_upload_limit ?? user.image_upload_limit;
+        user.scan_limit = scan_limit ?? user.scan_limit;
+        user.dmca_limit = dmca_limit ?? user.dmca_limit;
+        user.p2p_limit = p2p_limit ?? user.p2p_limit;
 
         await user.save();
         res.json({ message: 'User details updated successfully.' });

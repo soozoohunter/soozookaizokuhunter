@@ -23,7 +23,13 @@ module.exports = (sequelize, DataTypes) => {
     role: { type: DataTypes.ENUM('admin', 'member', 'trial', 'elite'), defaultValue: 'trial' }, // 新增 elite 等級
     status: { type: DataTypes.ENUM('active', 'suspended', 'deleted'), defaultValue: 'active' },
     last_login: DataTypes.DATE,
-    quota: { type: DataTypes.INTEGER, defaultValue: 10 }
+    quota: { type: DataTypes.INTEGER, defaultValue: 10 },
+    image_upload_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
+    scan_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
+    dmca_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
+    p2p_limit: { type: DataTypes.INTEGER, defaultValue: 0 },
+    image_upload_usage: { type: DataTypes.INTEGER, defaultValue: 0 },
+    scan_usage: { type: DataTypes.INTEGER, defaultValue: 0 }
   }, {
     sequelize,
     modelName: 'User',
