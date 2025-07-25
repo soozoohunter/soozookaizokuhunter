@@ -10,6 +10,34 @@ let isInitialized = false;
 const MAX_RETRIES = 15;
 const RETRY_DELAY = 5000;
 
+/** 若餘額不足 1 ETH 則由 funding account 補款 */
+async function autoFundIfNeeded(web3Instance, target) {
+  const minWei = web3Instance.utils.toWei('1', 'ether');
+  const balWei = await web3Instance.eth.getBalance(target);
+  if (BigInt(balWei) >= BigInt(minWei)) return;
+
+  const fundPK = process.env.GANACHE_FUNDING_ACCOUNT;
+  if (!fundPK) {
+    logger.warn('[Chain] No funding account provided; skipping auto-fund.');
+    return;
+  }
+
+  const fundAcc = web3Instance.eth.accounts.privateKeyToAccount(fundPK);
+  logger.warn(`[Chain] Funding ${target}. Current ${web3Instance.utils.fromWei(balWei)} ETH`);
+
+  const tx = {
+    from: fundAcc.address,
+    to: target,
+    value: web3Instance.utils.toWei('100', 'ether'),
+    gas: 21000,
+    gasPrice: await web3Instance.eth.getGasPrice(),
+  };
+
+  const signed = await fundAcc.signTransaction(tx);
+  await web3Instance.eth.sendSignedTransaction(signed.rawTransaction);
+  logger.info('[Chain] Funding complete.');
+}
+
 async function initializeBlockchainService() {
     if (isInitialized) return;
 
@@ -32,6 +60,9 @@ async function initializeBlockchainService() {
             account = web3.eth.accounts.privateKeyToAccount(privateKey);
             web3.eth.accounts.wallet.add(account);
             web3.eth.defaultAccount = account.address;
+
+            // ---------- auto fund account if balance low ----------
+            await autoFundIfNeeded(web3, account.address);
             
             const abi = getABI('Copyright'); // 確保您的合約 ABI 正確
             contract = new web3.eth.Contract(abi, contractAddress);
@@ -62,8 +93,13 @@ async function storeRecord(fingerprint, ipfsHash) {
         const costWei = BigInt(gasPrice) * BigInt(estimatedGas);
         const balance = BigInt(await web3.eth.getBalance(fromAddress));
         if (balance < costWei) {
-            logger.warn(`[Chain] Skip – insufficient funds. Needed ${costWei} wei, only ${balance} wei.`);
-            return { skipped: true, reason: 'insufficient_funds' };
+            // try auto fund
+            await autoFundIfNeeded(web3, fromAddress);
+            const newBal = BigInt(await web3.eth.getBalance(fromAddress));
+            if (newBal < costWei) {
+                logger.warn('[Chain] Skip – still insufficient after funding.');
+                return { skipped: true, reason: 'insufficient_funds' };
+            }
         }
 
         const receipt = await contract.methods.storeRecord(fingerprint, ipfsHash).send({
