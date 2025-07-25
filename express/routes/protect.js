@@ -118,7 +118,13 @@ router.post('/trial', upload.single('file'), async (req, res) => {
         user = user[0];
 
         const ipfsHash = await ipfsService.saveFile(fileBuffer);
-        const txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
+        let txReceipt;
+        try {
+          txReceipt = await chain.storeRecord(fingerprint, ipfsHash);
+        } catch (e) {
+          logger.error('[Trial] storeRecord fatal:', e);
+          txReceipt = { skipped: true, reason: 'chain_error' };
+        }
 
         const newFile = await File.create({
             user_id: user.id,

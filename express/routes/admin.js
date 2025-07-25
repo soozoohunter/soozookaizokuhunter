@@ -3,7 +3,17 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
-const { User, SubscriptionPlan, UserSubscription, File, Scan, PaymentProof, ContactSubmission, sequelize } = require('../models');
+const {
+  User,
+  SubscriptionPlan,
+  UserSubscription,
+  File,
+  Scan,
+  PaymentProof,
+  ContactSubmission,
+  sequelize
+} = require('../models');
+const logger = require('../utils/logger');
 const adminAuth = require('../middleware/adminAuth');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'a-very-strong-secret-key-for-dev';
