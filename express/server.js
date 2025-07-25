@@ -34,6 +34,7 @@ const contactRoutes = require('./routes/contact');
 // Services
 const ipfsService = require('./services/ipfsService');
 const chain = require('./utils/chain'); // ★ 導入 chain 模組
+const { startScheduledScans } = require('./jobs/cron');
 const conversionTracking = require('./middleware/conversionTracking');
 
 // App & server initialization
@@ -166,6 +167,9 @@ async function startServer() {
         logger.info('[Startup] Initializing blockchain service...');
         await chain.initializeBlockchainService();
         logger.info('[Startup] Blockchain service initialization complete.');
+
+        startScheduledScans();
+        logger.info('[Startup] Scheduled jobs started.');
 
         // 4. Start HTTP server
         server.listen(PORT, '0.0.0.0', () => {

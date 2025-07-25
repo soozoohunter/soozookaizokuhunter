@@ -24,6 +24,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'pending'
     },
     license_price: { type: DataTypes.DECIMAL(10, 2), defaultValue: 999.00 },
+    evidence_snapshot_url: { type: DataTypes.STRING, allowNull: true },
     creator_share: DataTypes.DECIMAL(5,2),
     platform_share: DataTypes.DECIMAL(5,2),
     license_revenue: DataTypes.DECIMAL(10,2),
