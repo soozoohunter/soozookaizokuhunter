@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 
+import ArticleSignature from '../../components/ArticleSignature';
 const PageSpacer = styled.div` min-height: 74px; `;
 const ArticleWrapper = styled.div` padding: 4rem 2rem; background: white; `;
 const ArticleContainer = styled.article` max-width: 800px; margin: 0 auto; line-height: 1.8; font-size: 1.1rem; `;
@@ -52,6 +53,7 @@ const AiArtworkCopyrightGuide = () => {
                     <p>You may spend hours refining, combining, and iterating hundreds of prompts to create the perfect image. This process involves your aesthetic judgment, semantic understanding, and goal-oriented creativity. This entire <strong>creative process</strong> is intellectual property that deserves protection. When a dispute arises, you're not just proving ownership of the final image, but that you were the <strong>first person to execute that specific creative act</strong>.</p>
                     <h4>How to Protect Yourself with SUZOO</h4>
                     <p>The smartest move is to create an indestructible evidence trail for your creative process. SUZOO IP Guard allows you to generate a permanent blockchain deed for your final work, complete with your key prompts and a timestamp, giving you the strongest possible evidence of being the "first creator" in any dispute.</p>
+    <ArticleSignature />
                 </ArticleContainer>
             </ArticleWrapper>
         </>

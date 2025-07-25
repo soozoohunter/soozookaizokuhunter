@@ -52,7 +52,13 @@ const articles = [
         slug: 'user-testimonial-ai-sentinel',
         title: '用戶見證：身為全職插畫家，SUZOO 的「AI 哨兵」每月為我省下超過 20 小時的人工搜圖時間。',
         excerpt: '知名圖文作家 Isabelle 分享她如何利用 SUZOO 的 AI 哨兵功能，擺脫手動搜圖的惱人流程，專注於創作本身。'
-    }
+    },
+    {
+        id: 7,
+        slug: 'scam-nemesis-deepfake-protection',
+        title: '詐騙集團剋星！SUZOO 如何斬斷伸向網紅與名人的 AI 黑產鏈？',
+        excerpt: '您是否曾在社群上看過名人用逼真的聲音和嘴型，推薦可疑的產品？這很可能不是本人！本文揭示 AI 深度偽造詐騙的原理，並提供最前沿的應對策略。'
+    },
 ];
 
 const BlogIndexPage = () => {

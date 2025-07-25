@@ -44,6 +44,7 @@ import BlockchainEvidenceLegalValidity from './pages/blog/BlockchainEvidenceLega
 import MythBusterArticle from './pages/blog/MythBusterArticle';
 import P2PEngineCaseStudy from './pages/blog/P2PEngineCaseStudy';
 import UserTestimonialArticle from './pages/blog/UserTestimonialArticle';
+import ScamNemesisArticle from './pages/blog/ScamNemesisArticle';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -82,6 +83,7 @@ function App() {
                 <Route path="/blog/ai-artwork-copyright-guide" element={<AiArtworkCopyrightGuide />} />
                 <Route path="/blog/ecommerce-image-theft-prevention" element={<EcommerceImageTheftPrevention />} />
                 <Route path="/blog/blockchain-evidence-legal-validity" element={<BlockchainEvidenceLegalValidity />} />
+                <Route path="/blog/scam-nemesis-deepfake-protection" element={<ScamNemesisArticle />} />
                 <Route path="/blog/copyright-myths-buster" element={<MythBusterArticle />} />
                 <Route path="/blog/p2p-engine-case-study" element={<P2PEngineCaseStudy />} />
                 <Route path="/blog/user-testimonial-ai-sentinel" element={<UserTestimonialArticle />} />

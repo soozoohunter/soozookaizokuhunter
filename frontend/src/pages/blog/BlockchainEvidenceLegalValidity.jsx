@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 
+import ArticleSignature from '../../components/ArticleSignature';
 const PageSpacer = styled.div` min-height: 74px; `;
 const ArticleWrapper = styled.div` padding: 4rem 2rem; background: white; `;
 const ArticleContainer = styled.article` 
@@ -114,6 +115,7 @@ const BlockchainEvidenceLegalValidity = () => {
                         <li><strong>Originality:</strong> The neutral, network-verified timestamp provides powerful proof of your creation/possession date, helping you establish priority in copyright disputes.</li>
                     </ol>
                     <p>SUZOO IP Guard simplifies this entire complex process into a single click, empowering you with this top-tier legal weapon without needing to be a cryptography expert.</p>
+            <ArticleSignature />
                 </ArticleContainer>
             </ArticleWrapper>
         </>
